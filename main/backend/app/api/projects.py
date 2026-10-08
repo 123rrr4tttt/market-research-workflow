@@ -1356,8 +1356,6 @@ def delete_project(project_key: str, hard: bool = Query(default=False)) -> Proje
             session.commit()
 
     with engine.begin() as conn:
-        # best-effort cleanup sync cursors
-        conn.execute(text("DELETE FROM public.project_sync_state WHERE project_key = :k"), {"k": normalized_key})
         if schema_name:
             conn.execute(text(f'DROP SCHEMA IF EXISTS "{schema_name}" CASCADE'))
 

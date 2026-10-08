@@ -42,6 +42,93 @@ class CollectRuntimeUrlPoolAdapterUnitTestCase(unittest.TestCase):
             1,
         )
 
+    def test_pool_targets_preserve_target_specific_search_contracts(self) -> None:
+        from app.services.ingest.url_pool import _search_options_for_target, prepare_url_pool_targets
+
+        targets = [
+            (
+                "https://alpha.example/search?q=robotics",
+                {
+                    "url": "https://alpha.example/search?q={{q}}",
+                    "entry_type": "search_template",
+                    "source_search_contract": {
+                        "param_key": "term",
+                        "max_candidates": 2,
+                        "min_results_required": 2,
+                    },
+                },
+                {"scope": "effective", "source": "alpha"},
+            ),
+            (
+                "https://beta.example/search?q=robotics",
+                {
+                    "url": "https://beta.example/search?q={{q}}",
+                    "entry_type": "search_template",
+                    "source_search_contract": {
+                        "param_key": "query",
+                        "max_candidates": 5,
+                        "min_results_required": 5,
+                    },
+                },
+                {"scope": "effective", "source": "beta"},
+            ),
+        ]
+
+        with patch(
+            "app.services.ingest.url_pool.list_urls",
+            return_value=([], 0),
+        ), patch(
+            "app.services.ingest.url_pool.unwrap_url",
+            side_effect=lambda url, **_kwargs: SimpleNamespace(url=url),
+        ):
+            runtime_targets, diagnostics = prepare_url_pool_targets(
+                scope="effective",
+                project_key="demo_proj",
+                query_terms=["robotics"],
+            )
+
+        self.assertEqual(diagnostics["target_deduped_count"], 0)
+        for _target_url, target, _pool_item in targets:
+            options = _search_options_for_target(
+                _target_url,
+                ["robotics"],
+                target=target,
+                extra_params={},
+            )
+            expected = target["source_search_contract"]
+            self.assertEqual(
+                {key: options["source_search_contract"][key] for key in expected},
+                expected,
+            )
+            self.assertEqual(options["target_candidates"], expected["max_candidates"])
+
+    def test_high_js_target_forwards_browser_render_boundary(self) -> None:
+        from app.services.ingest.url_pool import _frontdoor_route_profile_for_url, prepare_url_list_targets
+
+        with patch(
+            "app.services.ingest.url_pool.unwrap_url",
+            side_effect=lambda url, **_kwargs: SimpleNamespace(url=url),
+        ):
+            targets, _diagnostics = prepare_url_list_targets(
+                urls=["https://x.com/search?q=robotics"],
+                query_terms=["robotics"],
+                extra_params={"url_target_mode": "detail_only"},
+            )
+
+        self.assertEqual(len(targets), 1)
+        target_url, target = targets[0]
+        options = _frontdoor_route_profile_for_url(target_url)
+        self.assertEqual(target_url, "https://x.com/search?q=robotics")
+        self.assertEqual(options["route_hint"], "crawler_browse")
+        self.assertEqual(options["fetch_strategy"], "browser_render")
+        self.assertTrue(options["render_required"])
+        self.assertTrue(options["prefer_crawler"])
+        self.assertTrue(options["prefer_search_shell"])
+        self.assertEqual(options["router_contract"]["router_state"], "needs_browser")
+        self.assertFalse(
+            options["router_contract"]["fallback_boundary"]["http_fetch_fallback_allowed"]
+        )
+
     def test_single_url_effect_uses_prepared_kernel(self) -> None:
         kernel_result = {
             "status": "success",

@@ -38,7 +38,7 @@ from .authoring_tools import (
 )
 from .query_tools import query_project_tool_sources
 from .registry import CoreToolRegistry
-from .tool_contribution import register_project_tool_contributions
+from .tool_contribution import ProjectToolAuthorSource, register_project_tool_contributions
 from .tool_support import (
     JSONValue,
     JSONObject,
@@ -161,12 +161,30 @@ def build_project_core_tool_registry(
             registered.add(capability_id)
             continue
 
-        spec = _spec_from_capability(capability)
-        handler = _handler_for_capability(capability_id, service=service)
-        if handler is None:
+        if capability_id != "ingest.source_library.run":
             continue
-
-        registry.register(spec, handler)
+        contribution_failure = register_project_tool_contributions(
+            registry,
+            (
+                ProjectToolAuthorSource(
+                    binding_id=f"facility.{capability_id}",
+                    version="1",
+                    tool_spec=_source_library_run_spec(capability),
+                    handler=_source_library_run_handler_factory(service=service),
+                    executor_ref=capability_id,
+                    scope_source="AgentCoreRequest.project_key and requested source-library items",
+                    permission_source="CoreToolSpec.permission plus source-library dispatch skill boundary",
+                    failure_family="CoreToolResult.status/error; source execution remains owned by ingest task/runtime",
+                    readback_semantics="source-library dispatch identities and session artifact; not collection completion",
+                ),
+            ),
+        )
+        if isinstance(contribution_failure, Failure):
+            # kit:boundary owner=project_tools.py class=PROGRAMMER_DEFECT failure_family=none witness=test:test_source_library_run_is_project_tool_author_source
+            raise ValueError(
+                "project source-library tool contribution is invalid: "
+                f"{contribution_failure.message}: {dict(contribution_failure.context or {})}"
+            )
         registered.add(capability_id)
 
     for skill in list_registered_skills():
@@ -316,56 +334,47 @@ def _register_deepening_tools(
 
 
 
-def _spec_from_capability(capability_value: Mapping[str, object]) -> CoreToolSpec:
+def _source_library_run_spec(capability_value: Mapping[str, object]) -> CoreToolSpec:
     capability = json_object(capability_value)
     capability_id = str(capability.get("capability_id") or "").strip()
     approval_level = str(capability.get("approval_level") or "none").strip()
     concurrency_class = str(capability.get("concurrency_class") or "read_only").strip()
     risks = normalize_string_list(capability.get("risks"))
-    required = normalize_string_list(capability.get("required_input"))
-    if capability_id == "ingest.source_library.run":
-        input_schema: JSONObject = {
-            "type": "object",
-            "required": ["items", "project_key"],
-            "properties": {
+    input_schema: JSONObject = {
+        "type": "object",
+        "required": ["items", "project_key"],
+        "properties": {
+            "items": {
+                "type": "array",
+                "description": "Source-library item keys or item objects. Prefer an array of strings when the user gives item keys.",
                 "items": {
-                    "type": "array",
-                    "description": "Source-library item keys or item objects. Prefer an array of strings when the user gives item keys.",
-                    "items": {
-                        "oneOf": [
-                            {"type": "string"},
-                            {
-                                "type": "object",
-                                "properties": {
-                                    "item_key": {"type": "string"},
-                                    "handler_key": {"type": "string"},
-                                    "override_params": {"type": "object", "additionalProperties": True},
-                                },
-                                "additionalProperties": True,
+                    "oneOf": [
+                        {"type": "string"},
+                        {
+                            "type": "object",
+                            "properties": {
+                                "item_key": {"type": "string"},
+                                "handler_key": {"type": "string"},
+                                "override_params": {"type": "object", "additionalProperties": True},
                             },
-                        ]
-                    },
+                            "additionalProperties": True,
+                        },
+                    ]
                 },
-                "project_key": {"type": "string"},
-                "override_params": {"type": "object", "additionalProperties": True},
-                "max_items": {"type": "integer", "minimum": 1, "maximum": 100},
-                "async_mode": {"type": "boolean", "description": "Prefer true for user-facing collection requests."},
             },
-            "additionalProperties": True,
-        }
-    else:
-        input_schema = {
-            "type": "object",
-            "required": required,
-            "properties": {key: {"type": "string"} for key in required},
-            "additionalProperties": True,
-        }
+            "project_key": {"type": "string"},
+            "override_params": {"type": "object", "additionalProperties": True},
+            "max_items": {"type": "integer", "minimum": 1, "maximum": 100},
+            "async_mode": {"type": "boolean", "description": "Prefer true for user-facing collection requests."},
+        },
+        "additionalProperties": True,
+    }
     return CoreToolSpec(
         name=capability_id,
         title=str(capability.get("name") or capability_id),
         description_for_model=str(capability.get("description") or capability_id),
         input_schema=input_schema,
-        source="legacy_adapter",
+        source="project",
         risk=risk_from_metadata(
             approval_level=approval_level,
             concurrency_class=concurrency_class,
@@ -374,18 +383,14 @@ def _spec_from_capability(capability_value: Mapping[str, object]) -> CoreToolSpe
         permission=permission_from_approval(approval_level),
         concurrency=concurrency_from_class(concurrency_class),
         project_service_id=capability_id,
-        metadata={"legacy_capability": dict(capability)},
+        metadata={"capability": dict(capability)},
     )
 
 
-def _handler_for_capability(
-    capability_id: str,
+def _source_library_run_handler_factory(
     *,
     service: AgentSessionService,
-) -> Callable[[CoreToolCall, CoreToolSpec, AgentCoreRequest, Callable[[CoreEvent], None]], CoreToolResult] | None:
-    if capability_id != "ingest.source_library.run":
-        return None
-
+) -> Callable[[CoreToolCall, CoreToolSpec, AgentCoreRequest, Callable[[CoreEvent], None]], CoreToolResult]:
     def source_library_run_handler(
         tool_call: CoreToolCall,
         tool_spec: CoreToolSpec,

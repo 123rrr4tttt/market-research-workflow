@@ -82,17 +82,20 @@ class RuntimeOpsErrorContractIntegrationTestCase(unittest.TestCase):
         self.assertEqual(payload["error"]["code"], ErrorCode.INTERNAL_ERROR.value)
         self.assertEqual(response.headers.get("x-error-code"), ErrorCode.INTERNAL_ERROR.value)
 
-    def test_governance_sync_aggregator_async_success_returns_ok_envelope(self):
-        class _Task:
-            id = "task-sync-1"
+    def test_retired_governance_aggregator_sync_route_returns_not_found(self):
+        response = self.client.post("/api/v1/governance/aggregator/sync", json={"async_mode": True}, headers=self.headers)
 
-        with patch("app.api.governance.task_sync_aggregator.delay", return_value=_Task()):
-            response = self.client.post("/api/v1/governance/aggregator/sync", json={"async_mode": True}, headers=self.headers)
+        self.assertEqual(response.status_code, 404)
+
+    def test_global_stats_returns_current_canonical_counts_envelope(self):
+        counts = {"documents_total": 8, "metrics_total": 5, "prices_total": 2}
+        with patch("app.services.projects.global_stats.query_global_canonical_stats", return_value=counts):
+            response = self.client.get("/api/v1/dashboard/global/stats", headers=self.headers)
 
         self.assertEqual(response.status_code, 200)
         payload = response.json()
         self.assertEqual(payload["status"], "ok")
-        self.assertEqual(payload["data"]["task_id"], "task-sync-1")
+        self.assertEqual(payload["data"], counts)
 
     def test_governance_cleanup_validation_error_returns_invalid_input_envelope(self):
         response = self.client.post("/api/v1/governance/cleanup", json={"retention_days": 0}, headers=self.headers)

@@ -36,7 +36,7 @@ _PROJECT_FAILURE_CONTEXT_KEYS = frozenset(
 )
 
 
-def _project_failure(
+def project_failure(
     code: str,
     message: str,
     *,
@@ -61,7 +61,7 @@ def _project_failure(
     return project_operation_failures.fail(code, message, context)
 
 
-def _raise_project_failure(
+def raise_project_failure(
     failure: Failure,
     exception_type: type[Exception] = ValueError,
     *,
@@ -83,6 +83,10 @@ def _raise_project_failure(
         raise exception_type(message)
     # kit:boundary owner=projects.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=project.operation.failure witness=test:test_w01_project_context_and_workflow_lifts_preserve_public_messages
     raise exception_type(message) from cause
+
+
+_project_failure = project_failure
+_raise_project_failure = raise_project_failure
 
 
 def resolve_request_project_context(
@@ -120,7 +124,7 @@ def normalize_project_key(project_key: str) -> str:
     return key or settings.active_project_key or "default"
 
 
-_PG_IDENT_RE = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]{0,62}$")
+PG_IDENTIFIER_RE = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]{0,62}$")
 
 
 def _sanitize_schema_prefix(raw: str | None, *, fallback: str = "project_") -> str:
@@ -134,7 +138,7 @@ def _sanitize_schema_prefix(raw: str | None, *, fallback: str = "project_") -> s
     return s[:63]
 
 
-def _is_allowed_schema(schema_name: str) -> bool:
+def is_allowed_project_schema(schema_name: str) -> bool:
     schema = (schema_name or "").strip()
     if schema == "public":
         return True
@@ -154,7 +158,7 @@ def project_schema_name(project_key: str) -> str:
         return "public"
     safe_prefix = _sanitize_schema_prefix(settings.project_schema_prefix or "project_")
     full = f"{safe_prefix}{normalized}"
-    if not _PG_IDENT_RE.match(full):
+    if not PG_IDENTIFIER_RE.match(full):
         # As a last resort, compress invalid characters and trim to 63 chars.
         compact = re.sub(r"[^a-z0-9_]+", "_", full.lower())
         compact = re.sub(r"_+", "_", compact).strip("_")[:63]
@@ -241,7 +245,7 @@ def bind_resolved_project(project_key: str, resolved_schema: str):
 @contextmanager
 def bind_schema(schema_name: str):
     mode = str(getattr(settings, "project_key_enforcement_mode", "warn")).lower()
-    if not _is_allowed_schema(schema_name):
+    if not is_allowed_project_schema(schema_name):
         msg = f"disallowed schema binding: {schema_name!r}"
         if mode == "require":
             _raise_project_failure(

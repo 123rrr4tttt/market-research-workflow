@@ -132,5 +132,5 @@ def test_w03_ingest_ports_authority_metadata() -> None:
         assert f"derived_as={derived_as} " in metadata
         assert f"fact_source={fact_source} " in metadata
         assert f"witness={WITNESS}" in metadata
-    assert len(EXPECTED_METADATA) == 39
-    assert len(seen) == 39
+    assert len(EXPECTED_METADATA) == 31
+    assert len(seen) == 31

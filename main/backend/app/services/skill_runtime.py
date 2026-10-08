@@ -77,6 +77,7 @@ class _LoopGuardState(TypedDict):
     updated_at: int
 _ALLOWED_ACTOR_ROLES = frozenset({"orchestration_runtime", "business_capability_wrapper", "user_facing_assistant"})
 _ALLOWED_CONCURRENCY_CLASSES = frozenset({"read_only", "write_shared", "write_external", "privileged"})
+_ALLOWED_APPROVAL_DEFAULTS = frozenset({"required", "optional"})
 _SKILL_FAILURE_WITNESS = "test:test_w02_skill_runtime_failure_lifts"
 _SKILL_FAILURE_CONTEXT_KEYS = frozenset(
     {"operation", "public_exception", "public_message", "site", "witness"}
@@ -222,6 +223,9 @@ class SkillRuntime:
         normalized_roles = tuple(_normalize_actor_roles(allowed_actor_roles))
         normalized_permissions = tuple(_normalize_permissions(required_permissions))
         normalized_concurrency_class = _normalize_concurrency_class(concurrency_class)
+        normalized_approval_policy = _normalize_approval_policy(
+            approval_policy, normalized_concurrency_class
+        )
         if type(repeatable_read) is not bool:
             _raise_skill_runtime_defect("repeatable_read must be a boolean", ValueError)
         if repeatable_read and normalized_concurrency_class != "read_only":
@@ -237,7 +241,7 @@ class SkillRuntime:
             concurrency_class=normalized_concurrency_class,
             repeatable_read=repeatable_read,
             input_schema=_normalize_contract_dict(input_schema),
-            approval_policy=_normalize_contract_dict(approval_policy),
+            approval_policy=normalized_approval_policy,
             artifact_contract=_normalize_contract_dict(artifact_contract),
             agent_batch_task_manifest=_normalize_agent_batch_task_manifest(agent_batch_task_manifest),
             pass_invocation_context=pass_invocation_context,
@@ -389,6 +393,7 @@ class SkillRuntime:
             handler=compiler.compile,
             required_permissions=("workflow_graph.compile",),
             owner="workflow_graph.compiler",
+            concurrency_class="write_shared",
         )
         self.register(
             skill_id="workflow_graph.run",
@@ -448,6 +453,7 @@ class SkillRuntime:
             handler=compiler.create_template,
             required_permissions=("workflow_graph.template",),
             owner="workflow_graph.compiler",
+            concurrency_class="write_shared",
         )
         self.register(
             skill_id="workflow_graph.template.get",
@@ -460,12 +466,14 @@ class SkillRuntime:
             handler=compiler.patch_template,
             required_permissions=("workflow_graph.template",),
             owner="workflow_graph.compiler",
+            concurrency_class="write_shared",
         )
         self.register(
             skill_id="workflow_graph.template.delete",
             handler=compiler.delete_template,
             required_permissions=("workflow_graph.template",),
             owner="workflow_graph.compiler",
+            concurrency_class="write_shared",
         )
         self.register(
             skill_id="workflow_graph.template.version.list",
@@ -478,6 +486,7 @@ class SkillRuntime:
             handler=compiler.create_template_version,
             required_permissions=("workflow_graph.template",),
             owner="workflow_graph.compiler",
+            concurrency_class="write_shared",
         )
         self.register(
             skill_id="workflow_graph.template.version.get",
@@ -490,6 +499,7 @@ class SkillRuntime:
             handler=compiler.activate_template_version,
             required_permissions=("workflow_graph.template",),
             owner="workflow_graph.compiler",
+            concurrency_class="write_shared",
         )
         self.register(
             skill_id="workflow_graph.curated.get",
@@ -536,6 +546,8 @@ class SkillRuntime:
             handler=workflow_llm_handler,
             required_permissions=("workflow.llm_call",),
             owner="workflow_graph.executor.llm_call",
+            concurrency_class="write_external",
+            approval_policy={"default": "optional"},
         )
         self.register(
             skill_id="workflow_graph.curated.evidence_pack",
@@ -600,8 +612,8 @@ class SkillRuntime:
         # the HTTP entrypoint. They carry no project vocabulary or search loop.
         retrieval = import_module("app.services.project_retrieval.skill")
         for name, handler, permission, concurrency in (
-            ("current", retrieval.current, "project_retrieval.read", "read_only"),
-            ("preview", retrieval.preview, "project_retrieval.preview", "read_only"),
+            ("current", retrieval.current, "project_retrieval.read", "write_shared"),
+            ("preview", retrieval.preview, "project_retrieval.preview", "write_shared"),
             ("start", retrieval.start, "project_retrieval.run", "write_shared"),
             ("read_run", retrieval.read_run, "project_retrieval.read", "read_only"),
             (
@@ -654,7 +666,8 @@ class SkillRuntime:
                 allowed_actor_roles=("orchestration_runtime",),
                 required_permissions=("project_retrieval.formalize",),
                 owner="project_retrieval.formalization",
-                concurrency_class="read_only",
+                concurrency_class="write_external",
+                approval_policy={"default": "optional"},
             )
 
 
@@ -713,6 +726,28 @@ def _normalize_concurrency_class(value: str | None) -> str:
             ValueError,
         )
     return candidate
+
+
+def _normalize_approval_policy(
+    value: Mapping[str, object] | None, concurrency_class: str
+) -> SkillDocument:
+    policy = dict(_normalize_contract_dict(value) or {})
+    raw_default = policy.get("default")
+    if raw_default is None:
+        approval_default = (
+            "required"
+            if concurrency_class in {"write_external", "privileged"}
+            else "optional"
+        )
+    else:
+        approval_default = str(raw_default).strip().lower()
+        if approval_default not in _ALLOWED_APPROVAL_DEFAULTS:
+            _raise_skill_runtime_defect(
+                f"unsupported approval_policy.default: {approval_default}",
+                ValueError,
+            )
+    policy["default"] = approval_default
+    return policy
 
 
 def _normalize_contract_dict(value: Mapping[str, object] | None) -> SkillDocument | None:
@@ -809,9 +844,8 @@ def _enforce_runtime_policies(
     context: Mapping[str, object] | None,
 ) -> None:
     concurrency_class = spec.concurrency_class
-    if concurrency_class == "write_shared":
-        return None
-    if concurrency_class not in {"write_external", "privileged"}:
+    approval_default = str((spec.approval_policy or {}).get("default") or "")
+    if approval_default != "required":
         return None
 
     approval_granted = bool((context or {}).get("approval_granted") or (context or {}).get("bypass_approval"))

@@ -1732,55 +1732,28 @@ def _run_single_source_library_entry(
     def _external_terminal_payload(raw_result: object) -> IngestJsonObject:
         result: CollectJsonObject = source_library_compat_response(raw_result)
         terminal_output = result.get("terminal_output")
-        if isinstance(terminal_output, dict):
-            raw_authority_output = result.get("authority_output")
-            authority_output = raw_authority_output if isinstance(raw_authority_output, dict) else None
-            raw_compat_projection = result.get("compat_projection")
-            compat_projection = raw_compat_projection if isinstance(raw_compat_projection, dict) else None
-            raw_frontdoor_ingress = result.get("frontdoor_ingress")
-            frontdoor_ingress = raw_frontdoor_ingress if isinstance(raw_frontdoor_ingress, dict) else None
-            raw_postprocess_frontdoor = result.get("postprocess_frontdoor")
-            postprocess_frontdoor = raw_postprocess_frontdoor if isinstance(raw_postprocess_frontdoor, dict) else None
-            raw_legacy_result = result.get("legacy_result")
-            legacy_result = raw_legacy_result if isinstance(raw_legacy_result, dict) else None
-            if authority_output is None and frontdoor_ingress and postprocess_frontdoor and legacy_result is not None:
-                from ..services.collect_runtime.adapters.source_library import (
-                    build_source_library_authority_output,
-                    build_source_library_compat_projection,
-                )
+        if not isinstance(terminal_output, dict):
+            raise TypeError("source-library runtime did not return terminal_output")
+        response_payload: CollectJsonObject = dict(terminal_output)
+        response_payload["terminal_output"] = terminal_output
+        for field in (
+            "authority_output",
+            "compat_projection",
+            "frontdoor_ingress",
+            "postprocess_frontdoor",
+            "legacy_result",
+        ):
+            value = result.get(field)
+            if isinstance(value, dict):
+                response_payload[field] = dict(value)
+        if isinstance(result.get("legacy_result"), dict):
+            response_payload["legacy_result_is_deprecated"] = bool(
+                result.get("legacy_result_is_deprecated", True)
+            )
+        if result.get("display_meta") is not None and "display_meta" not in response_payload:
+            response_payload["display_meta"] = result.get("display_meta")
 
-                authority_output = build_source_library_authority_output(
-                    terminal_output=terminal_output,
-                    frontdoor_ingress=frontdoor_ingress,
-                    postprocess_frontdoor=postprocess_frontdoor,
-                    legacy_result=legacy_result,
-                )
-                compat_projection = build_source_library_compat_projection(
-                    legacy_result=legacy_result,
-                    authority_output=authority_output,
-                )
-            response_payload: CollectJsonObject = dict(terminal_output)
-            response_payload.setdefault("terminal_output", terminal_output)
-            if isinstance(authority_output, dict):
-                response_payload["authority_output"] = dict(authority_output)
-            if isinstance(compat_projection, dict):
-                response_payload["compat_projection"] = dict(compat_projection)
-            if isinstance(frontdoor_ingress, dict):
-                response_payload["frontdoor_ingress"] = dict(frontdoor_ingress)
-            if isinstance(postprocess_frontdoor, dict):
-                response_payload["postprocess_frontdoor"] = dict(postprocess_frontdoor)
-            if isinstance(legacy_result, dict):
-                response_payload["legacy_result"] = dict(legacy_result)
-                response_payload["legacy_result_is_deprecated"] = bool(result.get("legacy_result_is_deprecated", True))
-            if result.get("display_meta") is not None and "display_meta" not in response_payload:
-                response_payload["display_meta"] = result.get("display_meta")
-            return _json_object(response_payload, path="source_library.terminal_output")
-        from ..services.source_library.terminal_output import build_source_library_terminal_output
-
-        return _json_object(
-            build_source_library_terminal_output(result_payload=result, collect_result=None),
-            path="source_library.compat_terminal_output",
-        )
+        return _json_object(response_payload, path="source_library.terminal_output")
 
     resolved_item_key = str(item_key or "").strip()
     resolved_handler_key = str(handler_key or "").strip()

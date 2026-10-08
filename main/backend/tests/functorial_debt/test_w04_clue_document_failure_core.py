@@ -7,13 +7,6 @@ import pytest
 from functorial_kit import Failure
 from mrw_functorial_kit.core.w04_service_semantics import clue_chain_failures, document_query_failures
 
-from app.services.clue_chains.graph_integration import (
-    ClueChainGraphIntegrationError,
-    build_graph_mutation_payload,
-    clue_chain_failure as graph_clue_chain_failure,
-    raise_clue_chain_legacy as raise_graph_clue_chain_legacy,
-    try_build_graph_mutation_payload,
-)
 from app.services.clue_chains.source_library_expansion import (
     expand_source_library_hop,
     raise_clue_chain_legacy as raise_source_clue_chain_legacy,
@@ -32,7 +25,6 @@ from app.services.document_queries.statement_builder import build_document_query
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
 OWNED = (
-    REPO_ROOT / "main/backend/app/services/clue_chains/graph_integration.py",
     REPO_ROOT / "main/backend/app/services/clue_chains/service.py",
     REPO_ROOT / "main/backend/app/services/clue_chains/source_library_expansion.py",
     REPO_ROOT / "main/backend/app/services/document_queries/contracts.py",
@@ -41,28 +33,12 @@ OWNED = (
 )
 
 
-def test_clue_graph_and_source_validation_are_typed_and_closed() -> None:
-    graph = try_build_graph_mutation_payload(
-        candidates=[{"candidate_id": "c1"}],
-        decisions=[{"candidate_id": "c1", "decision_id": "d1", "decision": "approve"}],
-        evidence_items=[],
-    )
-    assert isinstance(graph, Failure)
-    assert clue_chain_failures.matches(graph)
-    assert graph.code == "graph_projection_invalid"
-    assert graph.context["public_exception"] == "ClueChainGraphIntegrationError"
-
+def test_clue_source_validation_is_typed_and_closed() -> None:
     source = try_expand_source_library_hop(chain_id="c", project_key="p")
     assert isinstance(source, Failure)
     assert source.code == "input_invalid"
     assert source.context["public_message"] == "frontier_query or frontier.query is required"
 
-    with pytest.raises(ClueChainGraphIntegrationError, match="candidate c1 missing evidence_id"):
-        build_graph_mutation_payload(
-            candidates=[{"candidate_id": "c1"}],
-            decisions=[{"candidate_id": "c1", "decision_id": "d1", "decision": "approve"}],
-            evidence_items=[],
-        )
     with pytest.raises(ValueError, match="frontier_query or frontier.query is required"):
         expand_source_library_hop(chain_id="c", project_key="p")
 
@@ -93,20 +69,6 @@ def test_document_query_typed_validation_and_legacy_abi() -> None:
     assert statement.code == "statement_invalid"
     with pytest.raises(ValueError, match="unsupported document query field"):
         build_document_query_statement(invalid_field_query)
-
-
-def test_graph_failure_lift_covers_programmer_defect_and_cause() -> None:
-    invalid = Failure(family="other.failure", code="bad", message="bad", context={})
-    with pytest.raises(TypeError, match="failure lift context"):
-        raise_graph_clue_chain_legacy(invalid)
-
-    failure = graph_clue_chain_failure("input_invalid", "graph failure", owner="test")
-    with pytest.raises(ClueChainGraphIntegrationError, match="^graph failure$"):
-        raise_graph_clue_chain_legacy(failure)
-    cause = RuntimeError("graph cause")
-    with pytest.raises(ClueChainGraphIntegrationError, match="^graph failure$") as raised:
-        raise_graph_clue_chain_legacy(failure, cause=cause)
-    assert raised.value.__cause__ is cause
 
 
 def test_source_library_failure_lift_covers_programmer_defect_and_cause() -> None:

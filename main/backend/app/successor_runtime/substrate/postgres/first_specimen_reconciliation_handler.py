@@ -17,7 +17,8 @@ from typing import Any, Protocol, Self
 from sqlalchemy import MetaData, select
 from sqlalchemy.engine import Connection
 
-from app.successor_runtime.language.object_contracts import OperationContractRef
+from app.successor_runtime.capabilities.codecs import PayloadCodec
+from app.successor_runtime.language.object_contracts import OperationContract, OperationContractRef
 from app.successor_runtime.research.codec import canonical_bytes, sha256_hex
 from app.successor_runtime.runtime.assignments import (
     AssignmentKind,
@@ -1477,19 +1478,17 @@ class BatchBusinessWaitHandler(
         *,
         uow_factory: UowFactory,
         binding: InterpreterBinding,
+        contract: OperationContract,
+        input_codec: PayloadCodec[batch_task.BatchTaskSingleDispatchAck],
+        output_codec: PayloadCodec[batch_business.BatchBusinessResult],
         invoke: Callable[[batch_task.BatchTaskSingleDispatchAck], batch_business.BatchBusinessResult],
     ) -> None:
-        contract = batch_business.build_batch_business_wait_contract()
         super().__init__(
             uow_factory=uow_factory,
             binding=binding,
             contract=contract,
-            input_codec=batch_business.build_batch_business_wait_input_codec(
-                contract.ref
-            ),
-            output_codec=batch_business.build_batch_business_wait_result_codec(
-                contract.ref
-            ),
+            input_codec=input_codec,
+            output_codec=output_codec,
             invoke=invoke,
             validate_output=self._check_result,
         )

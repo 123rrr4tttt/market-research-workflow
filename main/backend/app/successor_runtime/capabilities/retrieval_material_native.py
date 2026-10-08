@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from functools import cache
-from typing import Annotated, Literal
+from typing import Annotated, Generic, Literal, overload, TypeVar
 
 from app.successor_runtime.capabilities.checksum import (
     CanonicalJsonArray,  # noqa: F401 - resolved by dataclass_codec get_type_hints
@@ -68,13 +68,25 @@ RETRIEVAL_MATERIAL_REVALIDATE_KIND = "project_retrieval.material.revalidate.v1"
 RETRIEVAL_FOLLOWUP_PLAN_KIND = "project_retrieval.followup.plan.v1"
 RETRIEVAL_TOPOLOGY_COMMIT_KIND = "project_retrieval.topology.commit.v1"
 
-WORK_LEAF_KINDS = (
+WorkLeafKind = Literal[
+    "project_retrieval.candidate.review.v1",
+    "project_retrieval.material.read_body.v1",
+    "project_retrieval.material.formalize.v1",
+    "project_retrieval.material.revalidate.v1",
+]
+ControlLeafKind = Literal[
+    "project_retrieval.followup.plan.v1",
+    "project_retrieval.topology.commit.v1",
+]
+WORK_LEAF_KINDS: tuple[WorkLeafKind, ...] = (
     RETRIEVAL_CANDIDATE_REVIEW_KIND,
     RETRIEVAL_MATERIAL_READ_BODY_KIND,
     RETRIEVAL_MATERIAL_FORMALIZE_KIND,
     RETRIEVAL_MATERIAL_REVALIDATE_KIND,
 )
-CONTROL_LEAF_KINDS = (RETRIEVAL_FOLLOWUP_PLAN_KIND, RETRIEVAL_TOPOLOGY_COMMIT_KIND)
+CONTROL_LEAF_KINDS: tuple[ControlLeafKind, ...] = (
+    RETRIEVAL_FOLLOWUP_PLAN_KIND, RETRIEVAL_TOPOLOGY_COMMIT_KIND,
+)
 RETRIEVAL_LEAF_KINDS = WORK_LEAF_KINDS + CONTROL_LEAF_KINDS
 
 
@@ -205,12 +217,15 @@ class RetrievalControl:
             raise_retrieval_contract_error(ValueError, 'settled topology control requires its observation')
 
 
+LeafPayload = TypeVar("LeafPayload", CandidateWork, RetrievalControl)
+
+
 @dataclass(frozen=True, slots=True)
-class RetrievalLeafDefinition:
+class RetrievalLeafDefinition(Generic[LeafPayload]):
     kind: str
     contract: OperationContract
-    input_codec: PayloadCodec[CandidateWork] | PayloadCodec[RetrievalControl]
-    output_codec: PayloadCodec[CandidateWork] | PayloadCodec[RetrievalControl]
+    input_codec: PayloadCodec[LeafPayload]
+    output_codec: PayloadCodec[LeafPayload]
     profiles: OperationProfiles
 
 
@@ -456,18 +471,32 @@ def build_retrieval_control_codec(contract_ref: OperationContractRef) -> Annotat
     )
 
 
+@overload
+def build_retrieval_leaf_definition(kind: WorkLeafKind) -> Annotated[RetrievalLeafDefinition[CandidateWork], "kit:non-authoritative derived_as=composition fact_source=retrieval_leaf_contract+codec+profiles witness=test:test_root_and_candidate_work_have_one_semantic_return"]: ...
+
+
+@overload
+def build_retrieval_leaf_definition(kind: ControlLeafKind) -> Annotated[RetrievalLeafDefinition[RetrievalControl], "kit:non-authoritative derived_as=composition fact_source=retrieval_leaf_contract+codec+profiles witness=test:test_root_and_candidate_work_have_one_semantic_return"]: ...
+
+
+@overload
+def build_retrieval_leaf_definition(
+    kind: str,
+) -> Annotated[RetrievalLeafDefinition[CandidateWork] | RetrievalLeafDefinition[RetrievalControl], "kit:non-authoritative derived_as=composition fact_source=retrieval_leaf_contract+codec+profiles witness=test:test_root_and_candidate_work_have_one_semantic_return"]: ...
+
+
 @cache
 def build_retrieval_leaf_definition(kind: str) -> Annotated[
-    RetrievalLeafDefinition,
+    RetrievalLeafDefinition[CandidateWork] | RetrievalLeafDefinition[RetrievalControl],
     "kit:non-authoritative derived_as=composition fact_source=retrieval_leaf_contract+codec+profiles witness=test:test_root_and_candidate_work_have_one_semantic_return",
 ]:
     contract = build_retrieval_leaf_contract(kind)
     profiles = build_retrieval_leaf_profiles(kind)
     if kind in WORK_LEAF_KINDS:
-        input_codec = output_codec = build_candidate_work_codec(contract.ref)
-    else:
-        input_codec = output_codec = build_retrieval_control_codec(contract.ref)
-    return RetrievalLeafDefinition(kind, contract, input_codec, output_codec, profiles)
+        codec = build_candidate_work_codec(contract.ref)
+        return RetrievalLeafDefinition(kind, contract, codec, codec, profiles)
+    codec = build_retrieval_control_codec(contract.ref)
+    return RetrievalLeafDefinition(kind, contract, codec, codec, profiles)
 
 
 def retrieval_payload_value(

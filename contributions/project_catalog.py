@@ -12,6 +12,7 @@ from functorial_kit.contributions import (
 from app.successor_runtime.capabilities.workflow_common import (
     WORKFLOW_DEFINITION_FAILURES,
 )
+from app.successor_runtime.assembly.installed_operation import installed_operation_contribution_catalog
 
 from mrw_functorial_kit.contributions.source import source_contribution_catalog
 from mrw_functorial_kit.contributions.batch import batch_contribution_catalog
@@ -32,6 +33,7 @@ project_contribution_catalog = (
     *source_contribution_catalog,
     *batch_contribution_catalog,
     *task_contribution_catalog,
+    *installed_operation_contribution_catalog,
     *retrieval_contribution_catalog,
 )
 

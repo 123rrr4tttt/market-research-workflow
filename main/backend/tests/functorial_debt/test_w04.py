@@ -86,6 +86,42 @@ def test_w04_authority_metadata() -> None:
             "main/backend/app/services/writing/primary_loop_service.py",
             "build_wave_a_baseline_matrix",
         ),
+        (
+            "main/backend/app/services/clue_chains/graph_integration.py",
+            "build_graph_submit_bridge_envelope",
+        ),
+        (
+            "main/backend/app/services/clue_chains/graph_integration.py",
+            "build_graph_handoff_payload",
+        ),
+        (
+            "main/backend/app/services/clue_chains/graph_integration.py",
+            "build_graph_evidence_pack",
+        ),
+        (
+            "main/backend/app/services/clue_chains/graph_integration.py",
+            "build_graph_mutation_payload",
+        ),
+        (
+            "main/backend/app/services/graph/persistence/graph_live_smoke_readiness.py",
+            "build_graph_live_smoke_readiness",
+        ),
+        (
+            "main/backend/app/services/graph/persistence/graph_node_live_db_rollout_gate.py",
+            "build_graph_node_live_db_rollout_gate",
+        ),
+        (
+            "main/backend/app/services/graph/persistence/graph_node_rollout_manifest.py",
+            "build_graph_node_rollout_manifest",
+        ),
+        (
+            "main/backend/app/services/graph/persistence/graph_projection_contract.py",
+            "build_graph_projection_rollout_readiness",
+        ),
+        (
+            "main/backend/app/services/graph/persistence/graph_projection_contract.py",
+            "build_graph_projection_dry_run",
+        ),
     }
     assert historical_retired_targets <= expected_targets
     assert all(not (REPO_ROOT / relative_path).exists() for relative_path, _ in historical_retired_targets)
@@ -95,22 +131,6 @@ def test_w04_authority_metadata() -> None:
         ("main/backend/app/services/clue_chains/external_search_expansion.py", "build_external_search_provider"): (
             "kit:prepared-command",
             {"effect_boundary": "external_search_provider"},
-        ),
-        ("main/backend/app/services/clue_chains/graph_integration.py", "build_graph_submit_bridge_envelope"): (
-            "kit:prepared-command",
-            {"effect_boundary": "clue_chain_graph_submit"},
-        ),
-        ("main/backend/app/services/clue_chains/graph_integration.py", "build_graph_handoff_payload"): (
-            "kit:non-authoritative",
-            {"derived_as": "view", "fact_source": "graph_mutation+evidence_pack"},
-        ),
-        ("main/backend/app/services/clue_chains/graph_integration.py", "build_graph_evidence_pack"): (
-            "kit:non-authoritative",
-            {"derived_as": "view", "fact_source": "graph_mutation_payload"},
-        ),
-        ("main/backend/app/services/clue_chains/graph_integration.py", "build_graph_mutation_payload"): (
-            "kit:non-authoritative",
-            {"derived_as": "view", "fact_source": "decisions+candidates+evidence"},
         ),
         ("main/backend/app/services/clue_chains/store.py", "build_clue_chain_store"): (
             "kit:prepared-command",
@@ -187,26 +207,6 @@ def test_w04_authority_metadata() -> None:
         ("main/backend/app/services/graph/builder.py", "build_policy_graph"): (
             "kit:non-authoritative",
             {"derived_as": "view", "fact_source": "normalized_policy_data"},
-        ),
-        ("main/backend/app/services/graph/persistence/graph_live_smoke_readiness.py", "build_graph_live_smoke_readiness"): (
-            "kit:non-authoritative",
-            {"derived_as": "generated_evidence", "fact_source": "dry_run+readiness+database+smoke_evidence_inputs"},
-        ),
-        ("main/backend/app/services/graph/persistence/graph_node_live_db_rollout_gate.py", "build_graph_node_live_db_rollout_gate"): (
-            "kit:non-authoritative",
-            {"derived_as": "generated_evidence", "fact_source": "dry_run+readiness+database+live_db_evidence_inputs"},
-        ),
-        ("main/backend/app/services/graph/persistence/graph_node_rollout_manifest.py", "build_graph_node_rollout_manifest"): (
-            "kit:non-authoritative",
-            {"derived_as": "view", "fact_source": "gate+readiness+manifest_inputs"},
-        ),
-        ("main/backend/app/services/graph/persistence/graph_projection_contract.py", "build_graph_projection_rollout_readiness"): (
-            "kit:non-authoritative",
-            {"derived_as": "preflight", "fact_source": "rollout_mode+limit+precondition_inputs"},
-        ),
-        ("main/backend/app/services/graph/persistence/graph_projection_contract.py", "build_graph_projection_dry_run"): (
-            "kit:non-authoritative",
-            {"derived_as": "simulation", "fact_source": "in_memory_graph+schema_version"},
         ),
         ("main/backend/app/services/search/vector_contracts.py", "build_query_group_id"): (
             "kit:non-authoritative",

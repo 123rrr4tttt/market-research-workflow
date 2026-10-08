@@ -13,6 +13,7 @@ from app.services.agent_batch.business_readback import BusinessTaskObservation, 
 from app.services.request_identity import RequestActorContext
 from app.successor_runtime.capabilities import batch_business as business, batch_task as c4
 from app.successor_runtime.capabilities import workflow_native_contribution as workflow_native
+from app.successor_runtime.assembly import installed_operation as installed_operation_module
 from app.successor_runtime.capabilities.batch_task_program import (
     build_batch_task_single_dispatch_program,
     build_ordered_dispatch_merge_registry,
@@ -206,6 +207,14 @@ def test_graph_facade_real_tasks_replay_exact_upstream_outputs(
     definition = workflow_native.build_workflow_runtime_definition(kinds if alternate_kind else None)
     if alternate_kind:
         monkeypatch.setattr(workflow_native, "build_workflow_runtime_definition", lambda: definition)
+        monkeypatch.setattr(
+            installed_operation_module,
+            "installed_operation_catalog",
+            (
+                *installed_operation_module.workflow_installed_operation_catalog(definition),
+                *installed_operation_module.nonworkflow_installed_operations,
+            ),
+        )
     now = datetime.now(UTC)
     actor_id = live_database.runtime_scope.actor_id
     with live_database.engine.begin() as connection:

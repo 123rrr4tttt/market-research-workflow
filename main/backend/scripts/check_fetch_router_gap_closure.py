@@ -79,12 +79,12 @@ ANCHORS: dict[str, Anchor] = {
         ),
     ),
     "high_js_ingest_route_intent": Anchor(
-        Path("main/backend/tests/unit/test_ingest_frontdoor_context_unittest.py"),
+        Path("main/backend/tests/unit/test_frontdoor_fetch_router_contract_unittest.py"),
         (
-            "test_high_js_frontdoor_route_prefers_browser_render_and_projects_dashboard_status",
-            "crawler_browse",
+            "test_high_js_profile_marks_needs_browser_without_public_replay",
             "browser_render",
-            "frontdoor_status_summary",
+            "degraded_success",
+            "router_contract",
         ),
     ),
     "single_url_source_ref_test": Anchor(
@@ -115,13 +115,12 @@ ANCHORS: dict[str, Anchor] = {
         ),
     ),
     "tri_state_status_projection": Anchor(
-        Path("main/backend/app/services/ingest/url_pool.py"),
+        Path("main/backend/app/services/ingest/frontdoor_router_contract.py"),
         (
-            "_build_frontdoor_status_projection",
-            '"success"',
-            '"degraded_success"',
-            '"failed"',
-            "frontdoor_admission",
+            "TRI_STATE_STATUSES",
+            "build_frontdoor_fetch_router_contract",
+            "dashboard_status",
+            "router_contract_from_profile",
         ),
     ),
     "frontdoor_fetch_router_contract": Anchor(
@@ -139,8 +138,8 @@ ANCHORS: dict[str, Anchor] = {
         (
             "test_high_js_profile_marks_needs_browser_without_public_replay",
             "test_contract_exposes_unsupported_and_blocked_failures",
-            "test_frontdoor_status_projection_preserves_router_boundary",
-            "needs_browser",
+            "dashboard_status",
+            "needs_browser_runtime",
         ),
     ),
     "llm_crawler_wave10_tristate_evidence": Anchor(

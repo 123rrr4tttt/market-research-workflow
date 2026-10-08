@@ -832,7 +832,3 @@ export {
 export async function cleanupGovernance(retentionDays: number) {
   return post<Record<string, unknown>>(endpoints.governance.cleanup, { retention_days: retentionDays })
 }
-
-export async function syncAggregator(asyncMode = true) {
-  return post<Record<string, unknown>>(endpoints.governance.aggregatorSync, { async_mode: asyncMode })
-}

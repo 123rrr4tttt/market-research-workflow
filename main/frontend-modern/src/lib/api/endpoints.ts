@@ -264,7 +264,6 @@ export const endpoints = {
   },
   governance: {
     cleanup: `${API_BASE}/governance/cleanup`,
-    aggregatorSync: `${API_BASE}/governance/aggregator/sync`,
   },
   graph: {
     config: `${API_BASE}/project-customization/graph-config`,

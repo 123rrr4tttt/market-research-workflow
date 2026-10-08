@@ -967,3 +967,21 @@ def test_active_child_failure_cannot_impersonate_v1_effect_failure() -> None:
                        metadata=dict(events[-1].metadata))
     with pytest.raises(RuntimeReplayError):
         replay_runtime_events((*events[:-1], malformed))
+
+
+_PUBLIC_ROW: dict[str, object] = {"project_key": "project-a", "run_id": "run-a", "seq": 3, "event_type": "QualificationActivated", "schema_version": "mrw.runtime.event.qualification_activated.v1", "step_id": None, "attempt_id": None, "event_metadata_json": {"qualification_id": "qualification-a", "qualification_digest": DIGEST, "decision": "QUALIFIED", "reducer_event_code": "PlanCompiled"}, "payload_ref": None, "payload_digest": None, "authority_digest": DIGEST}
+
+
+@pytest.mark.parametrize("mutation", [{"authority_digest": None}, {"payload_ref": "value:orphan"}])
+def test_public_row_projection_rejects_drifted_columns(mutation: dict[str, object]) -> None:
+    with pytest.raises(RuntimeReplayError):
+        ReplayEvent.from_public_row({**_PUBLIC_ROW, **mutation}, run_incarnation="run-incarnation-a")
+
+
+@pytest.mark.unit
+def test_public_row_projection_rejects_non_mapping_metadata() -> None:
+    with pytest.raises(RuntimeReplayError):
+        ReplayEvent.from_public_row(
+            {**_PUBLIC_ROW, "event_metadata_json": "not-a-mapping"},
+            run_incarnation="run-incarnation-a",
+        )

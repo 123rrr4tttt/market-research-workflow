@@ -6,6 +6,8 @@ import dataclasses
 
 import pytest
 from functorial_kit.contributions import contribution_failures
+from functorial_kit.core.failure import Failure
+from functorial_kit.native_contribution import BindingAccepted, BindingRejected
 
 from app.successor_runtime.capabilities import (
     workflow_native_contribution as workflow_runtime_module,
@@ -22,6 +24,14 @@ from app.successor_runtime.capabilities.workflow_native_contribution import (
     build_workflow_runtime_definition,
     build_workflow_runtime_program,
     validate_workflow_context_bound_inputs,
+)
+from app.successor_runtime.assembly.installed_operation import (
+    installed_operation_catalog,
+    installed_operation_contribution_catalog,
+    installed_operation_for_ref,
+    validate_installed_operation,
+    workflow_installed_operation_catalog,
+    workflow_installed_operations,
 )
 def test_historical_compile_read_and_replay_preserve_exact_bytes_and_hash() -> None:
     raw = (
@@ -55,6 +65,41 @@ def test_current_compile_reader_and_unknown_versions_are_explicit() -> None:
             schema="mrw.workflow.definition.compile.receipt.v999",
             raw_bytes=b"{}",
         )
+
+
+def test_workflow_native_catalog_is_the_effective_project_projection() -> None:
+    from contributions.project_catalog import project_contribution_catalog
+
+    definition = build_workflow_runtime_definition()
+    assert tuple(
+        (
+            native.definition.source.node_type,
+            native.definition.contract,
+            native.definition.profiles,
+        )
+        for native in workflow_installed_operations
+    ) == tuple(
+        (item.node_type, item.contract, item.profiles) for item in definition.operations
+    )
+    assert all(
+        native.definition.source is item
+        for native, item in zip(
+            workflow_installed_operation_catalog(definition),
+            definition.operations,
+            strict=True,
+        )
+    )
+    assert installed_operation_contribution_catalog == tuple(
+        native.projection for native in installed_operation_catalog
+    )
+    assert all(
+        native.projection in project_contribution_catalog
+        for native in workflow_installed_operations
+    )
+    operation = definition.operations[0]
+    drifted = dataclasses.replace(operation.contract.ref, contract_digest="0" * 64)
+    with pytest.raises(ValueError, match="operation ref drift"):
+        installed_operation_for_ref(workflow_installed_operations, drifted)
 
 def test_compile_replay_rejects_tampered_bytes() -> None:
     from dataclasses import replace
@@ -232,6 +277,7 @@ def test_runtime_handler_assembly_rejects_drift_without_effect(monkeypatch: pyte
     workflow_kernel = import_module("app.services.workflow_graph.runtime")
     definition = build_workflow_runtime_definition()
     operation = definition.operation_for_node_type("join")
+    other = definition.operation_for_node_type("llm_call")
     contract, profiles, codec = operation.contract, operation.profiles, operation.context_codec
     binding = successor_binding(
         operation_contract_digest=contract.ref.contract_digest,
@@ -242,18 +288,67 @@ def test_runtime_handler_assembly_rejects_drift_without_effect(monkeypatch: pyte
     calls: list[object] = []
     monkeypatch.setattr(workflow_kernel, "invoke_workflow_runtime_node", lambda value: calls.append(value))
 
-    def assemble(candidate: workflow_runtime_module.WorkflowRuntimeOperationDefinition):
+    def assemble_with(
+        candidate: workflow_runtime_module.WorkflowRuntimeOperationDefinition,
+        operation_binding,
+    ):
         return assemble_workflow_runtime_handler(
             operation=candidate, uow_factory=lambda: (_ for _ in ()).throw(AssertionError("UoW opened")),
-            binding=binding, project_key="project-1", resolved_schema="project_1",
+            binding=operation_binding, project_key="project-1", resolved_schema="project_1",
             bind_project_scope=import_module("app.services.projects.context").bind_resolved_project,
             invoke_runtime_node=workflow_kernel.invoke_workflow_runtime_node,
             settled_failure_type=workflow_kernel.WorkflowNodeSettledFailure,
         )
 
+    def assemble(candidate):
+        return assemble_with(candidate, binding)
+
     handler = assemble(operation)
     assert handler.contract == contract
     assert calls == []
+    join_native = installed_operation_for_ref(
+        workflow_installed_operation_catalog(definition), contract.ref,
+    )
+    assert join_native is not None
+    accepted = validate_installed_operation(join_native.definition, handler)
+    assert isinstance(accepted, BindingAccepted)
+    other_binding = successor_binding(
+        operation_contract_digest=other.contract.ref.contract_digest,
+        interpreter_profile_digest=other.profiles.interpreter.ref.profile_digest,
+        deployment_catalog_digest="a" * 64, project_scope_digest="b" * 64, resource_policy_epoch=1,
+        authority_requirement_digest=other.profiles.authority.ref.profile_digest, runtime_protocol_version="1",
+    )
+    cross_definition = validate_installed_operation(
+        join_native.definition, assemble_with(other, other_binding),
+    )
+    assert isinstance(cross_definition, BindingRejected)
+    wrong_profile_binding = successor_binding(
+        operation_contract_digest=contract.ref.contract_digest,
+        interpreter_profile_digest=other.profiles.interpreter.ref.profile_digest,
+        deployment_catalog_digest="a" * 64, project_scope_digest="b" * 64, resource_policy_epoch=1,
+        authority_requirement_digest=profiles.authority.ref.profile_digest, runtime_protocol_version="1",
+    )
+    wrong_profile = validate_installed_operation(
+        join_native.definition, assemble_with(operation, wrong_profile_binding),
+    )
+    assert isinstance(wrong_profile, BindingRejected)
+    wrong_authority_binding = successor_binding(
+        operation_contract_digest=contract.ref.contract_digest,
+        interpreter_profile_digest=profiles.interpreter.ref.profile_digest,
+        deployment_catalog_digest="a" * 64, project_scope_digest="b" * 64, resource_policy_epoch=1,
+        authority_requirement_digest="0" * 64, runtime_protocol_version="1",
+    )
+    wrong_authority = validate_installed_operation(
+        join_native.definition, assemble_with(operation, wrong_authority_binding),
+    )
+    assert isinstance(wrong_authority, BindingRejected)
+    equivalent_codec = dataclasses.replace(codec)
+    assert equivalent_codec == codec and equivalent_codec is not codec
+    codec_identity_drift = validate_installed_operation(
+        join_native.definition,
+        assemble(dataclasses.replace(operation, context_codec=equivalent_codec)),
+    )
+    assert isinstance(codec_identity_drift, BindingRejected)
     wrong_type = ObjectType("WrongWorkflowContext.v1", codec_id=codec.codec_id)
 
     def rebound_operation(
@@ -276,7 +371,6 @@ def test_runtime_handler_assembly_rejects_drift_without_effect(monkeypatch: pyte
     wrong_codec = dataclass_codec(
         codec_id=codec.codec_id, codec_version=codec.codec_version, contract_ref=contract.ref,
         payload_type_id=wrong_type.type_id, dto_cls=workflow_runtime_module.WorkflowExecutionContext)
-    other = definition.operation_for_node_type("llm_call")
     invalid_operations = (
         rebound_operation(input_type=wrong_type),
         rebound_operation(output_type=wrong_type),

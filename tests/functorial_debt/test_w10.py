@@ -47,12 +47,6 @@ CASES: list[tuple[str, str, object, str]] = [
         _metadata("realcase+perf+ope+policy_health_inputs"),
     ),
     (
-        "generate_runtime_kernel_abi_pilot",
-        "build_bytes",
-        bytes,
-        _metadata("runtime_kernel_abi_contract"),
-    ),
-    (
         "generate_successor_p1_p3_semantic_movement",
         "build_matrix",
         dict,

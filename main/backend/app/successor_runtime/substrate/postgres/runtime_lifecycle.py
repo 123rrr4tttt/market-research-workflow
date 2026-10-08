@@ -19,9 +19,6 @@ from sqlalchemy.engine import Connection
 
 from app.successor_runtime.runtime.assignments import (
     AssignmentKind,
-    InterpreterBinding,
-    MaterializerBinding,
-    ProjectorBinding,
     RecoveryBinding,
     RuntimeAssignment,
 )
@@ -63,6 +60,7 @@ from .runtime_journal import (
     _scope_key,
     _table,
     _utcnow,
+    assignment_index_values,
     validate_authorization_row,
     validate_qualification_row,
     validate_runtime_assignment_row,
@@ -1124,14 +1122,10 @@ class RuntimeLifecycleRepository:
                 events.c.project_key == _scope_key(self.scope),
                 events.c.run_id == run["run_id"],
             ).order_by(events.c.seq)).mappings().all()
-            return tuple(ReplayEvent.from_content(
-                project_key=_scope_key(self.scope), run_id=str(run["run_id"]),
-                run_incarnation=str(run["incarnation"]), seq=int(row["seq"]),
-                event_type=str(row["event_type"]), schema_version=str(row["schema_version"]),
-                step_id=row["step_id"], attempt_id=row["attempt_id"],
-                metadata=row["event_metadata_json"], payload_ref=row["payload_ref"],
-                payload_digest=row["payload_digest"], authority_digest=str(row["authority_digest"]),
-            ) for row in rows)
+            return tuple(
+                ReplayEvent.from_public_row(row, run_incarnation=str(run["incarnation"]))
+                for row in rows
+            )
 
         parent_events, child_events = replay(parent), replay(child)
         parent_projection = replay_runtime_events(parent_events)
@@ -1941,89 +1935,31 @@ class RuntimeLifecycleRepository:
 def _assignment_values(
     envelope: AssignmentEnvelope, *, due_at: datetime
 ) -> dict[str, object]:
-    assignment = envelope.assignment
-    handler = assignment.handler_binding
-    interpreter_profile_digest = (
-        handler.interpreter_profile_digest
-        if isinstance(handler, (InterpreterBinding, RecoveryBinding))
-        else None
+    recovery = envelope.recovery_binding
+    values: dict[str, object] = dict(assignment_index_values(envelope.assignment))
+    values.update(
+        required_node_profile_selector=envelope.required_node_profile_selector,
+        qualification_digest=envelope.qualification_digest,
+        authority_digest=envelope.authority_digest,
+        resource_policy_digest=envelope.resource_policy_digest,
+        resource_class=envelope.resource_class,
+        resource_units=envelope.resource_units,
+        concurrency_key=envelope.concurrency_key,
+        provider_key=envelope.provider_key,
+        recovery_handler_binding_ref=None if recovery is None else f"handler-binding:sha256:{recovery.binding_digest}",
+        recovery_handler_binding_digest=None if recovery is None else recovery.binding_digest,
+        recovery_binding_json=None if recovery is None else recovery.model_dump(mode="json"),
+        authoritative_readback_profile_ref=envelope.authoritative_readback_profile_ref,
+        delivery_intent_ref=envelope.delivery_intent_ref,
+        fairness_key=envelope.fairness_key,
+        state="READY",
+        wait_reason=None,
+        declared_priority=envelope.declared_priority,
+        enqueued_at=due_at,
+        due_at=due_at,
+        attempt_count=0,
+        revision=0,
     )
-    values: dict[str, object] = {
-        "work_item_id": assignment.work_item_id,
-        "project_key": assignment.project_key,
-        "run_id": assignment.run_id,
-        "step_id": assignment.step_id,
-        "assignment_kind": assignment.assignment_kind.value,
-        "capability_id": assignment.capability_id,
-        "operation_contract_digest": assignment.operation_contract_digest,
-        "assignment_digest": assignment.assignment_digest,
-        "assignment_binding_json": assignment.model_dump(mode="json"),
-        "execution_epoch": assignment.execution_epoch,
-        "assignment_incarnation": assignment.incarnation,
-        "input_closure_digest": assignment.input_closure_digest,
-        "claim_authority_epoch": assignment.claim_authority_epoch,
-        "claim_policy_digest": assignment.claim_policy_digest,
-        "handler_binding_kind": assignment.handler_binding_kind.value,
-        "handler_binding_ref": assignment.handler_binding_ref,
-        "handler_binding_digest": assignment.handler_binding_digest,
-        "deployment_catalog_digest": assignment.deployment_catalog_digest,
-        "runtime_protocol_version": assignment.runtime_protocol_version,
-        "interpreter_profile_digest": interpreter_profile_digest,
-        "required_node_profile_selector": envelope.required_node_profile_selector,
-        "program_digest": assignment.program_digest,
-        "plan_digest": assignment.plan_digest,
-        "qualification_digest": envelope.qualification_digest,
-        "expected_step_revision": assignment.expected_step_revision,
-        "reconciliation_attempt_id": assignment.reconciliation_attempt_id,
-        "payload_ref": assignment.payload_ref,
-        "payload_digest": assignment.payload_digest,
-        "authority_digest": envelope.authority_digest,
-        "resource_policy_digest": envelope.resource_policy_digest,
-        "resource_policy_epoch": assignment.resource_policy_epoch,
-        "queue_eligibility_digest": assignment.queue_eligibility_digest,
-        "resource_class": envelope.resource_class,
-        "resource_units": envelope.resource_units,
-        "concurrency_key": envelope.concurrency_key,
-        "provider_key": envelope.provider_key,
-        "recovery_handler_binding_ref": (
-            None
-            if envelope.recovery_binding is None
-            else f"handler-binding:sha256:{envelope.recovery_binding.binding_digest}"
-        ),
-        "recovery_handler_binding_digest": (
-            None
-            if envelope.recovery_binding is None
-            else envelope.recovery_binding.binding_digest
-        ),
-        "recovery_binding_json": (
-            None
-            if envelope.recovery_binding is None
-            else envelope.recovery_binding.model_dump(mode="json")
-        ),
-        "authoritative_readback_profile_ref": envelope.authoritative_readback_profile_ref,
-        "delivery_intent_ref": envelope.delivery_intent_ref,
-        "fairness_key": envelope.fairness_key,
-        "state": "READY",
-        "wait_reason": None,
-        "declared_priority": envelope.declared_priority,
-        "enqueued_at": due_at,
-        "due_at": due_at,
-        "attempt_count": 0,
-        "revision": 0,
-        "deadline_at": assignment.deadline_at,
-    }
-    if isinstance(handler, ProjectorBinding):
-        values.update(
-            source_ref=handler.source_ref,
-            source_digest=handler.source_digest,
-            declared_loss_profile_ref=handler.declared_loss_profile_ref,
-        )
-    if isinstance(handler, MaterializerBinding):
-        values.update(
-            predecessor_plan_digest=handler.predecessor_plan_digest,
-            source_value_digest=handler.source_value_digest,
-            target_domain_contract_snapshot_digest=handler.target_domain_contract_snapshot_digest,
-        )
     validate_runtime_assignment_row(values)
     return values
 

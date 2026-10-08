@@ -11,7 +11,7 @@ from __future__ import annotations
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from types import MappingProxyType
-from typing import TypeVar, cast
+from typing import Literal, Protocol, TypeVar, cast, overload
 
 from functorial_kit import Failure
 
@@ -34,6 +34,37 @@ class RuntimeReplayError(ValueError):
 
 
 _ReplayValue = TypeVar("_ReplayValue")
+class _PublicJournalRow(Protocol):
+    @overload
+    def __getitem__(self, key: Literal["seq"]) -> int: ...
+
+    @overload
+    def __getitem__(
+        self, key: Literal["event_metadata_json"]
+    ) -> Mapping[str, object]: ...
+
+    @overload
+    def __getitem__(
+        self,
+        key: Literal[
+            "project_key",
+            "run_id",
+            "event_type",
+            "schema_version",
+            "authority_digest",
+        ],
+    ) -> str: ...
+
+    @overload
+    def __getitem__(
+        self,
+        key: Literal[
+            "step_id",
+            "attempt_id",
+            "payload_ref",
+            "payload_digest",
+        ],
+    ) -> str | None: ...
 
 
 def _replay_failure(
@@ -260,6 +291,33 @@ class ReplayEvent:
                 "REPLAY_EVENT_INVALID",
                 str(exc),
                 site="successor_runtime.runtime.replay.ReplayEvent.from_content",
+            )
+
+    @classmethod
+    def from_public_row(
+        cls, row: _PublicJournalRow, *, run_incarnation: str
+    ) -> ReplayEvent:
+        """Project one already scope/run-filtered public event row."""
+
+        try:
+            return cls.from_content(
+                project_key=str(row["project_key"]),
+                run_id=str(row["run_id"]),
+                run_incarnation=str(run_incarnation),
+                seq=int(row["seq"]),
+                event_type=str(row["event_type"]),
+                schema_version=str(row["schema_version"]),
+                step_id=None if row["step_id"] is None else str(row["step_id"]),
+                attempt_id=None if row["attempt_id"] is None else str(row["attempt_id"]),
+                metadata=dict(row["event_metadata_json"]),
+                payload_ref=None if row["payload_ref"] is None else str(row["payload_ref"]),
+                payload_digest=None if row["payload_digest"] is None else str(row["payload_digest"]),
+                authority_digest=str(row["authority_digest"]),
+            )
+        except (KeyError, TypeError, ValueError, AttributeError) as exc:
+            raise_runtime_failure(
+                _replay_failure("REPLAY_EVENT_INVALID", f"invalid public journal row: {exc}"),
+                RuntimeReplayError,
             )
 
 

@@ -45,14 +45,14 @@ class WorkerTelemetryTestCase(unittest.TestCase):
             hostname="celery@stage5-worker",
             delivery_info={"routing_key": "celery"},
         )
-        task = SimpleNamespace(name="app.tasks.task_sync_aggregator", request=request)
+        task = SimpleNamespace(name="app.tasks.task_worker_observability_noop", request=request)
         identity = build_worker_telemetry_identity(
             args=(),
             kwargs={
                 "request_id": "request-stage5",
                 "trace_id": "trace-stage5",
                 "project_key": "stage5_observability_20260913",
-                "candidate_id": "governance:aggregator-sync",
+                "candidate_id": "governance:cleanup",
                 "secret": "must-not-be-copied",
                 "runtime_readback": {"run_id": "run-stage5"},
             },
@@ -61,7 +61,7 @@ class WorkerTelemetryTestCase(unittest.TestCase):
 
         self.assertEqual(identity["request_id"], "request-stage5")
         self.assertEqual(identity["run_id"], "run-stage5")
-        self.assertEqual(identity["candidate_id"], "governance:aggregator-sync")
+        self.assertEqual(identity["candidate_id"], "governance:cleanup")
         self.assertEqual(identity["worker_name"], "celery@stage5-worker")
         self.assertNotIn("secret", identity)
 
@@ -74,7 +74,7 @@ class WorkerTelemetryTestCase(unittest.TestCase):
             "project_key": "stage5_observability_20260913",
             "candidate_id": "governance:aggregator-sync",
             "task_id": "celery-task-1",
-            "task_name": "app.tasks.task_sync_aggregator",
+            "task_name": "app.tasks.task_worker_observability_noop",
             "worker_name": "celery@stage5-worker",
             "queue": "celery",
         }

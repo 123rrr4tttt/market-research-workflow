@@ -48,7 +48,7 @@ async function mockOps(page: Page, options: { documentError?: boolean; runtimeRe
       if (options.documentError) return route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ status: 'error', error: { message: 'mocked document readback unavailable' } }) })
       return fulfill(route, { items: [{ id: 101, title: state.completed ? 'Terminal task refreshed this document' : LONG_TITLE, uri: `https://example.test/${'long-path-'.repeat(20)}`, doc_type: 'report', state: 'ready', has_extracted_data: false }], total: 1, page: 1, page_size: 20 })
     }
-    if (['/api/v1/admin/materials/re-extract', '/api/v1/admin/materials/topic-extract', '/api/v1/governance/aggregator/sync'].includes(path)) {
+    if (['/api/v1/admin/materials/re-extract', '/api/v1/admin/materials/topic-extract'].includes(path)) {
       state.writes += 1
       return fulfill(route, {
         task_id: options.runtimeReceipt ? null : TASK_ID,
@@ -178,7 +178,7 @@ test('ops/backend variants expose distinct responsibilities and progressive deta
   await expect.poll(() => state.diagnosticReads).toBeGreaterThan(0)
 })
 
-for (const action of ['Re-extract Materials', 'Topic Extract', 'Sync Aggregator']) {
+for (const action of ['Re-extract Materials', 'Topic Extract']) {
   test(`${action} retains real task identity and refreshes documents on terminal readback (mocked)`, async ({ page }) => {
     const state = await mockOps(page)
     await page.goto('/#/admin/ops')

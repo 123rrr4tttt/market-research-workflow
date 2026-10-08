@@ -22,10 +22,6 @@ from ..services import document_admin
 from ..services.document_views import (
     build_social_data_item,
     get_extracted_data,
-    get_market_data,
-    get_policy_data,
-    get_social_platform_label,
-    get_social_sentiment,
 )
 from ..project_customization import get_project_customization
 from ._error_responses import error_json_response as _error_json
@@ -1059,12 +1055,6 @@ def get_content_graph(
     if end_error:
         return end_error
 
-    def _platform_reader(document: object, *, default: str | None = "unknown") -> object:
-        return get_social_platform_label(document, default=default)
-
-    def _sentiment_reader(document: object) -> object:
-        return get_social_sentiment(document)
-
     try:
         return success_response(
             document_admin.get_admin_content_graph(
@@ -1074,8 +1064,6 @@ def get_content_graph(
                 platform=platform,
                 topic=topic,
                 limit=limit,
-                platform_reader=_platform_reader,
-                sentiment_reader=_sentiment_reader,
             )
         )
     except document_admin.AdminGraphBuildError as exc:
@@ -1112,9 +1100,6 @@ def get_market_graph(
     if end_error:
         return end_error
 
-    def _market_reader(document: object) -> object:
-        return get_market_data(document)
-
     try:
         return success_response(
             document_admin.get_admin_market_graph(
@@ -1126,7 +1111,6 @@ def get_market_graph(
                 deep_view=deep_view,
                 topic_scope=topic_scope,
                 limit=limit,
-                market_reader=_market_reader,
                 market_graph_augmenter=_augment_market_graph_with_topic_structured,
             )
         )
@@ -1161,9 +1145,6 @@ def get_policy_graph(
     if end_error:
         return end_error
 
-    def _policy_reader(document: object) -> object:
-        return get_policy_data(document)
-
     try:
         return success_response(
             document_admin.get_admin_policy_graph(
@@ -1173,7 +1154,6 @@ def get_policy_graph(
                 state=state,
                 policy_type=policy_type,
                 limit=limit,
-                policy_reader=_policy_reader,
             )
         )
     except document_admin.AdminGraphBuildError as exc:

@@ -220,6 +220,12 @@ def test_frontend_ingest_flow_contract_smoke(client: TestClient):
                 "status": "ok",
                 "data": {"admission": "reject"},
             },
+            "authority_output": {
+                "contract_version": "source_library.authority_output.v1",
+            },
+            "compat_projection": {
+                "contract_version": "source_library.compat_projection.v1",
+            },
             "legacy_result": {"item_key": "url_pool.default", "channel_key": "url_pool"},
         },
     ):

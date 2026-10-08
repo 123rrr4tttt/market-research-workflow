@@ -1738,6 +1738,84 @@ def test_typed_public_control_rejects_missing_tampered_and_embedded_payloads(
             work_items=(tampered,),
         )
 
+    handler_drift = _work_item("handler-variant-drift", now=now)
+    handler_drift["handler_binding_kind"] = "PROJECTOR"
+    with pytest.raises(ExactBindingConflict, match="duplicated-column drift"):
+        repository.commands(
+            run_id="run-1",
+            expected_revision=0,
+            snapshot_values={"state": "COMPILING"},
+            events=(),
+            work_items=(handler_drift,),
+        )
+
+    effect = _work_item(
+        "effect-recovery-drift",
+        now=now,
+        assignment_kind="INTERPRET",
+        step_id=STEP_ONE_ID,
+        qualification_digest=_digest("qualification:effect-negative"),
+    )
+    missing_recovery = dict(effect)
+    missing_recovery.pop("recovery_binding_json")
+    with pytest.raises(ExactBindingConflict, match="lacks exact recovery binding"):
+        repository.commands(
+            run_id="run-1",
+            expected_revision=0,
+            snapshot_values={"state": "RUNNING"},
+            events=(),
+            work_items=(missing_recovery,),
+        )
+
+    drifted_recovery = RecoveryBinding.from_content(
+        recovery_handler_id="recovery-handler:drifted",
+        recovery_handler_version="1",
+        interpreter_profile_digest=INTERPRETER_PROFILE_DIGEST,
+        authoritative_readback_profile_ref=(
+            RECOVERY_BINDING.authoritative_readback_profile_ref
+        ),
+    )
+    effect["recovery_binding_json"] = drifted_recovery.model_dump(mode="json")
+    with pytest.raises(ExactBindingConflict, match="effect recovery binding drift"):
+        repository.commands(
+            run_id="run-1",
+            expected_revision=0,
+            snapshot_values={"state": "RUNNING"},
+            events=(),
+            work_items=(effect,),
+        )
+
+    cross_profile_recovery = RecoveryBinding.from_content(
+        recovery_handler_id=RECOVERY_BINDING.recovery_handler_id,
+        recovery_handler_version=RECOVERY_BINDING.recovery_handler_version,
+        interpreter_profile_digest=_digest("different-interpreter-profile"),
+        authoritative_readback_profile_ref=(
+            RECOVERY_BINDING.authoritative_readback_profile_ref
+        ),
+    )
+    cross_profile = _work_item(
+        "effect-cross-profile-recovery",
+        now=now,
+        assignment_kind="INTERPRET",
+        step_id=STEP_ONE_ID,
+        qualification_digest=_digest("qualification:effect-negative-cross-profile"),
+    )
+    cross_profile.update(
+        recovery_handler_binding_ref=(
+            f"handler-binding:sha256:{cross_profile_recovery.binding_digest}"
+        ),
+        recovery_handler_binding_digest=cross_profile_recovery.binding_digest,
+        recovery_binding_json=cross_profile_recovery.model_dump(mode="json"),
+    )
+    with pytest.raises(ExactBindingConflict, match="effect recovery binding drift"):
+        repository.commands(
+            run_id="run-1",
+            expected_revision=0,
+            snapshot_values={"state": "RUNNING"},
+            events=(),
+            work_items=(cross_profile,),
+        )
+
     bad_event = {
         **_event("PayloadSmugglingRejected"),
         "event_metadata_json": {"body": "tenant payload"},

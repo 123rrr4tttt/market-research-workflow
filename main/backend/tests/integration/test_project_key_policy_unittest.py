@@ -235,7 +235,9 @@ class ProjectKeyPolicyTestCase(unittest.TestCase):
         client = TestClient(backend_app)
         with patch(
             "app.services.collect_runtime.run_source_library_item_compat",
-            return_value={"item_key": "demo-item", "ok": True, "saved": 1},
+            return_value={
+                "terminal_output": {"item_key": "demo-item", "ok": True, "saved": 1},
+            },
         ) as mocked_run:
             resp = client.post(
                 "/api/v1/ingest/source-library/run",
@@ -245,8 +247,32 @@ class ProjectKeyPolicyTestCase(unittest.TestCase):
         body = resp.json()
         data = body.get("data") if isinstance(body, dict) and "data" in body else body
         self.assertIsInstance(data, dict)
-        self.assertEqual(data["item"]["item_key"], "demo-item")
+        self.assertEqual(data["item_key"], "demo-item")
+        self.assertEqual(data["terminal_output"]["item_key"], "demo-item")
         mocked_run.assert_called_once()
+
+    def test_ingest_source_library_run_rejects_missing_terminal_output(self):
+        client = TestClient(backend_app)
+        with patch(
+            "app.services.collect_runtime.run_source_library_item_compat",
+            return_value={"item_key": "missing-terminal-item", "ok": True, "saved": 1},
+        ):
+            resp = client.post(
+                "/api/v1/ingest/source-library/run",
+                json={
+                    "project_key": "demo_proj",
+                    "item_key": "missing-terminal-item",
+                    "async_mode": False,
+                    "override_params": {},
+                },
+            )
+        self.assertEqual(resp.status_code, 500)
+        body = resp.json()
+        self.assertEqual(body["error"]["code"], ErrorCode.INTERNAL_ERROR.value)
+        self.assertEqual(
+            body["error"]["message"],
+            "source-library runtime did not return terminal_output",
+        )
 
     def test_ingest_source_library_run_missing_project_key_in_require_mode_fails(self):
         client = TestClient(backend_app)

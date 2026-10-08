@@ -62,7 +62,6 @@ from app.successor_runtime.capabilities.checksum import (
     canonical_json,
     sha256_hex,
 )
-from app.successor_runtime.capabilities.codecs import PayloadCodec
 from app.successor_runtime.capabilities.retrieval_candidate_native import (
     RETRIEVAL_CANDIDATE_DISCOVER_V3_KIND,
     RETRIEVAL_CANDIDATE_ATTEMPT_OUTCOME_TYPE,
@@ -889,17 +888,11 @@ def revalidate_candidate_work(
 
 
 def _candidate_work_codec():
-    return cast(
-        PayloadCodec[CandidateWork],
-        build_retrieval_leaf_definition(RETRIEVAL_CANDIDATE_REVIEW_KIND).input_codec,
-    )
+    return build_retrieval_leaf_definition(RETRIEVAL_CANDIDATE_REVIEW_KIND).input_codec
 
 
 def _control_codec():
-    return cast(
-        PayloadCodec[RetrievalControl],
-        build_retrieval_leaf_definition(RETRIEVAL_FOLLOWUP_PLAN_KIND).input_codec,
-    )
+    return build_retrieval_leaf_definition(RETRIEVAL_FOLLOWUP_PLAN_KIND).input_codec
 
 
 def _retrieval_operation_environment(
@@ -1910,22 +1903,24 @@ def build_retrieval_leaf_invocations(
     plan_loader: RetrievalPlanLoader,
     journal_reader: RetrievalJournalReader,
 ) -> Annotated[
-    Mapping[str, Callable[[Any], Any]],
+    tuple[
+        Mapping[str, Callable[[CandidateWork], CandidateWork]],
+        Mapping[str, Callable[[RetrievalControl], RetrievalControl]],
+    ],
     "kit:prepared-command effect_boundary=successor_retrieval_leaf_handlers witness=test:test_retrieval_runtime_builder_metadata_preserves_semantic_sources",
 ]:
     """Return the stable kind-to-typed-invoke table for generic handlers."""
 
-    return {
+    return ({
         RETRIEVAL_MATERIAL_READ_BODY_KIND: partial(read_candidate_work_body, topology_service),
         RETRIEVAL_MATERIAL_FORMALIZE_KIND: partial(formalize_candidate_work, plan_loader),
         RETRIEVAL_MATERIAL_REVALIDATE_KIND: partial(revalidate_candidate_work, topology_service),
+    }, {
         RETRIEVAL_FOLLOWUP_PLAN_KIND: partial(plan_retrieval_followup, journal_reader),
         RETRIEVAL_TOPOLOGY_COMMIT_KIND: partial(
-            commit_retrieval_topology,
-            topology_service,
-            journal_reader,
+            commit_retrieval_topology, topology_service, journal_reader,
         ),
-    }
+    })
 
 
 @dataclass(frozen=True, slots=True)

@@ -83,6 +83,22 @@ class PersistentOperationHandler(RuntimeHandler, Generic[Input, Output]):
         self._validate_output = validate_output
         self._values = PostgresFirstSpecimenActivationBindingAdapter()
 
+    @property
+    def input_codec(self) -> PayloadCodec[Input]:
+        return self._input_codec
+
+    @property
+    def output_codec(self) -> PayloadCodec[Output]:
+        return self._output_codec
+
+    @property
+    def input_payload_type_id(self) -> str:
+        return self._input_codec.payload_type_id
+
+    @property
+    def output_payload_type_id(self) -> str:
+        return self._output_codec.payload_type_id
+
     def execute(
         self, assignment: RuntimeAssignment, claim: ClaimBinding,
         context: RuntimeExecutionContext,
@@ -154,13 +170,14 @@ class BatchTaskSingleDispatchHandler(PersistentOperationHandler[
 
     def __init__(
         self, *, uow_factory: UowFactory, binding: InterpreterBinding,
+        contract: OperationContract,
+        input_codec: PayloadCodec[batch_task.BatchTaskSingleDispatchPayload],
+        output_codec: PayloadCodec[batch_task.BatchTaskSingleDispatchAck],
         dispatch: Callable[[batch_task.BatchTaskSingleDispatchPayload], batch_task.BatchTaskSingleDispatchAck],
     ) -> None:
-        contract = batch_task.build_batch_task_single_dispatch_contract()
         super().__init__(
             uow_factory=uow_factory, binding=binding, contract=contract,
-            input_codec=batch_task.build_batch_task_single_dispatch_payload_codec(contract.ref),
-            output_codec=batch_task.build_batch_task_single_dispatch_ack_codec(contract.ref),
+            input_codec=input_codec, output_codec=output_codec,
             invoke=dispatch, validate_input=self._check_scope, validate_output=self._check_ack,
         )
 

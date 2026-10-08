@@ -75,5 +75,4 @@ def assemble_workflow_runtime_handler(
         validate_bound_inputs=partial(validate_workflow_context_bound_inputs, operation=operation),
     )
 
-
 __all__ = ["assemble_workflow_runtime_handler"]

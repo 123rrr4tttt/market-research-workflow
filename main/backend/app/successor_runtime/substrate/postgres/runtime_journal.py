@@ -17,6 +17,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any, Literal
+from typing import TypeVar
 
 from pydantic import Field, model_validator
 from sqlalchemy import Table, insert, select, update
@@ -24,6 +25,7 @@ from sqlalchemy.engine import Connection, Result, RowMapping
 
 from app.successor_runtime.language.checksum import is_sha256_hex
 from app.successor_runtime.runtime.assignments import (
+    AssignmentKind,
     Digest,
     FrozenContract,
     InterpreterBinding,
@@ -46,6 +48,9 @@ from app.successor_runtime.runtime.qualification import (
 )
 
 from .models import PUBLIC_TABLES
+
+
+_ExactBindingT = TypeVar("_ExactBindingT", bound=FrozenContract)
 
 
 class ControlRepositoryError(RuntimeError):
@@ -367,6 +372,25 @@ def _validate_typed_control_json(
         raise PublicPayloadViolation(f"invalid typed control binding at {path}") from exc
 
 
+def _parse_exact_binding(
+    model: type[_ExactBindingT],
+    raw: Any,
+    *,
+    missing: str,
+    invalid: str,
+    noncanonical: str,
+) -> _ExactBindingT:
+    if not isinstance(raw, Mapping):
+        raise ExactBindingConflict(missing)
+    try:
+        binding = model.model_validate(raw)
+    except Exception as exc:
+        raise ExactBindingConflict(invalid) from exc
+    if dict(raw) != binding.model_dump(mode="json"):
+        raise ExactBindingConflict(noncanonical)
+    return binding
+
+
 def _project_values(scope: RuntimeScope, values: Mapping[str, Any]) -> dict[str, Any]:
     projected = dict(values)
     supplied = projected.pop("project_key", _scope_key(scope))
@@ -377,117 +401,118 @@ def _project_values(scope: RuntimeScope, values: Mapping[str, Any]) -> dict[str,
     return projected
 
 
+def assignment_index_values(assignment: RuntimeAssignment) -> dict[str, Any]:
+    """Project one exact assignment onto its indexed work-item columns."""
+
+    exact_handler = assignment.handler_binding
+    profile_bindings = (InterpreterBinding, RecoveryBinding)
+    interpreter_profile_digest = (
+        exact_handler.interpreter_profile_digest
+        if isinstance(exact_handler, profile_bindings)
+        else None
+    )
+    values: dict[str, Any] = dict(
+        work_item_id=assignment.work_item_id,
+        project_key=assignment.project_key,
+        run_id=assignment.run_id,
+        step_id=assignment.step_id,
+        assignment_kind=assignment.assignment_kind.value,
+        capability_id=assignment.capability_id,
+        operation_contract_digest=assignment.operation_contract_digest,
+        assignment_digest=assignment.assignment_digest,
+        assignment_binding_json=assignment.model_dump(mode="json"),
+        execution_epoch=assignment.execution_epoch,
+        assignment_incarnation=assignment.incarnation,
+        input_closure_digest=assignment.input_closure_digest,
+        claim_authority_epoch=assignment.claim_authority_epoch,
+        claim_policy_digest=assignment.claim_policy_digest,
+        handler_binding_kind=assignment.handler_binding_kind.value,
+        handler_binding_ref=assignment.handler_binding_ref,
+        handler_binding_digest=assignment.handler_binding_digest,
+        deployment_catalog_digest=assignment.deployment_catalog_digest,
+        runtime_protocol_version=assignment.runtime_protocol_version,
+        interpreter_profile_digest=interpreter_profile_digest,
+        program_digest=assignment.program_digest,
+        plan_digest=assignment.plan_digest,
+        expected_step_revision=assignment.expected_step_revision,
+        reconciliation_attempt_id=assignment.reconciliation_attempt_id,
+        payload_ref=assignment.payload_ref,
+        payload_digest=assignment.payload_digest,
+        resource_policy_epoch=assignment.resource_policy_epoch,
+        queue_eligibility_digest=assignment.queue_eligibility_digest,
+        deadline_at=assignment.deadline_at,
+    )
+    if isinstance(exact_handler, ProjectorBinding):
+        values.update(
+            declared_loss_profile_ref=exact_handler.declared_loss_profile_ref,
+            source_ref=exact_handler.source_ref,
+            source_digest=exact_handler.source_digest,
+        )
+    if isinstance(exact_handler, MaterializerBinding):
+        values.update(
+            source_value_digest=exact_handler.source_value_digest,
+            predecessor_plan_digest=exact_handler.predecessor_plan_digest,
+            target_domain_contract_snapshot_digest=(
+                exact_handler.target_domain_contract_snapshot_digest
+            ),
+        )
+    if isinstance(exact_handler, RecoveryBinding):
+        values["authoritative_readback_profile_ref"] = (
+            exact_handler.authoritative_readback_profile_ref
+        )
+    return values
+
+
 def validate_runtime_assignment_row(values: Mapping[str, Any]) -> RuntimeAssignment:
     """Parse, rehash, and compare every duplicated assignment column."""
 
     raw = values.get("assignment_binding_json")
-    if not isinstance(raw, Mapping):
-        raise ExactBindingConflict("work item lacks exact assignment_binding_json")
-    try:
-        assignment = RuntimeAssignment.model_validate(raw)
-    except Exception as exc:
-        raise ExactBindingConflict("invalid exact RuntimeAssignment binding") from exc
-    canonical = assignment.model_dump(mode="json")
-    if dict(raw) != canonical:
-        raise ExactBindingConflict("RuntimeAssignment binding is not canonical")
+    assignment = _parse_exact_binding(
+        RuntimeAssignment,
+        raw,
+        missing="work item lacks exact assignment_binding_json",
+        invalid="invalid exact RuntimeAssignment binding",
+        noncanonical="RuntimeAssignment binding is not canonical",
+    )
     if values.get("assignment_digest") != assignment.assignment_digest:
         raise ExactBindingConflict("RuntimeAssignment digest mismatch")
     if assignment.payload_ref is not None:
-        _require_opaque_locator(
-            assignment.payload_ref,
-            path="assignment_binding_json.payload_ref",
-        )
+        _require_opaque_locator(assignment.payload_ref, path="assignment_binding_json.payload_ref")
     for index, input_ref in enumerate(assignment.input_refs):
-        _require_opaque_locator(
-            input_ref,
-            path=f"assignment_binding_json.input_refs[{index}]",
-        )
+        _require_opaque_locator(input_ref, path=f"assignment_binding_json.input_refs[{index}]")
 
-    handler = assignment.handler_binding
-    interpreter_profile_digest = (
-        handler.interpreter_profile_digest
-        if isinstance(handler, (InterpreterBinding, RecoveryBinding))
-        else None
-    )
-    expected: dict[str, Any] = {
-        "work_item_id": assignment.work_item_id,
-        "project_key": assignment.project_key,
-        "run_id": assignment.run_id,
-        "step_id": assignment.step_id,
-        "assignment_kind": assignment.assignment_kind.value,
-        "capability_id": assignment.capability_id,
-        "operation_contract_digest": assignment.operation_contract_digest,
-        "assignment_digest": assignment.assignment_digest,
-        "execution_epoch": assignment.execution_epoch,
-        "assignment_incarnation": assignment.incarnation,
-        "input_closure_digest": assignment.input_closure_digest,
-        "claim_authority_epoch": assignment.claim_authority_epoch,
-        "claim_policy_digest": assignment.claim_policy_digest,
-        "handler_binding_kind": assignment.handler_binding_kind.value,
-        "handler_binding_ref": assignment.handler_binding_ref,
-        "handler_binding_digest": assignment.handler_binding_digest,
-        "deployment_catalog_digest": assignment.deployment_catalog_digest,
-        "runtime_protocol_version": assignment.runtime_protocol_version,
-        "interpreter_profile_digest": interpreter_profile_digest,
-        "program_digest": assignment.program_digest,
-        "plan_digest": assignment.plan_digest,
-        "expected_step_revision": assignment.expected_step_revision,
-        "reconciliation_attempt_id": assignment.reconciliation_attempt_id,
-        "payload_ref": assignment.payload_ref,
-        "payload_digest": assignment.payload_digest,
-        "resource_policy_epoch": assignment.resource_policy_epoch,
-        "queue_eligibility_digest": assignment.queue_eligibility_digest,
-        "deadline_at": assignment.deadline_at,
-    }
-    if isinstance(handler, ProjectorBinding):
-        expected.update(
-            source_ref=handler.source_ref,
-            source_digest=handler.source_digest,
-            declared_loss_profile_ref=handler.declared_loss_profile_ref,
-        )
-    if isinstance(handler, MaterializerBinding):
-        expected.update(
-            predecessor_plan_digest=handler.predecessor_plan_digest,
-            source_value_digest=handler.source_value_digest,
-            target_domain_contract_snapshot_digest=(
-                handler.target_domain_contract_snapshot_digest
-            ),
-        )
-    if isinstance(handler, RecoveryBinding):
-        expected["authoritative_readback_profile_ref"] = (
-            handler.authoritative_readback_profile_ref
-        )
-    if assignment.assignment_kind.value in {"INTERPRET", "VERIFY_ADMIT"}:
+    expected = assignment_index_values(assignment)
+    if assignment.assignment_kind in {
+        AssignmentKind.INTERPRET,
+        AssignmentKind.VERIFY_ADMIT,
+    }:
         recovery_raw = values.get("recovery_binding_json")
-        if not isinstance(recovery_raw, Mapping):
-            raise ExactBindingConflict("effect assignment lacks exact recovery binding")
-        try:
-            recovery = RecoveryBinding.model_validate(recovery_raw)
-        except Exception as exc:
-            raise ExactBindingConflict("invalid exact recovery binding") from exc
-        if dict(recovery_raw) != recovery.model_dump(mode="json"):
-            raise ExactBindingConflict("recovery binding is not canonical")
-        expected_recovery_ref = (
-            f"handler-binding:sha256:{recovery.binding_digest}"
+        recovery = _parse_exact_binding(
+            RecoveryBinding,
+            recovery_raw,
+            missing="effect assignment lacks exact recovery binding",
+            invalid="invalid exact recovery binding",
+            noncanonical="recovery binding is not canonical",
         )
-        if (
-            values.get("recovery_handler_binding_ref") != expected_recovery_ref
-            or values.get("recovery_handler_binding_digest")
-            != recovery.binding_digest
-            or values.get("authoritative_readback_profile_ref")
-            != recovery.authoritative_readback_profile_ref
-            or recovery.interpreter_profile_digest != interpreter_profile_digest
-        ):
+        expected_recovery_ref = f"handler-binding:sha256:{recovery.binding_digest}"
+        recovery_columns = {
+            "recovery_handler_binding_ref": expected_recovery_ref,
+            "recovery_handler_binding_digest": recovery.binding_digest,
+            "authoritative_readback_profile_ref": (
+                recovery.authoritative_readback_profile_ref
+            ),
+        }
+        if any(
+            values.get(column) != expected_value
+            for column, expected_value in recovery_columns.items()
+        ) or recovery.interpreter_profile_digest != expected["interpreter_profile_digest"]:
             raise ExactBindingConflict("effect recovery binding drift")
     mismatches = [
-        column
-        for column, expected_value in expected.items()
+        column for column, expected_value in expected.items()
         if values.get(column) != expected_value
     ]
     if mismatches:
-        raise ExactBindingConflict(
-            "RuntimeAssignment duplicated-column drift: " + ", ".join(mismatches)
-        )
+        raise ExactBindingConflict("RuntimeAssignment duplicated-column drift: " + ", ".join(mismatches))
     return assignment
 
 

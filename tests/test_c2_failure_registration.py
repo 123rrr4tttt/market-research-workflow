@@ -41,7 +41,6 @@ PROVIDER_OWNERS = {
     "StagedArtifactRef",
     "CredentialDecisionReceipt",
     "AuthoritativeProviderReadback",
-    "NonStartProof",
     "CancelReceipt",
     "CompletedProviderEffect",
     "AcceptedProviderEffect",

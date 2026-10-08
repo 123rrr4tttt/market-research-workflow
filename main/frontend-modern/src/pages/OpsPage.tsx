@@ -51,7 +51,6 @@ import {
   listAgentSessions,
   reExtractDocuments,
   resolveAgentApproval,
-  syncAggregator,
   topicExtractDocuments,
 } from '../lib/api'
 
@@ -84,7 +83,6 @@ type OpsActionKey =
   | 'reExtract'
   | 'topicExtract'
   | 'graphExport'
-  | 'syncAggregator'
   | 'bulkStructuredWrite'
   | 'clearStructured'
   | 'deleteDocuments'
@@ -94,7 +92,6 @@ const OPS_ACTION_NAME_KEYS: Record<OpsActionKey, MessageKey> = {
   reExtract: 'opsPage.actionName.reExtract',
   topicExtract: 'opsPage.actionName.topicExtract',
   graphExport: 'opsPage.actionName.graphExport',
-  syncAggregator: 'opsPage.actionName.syncAggregator',
   bulkStructuredWrite: 'opsPage.actionName.bulkStructuredWrite',
   clearStructured: 'opsPage.actionName.clearStructured',
   deleteDocuments: 'opsPage.actionName.deleteDocuments',
@@ -2366,7 +2363,6 @@ function OpsPageView({ projectKey, variant = 'ops' }: OpsPageProps) {
           >
             <RefreshCw size={14} />{activeAction === 'graphExport' ? t('opsPage.action.running') : t('opsPage.action.graphExport')}
           </button>
-          <button disabled={pending} onClick={() => runAction('syncAggregator', () => syncAggregator(true))}><RefreshCw size={14} />{activeAction === 'syncAggregator' ? t('opsPage.action.running') : t('opsPage.action.syncAggregator')}</button>
           <button onClick={() => { queryClient.invalidateQueries({ queryKey: queryKeys.admin.stats(projectKey) }); queryClient.invalidateQueries({ queryKey: queryKeys.admin.searchHistory(projectKey) }); }}><RefreshCw size={14} />{t('opsPage.action.refresh')}</button>
         </div>
       </section>}

@@ -71,27 +71,5 @@ class FrontdoorFetchRouterContractUnitTestCase(unittest.TestCase):
         self.assertFalse(blocked["fallback_boundary"]["http_fetch_fallback_allowed"])
         self.assertFalse(blocked["fallback_boundary"]["legacy_url_only_write_allowed"])
 
-    def test_frontdoor_status_projection_preserves_router_boundary(self) -> None:
-        profile = url_pool_module._frontdoor_route_profile_for_url("https://x.com/search?q=robotics")
-        projection = url_pool_module._build_frontdoor_status_projection(
-            {
-                "status": "degraded_success",
-                "inserted_valid": 0,
-                "frontdoor_route": {
-                    "route_hint": "crawler_browse",
-                    "fetch_strategy": "browser_render",
-                    "router_contract": profile["router_contract"],
-                },
-            }
-        )
-
-        self.assertEqual(projection["dashboard_status"], "degraded_success")
-        self.assertEqual(projection["reason_code"], "needs_browser_runtime")
-        self.assertEqual(projection["router_state"], "needs_browser")
-        self.assertEqual(projection["router_reason_code"], "needs_browser_runtime")
-        self.assertFalse(projection["fallback_boundary"]["http_fetch_fallback_allowed"])
-        self.assertFalse(projection["fallback_boundary"]["public_browser_replay_performed"])
-
-
 if __name__ == "__main__":
     unittest.main()

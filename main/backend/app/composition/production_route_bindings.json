@@ -1736,22 +1736,6 @@
       }
     },
     {
-      "route_template": "/api/v1/governance/aggregator/sync",
-      "domain": "governance",
-      "operation": "governance.sync_aggregator",
-      "methods": [
-        "POST"
-      ],
-      "required_scope": "api:invoke",
-      "required_approval_ids": [],
-      "capability_id": null,
-      "effect_contract": {
-        "effect_class": "conditional",
-        "admission": "blocked_until_effect_binding",
-        "conditional_discriminator": "handler_effect_path.v1"
-      }
-    },
-    {
       "route_template": "/api/v1/governance/cleanup",
       "domain": "governance",
       "operation": "governance.cleanup",

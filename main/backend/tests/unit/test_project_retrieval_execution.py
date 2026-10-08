@@ -640,13 +640,13 @@ def test_retrieval_runtime_builder_metadata_preserves_semantic_sources():
         engine=runtime_engine,
         actor_id="actor-a",
     )
-    handlers = build_retrieval_leaf_invocations(
+    work_handlers, control_handlers = build_retrieval_leaf_invocations(
         topology_service=build_topology_service(),
         plan_loader=lambda _project_key, _plan_id: _plan(),
         journal_reader=reader,
     )
     assert callable(reader)
-    assert set(handlers) == {
+    assert set(work_handlers) | set(control_handlers) == {
         RETRIEVAL_MATERIAL_READ_BODY_KIND,
         RETRIEVAL_MATERIAL_FORMALIZE_KIND,
         RETRIEVAL_MATERIAL_REVALIDATE_KIND,

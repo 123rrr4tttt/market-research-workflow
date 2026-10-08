@@ -42,17 +42,17 @@ BLOCKER_ANCHORS: dict[str, tuple[Anchor, ...]] = {
             Path("main/backend/app/services/ingest/url_pool.py"),
             (
                 "_frontdoor_route_profile_for_url",
-                "_build_frontdoor_status_projection",
-                "frontdoor_status_summary",
-                "prefer_crawler_first",
+                "build_frontdoor_ingress_envelope",
+                "run_postprocess_frontdoor",
+                "invoke_url_single_url",
             ),
         ),
         Anchor(
             Path("main/backend/tests/unit/test_frontdoor_fetch_router_contract_unittest.py"),
             (
                 "test_high_js_profile_marks_needs_browser_without_public_replay",
-                "test_frontdoor_status_projection_preserves_router_boundary",
-                "needs_browser_runtime",
+                "test_contract_exposes_unsupported_and_blocked_failures",
+                "dashboard_status",
             ),
         ),
     ),

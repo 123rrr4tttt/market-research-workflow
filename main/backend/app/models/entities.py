@@ -237,20 +237,6 @@ class Project(BigIDMixin, Base):
     )
 
 
-class ProjectSyncState(BigIDMixin, Base):
-    __tablename__ = "project_sync_state"
-    __table_args__ = (
-        UniqueConstraint("project_key", "object_name", name="uq_project_sync_state_object"),
-    )
-
-    project_key = Column(String(64), nullable=False)
-    object_name = Column(String(64), nullable=False)
-    cursor_value = Column(String(255), nullable=True)
-    updated_at = Column(
-        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
-    )
-
-
 class SharedIngestChannel(BigIDMixin, Base):
     __tablename__ = "shared_ingest_channels"
     __table_args__ = (UniqueConstraint("channel_key", name="uq_shared_ingest_channel_key"),)

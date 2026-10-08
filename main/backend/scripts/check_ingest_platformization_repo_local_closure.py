@@ -109,8 +109,8 @@ BLOCKER_ANCHORS: dict[str, tuple[Anchor, ...]] = {
             ("ingest.frontdoor_slo.v1", "p95_latency_ms", "success_or_degraded_rate"),
         ),
         Anchor(
-            Path("main/backend/app/services/ingest/url_pool.py"),
-            ("_build_frontdoor_status_projection", "_attach_frontdoor_slo", "complete_job(job_id, result=result)"),
+            Path("main/backend/tests/unit/test_ingest_frontdoor_slo_unittest.py"),
+            ("test_frontdoor_slo_payload_reports_tri_state_p95_and_retry", "degraded_success", "p95_latency_ms"),
         ),
         Anchor(
             Path("main/backend/app/api/workflow_graph.py"),

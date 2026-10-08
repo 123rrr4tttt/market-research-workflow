@@ -253,6 +253,23 @@ class WorkflowGraphApiIntegrationTestCase(unittest.TestCase):
             self.assertEqual(reads.call_count, 66)
         self.assertEqual(revisions["compiled"], 11)
 
+    def test_persistent_workflow_skills_declare_shared_runtime_labels(self):
+        from app.services.skill_runtime import list_registered_skills
+
+        expected = {
+            "workflow_graph.compile": "write_shared",
+            "workflow_graph.template.create": "write_shared",
+            "workflow_graph.template.patch": "write_shared",
+            "workflow_graph.template.delete": "write_shared",
+            "workflow_graph.template.version.create": "write_shared",
+            "workflow_graph.template.version.activate": "write_shared",
+        }
+        by_skill = {item["skill_id"]: item for item in list_registered_skills()}
+        for skill_id, concurrency_class in expected.items():
+            skill = by_skill[skill_id]
+            self.assertEqual(skill["concurrency_class"], concurrency_class)
+            self.assertEqual(skill["approval_policy"]["default"], "optional")
+
     def test_get_run_events_success(self):
         with patch(
             "app.api.workflow_graph._invoke_get_run_events",

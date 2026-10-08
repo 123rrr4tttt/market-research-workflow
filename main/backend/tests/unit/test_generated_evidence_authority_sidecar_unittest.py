@@ -5,7 +5,6 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-import sys
 from pathlib import Path
 from typing import Any
 
@@ -121,20 +120,6 @@ def _assert_confirmed_path(relative_path: str) -> Path:
 
 
 def test_c7_1_through_c7_4_manifest_identity_closes() -> None:
-    sys.path.insert(0, str(ROOT / "main/backend"))
-    try:
-        from app.successor_runtime.specification.capability_cell_spec import (
-            CapabilityCellSpec,
-        )
-        from app.successor_runtime.specification.compiler import (
-            compile_capability_spec,
-        )
-        from app.successor_runtime.specification.runtime_kernel_abi import (
-            RuntimeKernelABI,
-        )
-    finally:
-        sys.path.pop(0)
-
     sidecar = _load_json(SIDECAR_PATH)
     bindings = {
         item["cell_id"]: item
@@ -167,11 +152,6 @@ def test_c7_1_through_c7_4_manifest_identity_closes() -> None:
             expected_payload
         )
 
-        spec_path = path.parent.parent / "capability-specs" / f"{cell_id}.v1.json"
-        spec = CapabilityCellSpec.from_dict(_load_json(spec_path))
-        abi = RuntimeKernelABI.from_dict(manifest["runtime_kernel_abi"])
-        compiled = compile_capability_spec(spec, abi)
-        assert compiled == manifest
         assert manifest["semantic_identity"][
             "does_not_replace_exact_artifact_identity"
         ] is True

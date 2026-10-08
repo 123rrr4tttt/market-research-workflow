@@ -23,7 +23,6 @@ from app.successor_runtime.research.object_types import ObjectType
 
 if TYPE_CHECKING:
     from app.successor_runtime.assembly.base import CellBinding
-    from app.successor_runtime.specification.capability_cell_spec import CapabilityCellSpec
 
 
 OPEN_MACRO_INPUT_TYPE = ObjectType("AgentMacroOpenInput.v1")
@@ -72,7 +71,6 @@ class MacroCellDefinition:
     facility_refs: tuple[str, ...] = ()
     readback_refs: tuple[str, ...] = ()
     family_id: str = "agent.macro"
-    capability_spec: CapabilityCellSpec | None = None
 
     @property
     def cell_id(self) -> str:
@@ -155,9 +153,6 @@ def lower_macro_cell_definition(definition: MacroCellDefinition) -> MacroCellDef
         relation_keys.add(key)
         references(relation.failure_refs, f"{path}.failure_refs")
         references(relation.readback_refs, f"{path}.readback_refs")
-    spec = definition.capability_spec
-    if spec is not None and (spec.cell_id != definition.cell_id or spec.family_id != definition.family_id):
-        issues.append({"path": "$.capability_spec", "message": "existing cell identity/family mismatch"})
     flow = lower_retrieval_flow_source(RetrievalFlowSource(
         definition.cell_id, definition.version, definition.owner, definition.occurrence("boundary"),
     ))

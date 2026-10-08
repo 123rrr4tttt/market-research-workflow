@@ -385,28 +385,7 @@ class PostgresAgentSessionReadAdapter:
             .all()
         )
         return tuple(
-            ReplayEvent.from_content(
-                project_key=str(row["project_key"]),
-                run_id=str(row["run_id"]),
-                run_incarnation=source.run_incarnation,
-                seq=int(row["seq"]),
-                event_type=str(row["event_type"]),
-                schema_version=str(row["schema_version"]),
-                step_id=None if row["step_id"] is None else str(row["step_id"]),
-                attempt_id=(
-                    None if row["attempt_id"] is None else str(row["attempt_id"])
-                ),
-                metadata=dict(row["event_metadata_json"]),
-                payload_ref=(
-                    None if row["payload_ref"] is None else str(row["payload_ref"])
-                ),
-                payload_digest=(
-                    None
-                    if row["payload_digest"] is None
-                    else str(row["payload_digest"])
-                ),
-                authority_digest=str(row["authority_digest"]),
-            )
+            ReplayEvent.from_public_row(row, run_incarnation=source.run_incarnation)
             for row in rows
         )
 

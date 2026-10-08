@@ -1047,7 +1047,6 @@ CAPTURED_SOURCE_RECORD_REF_HISTORICAL_SCHEMA = "mrw.successor.source-library.c2-
 STAGED_ARTIFACT_REF_SCHEMA = "mrw.source.provider-acquisition.staged-artifact-ref.v2"
 STAGED_ARTIFACT_REF_HISTORICAL_SCHEMA = "mrw.successor.source-library.c2-3.staged-artifact-ref.v1"
 AUTHORITATIVE_READBACK_SCHEMA = "mrw.source.provider-acquisition.authoritative-readback.v2"
-NON_START_PROOF_SCHEMA = "mrw.source.provider-acquisition.non-start-proof.v2"
 RESOURCE_POLICY_SCHEMA = "mrw.source.provider-acquisition.resource-policy.v2"
 RESOURCE_POLICY_HISTORICAL_SCHEMA = "mrw.successor.source-library.c2-3.resource-policy.v1"
 CANCEL_RECEIPT_SCHEMA = "mrw.source.provider-acquisition.cancel-receipt.v2"
@@ -1570,48 +1569,6 @@ class AuthoritativeProviderReadback:
             "observed_at": self.observed_at,
             "readback_digest": self.readback_digest,
         }
-
-
-@dataclass(frozen=True, slots=True)
-class NonStartProof:
-    attempt_ref: str
-    evidence_locator: str
-    schema_version: str = NON_START_PROOF_SCHEMA
-    proof_digest: str = ""
-
-    def __post_init__(self) -> None:
-        if not self.evidence_locator.strip():
-            _reject_source_contract("NonStartProof.evidence_locator is required", exception_type=ValueError)
-        expected = content_digest(
-            {
-                "schema_version": self.schema_version,
-                "attempt_ref": self.attempt_ref,
-                "evidence_locator": self.evidence_locator,
-            }
-        )
-        if self.proof_digest == "":
-            object.__setattr__(self, "proof_digest", expected)
-        else:
-            require_hex64(self.proof_digest, "NonStartProof.proof_digest")
-            if self.proof_digest != expected:
-                _reject_source_contract("NonStartProof.proof_digest does not match content", exception_type=ValueError)
-
-    def to_plain(self) -> SourcePlainObject:
-        return {
-            "schema_version": self.schema_version,
-            "attempt_ref": self.attempt_ref,
-            "evidence_locator": self.evidence_locator,
-            "proof_digest": self.proof_digest,
-        }
-
-
-@dataclass(frozen=True, slots=True)
-class NonStartUnprovable:
-    attempt_ref: str
-    reason: str
-
-    def to_plain(self) -> SourcePlainObject:
-        return {"attempt_ref": self.attempt_ref, "reason": self.reason}
 
 
 @dataclass(frozen=True, slots=True)
@@ -2531,15 +2488,6 @@ class ProviderReadbackPort(Protocol):
     ) -> ProviderReadbackResult:
         """Return authoritative, waiting or unavailable readback state."""
         ...
-
-    def prove_not_started(
-        self,
-        attempt_ref: ProviderAttemptRef,
-        request: ProviderEffectRequest,
-    ) -> NonStartProof | NonStartUnprovable:
-        """Prove the attempt never started, or honestly return unprovable."""
-        ...
-
 
 @runtime_checkable
 class ProviderEffectGateway(Protocol):

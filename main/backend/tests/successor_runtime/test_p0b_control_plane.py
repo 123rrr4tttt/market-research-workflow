@@ -304,6 +304,7 @@ def test_work_item_assignment_binding_is_rehashed_before_database_effect(
 ):
     now = datetime.now(UTC)
     work_item = _compile_work_item(now)
+
     work_item["assignment_digest"] = "f" * 64
     connection = RecordingConnection(revision=0)
     with pytest.raises(ExactBindingConflict, match="digest mismatch"):
@@ -315,6 +316,66 @@ def test_work_item_assignment_binding_is_rehashed_before_database_effect(
             work_items=(work_item,),
         )
     assert connection.statements == []
+
+    indexed_drift = _compile_work_item(now)
+    indexed_drift["handler_binding_digest"] = "e" * 64
+    with pytest.raises(ExactBindingConflict, match="duplicated-column drift"):
+        RuntimeJournalRepository(RecordingConnection(revision=0), runtime_scope).commands(
+            run_id="run-1",
+            expected_revision=0,
+            snapshot_values={"state": "COMPILING"},
+            events=(),
+            work_items=(indexed_drift,),
+        )
+
+    nullable_drift = _compile_work_item(now)
+    nullable_drift["plan_digest"] = "6" * 64
+    with pytest.raises(ExactBindingConflict, match="plan_digest"):
+        RuntimeJournalRepository(RecordingConnection(revision=0), runtime_scope).commands(
+            run_id="run-1",
+            expected_revision=0,
+            snapshot_values={"state": "COMPILING"},
+            events=(),
+            work_items=(nullable_drift,),
+        )
+
+    noncanonical = _compile_work_item(now)
+    noncanonical["assignment_binding_json"] = {
+        key: value
+        for key, value in noncanonical["assignment_binding_json"].items()
+        if key != "step_role"
+    }
+    with pytest.raises(ExactBindingConflict, match="not canonical"):
+        RuntimeJournalRepository(RecordingConnection(revision=0), runtime_scope).commands(
+            run_id="run-1",
+            expected_revision=0,
+            snapshot_values={"state": "COMPILING"},
+            events=(),
+            work_items=(noncanonical,),
+        )
+
+    opaque = _compile_work_item(now)
+    opaque_assignment = RuntimeAssignment.model_validate(
+        {
+            **opaque["assignment_binding_json"],
+            "payload_ref": "FULL TENANT DOCUMENT BYTES",
+            "payload_digest": "d" * 64,
+        }
+    )
+    opaque.update(
+        assignment_digest=opaque_assignment.assignment_digest,
+        assignment_binding_json=opaque_assignment.model_dump(mode="json"),
+        payload_ref=opaque_assignment.payload_ref,
+        payload_digest=opaque_assignment.payload_digest,
+    )
+    with pytest.raises(PublicPayloadViolation, match="bounded opaque locator"):
+        RuntimeJournalRepository(RecordingConnection(revision=0), runtime_scope).commands(
+            run_id="run-1",
+            expected_revision=0,
+            snapshot_values={"state": "COMPILING"},
+            events=(),
+            work_items=(opaque,),
+        )
 
 
 @pytest.mark.parametrize(

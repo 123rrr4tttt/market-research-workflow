@@ -7,7 +7,6 @@ from pathlib import Path
 
 _EXACT_KEYS = (
     "derived-marked|main/backend/scripts/check_graph_editing_audit_durability.py|build_gate_snapshot returns an unmarked derived value",
-    "derived-marked|main/backend/scripts/check_graph_rollout_readback_gate.py|build_gate_snapshot returns an unmarked derived value",
     "derived-marked|main/backend/scripts/check_graph_typed_writing_consumer_status_boundary.py|build_check returns an unmarked derived value",
     "derived-marked|main/backend/scripts/check_graph_visual_data_smoke_gate.py|build_gate_snapshot returns an unmarked derived value",
     "derived-marked|main/backend/scripts/check_policy_state_document_query_boundary.py|build_check returns an unmarked derived value",
@@ -67,7 +66,7 @@ def _metadata_for(key: str) -> str:
 
 
 def test_c13_cli_graph_workflow_metadata_preserves_abi() -> None:
-    assert len(_EXACT_KEYS) == len(set(_EXACT_KEYS)) == 33
+    assert len(_EXACT_KEYS) == len(set(_EXACT_KEYS)) == 32
 
     for key in _EXACT_KEYS:
         metadata = _metadata_for(key)

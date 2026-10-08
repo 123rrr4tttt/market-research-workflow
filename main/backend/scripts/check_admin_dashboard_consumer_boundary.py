@@ -18,7 +18,8 @@ except ImportError:  # direct script execution
 CONTRACT_VERSION = "consumer.admin_dashboard_boundary.wave13.v1"
 TOPIC_ID = "2026-03-14-consumer-side-modularization"
 BOUNDARY_RULE = (
-    "Selected admin/dashboard Python consumer reads must route through document_views; "
+    "Selected admin/dashboard API reads must route through document_views or document_admin, and selected "
+    "document_admin graph reads must route through document_views; "
     "Document.extracted_data SQL JSON predicates are checked by the Wave15 document_queries facade gate."
 )
 
@@ -34,11 +35,17 @@ CHECKED_FUNCTIONS = {
         "get_market_graph",
         "get_policy_graph",
     ),
+    "main/backend/app/services/document_admin.py": (
+        "get_admin_content_graph",
+        "get_admin_market_graph",
+        "get_admin_policy_graph",
+    ),
 }
 
 REQUIRED_BOUNDARY_IMPORTS = {
     "main/backend/app/api/dashboard.py": ("document_views",),
-    "main/backend/app/api/admin.py": ("document_views",),
+    "main/backend/app/api/admin.py": ("document_views", "document_admin"),
+    "main/backend/app/services/document_admin.py": ("document_views",),
 }
 
 REQUIRED_BOUNDARY_CALLS = {
@@ -46,9 +53,12 @@ REQUIRED_BOUNDARY_CALLS = {
     "get_sentiment_sources": ("get_social_sentiment_orientation", "get_social_platform_label"),
     "_augment_market_graph_with_topic_structured": ("get_extracted_data",),
     "list_social_data": ("build_social_data_item",),
-    "get_content_graph": ("get_social_platform_label", "get_social_sentiment"),
-    "get_market_graph": ("get_market_data",),
-    "get_policy_graph": ("get_policy_data",),
+    "get_content_graph": ("get_admin_content_graph",),
+    "get_market_graph": ("get_admin_market_graph",),
+    "get_policy_graph": ("get_admin_policy_graph",),
+    "get_admin_content_graph": ("get_social_platform_label", "get_social_sentiment"),
+    "get_admin_market_graph": ("get_market_data",),
+    "get_admin_policy_graph": ("get_policy_data",),
 }
 
 

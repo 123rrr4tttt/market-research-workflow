@@ -1,12 +1,12 @@
 # MRW 平台结构精简与删减阶段
 
-> 2026-10-08 · **当前：从`a17930da`实施的有限删除波次及本批修复使app Python净减67533行（22.57%）；集中验证和具名待重构组合见§4。九项覆盖及本批CI结果不等于全平台架构重构完成。** 第二批基线`0dc9b3c34d3084d219df5ae41038d0b73943aa3d`，初始计量基线`c3adced5946a52b66be4494aba3dbb707ee879b5`；上一轮迁移保持结果列为§8历史，不再等同整体精简完成。平台必要能力和事实归属沿[MRW精简框架](MRW精简框架.md)，流程沿[19号规则](../../development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/19_direct-testing-batch-freeze-amendment.v1.md)；[06号入口](../../development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/06_production-deployment-stage-progress.v1.md)的旧部署任务保持停止。
+> 2026-10-09 · **文档规划的有限精简面已完成本地验收。** 本波从`cc1ea6c1`使app Python由641文件231238行降至632文件227991行，净减3247行；从`a17930da`的299234行累计净减71243行（23.81%）。九面处置、必要保留核、完整成本与分步验证见§5，整体退出判断见§7；不将分类、注册或单项门禁当作完成证明。§2.1/§2.2保留历史字节。平台必要能力和事实归属沿[MRW精简框架](MRW精简框架.md)，流程沿[19号规则](../../development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/19_direct-testing-batch-freeze-amendment.v1.md)；未push/deploy，[06号入口](../../development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/06_production-deployment-stage-progress.v1.md)的旧Stage4–6部署任务仍STOPPED。
 
 ## 1. 退役终点与边界
 
-本轮按“typed语义/特殊kernel → native rule派生 → production声明查找、handler安装与reader → 同批切断旧路径并整族删除”组织。终点是必要能力由最小现有核承担，重复声明、装配、注册、旧adapter/执行owner及专属tests/checkers整批消失，并达到发包前净减承诺。保留用户能力、对象身份、权限、真实effect和失败观察，不默认保留目录、API、测试或checker。每包明确是停止冗余功能，还是保留能力的实现替换；前者记录撤回范围，后者证明原必要观察保持。
+本轮按“typed语义/特殊kernel → native rule派生 → production声明查找、handler安装与reader → 同批切断旧路径并整族删除”组织。终点是必要能力由最小现有核承担，重复声明、装配、注册、旧adapter/执行owner及专属tests/checkers整批消失，并按事前预算与最终明确校准的实际成本验收。未达原预算的偏差保留，不以其它包收益冲销。保留用户能力、对象身份、权限、真实effect和失败观察，不默认保留目录、API、测试或checker。每包明确是停止冗余功能，还是保留能力的实现替换；前者记录撤回范围，后者证明原必要观察保持。
 
-services旧整体组织承载与successor重复承载都在退役范围，API/胶水和其它app源码不漏账。必要领域类型、特殊kernel、provider/DB效果逐项证明后接已有原生贡献位置，不把services全量搬家或包装进新runtime/domain/DSL。唯一耐久Runtime沿既选内核，领域writer、DB/provider和host权威不转给API或投影。真实必要核可以暂在原文件承载，但必须具名、压缩且没有整文件/整目录保留豁免。
+services旧整体组织承载与successor重复承载都在退役范围，API/胶水和其它app源码不漏账。必要领域类型、特殊kernel、provider/DB效果逐项证明后接已有原生贡献位置，不把services全量搬家或包装进新runtime/domain/DSL。唯一耐久Runtime沿既选内核，领域writer、DB/provider和host权威不转给API或投影。真实必要核在原文件承载，每项均具名说明职责与消费者，没有整文件/整目录保留豁免。
 
 ## 2. 基线、预算与完成判断
 
@@ -113,6 +113,8 @@ workflow退出旧静态compile/observe/restore资格cell、重复lowering、旧c
 零新增包只能清理既有义务并复用仍存见证。如果当前贡献源/注册闭包要求新代码，先返回该包重新定界和预算，不能在A=0名义下偷偷新增。历史快照保持原字节；仅取消已退功能的当前生成/验证入口，仍需读取的历史失败标识继续通过原只读路径解释。
 
 ## 4. 有限删除波次与待重构组合
+
+本节保留此前各批输入时点、预算、调查与集中结果；其中“当前”“待齐”和“下一切口”均归当时记录。2026-10-09最终状态以§5及§7为准，不重新打开历史工作包。
 
 用户要求继续完成整体精简。本轮从`a17930da7a542f4d2cc5a6eb572baaa5004032b0`实施九项能力覆盖下的有限删除波次；它不是全部剩余架构工作的穷尽清单。§2.1、§2.2及§3保留已提交历史，不重做、不重计收益。下表包含十路径账与app以外的前端、kit、工具和ops，后文分别记录已实施闭包、当前集中验证与仍待重构的真实语义组合。
 
@@ -373,7 +375,128 @@ WebUI vendor按README具名上游`LimLLL/codex-webui@44ad73a99c4d4385fa60d0c519c
 
 ## 5. 持续推进与分层退出
 
-当前主线分别收口§4有限删除波次的验证和具名业务组合的重构；任一局部包完成后继续下一可执行包，不以批次回传作为停止点。§2.1、§2.2保持已提交历史。每一R项先清掉已确认重复职责，再把剩余符号归到唯一执行/事实owner及具名特殊核；“不需改动”必须有原能力、替代不可行理由与原消费者证据，不能只列import或文件名。
+本轮按用户“把文档规划的精简面全部完成”从干净`main@cc1ea6c1`继续，app基线641文件231238行。§4八切口及P/H/R/K四接缝已完成，不重复发包或重记收益；§2.1、§2.2保持已提交历史。本轮已按§7完成全路径剩余闭包、services重复组织退役及必要能力同源接线，三个条件分别取得下文实际验收；具名必要核继续由原owner承担。每一R项清除具体重复职责，再把剩余符号归到唯一执行/事实owner及具名特殊核；“不需改动”须说明原能力、不可替代理由和实际consumer，不能以目录/import/分类完成替代实现完成。
+
+同一运行绑定可以有持久化索引列与只读观察，但语义源仍是原typed绑定；写入投影与读取校验复用同一确定规则，事务、实时权限和恢复判断由原owner保留。效果分类描述调用可能改变什么，审批声明描述此次能力要求何种人类授权，二者不能因一个字符串标签被合并。本轮在这些既有对象与关系上收敛，不新建IR、Runtime、注册器、审批或证据平台。
+
+| 本轮剩余实现包 | 权威源、原消费者与精确处理面 | 依赖、验证与事前预算 |
+| --- | --- | --- |
+| J：assignment索引列同源 | `RuntimeAssignment`为原绑定权威；`runtime_lifecycle.py::_assignment_values`88行与`runtime_journal.py::validate_runtime_assignment_row`112行重复投影assignment及handler字段。只在原journal定义纯投影供两者共用，writer继续拼原`AssignmentEnvelope`调度字段，reader继续canonical/opaque/recovery及column drift校验；不改SQL/CAS/事务owner | 已完成，最终app A145/D180/N35；事前D200/A_max165/N_min35中删除量未达200，净减35达到。helper及跨文件接入全计；helper只收`RuntimeAssignment`，不反向依赖envelope。Recovery的profile只在原RecoveryBinding语义内派生，INTERPRET/VERIFY_ADMIT独立recovery校验保留。原p0b PostgreSQL assignment drift、p0c lifecycle及node adapter验证，PG由集成独占；负向直接篡改真实row |
+| H：11项effect class与approval分离 | 原`SkillSpec`及`approval_policy.default`维持声明权威：compile与五模板写、retrieval current/preview共8项标write_shared；llm_call与两formalize共3项标write_external并显式保留原optional行为。未显式policy按原class规则解释，外部/privileged原审批继续；未知default注册拒绝，权限/guard/五reader opt-in保持 | 原显式optional生产声明均为shared，客户端只传元数据，原interpreter为唯一审批解释者。事前D7/A_max30/N_min=-23保留，源码去掉重复调用期policy解析后实际A41/D7、净增34；注册唯一规范化，调用只消费结果。作者24 passed及10 subtests，原workflow API混合调用/审批修后实际结果见下文；不把标签修复报成净减 |
+| G1/C1：静态graph资格壳与clue桥退役 | G1删除四个graph readiness/rollout/projection模块及四行export，D1128/A0；C1删除`clue_chains/graph_integration.py`及16行import/export，D702/A0。保留实际graph writer/reader/alias/backfill、curated revision约束及clue/source/external search原核 | root已发data owner，源码已稳定，app合计D1830/A0；五个专属checker D1233另账，专属测试退役不计app收益。W04 packet明确`FROZEN_WORKSTREAM_PARTITION_NOT_AUTHORITY`，保留51历史keys并对新增9个retired函数断言源文件确实不存在，现役classifications仍精确覆盖其余项；此历史分区不是现役registry豁免，现役同步由集成完成 |
+| K：原生目录到实际安装同源 | 六族13项原定义由唯一effective native tuple供project投影、production facts与实际handler共同消费；原Source和具体I/O在typed闭包中保留，原candidate native.runtime直接复用，wait/dispatch显式注入同contract/codecs。服务仅bind时导入，scope/current grant由原运行边界取得。阶段八路径及最终九路径hash已只读核对，具体保持与成本见下文 | K有限包已收口：阶段同hash public类型0错误、focused186 passed/16 PG-env skipped/33 subtests、真实PG45 passed、七gate234 passed；独立负向1 passed。最后dependency修正后的当前PG45及公共检查见最终表。初估D225/A185/N40、后续A360/净增150及A500/净增280均未达；旧500/227漏leaf40/11已纠正。root先接受八路径A540/D238/净新增302，最终必要依赖修正后接受九路径A544/D240/净新增304；两次事实分别保留，不借其它包冲销。activation16行、wait恢复与child settlement为具名Program核保留，原可删估算失败留账；不将K局部验收扩称全波完成 |
+| G2：Aggregator副本及专属同步链退役 | `dashboard/global/stats`改从`public.projects`当前enabled集合直读原三材料表，只返回原三counts。单连接只读REPEATABLE READ覆盖项目集与计数；复用原schema允许规则及identifier检查、引用权威绑定并quote标识，排除public/aggregator。删除副本同步service、API/payload、Celery、独用cursor model/cleanup及前端专属操作，保留retention与历史迁移 | 最终source stable，事前app D244/A_max80/N_min164，初次D250/A75/N175；最终含helper80行与共享context修复A10/D6为A94/D256/N162，新增上限超14且最低净减少2，由root按必要Failure边界修复校准。前端实际A2/D17（含tests A2/D2）另账。删除源行及disabled项目不再残留陈旧计数是本次明确修正。无项目三0，非法绑定/缺表失败不吞0；原路由权限保持，当前无独立admin角色gate，不增审批。实际PG snapshot及canonical计数四项已通过，原API权限保持及证明范围见下文；禁止为退代码DROP存量表 |
+| U：URL pool旧直接batch入口 | 删除无现役生产caller的旧batch入口及专属组织；保留prepare targets、adapter、`execute_single_url`、`invoke_url_single_url`、frontdoor route summary及原writer | source stable，事前D802/A0、作者阶段账D864/A0；最终相对cc1ea6c1互斥app账D885/A0，采用统一Git口径；原同步/耐久consumer与删除闭包验证由作者交集成，测试增删独立计量，不能删除真实单URL核抵行数 |
+| S：Source工具旧capability fallback | `ingest.source_library.run`是唯一剩余capability fallback，迁到既有`ProjectToolAuthorSource`后删除`_spec_from_capability/_handler_for_capability`重复桥 | 事前D75/A_max50/N_min25未达；修订后实际app A54/D49、净增5，专属新增测试A24/D0另账。AuthorSource、特定items schema及原handler是必要接线；已删多余governed声明与frontdoor metadata，保持原exclusive与ask。只读复核marker已指向实际新测试，原identity/exception/permission测试恢复为独立完整且唯一的定义；handler工厂返回确定Callable。源码修正已核，最终原三文件51 passed且collection同为51，日志与范围见下文；真实source runner/provider/writer保持 |
+| E：Source终态重复投影 | `api/ingest.py::_external_terminal_payload`原本重建authority/compat/terminal；现直接消费原权威`SourceLibraryCompatResponse` projector结果，API只保原flatten、可选字段与JSON输出投影 | source stable且只读复审接受。事前D21/A0、实际app A21/D48/N27；原adapter必产terminal/authority/compat，API重复重建及缺terminal fallback确已删除。仅受影响宽Any边界收敛，不扩大为全库类型治理，原执行结果由集成统一读回 |
+| G：admin graph调用边界 | 去掉API到service无语义增量的reader注入，由service直接消费原document view；content日期SQL复用相同的typed predicate，publish_date空值时才取date(created_at)。保留SQL通配匹配与Python字面过滤的原组合、reader fallback、limit前后位置和policy日期规则 | 源码复审通过，原API A0/D20、service A12/D28，互斥合计A12/D48/N36；作者初报D60/N48为加总错误，采用root独立Git账，必要import及typed调用成本校准为12。G2/G原focused组合已通过，精确范围见下文，不将源码审查计为执行。`list_admin_documents`保留具名selection kernel，原typed query、title/summary/uri搜索、空白与排序语义不同于通用DocumentQuery，不挂虚假后续迁移，也不新增DSL |
+
+三个有界调查席已回填有限清单并完成发放。Runtime剩余面收敛为下列L/M/N三项并已实施；保留核按具体职责成立，不豁免外围整族。
+
+| Runtime收口面 | 最终边界与实际成本 |
+| --- | --- |
+| L：ReplayEvent row投影 | 原`ReplayEvent`拥有事件值；run/agent-session两projector与lifecycle child-failure三处row构造已复用原事件模块纯转换，源码复审接受。事前约D88/A_max75/N_min13，阶段app A33/D53/N20，最终精确字段port后A65/D53、净增12，未达原N_min13；必要类型成本全计。测试最终A18/D0（含metadata负向与unit marker），旧A9/A17为中间输入；lifecycle以J完成后增量A4/D8分账。caller的SQL过滤、source/incarnation校验、seq/offset、projection digest及CAS继续保留；独立row负向覆盖authority和payload pair，曾重复定义的测试已修，原focused结果见下文 |
+| M：CapabilityCellSpec静态壳 | 已退specification四源文件D568及macro未用optional字段D5，app D573/A0；两generator工具D214/A0，初始四专属tests D678分组保历史；最终三专属tests D619，mixed历史reader A99/D437，合计tests A99/D1056；其中w08b的D59只计G1/C1一次。B23原spec/build/compiler相关65份snapshot均仍可读且原hash匹配，C7 sidecar四manifest外部hash匹配，历史证据未改。reader改读同一候选的spec与manifest snapshot及原bytes/hash，不重编译、不把旧资格当现役执行；五个已演进current manifest不强绑旧hash。无caller的current-byte helper随旧壳退役，原direct-successor身份匹配consumer与历史只读assert保留。源码复审接受，原focused结果见下文 |
+| N：source旧NonStartProof | 已退`source_contracts.py`孤旧Proof/protocol，实际app A0/D52/N52；C2 AST名单删除已不存在的原`NonStartProof`一行属tests D1/A0，不混入app。现役generated/kit绑定未见旧类型消费者；实际batch/reconcile使用`runtime/recovery.py`的另一权威Proof，provider readback/cancel与UNKNOWN保留，不得将缺receipt或lease过期推成NOT_STARTED。源码复审接受，原focused结果见下文 |
+
+具名保留核按实际职责限定：`transitions/reducer/replay`分别承担状态表、当前step/run收缩和journal投影；scope resolver从原registry取得身份，不同effect边界的重读保护current/stale含义；`runtime/recovery.py`的readback和successor授权承担实际reconcile。`research/codec.py`与capability checksum的UTF16排序、datetime、拒绝有损值及bytes编码不同，合并会改变持久digest，当前不引入版本化codec迁移。workflow assembly及base cell binding有真实原消费者，fixture继续作为独立框架扩展见证。这些核的外围已定重复装配由K与L完成收敛；保留理由不扩大为整个目录的豁免。
+
+Host/source剩余保留面已具名：`ProjectRetrievalService`是API/tool共同领域权威；`CandidateSearchRequest.from_legacy`等仍供discovery/smart实际兼容投影消费；前端manifest已唯一派生routes/contracts/registry，`legacyHashAdapter`保留原Playwright验证的入口投影；`request_identity`与`settings_manager`承担真实权限及配置。已退四个search-lab资格脚本/tests及现有owned ops/local entry按原账处理，不重复计量。同步HTTP CRUD无需为目录形式强建native Runtime。
+
+J只读复审曾发现抽取后丢失effect recovery与assignment interpreter profile相等约束，集成已在原校验源恢复。原PG node `test_p0b_postgres_integration.py::test_typed_public_control_rejects_missing_tampered_and_embedded_payloads`新增独立负向：重签合法recovery JSON/ref/digest而保持不同interpreter，断言原repository拒绝。源码已核，集成回传该node实际1 passed/exit0，证据为原inline工具输出，无独立日志文件；此前连接URL未percent-encode的环境attempt为1 error且shell末尾unset掩盖退出码，不计通过。此返工及验证计入本批，不以公共helper输出自证。
+
+H/U/E作者回传的局部执行均为原inline工具输出、pytest exit0，无独立日志：H的`test_skill_runtime_unittest.py`与`test_rapid_native_macro.py`合计24 passed、10 subtests；U的collect adapter、ingest metrics、frontdoor context、latest-service ingest boundaries和frontdoor fetch router五文件合计20 passed；E的source-library同步终态node与frontend ingest flow smoke文件合计3 passed。H的workflow API mixed修后结果见下文；S修正前旧51 passed不作为当前源证明，修正后重新执行的51项见下文。四包无tools改动；tests独立成本为H A100/D0（含mixed witness，原首次分账）、U A88/D374、S A24/D0、E A12/D0，不抵app收益。各selector使用独立tmp/cache/Hypothesis与不可达DB/Redis/ES，这些结果不构成真实provider或PG证明。
+
+L/M/N原focused组合已由Runtime作者实际执行：最终82 passed、6 subtests、3 warnings，9.02秒、原pytest exit0。首次同样收集到82 passed，但外层zsh写只读`status`变量令命令exit1；修为`pytest_rc`后重跑，只将第二轮记为最终PASS，不累加两轮通过数。L两处测试重复定义及M历史reader适配返工计入本批；65份snapshot与四份sidecar哈希核对仅为只读证据核验，不计入测试数。此局部组合不替代Runtime真实PG、统一完整suite/coverage/公共类型与七gate；G2/G及S最终focused结果见下文。
+
+S最终修订由作者实际重跑原三文件：`unit/test_project_tool_contribution.py`25项、`unit/test_agent_runtime_tool_pool_unittest.py`3项、`unit/test_agent_core_unittest.py`23项，合计51 passed、3 warnings、11.73秒，原pytest_rc=0；collection为51项、collect_rc=0。日志`/tmp/mrw-s-final-pure-20261009/{pytest,collect}.log`已只读核对，包含独立`test_source_library_run_is_project_tool_author_source`与完整`test_project_tool_operation_rule_preserves_identity_exception_and_permission`，无同名覆盖造成少收。此结果对应恢复exclusive/ask、撤去多余governed metadata后的当前源码，与修正前旧51项分开，不相加。
+
+G2/G原focused组合由root回传39 passed、6 subtests、4 warnings，13.41秒、pytest exit0，源码稳定。四文件范围为`unit/test_projects_global_stats_unittest.py`、`integration/test_runtime_ops_error_contract_unittest.py`、`unit/test_consumer_sql_predicate_facade_unittest.py`及原G13 `integration/test_admin_graph_standardization_unittest.py`（均在`main/backend/tests/`）。新global-stats测试用fake connection检查单连接、事务语句顺序、enabled查询、跨schema聚合、非法schema和缺表失败；API测试检查退役sync为404及原counts envelope；日期谓词测试检查同列NULL回退及两端range，G13复用原admin graph消费者。DB/Redis/ES均隔离且未连接，故不证明真实PG并发snapshot、实际跨项目权限或disabled/删除数据行为。该时点G2 helper71行包含于app A75/D250/N175；最终helper80行与context修复纳下文互斥账，旧数不作终值。G仍A12/D48/N36，不重复计量。
+
+现役`first_specimen_*`已核真实production组合调用：activation重开Program/Plan/QualifiedPlan，物化项目value并发布opaque ref/work；terminal/reconciliation参与原worker。其历史名称不是退役依据，claim/current authority/UNKNOWN/原子终态核保持。JournalCommandSet跨run/step/attempt/work包含revision、CAS与allocator事务列，不能只从RunSnapshot重建；它不是可直接删除的第二运行owner。
+
+H原reader测试body已恢复完整，HEAD原38个函数成为当前39个且原reader nodeid唯一。作者最终执行workflow API整文件39 passed、33 subtests、4 warnings、23.02秒；审批窗口8个原精确node passed、4 warnings、12.90秒，pytest及collection均exit0。`/tmp/mrw-h-mixed-final-20261009/`的原两份pytest与collection日志已只读核对；前后K输入hash相同（production `e175cc500c8d6b5f3b81bfacd925e7acf89a6fd2dbbed025c5555dd69c52d3bc`、workflow assembly `f4089a51f5276fb7c3dbee83902ee4efada2ca53b63b607c59020bfd7e200ba7`），结果只归该读窗，不冒充其后K变化的整组结果。
+
+G2新增`main/backend/tests/integration/test_projects_global_stats_postgres.py`已在专属PG实际4 passed、2.80秒、pytest exit0；`/tmp/mrw-gstats-realpg-20261009-final.log`已只读核对。见证覆盖当前canonical行数及删除后下降、disabled项目排除、项目列表snapshot建立后另一连接提交新增而本次计数不变且下次可见、非法存储schema及缺表失败；没有把该四项扩称HTTP权限或外部provider证明。root核对owned DB及active连接前后均0并释放50923。此前两attempt各1 failed/3 passed分别为fixture及regex问题，保留原失败归属且不累加通过数。
+
+G2前端作者回传原lint/build/Ops i18n均exit0；原Ops Playwright首轮11 passed/1 failed，失败为专属action loop仍要求已退Sync Aggregator。最小test-only修正A2/D2移除该action，保留Re-extract/Topic Extract；该时点collection为11项，原11项通过沿未变source/spec主体保留为kept；最后已在当前输入实际重跑11 passed，见下文最终日志，不以kept冒充重跑。已退node单独匹配为no tests found，仅说明退役，不记一次通过；4194无残留。该lane始终为mock交互证明。
+
+K阶段源码复审固定于以下八个SHA256前缀（最终依赖修正另列于下文）：catalog `824e05a96454`、production `97b03f9e5e8a`、retrieval execution `fa2213f78015`、workflow assembly `f4089a51f527`、dispatch handler `afc311a5a45c`、wait handler `68bda11ebaf1`、retrieval native `67fe4f7199f1`、common `c550238b03ab`。该阶段复核期间及test-only修正后均匹配。唯一`InstalledOperationView`引用原source/contract/profiles/codecs，原NativeContribution持有装配；已退Facts副本、Entry转发、identity compiler、旧kind装配分派及纯`_contract_install`。`InstalledOperationContext`仅为原engine/scope/entry/dispatch/broker参数的tuple类型别名，没有新增运行状态或owner。
+
+六族的实际类型关系为workflow context到context、candidate invocation到attempt outcome、四个work leaf的CandidateWork到CandidateWork、两个control leaf的RetrievalControl到RetrievalControl、URL request到outcome、dispatch payload到ACK、business wait的同ACK到result。leaf的原定义改为generic并以Literal/overload固定两种I/O，原唯一invoke表返回两个typed映射，删去两处旧cast；没有第二kernel词表。原production具名核保留ordered review的prior identity和批准前缀、URL definite failure/UNKNOWN、同步candidate搜索、workflow settled Failure、dispatch ACK关联及wait result关联。绑定校验比较完整contract、binding contract/profile/authority和实际codec对象身份及payload type；worker仍重读ServerProjectScopeResolver及当前qualification，Runtime/journal/UoW拥有运行事实，领域writer不转移。
+
+| K阶段八路径生产账（相对仓库根；最终九路径见下文） | A | D | 净新增 | 必要变化 |
+| --- | ---: | ---: | ---: | --- |
+| `contributions/project_catalog.py` | 2 | 0 | 2 | 消费唯一tuple派生projection |
+| `main/backend/app/composition/production.py` | 246 | 200 | 46 | 原typed核具名接入，删除facts/handler两份闭集；原核保留不算删除收益 |
+| `main/backend/app/services/project_retrieval/execution.py` | 10 | 15 | -5 | 唯一invoke表固定两种typed映射，删旧codec cast；此前root局部加总漏此10/15，已校正 |
+| `main/backend/app/successor_runtime/assembly/workflow_assembly.py` | 0 | 1 | -1 | 原装配核保持，删除未用行 |
+| `main/backend/app/successor_runtime/capabilities/retrieval_material_native.py` | 40 | 11 | 29 | 原leaf定义的generic/Literal/overload固定具体I/O；旧500/227账漏计此路径 |
+| `main/backend/app/successor_runtime/substrate/postgres/batch_task_submission_handler.py` | 20 | 3 | 17 | codec/type只读观察及同实例注入，原scope/ACK检查保留 |
+| `main/backend/app/successor_runtime/substrate/postgres/first_specimen_reconciliation_handler.py` | 7 | 8 | -1 | wait原构造器消费传入contract/codecs，原result检查保留 |
+| `main/backend/app/successor_runtime/assembly/installed_operation.py`（新增） | 215 | 0 | 215 | 一View/native factory、只读异构接口、typed惰性装配、唯一membership、fullref lookup及无写权projection |
+| **K合计** | **540** | **238** | **302** | tracked325/238加新增215；tests、派生JSON及工具另账 |
+
+K原删除估算中的retrieval activation16行实际保留：它装配原Program的transform/merge/discriminator，wait recovery adapter与child settlement也承担具体恢复/父子观察职责。root已裁为具名必要核，不另造callback框架抵行数，不整体豁免production。原A360/净增150与后续A500/净增280未达，后一差额为40A及净22；root在该阶段接受上表精确540/238/302；最终dependency guard修复增加workflow profile路径，九路径544/240/304另经root确认，不把阶段数当终值。
+
+K集成回传同hash实际结果：公共类型0 errors/0 warnings；9文件focused186 passed、16 skipped（缺PG环境）、33 subtests、exit0；同hash独占真实PG45 passed、3 warnings、24.02秒、exit0，涵盖mixed16、dispatch4、candidate2、ordered/leaf child、URL abort及cancel，缺PG的pure skip不计通过。原错误DB/driver attempts保留失败归属，不并入PASS。贡献sync曾先后遇到缺object与跨operation重复object，均修共同projector，最终sync/check clean；dev test38 passed、现役七gate234 passed另记，不相加作唯一总数。原新profile负向曾同时存在codec对象不等而可能误证；最后在`test_runtime_handler_assembly_rejects_drift_without_effect`改用同source native，先断言Accepted，再分别仅改变profile、authority、等值新codec而Rejected，实际1 passed、0.63秒、exit0，源码已核。此test-only修正不改变八生产hash，PG45不重复执行；该时点整波fullsuite/coverage尚待；最终结果与新源码hash见下文。
+
+G2 gate修复曾错误引用不存在的`PROJECT_SCOPE_INVALID`，造成公共类型2 errors及invalid四项失败；旧4项PG/2.80秒只保原输入归属。改为现有`schema_binding_conflict` public Failure lift后，root回传相关13 pure及4 PG重新通过，公共类型0、七gate234通过；不以旧结果直接标kept，也不累加两轮PG数。
+
+### 最终集中验收与完整成本（2026-10-09）
+
+最终结果索引为`/tmp/mrw-final-integration-result.json`，本次回填读到的SHA256 `acaef416e77f9f569f2cf723422e64465d27f9ee5ef03036c37d4d7434b9876f`；23项当前检查、3段coverage和4份保留attempt共30个日志的bytes/hash已逐项核对一致。物理互斥账为`/tmp/mrw-final-machine-account.json`与`/tmp/mrw-final-package-account.json`，覆盖109个变化路径及4个新增未跟踪文件；文档回填前全变化digest为`e95db3e49908bbc1e5eb2e1e13737d1abe735fdf5966ea7824a7851981286f05`，它包含文档，不能冒充回填后digest。文档变化只重算该账及diff检查，不触发无变化源码重验。
+
+| 原验证范围 | 最终证据与实际状态 |
+| --- | --- |
+| backend全集与精确补集 | 原`/tmp/mrw-backend-all-final.log`实际3732 passed、14 skipped、5 failed、280 subtests、756.31秒，exit1保留。API库存两项、W03一项及两dependency guard失败已修；原四文件在`/tmp/mrw-backend-five-failures-focused.log`实际25 passed。原全集命令明确ignore仅支持Unix socket的capacity文件，当前collection3757=原实际3751（3732+14+5）+独立socket实跑capacity5+随后新增metadata负向1。terminal-output负向已在原3751中，不另加一次；metadata已进原unit runner并实际通过。受影响范围另按以下fresh结果替换，未变已执行部分保留，不声称重跑一次3757全绿 |
+| CI选择与全集覆盖 | `/tmp/mrw-nodeid-audit-current.log`及`/tmp/mrw_nodeid_audit.json`核unit1760、integration549、core283、e2e16，共2608次调用、去重2521、重复87；backend差集1236，无CI越界。backend3757和root1342无交集，dev pilots38全部属于backend且与CI交集0。原runner与直接backend全量使用同cwd/解释器/配置/plugins，现有conftest无按marker改变行为的hook/fixture；marker和core目录只选择node。因此原全集加精确补跑覆盖差集，不重复运行87项或把collection当执行 |
+| root全集 | `/tmp/mrw-root-tests-final.log`实际1340 passed、2 failed、exit1；失败为两个子进程选到缺Pyright的解释器。`MRW_TYPECHECK_PYTHON=.venv/bin/python`后原两node在`/tmp/mrw-root-typecheck-probes-final.log`实际2 passed、exit0；原1340未变证据保留，非一次1342全新重跑 |
+| 当前K与L | K最终真实PG45 passed、3 warnings、36.72秒，`/tmp/mrw-k-pg45-final.log`；L精确row类型pure34 passed及真实SQL RowMapping/projector/rollback PG5 passed，分别见`/tmp/mrw-replay-typed-row-focused.log`、`/tmp/mrw-replay-projection-pg-final.log`，均exit0。边界修复中间79 passed/25 subtests只归当时输入；最终L覆盖替换其受影响部分 |
+| 本地PG skip补齐 | 原session1、document-unification6、information-topology3共10个本地PG skip，分别在`/tmp/mrw-agent-session-exclusive-pg.log`、`/tmp/mrw-document-unification-exclusive-pg.log`、`/tmp/mrw-information-topology-exclusive-pg.log`实际通过。required PG无未运行缺口；G2当前Failure修复后的13 pure/4 PG及J recovery-profile负向沿各自原结果保留 |
+| 当前源码coverage | 原入口TCP兼容片`/tmp/mrw-coverage-current-tcp.log`2299 passed、4 skipped、1449 deselected、226 subtests，exit0；Unix socket独占capacity整文件5 passed在`/tmp/mrw-coverage-current-capacity-append.log`；新metadata负向1 passed在`/tmp/mrw-new-replay-node-ci-unit.log`原unit runner与`/tmp/mrw-coverage-new-replay-node-append.log`。同当前源码coverage data合计2305 passed/4 skipped；原阈值core409/409=100%、other62906/93716=67.12%，pytest0/threshold0。旧行号coverage未运输为当前证据 |
+| 公共类型、负向与原贡献门禁 | `/tmp/mrw-public-typecheck-final.log`为0 errors/0 warnings/exit0；`/tmp/mrw-dev-sync-final.log`及`/tmp/mrw-dev-check-final.log`均clean、issues=[]、changed_paths=[]；`/tmp/mrw-dev-pilots-final.log`38 passed，`/tmp/mrw-gates-final.log`现役七gate234 passed。两个静态negative沿`/tmp/mrw-pyright-negative-selectors.log`预期exit1、17 diagnostics（含既有private-usage债）验证，不能写为全库typing clean |
+| frontend | 最终前后source hash一致（`294706…`）；`/tmp/mrw-frontend-lint-final.log`、`/tmp/mrw-frontend-ops-i18n-final.log`、`/tmp/mrw-frontend-build-final.log`均exit0，build含`tsc -b`；`/tmp/mrw-frontend-playwright-final.log`实际11 passed、19.4秒、exit0。这是fully mocked Ops交互证明，不是live backend/provider证明 |
+
+最终四项skip身份在`/tmp/mrw-coverage-skip-identities.log`：`test_live_host_material_chain.py:41`需`MRW_LIVE_HOST_MATERIAL_CHAIN=1`、`test_live_crawler_material_chain.py:143`需`MRW_LIVE_CRAWLER_CHAIN=1`，两条外部live链明确未执行；`test_collect_runtime_composition_unittest.py:108`和`test_llm_provider_boundary_unittest.py:345`由上述Pyright负向承担，不计运行通过。旧coverage2176 passed/107 skipped/24 failed、随后2301 passed/4 skipped/3 TCP errors及其当时socket补齐PASS均保历史输入；frontend首轮1 failed、G2前两PG各1 failed/3 passed、K错误DB/driver、J错误URL及L只读`status`造成外层exit1均不改写为PASS，不累加attempt计数。
+
+集中修复的语义边界已核：K context直接引用原`capabilities.batch_business.BrokerBusinessReadback`，service也引用同一个port；assembly保留合法Engine依赖，Runtime不导入SQLAlchemy或services。workflow以原枚举相同的`NETWORK_IO`/`CPU_LIGHT`字符串构造profile，wire payload和digest输入不变。L的`_PublicJournalRow`只声明实际11字段的四组Literal overload，返回int、原Mapping[str,object]、str或str|None；无新增Any、整row cast或SQLAlchemy导入。原str/int/dict转换、authority/payload pair与digest验证保持，三个SQL消费者继续直接传RowMapping，过滤、incarnation、seq与CAS仍归原owner。最终common hash为`5af464715398`（218行）、workflow capability为`abf98b43c066`、replay为`e8ecd9a99db5`；K其余七路径保持上文hash。
+
+库存修复同步实际API操作数323→309、router320→306、request-body155→148及原权威库存；W03逐项metadata仍核其实际31项，修正陈旧39计数，没有减少实际精确集合。E的终态正向`test_ingest_source_library_run_explicit_project_key_success`及`test_ingest_source_library_run_rejects_missing_terminal_output`、admin checker共8项在`/tmp/mrw-checker-project-key-focused.log`通过；原Core及frontend smoke fixture补齐adapter本来提供的authority/compat，未把错误状态改成成功。四共享checker只更新被退役源的真实锚点；`check_ingest_platformization_repo_local_closure.py`现锚定pure SLO合同，只证明静态SLO，不能宣称现役runtime list-rollup telemetry。
+
+| 最终app Python语义互斥账 | A | D | 净减D−A |
+| --- | ---: | ---: | ---: |
+| J assignment投影（含lifecycle25/85） | 145 | 180 | 35 |
+| H effect/approval | 41 | 7 | -34 |
+| G1/C1静态graph壳与clue桥 | 0 | 1830 | 1830 |
+| K原生安装app部分 | 542 | 240 | -302 |
+| G2统计全链及共享context | 94 | 256 | 162 |
+| U旧URL batch | 0 | 885 | 885 |
+| S Source工具桥 | 54 | 49 | -5 |
+| E终态投影 | 21 | 48 | 27 |
+| G admin reader | 12 | 48 | 36 |
+| L replay（含lifecycle4/8） | 65 | 53 | -12 |
+| M静态spec壳 | 0 | 573 | 573 |
+| N旧Proof | 0 | 52 | 52 |
+| **app Python合计** | **974** | **4221** | **3247** |
+
+K另含`contributions/project_catalog.py`A2/D0，故九生产路径总账A544/D240、净增304；第九条`workflow_native_contribution.py`A1/D2与common218均已计入，未搬家抵收益。J/L共同lifecycle物理29/93只计一次，五路径合计A210/D233、净减23。G2包含helper80和context10/6；原75/250/N175不是最终成本。H tests最终A99、E tests A40/D2、L tests A18，原局部A100/A12/A9/A17保阶段归属。M tests最终A99/D1056，w08b59归G1/C1，历史快照与sidecar字节不变。
+
+物理类别另账：app内route JSON D16；tools/manifests13路径A37/D1472；tests45路径A1130/D2626；frontend5路径A2/D17（其中spec A2/D2）；文档回填前4路径A111/D43，含原权威API库存A19/D35。回填前109路径总计A2254/D8395、净减6141，含文档与测试，不能当生产Python减量；回填后由集成重算文档类别与总账。四共享checker A33/D24、pyproject A2/D1、context A10/D6和两个app新增文件均无漏计。app由641文件231238行变为632文件227991行；从`a17930da`737文件299234行累计净减71243行、23.81%，与本波3247分别计。vendor本波无变更，沿§4原独立账保留。
+
+K、H、S、L未达初始净减/新增预算及G2最终N162低于原N_min164均保留；root按必要类型、权限、Failure与事实owner边界接受最终精确成本，不以总净减冲销偏差。首次共同验收总耗时、各owner完整调用/token和共同设计等待成本未完整统计，缺失不记零，不报告提速幅度。
+
+| 原能力面 | 最终处置、保留理由与验证 |
+| --- | --- |
+| R1 来源与采集 | **完成。** U/S/N退旧batch、工具桥与孤Proof；单URL/provider/source runner承担实际effect，material writer保唯一材料事实。K URL/abort、source终态正负向与本波原消费者已证；两条external live链未执行，不纳本波新增义务 |
+| R2 检索与资源 | **完成。** K candidate/leaf同源安装且当前PG45覆盖dispatch、child commit及读回。同步candidate、预算/topology、ordered review及activation transform/merge/discriminator为具名必要核；索引为派生表示，不新增写owner |
+| R3 材料导入与读写 | **完成。** E退重复终态投影，CompatResponse与材料writer仍为权威；G2读canonical表，disabled/删除行及并发snapshot PG已证。材料/拓扑/文档统一的本地PG全部补齐，API只投影不取得写权 |
+| R4 知识与写作 | **完成。** G1/C1退静态资格壳与clue桥，G退reader透传；真实graph writer/reader/alias/backfill、curated revision、clue及写作核按原职责保留。mixed/history及原writer消费者在全集与补跑覆盖，历史字节不改 |
+| R5 宿主与工作流 | **完成。** H效果标签与审批解释分离，S回到原AuthorSource；原宿主推理、workflow settled Failure、dispatch ACK、wait read/cancel及business result核保留。K当前PG45和session补跑覆盖实际worker/readback，当前权限继续由原边界重读 |
+| R6 项目治理与API | **完成。** G2副本同步service/API/Celery/cursor/前端全链退出，原项目/auth/retention保持；`list_admin_documents`保原selection核。当前route binding、API库存、Failure lift、权限/envelope及真实stats PG齐，未DROP存量表 |
+| R7 选定Runtime | **完成。** J/L同源assignment及journal row投影、M/N静态壳退役；K六族13项实际安装同源。journal/UoW/current grant/CAS、UNKNOWN、reconcile、wait恢复及child settlement为唯一运行owner的必要核；具体类型、独立绑定负向、真实PG与回滚齐 |
+| R8 前端与宿主适配 | **完成。** 本波G2旧按钮/client/endpoint/i18n撤回，fresh lint/tsc/build/i18n及11项mock Playwright通过。真实交互状态、授权、manifest与host生命周期保留；未变iframe/host及远程OAuth不追加新退出义务 |
+| R9 kit与验证消费者 | **完成。** 原有效tuple、声明/route/pyright include、派生registry/sketch与原消费者一致，sync/check clean、公共类型0/0、七gate234。3757/1342精确全集与CI差集、当前coverage和实际补跑闭合；W04/I1历史字节保持，退役专属工具/tests退出，静态SLO与运行遥测证明范围分开 |
 
 | 波次／可执行前沿 | 顺序、并发及完成后的动作 |
 | --- | --- |
@@ -384,7 +507,7 @@ WebUI vendor按README具名上游`LimLLL/codex-webui@44ad73a99c4d4385fa60d0c519c
 
 分类闭合、组织退役与执行收敛是三个不同条件：九项全有分类/原消费者验证，只完成覆盖条件；还须实际退役services旧整体组织中的重复装配、调度和事实承载，必要类型/effect/kernel逐项固定稳定承载及理由；再独立证明只有既选Runtime拥有运行事实，所有必要能力的原生定义/规则到真实生产消费者同源接通。不能以几千行assembly删除或“全部有引用所以保留”替代后两项。
 
-总体退出须同时满足§7：九项及全路径账无漏面；同一运行/领域事实均有唯一owner；旧loop、adapter、静态资格壳和重复装配的已定闭包不可执行；每包实际D/A/N达到预算，公共及跨目录成本不漏；所有必要原验证完成且未通过项清零。具名保留核可以稳定保留，不要求services目录按名字归零；不得以搬目录、删除文档/测试或工具净减抵消app新增。用户必要能力不因减少行数而静默撤回，有损改变须明确版本与已裁定兼容行为。规模总承诺只据实际闭包校准，旧硬帽与“6–10万”历史情景不恢复。
+总体退出须同时满足§7：九项及全路径账无漏面；同一运行/领域事实均有唯一owner；旧loop、adapter、静态资格壳和重复装配的已定闭包不可执行；每包实际D/A/N达到原预算或由root按必要保留核明确校准，原偏差不抹除，公共及跨目录成本不漏；所有必要原验证完成且当前未解决失败清零，历史failed和明确excluded的skip保持原义。具名保留核可以稳定保留，不要求services目录按名字归零；不得以搬目录、删除文档/测试或工具净减抵消app新增。用户必要能力不因减少行数而静默撤回，有损改变须明确版本与已裁定兼容行为。规模总承诺只据实际闭包校准，旧硬帽与“6–10万”历史情景不恢复。
 
 全局最多6名活跃Agent：root分发/裁定、Astra编排/只读审查/现有三文档各1名，作者/调查者与集成合计最多4名；Astra不写源码、不跑源码测试、不提交、不另spawn。公共接缝由root裁定，集成唯一维护共享消费者、目录、sync/check和shared selector；领域作者不能各造parser/adapter。每包回传目标、权威接口、实际产物/独占写面、D/A/N、命令/原退出码、风险及成本，沿现有记录汇总，不新建管理平台。
 
@@ -420,6 +543,10 @@ focused() (
 | V-suite | `bash scripts/test-standardize.sh ci-pr -q`及原`coverage`入口，100/20不降；沿现有selector清单核精确新增/退役/资源分区，capacity原Unix-socket条件保持。只按实际交付与依赖跑，不由文档编辑触发 |
 | V-host／V-ui | 沿实际改动选择原auth/typed-fetch/manifest/浏览器与写作API见证；真实provider调用需其原授权资源。无宿主适配改动不新加模型测试；vendor/generated分账 |
 
+本波集中清单先以当前collection核对新增、退役与重复nodeid。`ci-pr`实际只执行unit、integration、core-business及e2e四个原runner，不自动覆盖contract-only或未标记测试；`dev.py test`也只执行三份pilot。集成已用原pytest全集、精确补跑及selector差分补足backend差集与根`tests/`，结果见§5；不以旧总数证明当前覆盖。`dev.py gates`运行原`tests/test_architecture.py`，公共类型沿原include并纳入K实际新增assembly/production闭包；已删aggregator include需同步到当前真实边界。`test-standardize.sh coverage`仍以unit/integration原选择与原core100%/other20%门槛执行，PG和coverage数据独占，禁止重复合并同一node结果。
+
+G2前端只沿实际撤回范围执行原eslint、`tsc -b`/build、`check:ops-page-i18n-slice`及`tests/e2e/admin-ops-repair.spec.ts`；该Playwright文件明确mock，不替代G2实际PG/API。K真实消费者沿原mixed worker、p0b candidate/dispatch与traversal leaf/URL/ordered/cancel见证，J/L沿p0b drift及p0c lifecycle/activation/current-grant；精确最终selector与稳定源码由集成在原清单确认，结果见§5。G2真实PG4项及全部required本地PG已完成；两条外部live链明确not_run，两个静态negative由Pyright验证。
+
 Runtime原见证沿`main/backend/tests/successor_runtime/`中的`test_p0d_event_replay.py`、`test_p0c_node_adapter.py`、`test_p0c_admission_recovery.py`、`test_p0c_delivery_recovery_postgres.py`选择受影响观察；C2 prototype专属recovery见证已随整族退出，分别进入V-core/V-durable及原fixture资源窗口。需要PG的见证必须使用已知专属数据库及原fixture，不能放进`focused`不可达DB环境；值与事务原消费者入口为同目录`test_p0c_postgres_lifecycle.py`的`test_runtime_value_index_and_staged_artifact_store_only_opaque_refs`、`test_terminal_outcome_updates_full_semantic_packet_atomically`及`test_authority_provider_rehashes_current_scope_grant_and_capability`，沿原scope fixture进入V-durable。row候选的同源变化若缺覆盖，只在原测试补最小读写/identity/失败见证，不伪称上述测试已覆盖新增义务。
 
 workflow真实worker回放使用原`live_database`fixture，先核隔离并独占PG窗口；复用已配置专属地址，不能通过`focused`的不可达DB环境执行，保留原退出码。以下原测试已在本批实际执行default/alternate两实例，结果见§2.1；非默认production见证进入同一原测试文件，不靠增加生产业务功能证明扩展性。
@@ -441,7 +568,7 @@ main/backend/.venv311/bin/python -m pytest -q -rs \
 - 原注册/配置/派生见证/专属测试/文档同批一致；非默认同形定义到真实消费者且类型/identity/authority错误拒绝，声明/sync无effect；框架机制与项目迁移分别具备必要行为、公共类型、现役七gate及实际交付证据，operation/codec/kernel/reader保持具体类型关系，kept、skip、not_run与失败按原归属记录。
 - 成本包含共同修复和跨目录新增；生产/测试/工具/前端/vendor/历史分列，不以删文档、搬家或旧dirty回撤抵扣。缺失调用/token和完整验收成本不记零，不报无证据提速。
 
-内部全面类型治理、UI重设计、性能和新扩展建设不自动加入退出条件。它们也不能被拿来掩盖当前结构退役未完成。未经证明的硬规模承诺已撤回，其它包定界、代表性整族收缩与总体承诺校准仍未完成；这不授权永久保留完整services或旧runtime。
+**本轮文档规划的有限精简面已完成本地验收。** §5九面均完成具体处置，已定删除闭包、services重复组织收敛、必要能力同源接线、具名kernel与唯一事实owner已分别确认；完整collection与原runner差集、必要真实PG、当前coverage及公共门禁已按实际分步结果闭合。当前required验证无未解决失败，原failed attempt、四项skip及未执行外部live范围保持原义。内部全面类型治理、全库零冗余、UI重设计、性能和新扩展建设不加入退出条件；不再寻找无界下一包，不恢复未经证明的硬规模承诺。此完成不授予发布权限，未push/deploy，旧Stage4–6仍STOPPED。
 
 ## 8. 上一轮迁移历史及本轮状态
 
@@ -451,4 +578,4 @@ main/backend/.venv311/bin/python -m pytest -q -rs \
 
 原frontend14含route mocks及Codex iframe mock shell，direct HOST1只证明注册写作工具/approval/turn及canonical API/SQL读回；内部类型/Ruff债、4skip和缺失调用/token成本继续保留。上一轮workflow＋999/retrieval＋3763/shared＋1594的独立增长责任进入本轮定界，source下降不抵消。
 
-首批实际完成与attempt保留于§2.1；第二批旧generator、I1外壳及workflow静态资格链退役与返工集中记于§2.2；三份当前文档随批次交回集成owner统一提交。整体精简及全能力native规则贯通仍未完成，下一闭包按§5寻找与定界；未push或deploy，旧Stage4–6部署任务继续STOPPED。
+首批实际完成与attempt保留于§2.1；第二批旧generator、I1外壳及workflow静态资格链退役与返工集中记于§2.2；三份当前文档随批次交回集成owner统一提交。本波§5九面有限收口与§7整体条件已依据当前源码、完整成本及分步实际证据完成；历史预算偏差、失败attempt、kept和未执行范围分别保留，不再笼统要求寻找下一闭包。三份文档回填后由集成统一重算账与提交；未push或deploy，旧Stage4–6部署任务继续STOPPED。

@@ -591,6 +591,12 @@ class IngestCoreContractTestCase(unittest.TestCase):
                 "status": "ok",
                 "data": {"admission": "defer"},
             },
+            "authority_output": {
+                "contract_version": "source_library.authority_output.v1",
+            },
+            "compat_projection": {
+                "contract_version": "source_library.compat_projection.v1",
+            },
             "legacy_result": {
                 "item_key": "external.demo.item",
                 "channel_key": "external_project.manifest",

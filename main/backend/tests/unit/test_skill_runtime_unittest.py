@@ -248,6 +248,72 @@ class SkillRuntimeUnitTest(unittest.TestCase):
                     register(skill_id="test.invalid_read", handler=_identity, repeatable_read=raw)
                 self.assertEqual(runtime.list_skills(), [])
 
+    def test_approval_policy_default_vocabulary_is_closed(self):
+        runtime = _runtime()
+        with self.assertRaisesRegex(
+            ValueError, "^unsupported approval_policy.default: maybe$"
+        ):
+            runtime.register(
+                skill_id="test.bad.default",
+                handler=_identity,
+                concurrency_class="write_external",
+                approval_policy={"default": "maybe"},
+            )
+        self.assertEqual(runtime.list_skills(), [])
+
+    def test_approval_default_falls_back_to_concurrency_class(self):
+        runtime = _runtime()
+        runtime.register(
+            skill_id="test.shared.default",
+            handler=_identity,
+            concurrency_class="write_shared",
+        )
+        runtime.register(
+            skill_id="test.external.default",
+            handler=_identity,
+            concurrency_class="write_external",
+        )
+        listed = {item["skill_id"]: item for item in runtime.list_skills()}
+        self.assertEqual(listed["test.shared.default"]["approval_policy"]["default"], "optional")
+        self.assertEqual(listed["test.external.default"]["approval_policy"]["default"], "required")
+
+    def test_write_shared_required_uses_runtime_approval_policy(self):
+        runtime = _runtime()
+        handler = Mock(side_effect=_identity)
+        runtime.register(
+            skill_id="test.shared.required",
+            handler=handler,
+            concurrency_class="write_shared",
+            approval_policy={"default": "required"},
+        )
+        with self.assertRaises(PermissionError) as exc:
+            runtime.invoke(
+                skill_id="test.shared.required",
+                payload={"value": "x"},
+                context={"actor_role": "orchestration_runtime"},
+            )
+        self.assertIn("approval_context_required", str(exc.exception))
+        handler.assert_not_called()
+
+    def test_write_external_optional_executes_without_new_approval(self):
+        runtime = _runtime()
+        runtime.register(
+            skill_id="test.external.optional",
+            handler=_ok,
+            concurrency_class="write_external",
+            approval_policy={"default": "optional"},
+        )
+        with patch(
+            "app.services.skill_runtime.get_agent_session_service",
+            side_effect=AssertionError("optional provider calls must not enter approval flow"),
+        ):
+            out = runtime.invoke(
+                skill_id="test.external.optional",
+                payload={"value": "done"},
+                context={"actor_role": "orchestration_runtime"},
+            )
+        self.assertEqual(_object_mapping(out["result"])["ok"], "done")
+
     def test_register_updates_agent_batch_task_manifest_entries(self):
         runtime = _runtime()
         runtime.register(

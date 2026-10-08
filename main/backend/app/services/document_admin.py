@@ -29,6 +29,12 @@ from .extraction.topic_workflow import (
 from .graph.models import Graph, GraphEdge, GraphNode
 from .graph.relation_ontology import relation_annotation
 from .projects import bind_project
+from .document_views import (
+    get_market_data,
+    get_policy_data,
+    get_social_platform_label,
+    get_social_sentiment,
+)
 
 
 JsonObject = dict[str, JsonValue]
@@ -369,14 +375,6 @@ class AdminTopicWorkflowRunner(Protocol):
 
 
 class AdminExtractedDataReader(Protocol):
-    def __call__(self, document: object) -> object: ...
-
-
-class AdminSocialPlatformReader(Protocol):
-    def __call__(self, document: object, *, default: str | None = "unknown") -> object: ...
-
-
-class AdminDocumentJsonReader(Protocol):
     def __call__(self, document: object) -> object: ...
 
 
@@ -1439,8 +1437,6 @@ def get_admin_content_graph(
     platform: str | None,
     topic: str | None,
     limit: int,
-    platform_reader: AdminSocialPlatformReader,
-    sentiment_reader: AdminDocumentJsonReader,
 ) -> AdminGraphResult:
     from .document_queries import consumer_predicates as document_queries
     from .graph.adapters import normalize_document
@@ -1451,19 +1447,9 @@ def get_admin_content_graph(
         with SessionLocal() as session:
             conditions: list[ColumnElement[bool]] = [document_queries.content_graph_structured_condition()]
             if start_date is not None:
-                conditions.append(
-                    or_(
-                        Document.publish_date >= start_date,
-                        and_(Document.publish_date.is_(None), func.date(Document.created_at) >= start_date),
-                    )
-                )
+                conditions.append(document_queries.document_publish_or_created_on_or_after_condition(start_date))
             if end_date is not None:
-                conditions.append(
-                    or_(
-                        Document.publish_date <= end_date,
-                        and_(Document.publish_date.is_(None), func.date(Document.created_at) <= end_date),
-                    )
-                )
+                conditions.append(document_queries.document_publish_or_created_on_or_before_condition(end_date))
             rows = list(
                 session.execute(select(Document).where(and_(*conditions)).limit(limit)).scalars().all()
             )
@@ -1472,12 +1458,12 @@ def get_admin_content_graph(
             skipped_count = 0
             for row in rows:
                 if platform:
-                    platform_value = platform_reader(row, default="")
+                    platform_value = get_social_platform_label(row, default="")
                     if str(platform_value or "").lower() != platform.lower():
                         skipped_count += 1
                         continue
                 if topic:
-                    sentiment_value = sentiment_reader(row)
+                    sentiment_value = get_social_sentiment(row)
                     sentiment = parse_json_object(sentiment_value, field="document.social_sentiment")
                     if topic.lower() not in str(sentiment.get("topic") or "").lower():
                         skipped_count += 1
@@ -1522,7 +1508,6 @@ def get_admin_market_graph(
     deep_view: bool,
     topic_scope: TopicName | None,
     limit: int,
-    market_reader: AdminDocumentJsonReader,
     market_graph_augmenter: AdminMarketGraphAugmenter,
 ) -> AdminGraphResult:
     from .document_queries import consumer_predicates as document_queries
@@ -1563,7 +1548,7 @@ def get_admin_market_graph(
             skipped_count = 0
             for row in rows:
                 if game:
-                    market_value = market_reader(row)
+                    market_value = get_market_data(row)
                     market = parse_json_object(market_value, field="document.market")
                     if game.lower() not in str(market.get("game") or "").lower():
                         skipped_count += 1
@@ -1619,7 +1604,6 @@ def get_admin_policy_graph(
     state: str | None,
     policy_type: str | None,
     limit: int,
-    policy_reader: AdminDocumentJsonReader,
 ) -> AdminGraphResult:
     from .document_queries import consumer_predicates as document_queries
     from .graph.adapters.policy import PolicyAdapter
@@ -1646,7 +1630,7 @@ def get_admin_policy_graph(
             skipped_count = 0
             for row in rows:
                 record = _document_record(row)
-                policy_value = policy_reader(row)
+                policy_value = get_policy_data(row)
                 policy_data = parse_json_object(policy_value, field="document.policy")
                 candidate_dates = _record_dates(record, policy_data)
                 if start_date is not None and not any(value >= start_date for value in candidate_dates):

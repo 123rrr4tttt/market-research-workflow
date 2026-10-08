@@ -1585,28 +1585,10 @@ def _parse_iso8601_datetime_param(value: str | None, *, field: str) -> datetime 
 
 @router.get("/global/stats", response_model=ApiEnvelope[DashboardJsonInput])
 def get_global_stats():
-    """总库汇总统计（aggregator schema）"""
-    from sqlalchemy import text
-    from ..models.base import engine
+    """Total counts over the current enabled canonical project tables."""
+    from ..services.projects.global_stats import query_global_canonical_stats
 
-    with engine.begin() as conn:
-        rows = conn.execute(
-            text(
-                """
-                SELECT
-                  (SELECT COUNT(*) FROM aggregator.documents_agg) AS documents_total,
-                  (SELECT COUNT(*) FROM aggregator.market_metric_points_agg) AS metrics_total,
-                  (SELECT COUNT(*) FROM aggregator.price_observations_agg) AS prices_total
-                """
-            )
-        ).first()
-        if not rows:
-            return ok({"documents_total": 0, "metrics_total": 0, "prices_total": 0})
-        return ok({
-            "documents_total": int(rows.documents_total or 0),
-            "metrics_total": int(rows.metrics_total or 0),
-            "prices_total": int(rows.prices_total or 0),
-        })
+    return ok(query_global_canonical_stats())
 
 
 @router.get("/stats", response_model=ApiEnvelope[DashboardJsonInput])

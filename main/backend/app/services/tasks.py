@@ -883,14 +883,6 @@ def task_collect_ecom_prices(limit: int = 100, project_key: str | None = None) -
         return _task_object(collect_ecom_price_observations(limit=limit))
 
 
-@celery_app.task
-def task_sync_aggregator(
-) -> TaskObject:
-    # Aggregator reads from public + all project schemas.
-    from .aggregator import sync_project_data_to_aggregator
-    return _task_object(sync_project_data_to_aggregator())
-
-
 @celery_app.task(bind=True)
 def task_worker_observability_noop(
     self: BoundTask,

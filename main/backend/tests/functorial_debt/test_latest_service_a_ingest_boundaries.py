@@ -42,7 +42,7 @@ def test_latest_service_a_ingest_shell_boundaries_reraise_original_errors(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Each retained shell boundary is exercised with its original exception ABI."""
-    from app.services.ingest import news, policy, raw_import, social, url_pool
+    from app.services.ingest import news, policy, raw_import, social
     from app.services.ingest.reports import general
 
     monkeypatch.setattr(news, "start_job", lambda *_args, **_kwargs: 1)
@@ -164,9 +164,3 @@ def test_latest_service_a_ingest_shell_boundaries_reraise_original_errors(
     ), patch.object(general, "search_sources", side_effect=RuntimeError("monthly search")):
         with pytest.raises(RuntimeError, match="^monthly search$"):
             general.collect_monthly_financial_reports()
-
-    monkeypatch.setattr(url_pool, "start_job", lambda *_args, **_kwargs: 9)
-    monkeypatch.setattr(url_pool, "fail_job", lambda *_args, **_kwargs: None)
-    monkeypatch.setattr(url_pool, "list_urls", lambda **_kwargs: (_ for _ in ()).throw(RuntimeError("pool lookup")))
-    with pytest.raises(RuntimeError, match="^pool lookup$"):
-        url_pool.collect_urls_from_pool(project_key="demo")

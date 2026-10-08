@@ -123,6 +123,29 @@ def test_task_summary_direct_reads_owner_through_real_registry() -> None:
     assert result.structured_content["result"]["summary"]["session_id"] == session_id
 
 
+def test_source_library_run_is_project_tool_author_source() -> None:
+    from unittest.mock import Mock
+
+    from app.services.agent_core.project_tools import build_project_core_tool_registry
+
+    with patch(
+        "app.services.agent_core.project_tools.list_registered_skills",
+        return_value=[],
+    ):
+        registry = build_project_core_tool_registry(service=Mock())
+    spec = registry.get("ingest.source_library.run")
+    assert spec is not None
+    assert spec.source == "project"
+    assert spec.permission == "ask"
+    assert spec.risk == "write_external"
+    capability = spec.metadata["capability"]
+    assert capability["capability_id"] == "ingest.source_library.run"
+    assert "legacy_capability" not in spec.metadata
+
+    assert spec.concurrency == "exclusive"
+    assert "uses_existing_frontdoor" not in spec.metadata
+
+
 def test_project_tool_operation_rule_preserves_identity_exception_and_permission() -> None:
     call = CoreToolCall(tool_name="example.observe", call_id="operation-call")
     request = AgentCoreRequest(message="observe", session_id="operation-session")
@@ -524,6 +547,7 @@ def test_source_plan_and_skill_load_reach_native_codex_consumer() -> None:
             "skill.search",
             "source.discovery.plan",
             "skill.load",
+            "ingest.source_library.run",
             "workflow_graph.run",
             "report.generate",
         ]

@@ -22,6 +22,7 @@ from typing import Annotated, Any, Protocol, runtime_checkable
 
 from fastapi import HTTPException, Request
 from starlette.routing import BaseRoute
+from functorial_kit import Failure
 
 from app.production_contract import (
     ApprovalGrant,
@@ -56,15 +57,18 @@ from app.successor_runtime.language.transforms import TransformRegistry
 from app.successor_runtime.research.object_types import ObjectType
 from app.successor_runtime.runtime.activation import ValueEncoder
 from app.successor_runtime.language.profiles import EffectProfile, ResourceProfile
-from app.successor_runtime.capabilities import batch_task
-from app.services.agent_batch.business_readback import BrokerBusinessReadback, CeleryBrokerBusinessReadback, build_batch_business_wait_invoke
+from app.successor_runtime.capabilities import (
+    acquisition_url, batch_business, batch_task, retrieval_candidate_native,
+    retrieval_material_native, workflow_native_contribution,
+)
+from app.successor_runtime.assembly.installed_operation import InstalledOperationView
+from app.services.agent_batch.business_readback import BrokerBusinessReadback, CeleryBrokerBusinessReadback
 from app.successor_runtime.runtime.node import RunOnceReport, RuntimeHandler
 from app.successor_runtime.runtime.assignments import RuntimeAssignment
 from app.successor_runtime.runtime.ports import RuntimeScope
 from app.successor_runtime.substrate.postgres.first_specimen_activation import ActiveChildMaterializer, ActiveChildTerminalObservation, ActivationCatalogEntry, FirstSpecimenActivationCatalog
 from app.successor_runtime.substrate.postgres.nodes import DeploymentCatalog
 from app.successor_runtime.substrate.postgres.runtime_failures import RuntimeFailureRecord
-
 
 PRODUCTION_ENVIRONMENTS = frozenset({"production", "prod"})
 _ROUTE_BINDING_SCHEMAS = ("mrw.production.route-bindings.v3", "mrw.production.route-bindings.v4")
@@ -1152,54 +1156,23 @@ def _installed_operation_facts(
     ref: OperationContractRef,
 ) -> tuple[OperationContract, ResourceProfile, EffectProfile, str, str]:
     """Resolve original declarations; caller data cannot install executable code."""
-    from app.successor_runtime.capabilities.batch_task_interpreters import (
-        dispatch_single_authority_requirement_digest, successor_dispatch_single_interpreter_profile_digest,
+    from app.successor_runtime.assembly.installed_operation import (
+        installed_operation_catalog,
+        installed_operation_for_ref,
     )
-    from app.successor_runtime.capabilities.retrieval_candidate_native import (
-        RETRIEVAL_CANDIDATE_DISCOVER_V3_KIND, build_retrieval_candidate_runtime_definition,
-    )
-    from app.successor_runtime.capabilities import acquisition_url, batch_business, retrieval_material_native
-    from app.successor_runtime.capabilities.workflow_native_contribution import build_workflow_runtime_definition
-    workflow_operation = build_workflow_runtime_definition().operation_for_ref(ref)
-    if ref.kind == batch_task.DISPATCH_SINGLE_KIND:
-        contract = batch_task.build_batch_task_single_dispatch_contract()
-        profiles = batch_task.build_batch_task_single_dispatch_profiles()
-        resource, effect = profiles.resource, profiles.effect
-        interpreter = successor_dispatch_single_interpreter_profile_digest()
-        authority = dispatch_single_authority_requirement_digest()
-    elif ref.kind == acquisition_url.URL_SINGLE_URL_KIND:
-        contract = acquisition_url.build_url_single_url_contract()
-        profiles = acquisition_url.build_url_single_url_profiles()
-        resource, effect = profiles.resource, profiles.effect
-        interpreter = contract.interpreter_compatibility_ref.profile_digest
-        authority = contract.authority_profile_ref.profile_digest
-    elif ref.kind == batch_business.BUSINESS_WAIT_KIND:
-        contract = batch_business.build_batch_business_wait_contract()
-        profiles = batch_business.build_batch_business_wait_profiles()
-        resource, effect = profiles.resource, profiles.effect
-        interpreter = contract.interpreter_compatibility_ref.profile_digest
-        authority = contract.authority_profile_ref.profile_digest
-    elif ref.kind in retrieval_material_native.RETRIEVAL_LEAF_KINDS:
-        definition = retrieval_material_native.build_retrieval_leaf_definition(ref.kind)
-        contract, profiles = definition.contract, definition.profiles
-        resource, effect = profiles.resource, profiles.effect
-        interpreter = contract.interpreter_compatibility_ref.profile_digest
-        authority = contract.authority_profile_ref.profile_digest
-    elif ref.kind == RETRIEVAL_CANDIDATE_DISCOVER_V3_KIND:
-        definition = build_retrieval_candidate_runtime_definition()
-        contract, resource, effect = definition.operation_contract, definition.profiles.resource, definition.profiles.effect
-        interpreter = contract.interpreter_compatibility_ref.profile_digest
-        authority = contract.authority_profile_ref.profile_digest
-    elif workflow_operation is not None:
-        contract = workflow_operation.contract
-        resource, effect = workflow_operation.profiles.resource, workflow_operation.profiles.effect
-        interpreter = contract.interpreter_compatibility_ref.profile_digest
-        authority = contract.authority_profile_ref.profile_digest
-    else:
+
+    installed = installed_operation_for_ref(installed_operation_catalog, ref)
+    if installed is None:
         raise ValueError(f"operation is not installed: {ref.kind}")
-    if ref != contract.ref:
-        raise ValueError("persisted operation differs from the installed declaration")
-    return contract, resource, effect, interpreter, authority
+    definition = installed.definition
+    contract = definition.contract
+    return (
+        contract,
+        definition.profiles.resource,
+        definition.profiles.effect,
+        definition.interpreter_profile_digest,
+        definition.authority_requirement_digest,
+    )
 
 
 def _installed_value_encoder(
@@ -1715,164 +1688,237 @@ def dispatch_batch_item(payload: batch_task.BatchTaskSingleDispatchPayload) -> b
     )
 
 
+def _assemble_workflow_operation(  # pyright: ignore[reportUnusedFunction]
+    operation: workflow_native_contribution.WorkflowRuntimeOperationDefinition,
+    engine: Engine, scope: RuntimeScope, entry: ActivationCatalogEntry,
+) -> RuntimeHandler:
+    from app.services.projects.context import bind_resolved_project
+    from app.services.workflow_graph.runtime import WorkflowNodeSettledFailure, invoke_workflow_runtime_node
+    from app.successor_runtime.assembly.workflow_assembly import assemble_workflow_runtime_handler
+    from app.successor_runtime.substrate.postgres.node_adapter import runtime_uow_factory
+    return assemble_workflow_runtime_handler(
+        operation=operation, uow_factory=runtime_uow_factory(engine), binding=entry.interpreter_binding,
+        project_key=scope.project_scope.project_key, resolved_schema=scope.project_scope.resolved_schema,
+        bind_project_scope=bind_resolved_project, invoke_runtime_node=invoke_workflow_runtime_node,
+        settled_failure_type=WorkflowNodeSettledFailure,
+    )
+
+
+def _assemble_candidate_operation(  # pyright: ignore[reportUnusedFunction]
+    operation: retrieval_candidate_native.CandidateRuntimeDefinition,
+    engine: Engine, scope: RuntimeScope, entry: ActivationCatalogEntry,
+) -> RuntimeHandler:
+    from app.services.projects.context import bind_resolved_project
+    from app.services.search.candidate_search import discover_candidates
+    from app.successor_runtime.capabilities.retrieval_candidate_native import complete_retrieval_candidate_attempt
+    from app.successor_runtime.substrate.postgres.batch_task_submission_handler import PersistentOperationHandler
+    from app.successor_runtime.substrate.postgres.node_adapter import runtime_uow_factory
+    def check_scope(invocation: retrieval_candidate_native.RetrievalCandidateInvocation,
+                    project: ProjectScopeRef, _capability_id: str) -> None:
+        if invocation.request.project_ref is not None and invocation.request.project_ref != project.project_key:
+            raise ValueError("candidate request crosses the installed project scope")
+    def discover(invocation: retrieval_candidate_native.RetrievalCandidateInvocation
+                 ) -> retrieval_candidate_native.RetrievalCandidateAttemptOutcome:
+        with bind_resolved_project(scope.project_scope.project_key, scope.project_scope.resolved_schema):
+            return complete_retrieval_candidate_attempt(invocation, discover_candidates(invocation.request))
+    return PersistentOperationHandler(
+        uow_factory=runtime_uow_factory(engine), binding=entry.interpreter_binding,
+        contract=operation.operation_contract, input_codec=operation.invocation_codec,
+        output_codec=operation.output_codec, invoke=discover, validate_input=check_scope,
+        validate_bound_inputs=operation.validate_bound_inputs,
+    )
+
+
+def _assemble_retrieval_work_leaf_operation(  # pyright: ignore[reportUnusedFunction]
+    operation: InstalledOperationView[
+        retrieval_material_native.RetrievalLeafDefinition[retrieval_material_native.CandidateWork],
+        retrieval_material_native.CandidateWork, retrieval_material_native.CandidateWork,
+    ], engine: Engine, scope: RuntimeScope, entry: ActivationCatalogEntry,
+) -> RuntimeHandler:
+    from app.services.project_retrieval.execution import (
+        build_retrieval_leaf_invocations, build_retrieval_runtime_journal_reader,
+        validate_retrieval_work_bound_inputs, review_candidate_work,
+    )
+    from app.services.project_retrieval.service import ProjectRetrievalService
+    from app.services.project_retrieval.topology import build_topology_service
+    from app.services.projects.context import bind_resolved_project
+    from app.successor_runtime.substrate.postgres.batch_task_submission_handler import PersistentOperationHandler
+    from app.successor_runtime.substrate.postgres.node_adapter import runtime_uow_factory
+    work_invocations, _ = build_retrieval_leaf_invocations(
+        topology_service=build_topology_service(),
+        plan_loader=ProjectRetrievalService().read_plan,
+        journal_reader=build_retrieval_runtime_journal_reader(engine=engine, actor_id=scope.actor_id),
+    )
+
+    def check_retrieval_scope(
+        payload: retrieval_material_native.CandidateWork,
+        project: ProjectScopeRef, capability_id: str,
+    ) -> None:
+        if payload.project_key != project.project_key or capability_id != operation.contract.owner_capability_id:
+            raise ValueError("retrieval payload crosses installed project or capability")
+
+    def invoke_retrieval(
+        payload: retrieval_material_native.CandidateWork,
+    ) -> retrieval_material_native.CandidateWork:
+        if operation.contract.ref.kind == retrieval_material_native.RETRIEVAL_CANDIDATE_REVIEW_KIND:
+            raise ValueError("review requires its exact assignment prefix")
+        with bind_resolved_project(scope.project_scope.project_key, scope.project_scope.resolved_schema):
+            return work_invocations[operation.contract.ref.kind](payload)
+
+    def invoke_review(
+        payload: retrieval_material_native.CandidateWork, assignment: RuntimeAssignment,
+    ) -> retrieval_material_native.CandidateWork:
+        from app.successor_runtime.substrate.postgres.first_specimen_activation import read_ordered_prior_effect_outputs
+        with runtime_uow_factory(engine)() as uow:
+            current_bytes, prior = read_ordered_prior_effect_outputs(uow.connection, scope, assignment)
+        codec = operation.input_codec
+        current = codec.decode_payload(json.loads(current_bytes))
+        if current != payload or payload.candidate_ordinal != len(prior) + 1:
+            raise ValueError("review current ordered invocation drift")
+        approved = 0
+        for position, (before_bytes, after_bytes) in enumerate(prior, 1):
+            before = codec.decode_payload(json.loads(before_bytes))
+            after = codec.decode_payload(json.loads(after_bytes))
+            retrieval_material_native.validate_candidate_work_transition(before, after)
+            if (before.candidate_ordinal != position or before.stage != "candidate"
+                    or after.stage != "reviewed" or after.review is None
+                    or (before.project_key, before.root_run_id, before.retrieval_budget_id,
+                        before.plan_id, before.mode_version, before.route_id,
+                        before.material_budget_remaining)
+                    != (payload.project_key, payload.root_run_id, payload.retrieval_budget_id,
+                        payload.plan_id, payload.mode_version, payload.route_id,
+                        payload.material_budget_remaining)):
+                raise ValueError("review prior ordered output identity drift")
+            approved += after.disposition == "approved"
+        with bind_resolved_project(scope.project_scope.project_key, scope.project_scope.resolved_schema):
+            return review_candidate_work(payload, approved_prefix_count=approved)
+
+    return PersistentOperationHandler(
+        uow_factory=runtime_uow_factory(engine), binding=entry.interpreter_binding,
+        contract=operation.contract, input_codec=operation.input_codec, output_codec=operation.output_codec,
+        invoke=invoke_retrieval, validate_input=check_retrieval_scope,
+        invoke_with_assignment=(invoke_review if operation.contract.ref.kind
+                                == retrieval_material_native.RETRIEVAL_CANDIDATE_REVIEW_KIND else None),
+        validate_bound_inputs=validate_retrieval_work_bound_inputs, bound_payload_source="semantic",
+    )
+
+
+def _assemble_retrieval_control_leaf_operation(  # pyright: ignore[reportUnusedFunction]
+    operation: InstalledOperationView[
+        retrieval_material_native.RetrievalLeafDefinition[retrieval_material_native.RetrievalControl],
+        retrieval_material_native.RetrievalControl, retrieval_material_native.RetrievalControl,
+    ], engine: Engine, scope: RuntimeScope, entry: ActivationCatalogEntry,
+) -> RuntimeHandler:
+    from app.services.project_retrieval.execution import (
+        build_retrieval_leaf_invocations, build_retrieval_runtime_journal_reader,
+        validate_retrieval_work_bound_inputs,
+    )
+    from app.services.project_retrieval.service import ProjectRetrievalService
+    from app.services.project_retrieval.topology import build_topology_service
+    from app.services.projects.context import bind_resolved_project
+    from app.successor_runtime.substrate.postgres.batch_task_submission_handler import PersistentOperationHandler
+    from app.successor_runtime.substrate.postgres.node_adapter import runtime_uow_factory
+    _, control_invocations = build_retrieval_leaf_invocations(
+        topology_service=build_topology_service(), plan_loader=ProjectRetrievalService().read_plan,
+        journal_reader=build_retrieval_runtime_journal_reader(engine=engine, actor_id=scope.actor_id),
+    )
+
+    def invoke(payload: retrieval_material_native.RetrievalControl) -> retrieval_material_native.RetrievalControl:
+        with bind_resolved_project(scope.project_scope.project_key, scope.project_scope.resolved_schema):
+            return control_invocations[operation.contract.ref.kind](payload)
+
+    def check_scope(
+        payload: retrieval_material_native.RetrievalControl,
+        project: ProjectScopeRef, capability_id: str,
+    ) -> None:
+        if payload.project_key != project.project_key or capability_id != operation.contract.owner_capability_id:
+            raise ValueError("retrieval payload crosses installed project or capability")
+
+    return PersistentOperationHandler(
+        uow_factory=runtime_uow_factory(engine), binding=entry.interpreter_binding,
+        contract=operation.contract, input_codec=operation.input_codec, output_codec=operation.output_codec,
+        invoke=invoke, validate_input=check_scope,
+        validate_bound_inputs=validate_retrieval_work_bound_inputs, bound_payload_source="semantic",
+    )
+
+
+def _assemble_url_operation(  # pyright: ignore[reportUnusedFunction]
+    operation: InstalledOperationView[OperationContract, acquisition_url.UrlSingleUrlRequest,
+                                      acquisition_url.UrlSingleUrlOutcome],
+    engine: Engine, scope: RuntimeScope, entry: ActivationCatalogEntry,
+) -> RuntimeHandler:
+    from app.services.ingest.url_pool import invoke_url_single_url, validate_url_single_url_input
+    from app.services.projects.context import bind_resolved_project
+    from app.successor_runtime.runtime.node import DefiniteInterpreterFailure, OutcomeUncertain
+    from app.successor_runtime.substrate.postgres.batch_task_submission_handler import PersistentOperationHandler
+    from app.successor_runtime.substrate.postgres.node_adapter import runtime_uow_factory
+    def check_bindings(request: acquisition_url.UrlSingleUrlRequest,
+                       bound_inputs: tuple[tuple[ValueRef, bytes], ...]) -> None:
+        if len(bound_inputs) != 1:
+            from app.services.project_retrieval.execution import validate_retrieval_url_bound_inputs
+            validate_retrieval_url_bound_inputs(request, bound_inputs)
+    def invoke(request: acquisition_url.UrlSingleUrlRequest) -> acquisition_url.UrlSingleUrlOutcome:
+        with bind_resolved_project(scope.project_scope.project_key, scope.project_scope.resolved_schema):
+            result = invoke_url_single_url(request)
+        if result.status == "failed":
+            raise DefiniteInterpreterFailure("URL_POOL_EXECUTION_FAILED")
+        if result.status != "completed":
+            raise OutcomeUncertain("URL_POOL_TERMINAL_READBACK_REQUIRED")
+        return result
+    return PersistentOperationHandler(
+        uow_factory=runtime_uow_factory(engine), binding=entry.interpreter_binding,
+        contract=operation.contract, input_codec=operation.input_codec, output_codec=operation.output_codec,
+        invoke=invoke, validate_input=validate_url_single_url_input,
+        validate_bound_inputs=check_bindings, bound_payload_source="semantic",
+    )
+
+
+def _assemble_wait_operation(  # pyright: ignore[reportUnusedFunction]
+    operation: InstalledOperationView[OperationContract, batch_business.BusinessWaitInput,
+                                      batch_business.BatchBusinessResult],
+    engine: Engine, _scope: RuntimeScope, entry: ActivationCatalogEntry, broker: BrokerBusinessReadback,
+) -> RuntimeHandler:
+    from app.services.agent_batch.business_readback import build_batch_business_wait_invoke
+    from app.successor_runtime.substrate.postgres.first_specimen_reconciliation_handler import BatchBusinessWaitHandler
+    from app.successor_runtime.substrate.postgres.node_adapter import runtime_uow_factory
+    return BatchBusinessWaitHandler(
+        uow_factory=runtime_uow_factory(engine), binding=entry.interpreter_binding,
+        contract=operation.contract, input_codec=operation.input_codec, output_codec=operation.output_codec,
+        invoke=build_batch_business_wait_invoke(broker),
+    )
+
+
+def _assemble_dispatch_operation(  # pyright: ignore[reportUnusedFunction]
+    operation: InstalledOperationView[OperationContract, batch_task.BatchTaskSingleDispatchPayload,
+                                      batch_task.BatchTaskSingleDispatchAck],
+    engine: Engine, _scope: RuntimeScope, entry: ActivationCatalogEntry,
+    dispatch: Callable[[batch_task.BatchTaskSingleDispatchPayload], batch_task.BatchTaskSingleDispatchAck],
+) -> RuntimeHandler:
+    from app.successor_runtime.substrate.postgres.batch_task_submission_handler import BatchTaskSingleDispatchHandler
+    from app.successor_runtime.substrate.postgres.node_adapter import runtime_uow_factory
+    return BatchTaskSingleDispatchHandler(
+        uow_factory=runtime_uow_factory(engine), binding=entry.interpreter_binding,
+        contract=operation.contract, input_codec=operation.input_codec, output_codec=operation.output_codec,
+        dispatch=dispatch,
+    )
+
+
 def _installed_operation_handler(
     *, engine: Engine, scope: RuntimeScope, contract: OperationContract,
     entry: ActivationCatalogEntry,
     dispatch: Callable[[batch_task.BatchTaskSingleDispatchPayload], batch_task.BatchTaskSingleDispatchAck],
     broker: BrokerBusinessReadback,
 ) -> RuntimeHandler:
-    # Validate the complete installed identity even when called outside the worker.
-    _installed_operation_facts(contract.ref)
-    from app.successor_runtime.substrate.postgres.batch_task_submission_handler import (
-        BatchTaskSingleDispatchHandler, PersistentOperationHandler,
+    from app.successor_runtime.assembly.installed_operation import (
+        installed_operation_catalog, installed_operation_for_ref,
     )
-    from app.successor_runtime.substrate.postgres.node_adapter import runtime_uow_factory
-    from app.successor_runtime.capabilities import acquisition_url, batch_business, retrieval_material_native
-    from app.successor_runtime.capabilities.workflow_native_contribution import build_workflow_runtime_definition
-    workflow_operation = build_workflow_runtime_definition().operation_for_ref(contract.ref)
-    if workflow_operation is not None:
-        from app.successor_runtime.assembly.workflow_assembly import assemble_workflow_runtime_handler
-        from app.services.projects.context import bind_resolved_project
-        from app.services.workflow_graph.runtime import (
-            WorkflowNodeSettledFailure,
-            invoke_workflow_runtime_node,
-        )
-
-        return assemble_workflow_runtime_handler(
-            operation=workflow_operation, uow_factory=runtime_uow_factory(engine), binding=entry.interpreter_binding,
-            project_key=scope.project_scope.project_key, resolved_schema=scope.project_scope.resolved_schema,
-            bind_project_scope=bind_resolved_project,
-            invoke_runtime_node=invoke_workflow_runtime_node,
-            settled_failure_type=WorkflowNodeSettledFailure,
-        )
-    if contract.ref.kind in retrieval_material_native.RETRIEVAL_LEAF_KINDS:
-        from app.services.project_retrieval.execution import (
-            build_retrieval_leaf_invocations, build_retrieval_runtime_journal_reader,
-            validate_retrieval_work_bound_inputs, review_candidate_work,
-        )
-        from app.services.project_retrieval.service import ProjectRetrievalService
-        from app.services.project_retrieval.topology import build_topology_service
-        from app.services.projects.context import bind_resolved_project
-
-        from typing import TypeVar
-        from app.successor_runtime.capabilities.codecs import PayloadCodec
-        Payload = TypeVar("Payload", retrieval_material_native.CandidateWork, retrieval_material_native.RetrievalControl)
-        invocations = build_retrieval_leaf_invocations(
-            topology_service=build_topology_service(),
-            plan_loader=ProjectRetrievalService().read_plan,
-            journal_reader=build_retrieval_runtime_journal_reader(engine=engine, actor_id=scope.actor_id),
-        )
-
-        def check_retrieval_scope(
-            payload: retrieval_material_native.CandidateWork | retrieval_material_native.RetrievalControl,
-            project: ProjectScopeRef, capability_id: str,
-        ) -> None:
-            if payload.project_key != project.project_key or capability_id != contract.owner_capability_id:
-                raise ValueError("retrieval payload crosses installed project or capability")
-
-        def handler(codec: PayloadCodec[Payload]) -> RuntimeHandler:
-            def invoke_retrieval(payload: Payload) -> Payload:
-                with bind_resolved_project(scope.project_scope.project_key, scope.project_scope.resolved_schema):
-                    return invocations[contract.ref.kind](payload)
-
-            def invoke_review(payload: Payload, assignment: RuntimeAssignment) -> Payload:
-                from app.successor_runtime.substrate.postgres.first_specimen_activation import read_ordered_prior_effect_outputs
-                if not isinstance(payload, retrieval_material_native.CandidateWork):
-                    raise ValueError("review requires candidate work")
-                review_codec = retrieval_material_native.build_candidate_work_codec(contract.ref)
-                with runtime_uow_factory(engine)() as uow:
-                    current_bytes, prior = read_ordered_prior_effect_outputs(uow.connection, scope, assignment)
-                current = review_codec.decode_payload(json.loads(current_bytes))
-                if current != payload or payload.candidate_ordinal != len(prior) + 1:
-                    raise ValueError("review current ordered invocation drift")
-                approved = 0
-                common = ("project_key", "root_run_id", "retrieval_budget_id", "plan_id",
-                          "mode_version", "route_id", "material_budget_remaining")
-                for position, (before_bytes, after_bytes) in enumerate(prior, 1):
-                    before = review_codec.decode_payload(json.loads(before_bytes))
-                    after = review_codec.decode_payload(json.loads(after_bytes))
-                    retrieval_material_native.validate_candidate_work_transition(before, after)
-                    if (before.candidate_ordinal != position or before.stage != "candidate"
-                            or after.stage != "reviewed" or after.review is None
-                            or any(getattr(before, key) != getattr(payload, key) for key in common)):
-                        raise ValueError("review prior ordered output identity drift")
-                    approved += after.disposition == "approved"
-                with bind_resolved_project(scope.project_scope.project_key, scope.project_scope.resolved_schema):
-                    return review_candidate_work(payload, approved_prefix_count=approved)
-
-            return PersistentOperationHandler(
-                uow_factory=runtime_uow_factory(engine), binding=entry.interpreter_binding, contract=contract,
-                input_codec=codec, output_codec=codec,
-                invoke=invoke_retrieval, validate_input=check_retrieval_scope,
-                invoke_with_assignment=(invoke_review if contract.ref.kind == retrieval_material_native.RETRIEVAL_CANDIDATE_REVIEW_KIND else None),
-                validate_bound_inputs=validate_retrieval_work_bound_inputs,
-                bound_payload_source="semantic",
-            )
-        if contract.ref.kind in retrieval_material_native.WORK_LEAF_KINDS:
-            return handler(retrieval_material_native.build_candidate_work_codec(contract.ref))
-        return handler(retrieval_material_native.build_retrieval_control_codec(contract.ref))
-    if contract.ref.kind == acquisition_url.URL_SINGLE_URL_KIND:
-        from app.services.ingest.url_pool import invoke_url_single_url, validate_url_single_url_input
-        from app.services.projects.context import bind_resolved_project
-        from app.successor_runtime.runtime.node import DefiniteInterpreterFailure, OutcomeUncertain
-        def check_url_bindings(
-            request: acquisition_url.UrlSingleUrlRequest,
-            bound_inputs: tuple[tuple[ValueRef, bytes], ...],
-        ) -> None:
-            if len(bound_inputs) != 1:
-                from app.services.project_retrieval.execution import validate_retrieval_url_bound_inputs
-                validate_retrieval_url_bound_inputs(request, bound_inputs)
-
-        def invoke_url(request: acquisition_url.UrlSingleUrlRequest) -> acquisition_url.UrlSingleUrlOutcome:
-            with bind_resolved_project(scope.project_scope.project_key, scope.project_scope.resolved_schema):
-                result = invoke_url_single_url(request)
-            if result.status == "failed":
-                raise DefiniteInterpreterFailure("URL_POOL_EXECUTION_FAILED")
-            if result.status != "completed":
-                raise OutcomeUncertain("URL_POOL_TERMINAL_READBACK_REQUIRED")
-            return result
-        return PersistentOperationHandler(
-            uow_factory=runtime_uow_factory(engine), binding=entry.interpreter_binding, contract=contract,
-            input_codec=acquisition_url.build_url_single_url_request_codec(contract.ref),
-            output_codec=acquisition_url.build_url_single_url_outcome_codec(contract.ref),
-            invoke=invoke_url, validate_input=validate_url_single_url_input,
-            validate_bound_inputs=check_url_bindings,
-            bound_payload_source="semantic",
-        )
-    if contract.ref.kind == batch_business.BUSINESS_WAIT_KIND:
-        from app.successor_runtime.substrate.postgres.first_specimen_reconciliation_handler import BatchBusinessWaitHandler
-        return BatchBusinessWaitHandler(uow_factory=runtime_uow_factory(engine),
-                                        binding=entry.interpreter_binding, invoke=build_batch_business_wait_invoke(broker))
-    if contract.ref.kind == batch_task.DISPATCH_SINGLE_KIND:
-        return BatchTaskSingleDispatchHandler(
-            uow_factory=runtime_uow_factory(engine), binding=entry.interpreter_binding, dispatch=dispatch,
-        )
-    if contract.ref.kind == "retrieval.candidate.discover.v3":
-        from app.services.search.candidate_search import discover_candidates
-        from app.services.projects.context import bind_resolved_project
-        from app.successor_runtime.capabilities.retrieval_common import (
-            RetrievalCandidateInvocation, RetrievalCandidateAttemptOutcome,
-        )
-        from app.successor_runtime.capabilities.retrieval_candidate_native import (
-            build_retrieval_candidate_runtime_definition, complete_retrieval_candidate_attempt,
-        )
-        definition = build_retrieval_candidate_runtime_definition()
-
-        def check_candidate_scope(invocation: RetrievalCandidateInvocation, project: ProjectScopeRef, capability_id: str) -> None:
-            if invocation.request.project_ref is not None and invocation.request.project_ref != project.project_key:
-                raise ValueError("candidate request crosses the installed project scope")
-
-        def discover(invocation: RetrievalCandidateInvocation) -> RetrievalCandidateAttemptOutcome:
-            with bind_resolved_project(scope.project_scope.project_key, scope.project_scope.resolved_schema):
-                return complete_retrieval_candidate_attempt(invocation, discover_candidates(invocation.request))
-        return PersistentOperationHandler(
-            uow_factory=runtime_uow_factory(engine), binding=entry.interpreter_binding,
-            contract=definition.operation_contract, input_codec=definition.invocation_codec,
-            output_codec=definition.output_codec, invoke=discover, validate_input=check_candidate_scope,
-            validate_bound_inputs=definition.validate_bound_inputs,
-        )
-    raise ValueError(f"operation handler is not installed: {contract.ref.kind}")
-
+    installed = installed_operation_for_ref(installed_operation_catalog, contract.ref)
+    if installed is None:
+        raise ValueError(f"operation handler is not installed: {contract.ref.kind}")
+    result = installed.assemble((engine, scope, entry, dispatch, broker))
+    if isinstance(result, Failure):
+        raise RuntimeError(f"installed operation binding failed: {result.message}")
+    return result
 
 def _retrieval_active_child_materializer(catalog: FirstSpecimenActivationCatalog) -> ActiveChildMaterializer:
     from app.services.project_retrieval.execution import RetrievalWorkActiveChildMaterializer

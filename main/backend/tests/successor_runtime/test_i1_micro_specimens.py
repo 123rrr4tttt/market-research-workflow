@@ -1,10 +1,9 @@
-"""I1 frozen micro-specimen evidence: historical specs and build manifests.
+"""I1 frozen micro-specimen evidence from the B23 candidate snapshots.
 
-Each row is the non-PostgreSQL equivalent of
-``generate_capability_spec_pilots.py --check MATCH``: the on-disk manifest
-must equal the canonical compile output for the on-disk spec/ABI, every exact
-manifest must keep candidate creation and authority adoption false. Historical
-C6 rows do not assert current code, bindings, or runtime capability.
+Each row reads one historical spec and build-manifest snapshot, checks its
+exact candidate bytes, and requires candidate creation and authority adoption
+to remain false. Historical C6 rows do not assert current code, bindings, or
+runtime capability.
 """
 
 from __future__ import annotations
@@ -18,9 +17,6 @@ from typing import Any
 
 import pytest
 
-from app.successor_runtime.specification import (
-    CapabilityCellSpec,
-)
 from tests.successor_runtime.i1_binding_candidate_support import (
     B10_CANDIDATE_PATH,
     B16_CANDIDATE_PATH,
@@ -66,14 +62,26 @@ def _load(path: Path) -> dict[str, Any]:
 
 def _micro_rows() -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
-    candidate_context()
+    candidate, _ = candidate_context()
     historical_bindings = _load(
         CANDIDATE_PATH.parents[2] / "fragments/I1.json"
     )["bindings"]
     for cell_id in CELL_IDS:
         spec_path = SPECS_DIR / f"{cell_id}.v1.json"
         build_path = BUILDS_DIR / f"{cell_id}.BuildManifest.v1.json"
-        assert build_path.is_file(), build_path
+        build_relative = str(build_path.relative_to(REPOSITORY_ROOT))
+        build_refs = [
+            row for row in candidate["sources"]
+            if row["path"] == build_relative
+        ]
+        assert len(build_refs) == 1, f"missing B23 manifest source: {cell_id}"
+        build_ref = build_refs[0]
+        build_snapshot = CANDIDATE_PATH.parent / build_ref["snapshot_path"]
+        assert build_snapshot.is_file(), build_snapshot
+        assert len(build_snapshot.read_bytes()) == build_ref["bytes"]
+        assert hashlib.sha256(build_snapshot.read_bytes()).hexdigest() == (
+            build_ref["file_sha256"]
+        )
         refs = [
             row for row in historical_bindings
             if row["cell_id"] == cell_id
@@ -86,9 +94,8 @@ def _micro_rows() -> list[dict[str, Any]]:
         assert snapshot_path.is_file(), snapshot_path
         assert hashlib.sha256(snapshot_path.read_bytes()).hexdigest() == spec_sha256
         spec_value = _load(snapshot_path)
-        spec = CapabilityCellSpec.from_dict(spec_value)
-        manifest = _load(build_path)
-        assert build_path.read_bytes() == (
+        manifest = _load(build_snapshot)
+        assert build_snapshot.read_bytes() == (
             json.dumps(
                 manifest,
                 sort_keys=True,
@@ -109,12 +116,15 @@ def _micro_rows() -> list[dict[str, Any]]:
         rows.append(
             {
                 "cell_id": cell_id,
-                "family_id": spec.family_id,
-                "entrypoint_kind": spec.entrypoint_kind,
-                "from_dict": "PASS",
-                "manifest_check": "MATCH",
+                "family_id": spec_value["family_id"],
+                "entrypoint_kind": spec_value["entrypoint_kind"],
+                "snapshot_decode": "PASS",
+                "manifest_check": "CANDIDATE_SNAPSHOT_MATCH",
                 "historical_spec_sha256": spec_sha256,
-                "exact_bindings": len(spec.exact_bindings()),
+                "exact_bindings": sum(
+                    len(spec_value[group])
+                    for group in ("source_bindings", "test_bindings", "rollback_bindings")
+                ),
                 "candidate_created": False,
                 "program_atom_generated": (
                     manifest["generated"].get("program_skeleton") is not None
@@ -126,8 +136,8 @@ def _micro_rows() -> list[dict[str, Any]]:
 def test_i1_historical_micro_specimen_matrix_is_30_of_30_and_manifest_exact() -> None:
     rows = _micro_rows()
     assert {row["cell_id"] for row in rows} == set(CELL_IDS)
-    assert all(row["from_dict"] == "PASS" for row in rows)
-    assert all(row["manifest_check"] == "MATCH" for row in rows)
+    assert all(row["snapshot_decode"] == "PASS" for row in rows)
+    assert all(row["manifest_check"] == "CANDIDATE_SNAPSHOT_MATCH" for row in rows)
     assert all(row["candidate_created"] is False for row in rows)
     assert {row["cell_id"] for row in rows if row["cell_id"].startswith("C6.")} == {
         "C6.1", "C6.2", "C6.3"

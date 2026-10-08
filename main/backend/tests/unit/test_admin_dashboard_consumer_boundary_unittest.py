@@ -51,6 +51,7 @@ class AdminDashboardConsumerBoundaryUnitTestCase(unittest.TestCase):
         surfaces = {item["path"]: item for item in result["checked_surfaces"]}
         self.assertIn("main/backend/app/api/dashboard.py", surfaces)
         self.assertIn("main/backend/app/api/admin.py", surfaces)
+        self.assertIn("main/backend/app/services/document_admin.py", surfaces)
 
         dashboard_functions = {
             item["name"]: item
@@ -78,6 +79,38 @@ class AdminDashboardConsumerBoundaryUnitTestCase(unittest.TestCase):
             self.assertIn(name, admin_functions)
             self.assertTrue(admin_functions[name]["passed"], admin_functions[name])
             self.assertFalse(admin_functions[name]["missing_boundary_calls"], admin_functions[name])
+        self.assertEqual(
+            admin_functions["get_content_graph"]["required_boundary_calls"],
+            ["get_admin_content_graph"],
+        )
+        self.assertEqual(
+            admin_functions["get_market_graph"]["required_boundary_calls"],
+            ["get_admin_market_graph"],
+        )
+        self.assertEqual(
+            admin_functions["get_policy_graph"]["required_boundary_calls"],
+            ["get_admin_policy_graph"],
+        )
+
+        document_admin_functions = {
+            item["name"]: item
+            for item in surfaces["main/backend/app/services/document_admin.py"]["functions"]
+        }
+        self.assertEqual(
+            document_admin_functions["get_admin_content_graph"]["required_boundary_calls"],
+            ["get_social_platform_label", "get_social_sentiment"],
+        )
+        self.assertEqual(
+            document_admin_functions["get_admin_market_graph"]["required_boundary_calls"],
+            ["get_market_data"],
+        )
+        self.assertEqual(
+            document_admin_functions["get_admin_policy_graph"]["required_boundary_calls"],
+            ["get_policy_data"],
+        )
+        for function in document_admin_functions.values():
+            self.assertTrue(function["passed"], function)
+            self.assertFalse(function["missing_boundary_calls"], function)
 
     def test_checker_defers_sql_json_predicates_to_wave15_facade_gate(self) -> None:
         result = build_check(REPO_ROOT)

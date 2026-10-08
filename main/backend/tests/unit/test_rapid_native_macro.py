@@ -204,3 +204,19 @@ def test_continuation_skill_projects_exact_native_tool_schema():
         "minimum": 1,
         "maximum": 20,
     }
+
+
+def test_retrieval_persistence_and_provider_skills_declare_effect_labels():
+    from app.services.skill_runtime import list_registered_skills
+
+    expected = {
+        "project_retrieval.current": ("write_shared", "optional"),
+        "project_retrieval.preview": ("write_shared", "optional"),
+        "project_retrieval.formalize_material": ("write_external", "optional"),
+        "project_retrieval.formalize_document": ("write_external", "optional"),
+    }
+    by_skill = {item["skill_id"]: item for item in list_registered_skills()}
+    for skill_id, (concurrency_class, approval_default) in expected.items():
+        skill = by_skill[skill_id]
+        assert skill["concurrency_class"] == concurrency_class
+        assert skill["approval_policy"]["default"] == approval_default
