@@ -3,7 +3,7 @@ from __future__ import annotations
 import unittest
 from collections.abc import Mapping
 from typing import TypeGuard
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import pytest
 from functorial_kit import Failure
@@ -101,36 +101,44 @@ class SkillRuntimeUnitTest(unittest.TestCase):
 
     def test_invoke_denied_when_missing_permission(self):
         runtime = _runtime()
+        handler = Mock(side_effect=_identity)
         runtime.register(
             skill_id="test.needs_perm",
-            handler=_identity,
+            handler=handler,
             required_permissions=("test.invoke",),
+            repeatable_read=True,
         )
 
-        with self.assertRaises(PermissionError) as exc:
-            runtime.invoke(
-                skill_id="test.needs_perm",
-                payload={},
-                context={"actor_role": "orchestration_runtime", "permissions": ["test.read"]},
-            )
-        self.assertIn("missing_required_permissions", str(exc.exception))
+        for _ in range(11):
+            with self.assertRaises(PermissionError) as exc:
+                runtime.invoke(
+                    skill_id="test.needs_perm",
+                    payload={},
+                    context={"actor_role": "orchestration_runtime", "permissions": ["test.read"]},
+                )
+            self.assertIn("missing_required_permissions", str(exc.exception))
+        handler.assert_not_called()
 
     def test_invoke_denied_when_role_not_allowed(self):
         runtime = _runtime()
+        handler = Mock(side_effect=_identity)
         runtime.register(
             skill_id="test.role",
-            handler=_identity,
+            handler=handler,
             allowed_actor_roles=("business_capability_wrapper",),
             required_permissions=("test.invoke",),
+            repeatable_read=True,
         )
 
-        with self.assertRaises(PermissionError) as exc:
-            runtime.invoke(
-                skill_id="test.role",
-                payload={},
-                context={"actor_role": "orchestration_runtime", "permissions": ["test.invoke"]},
-            )
-        self.assertIn("actor_role_not_allowed", str(exc.exception))
+        for _ in range(11):
+            with self.assertRaises(PermissionError) as exc:
+                runtime.invoke(
+                    skill_id="test.role",
+                    payload={},
+                    context={"actor_role": "orchestration_runtime", "permissions": ["test.invoke"]},
+                )
+            self.assertIn("actor_role_not_allowed", str(exc.exception))
+        handler.assert_not_called()
 
     def test_invoke_with_args_and_kwargs(self):
         runtime = _runtime()
@@ -175,9 +183,15 @@ class SkillRuntimeUnitTest(unittest.TestCase):
 
     def test_loop_guard_blocks_repeated_identical_skill_calls(self):
         runtime = _runtime()
+        effects: list[object] = []
+
+        def effect(payload: object) -> object:
+            effects.append(payload)
+            return payload
+
         runtime.register(
             skill_id="test.repeat",
-            handler=_identity,
+            handler=effect,
             required_permissions=("test.invoke",),
         )
         context: SkillInvocationContext = {
@@ -193,6 +207,46 @@ class SkillRuntimeUnitTest(unittest.TestCase):
         with self.assertRaises(RuntimeError) as exc:
             runtime.invoke(skill_id="test.repeat", payload={"x": 1}, context=context)
         self.assertIn("tool_loop_detected", str(exc.exception))
+        self.assertEqual(len(effects), threshold - 1)
+        self.assertFalse(runtime.list_skills()[0]["repeatable_read"])
+
+    def test_loop_guard_still_blocks_declared_effects(self):
+        for concurrency_class in ("write_shared", "write_external", "privileged"):
+            with self.subTest(concurrency_class=concurrency_class):
+                runtime = _runtime()
+                effect = Mock(side_effect=_identity)
+                skill_id = f"test.repeat.{concurrency_class}"
+                runtime.register(skill_id=skill_id, handler=effect, concurrency_class=concurrency_class)
+                context: SkillInvocationContext = {
+                    "actor_role": "orchestration_runtime", "approval_granted": True,
+                    "consumer": "unit.test", "trace_id": f"trace-loop-{concurrency_class}",
+                }
+                for _ in range(9):
+                    runtime.invoke(skill_id=skill_id, payload={"x": 1}, context=context)
+                with self.assertRaisesRegex(RuntimeError, "^tool_loop_detected$"):
+                    runtime.invoke(skill_id=skill_id, payload={"x": 1}, context=context)
+                self.assertEqual(effect.call_count, 9)
+
+    def test_repeatable_reads_cannot_be_registered_for_effect_classes(self):
+        for concurrency_class in ("write_shared", "write_external", "privileged"):
+            with self.subTest(concurrency_class=concurrency_class):
+                runtime = _runtime()
+                with self.assertRaisesRegex(ValueError, "^repeatable_read requires read_only concurrency_class$"):
+                    runtime.register(
+                        skill_id="test.invalid_read", handler=_identity,
+                        concurrency_class=concurrency_class, repeatable_read=True,
+                    )
+                self.assertEqual(runtime.list_skills(), [])
+
+    def test_repeatable_read_registration_rejects_non_boolean_values(self):
+        runtime = _runtime()
+        register = getattr(runtime, "register")
+        invalid_values: tuple[object, ...] = (None, 1, "false", {})
+        for raw in invalid_values:
+            with self.subTest(raw=raw):
+                with self.assertRaisesRegex(ValueError, "^repeatable_read must be a boolean$"):
+                    register(skill_id="test.invalid_read", handler=_identity, repeatable_read=raw)
+                self.assertEqual(runtime.list_skills(), [])
 
     def test_register_updates_agent_batch_task_manifest_entries(self):
         runtime = _runtime()
@@ -222,9 +276,10 @@ class SkillRuntimeUnitTest(unittest.TestCase):
 
     def test_write_external_requires_approval_context(self):
         runtime = _runtime()
+        handler = Mock(side_effect=_identity)
         runtime.register(
             skill_id="test.external_write",
-            handler=_identity,
+            handler=handler,
             required_permissions=("test.invoke",),
             concurrency_class="write_external",
         )
@@ -236,12 +291,14 @@ class SkillRuntimeUnitTest(unittest.TestCase):
                 context={"actor_role": "orchestration_runtime", "permissions": ["test.invoke"]},
             )
         self.assertIn("approval_context_required", str(exc.exception))
+        handler.assert_not_called()
 
     def test_write_external_creates_approval_wait_when_session_context_exists(self):
         runtime = _runtime()
+        handler = Mock(side_effect=_identity)
         runtime.register(
             skill_id="test.external_write",
-            handler=_identity,
+            handler=handler,
             required_permissions=("test.invoke",),
             concurrency_class="write_external",
             approval_policy={"default": "required"},
@@ -277,6 +334,7 @@ class SkillRuntimeUnitTest(unittest.TestCase):
                     },
                 )
         self.assertIn("approval_required:", str(exc.exception))
+        handler.assert_not_called()
         approvals: object = service.list_approvals(session_id=session_id)
         self.assertEqual(len(_object_list(approvals)), 1)
         tasks: object = service.list_tasks(session_id)

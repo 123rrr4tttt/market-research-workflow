@@ -10,7 +10,7 @@ from typing import Any
 from sqlalchemy import insert, select, update
 from sqlalchemy.engine import Connection
 
-from app.successor_runtime.runtime.ports import RuntimeScope
+from app.successor_runtime.runtime.ports import ProjectScopeRef, RuntimeScope
 from app.successor_runtime.runtime.authority_grants import (
     AuthorityOperationScope,
     AuthorityResourceCeiling,
@@ -26,7 +26,7 @@ from .runtime_journal import (
     _table,
     _utcnow,
 )
-from .session import compute_scope_digest, validate_project_schema_identifier
+from .session import compute_scope_digest, validate_project_schema_identifier, validate_project_scope_ref
 
 
 @dataclass(frozen=True, slots=True)
@@ -63,6 +63,48 @@ class ProjectScopeRegistryRepository:
     def __init__(self, connection: Connection, scope: RuntimeScope) -> None:
         self.connection = connection
         self.scope = scope
+
+    def create_initial(self, *, approval_ref: str) -> ProjectScopeRef:
+        """Create revision 1 once; exact ACTIVE retries only read existing facts.
+
+        The deployment caller locks the existing business Project first and owns
+        the transaction. Any historical binding requires its normal transition.
+        """
+        ref = validate_project_scope_ref(self.scope.project_scope)
+        if ref.project_registry_revision != 1:
+            raise ValueError("initial project scope registry_revision must be 1")
+        if not approval_ref or approval_ref != approval_ref.strip():
+            raise ValueError("initial project scope requires a canonical approval_ref")
+        if not self.scope.actor_id or self.scope.actor_id != self.scope.actor_id.strip():
+            raise ValueError("initial project scope requires a canonical administrator")
+        table = _table("project_scope_registry")
+        expected = {
+            "project_key": ref.project_key,
+            "resolved_schema": ref.resolved_schema,
+            "registry_revision": 1,
+            "scope_digest": ref.scope_digest,
+            "incarnation": ref.incarnation,
+            "state": "ACTIVE",
+            "updated_by": self.scope.actor_id,
+            "approval_ref": approval_ref,
+        }
+        rows = self.connection.execute(select(table).where(
+            table.c.project_key == ref.project_key,
+        ).with_for_update()).mappings().all()
+        if rows:
+            if len(rows) == 1 and all(rows[0][key] == value for key, value in expected.items()):
+                return ref
+            raise ExactBindingConflict("first installation conflicts with project scope history")
+        collision = self.connection.execute(select(table).where(
+            table.c.incarnation == ref.incarnation,
+        ).limit(1).with_for_update()).mappings().first()
+        if collision is not None:
+            raise ExactBindingConflict("project scope incarnation has already been used")
+        now = _utcnow()
+        self.connection.execute(insert(table).values(
+            **expected, created_at=now, updated_at=now,
+        ))
+        return ref
 
     def load(self, *, for_update: bool = False) -> Mapping[str, Any]:
         """Load the sole current ACTIVE binding for this project."""

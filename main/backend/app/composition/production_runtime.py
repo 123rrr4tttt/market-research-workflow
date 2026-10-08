@@ -16,7 +16,7 @@ import hashlib
 from typing import Annotated
 
 import redis as redis_client
-from sqlalchemy import and_, or_, select
+from sqlalchemy import MetaData, and_, inspect, or_, select, text
 from sqlalchemy.engine import Connection, Engine
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
@@ -27,12 +27,15 @@ from app.successor_runtime.runtime.authority_grants import AuthorityOperationSco
 from app.successor_runtime.runtime.ports import ProjectScopeRef, RuntimeScope
 from app.successor_runtime.runtime.resources import ResourcePolicySnapshot
 from app.successor_runtime.language.catalog import OperationContractRegistry
-from app.successor_runtime.substrate.postgres.authority import AuthorityGrant, AuthorityGrantRepository, CapabilityAuthority
+from app.successor_runtime.substrate.postgres.authority import (
+    AuthorityGrant, AuthorityGrantRepository, CapabilityAuthority, ProjectScopeRegistryRepository,
+)
 from app.successor_runtime.substrate.postgres.runtime_journal import ExactBindingConflict
-from app.successor_runtime.substrate.postgres.models import PUBLIC_TABLES
+from app.successor_runtime.substrate.postgres.models import PUBLIC_TABLES, project_tables
 from app.successor_runtime.substrate.postgres.session import (
     RegistryBackedProjectScopeResolver,
     ServerProjectScopeResolver,
+    validate_project_scope_ref,
 )
 
 from .production import ProductionRuntimeBindings, ProviderSelection, RateObservation
@@ -55,25 +58,22 @@ class ProductionRuntimeAuthorityUnavailable(RuntimeError):
     """A configured authority source cannot return a valid observation."""
 
 
-def install_runtime_authority(
-    connection: Connection, *, administrator: RequestActorContext,
+def _validate_runtime_authority_declaration(
+    *, administrator: RequestActorContext,
     project_scope: ProjectScopeRef, grant: AuthorityGrant,
     capability: CapabilityAuthority,
     resource: ResourcePolicySnapshot | tuple[ResourcePolicySnapshot, ...],
     installed: OperationContractRegistry,
-) -> None:
-    """Apply an explicit, finite administrator deployment declaration.
-
-    This deployment entry is never called by a request or policy PASS. Existing
-    mismatched/revoked records require their normal owner transition; installation
-    cannot overwrite them or silently renew an expired grant.
-    """
+    connection: Connection | None = None,
+) -> tuple[ResourcePolicySnapshot, ...]:
+    """Share declaration checks, retaining original resolver error priority."""
     now = datetime.now(UTC)
     if (not administrator.actor_trusted or not administrator.actor_id or not grant.actor_id
             or grant.grant_epoch < 1 or grant.expires_at is None
             or grant.expires_at.tzinfo is None or grant.expires_at <= now):
         raise ProductionRuntimeAuthorityUnavailable("installation requires a trusted administrator and a finite grant")
-    if ServerProjectScopeResolver(connection=connection).resolve(project_scope.project_key) != project_scope:
+    if (connection is not None
+            and ServerProjectScopeResolver(connection=connection).resolve(project_scope.project_key) != project_scope):
         raise ExactBindingConflict("installation project scope is stale")
     resources = (resource,) if isinstance(resource, ResourcePolicySnapshot) else resource
     policies_by_class = {policy.resource_class.value: policy for policy in resources}
@@ -99,6 +99,26 @@ def install_runtime_authority(
         if (policy is None or limit.units > policy.max_units
                 or grant.resource_ceiling_json.max_active > policy.max_capability_active):
             raise ExactBindingConflict("installation grant exceeds the declared resource policy")
+    return resources
+
+
+def install_runtime_authority(
+    connection: Connection, *, administrator: RequestActorContext,
+    project_scope: ProjectScopeRef, grant: AuthorityGrant,
+    capability: CapabilityAuthority,
+    resource: ResourcePolicySnapshot | tuple[ResourcePolicySnapshot, ...],
+    installed: OperationContractRegistry,
+) -> None:
+    """Apply an explicit, finite administrator deployment declaration.
+
+    This deployment entry is never called by a request or policy PASS. Existing
+    mismatched/revoked records require their normal owner transition; installation
+    cannot overwrite them or silently renew an expired grant.
+    """
+    resources = _validate_runtime_authority_declaration(
+        administrator=administrator, project_scope=project_scope, grant=grant,
+        capability=capability, resource=resource, installed=installed, connection=connection,
+    )
     capability_values = {
         **asdict(capability), "project_key": project_scope.project_key,
         "updated_by": administrator.actor_id,
@@ -143,6 +163,47 @@ def install_runtime_authority(
         }
         if row["revoked_at"] is not None or any(row[key] != value for key, value in expected.items()):
             raise ExactBindingConflict("installation cannot replace or renew an existing grant")
+
+
+def install_project_runtime(
+    connection: Connection, *, administrator: RequestActorContext,
+    project_scope: ProjectScopeRef, grant: AuthorityGrant,
+    capability: CapabilityAuthority,
+    resource: ResourcePolicySnapshot | tuple[ResourcePolicySnapshot, ...],
+    installed: OperationContractRegistry,
+) -> ProjectScopeRef:
+    """Provision the first Runtime binding for an existing enabled Project.
+
+    The caller owns commit. Scope, declared project tables and finite authority
+    installation share one savepoint; this entry never bootstraps a Project.
+    """
+    validate_project_scope_ref(project_scope)
+    _validate_runtime_authority_declaration(
+        administrator=administrator, project_scope=project_scope, grant=grant,
+        capability=capability, resource=resource, installed=installed,
+    )
+    with connection.begin_nested():
+        project = connection.execute(text(
+            "SELECT schema_name, enabled FROM public.projects "
+            "WHERE project_key = :project_key FOR UPDATE"
+        ), {"project_key": project_scope.project_key}).mappings().one_or_none()
+        if (project is None or project["enabled"] is not True
+                or project["schema_name"] != project_scope.resolved_schema):
+            raise ExactBindingConflict("first installation requires the existing enabled Project schema")
+        if not inspect(connection).has_schema(project_scope.resolved_schema):
+            raise ExactBindingConflict("first installation requires the actual Project schema")
+        scope = RuntimeScope(project_scope=project_scope, actor_id=administrator.actor_id)
+        ProjectScopeRegistryRepository(connection, scope).create_initial(
+            approval_ref=capability.approval_ref,
+        )
+        metadata = MetaData()
+        tables = project_tables(metadata, project_scope.resolved_schema).as_dict()
+        metadata.create_all(connection, tables=list(tables.values()), checkfirst=True)
+        install_runtime_authority(
+            connection, administrator=administrator, project_scope=project_scope, grant=grant,
+            capability=capability, resource=resource, installed=installed,
+        )
+        return ServerProjectScopeResolver(connection=connection).resolve(project_scope.project_key)
 
 
 @contextmanager

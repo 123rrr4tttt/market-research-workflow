@@ -1,0 +1,206 @@
+{
+  "schema": "mrw.project-retrieval-mode.v1",
+  "project_key": "demo_proj",
+  "mode_id": "demo-embodied-signals-retrieval",
+  "version": "1",
+  "source_revision": "a45be59b488104503d128e15f47b84eb0def24acc75798b6a2e1250e345658da",
+  "source_snapshot": {
+    "kind": "checked_in_project_binding",
+    "files": {
+      "main/backend/app/subprojects/demo_proj/customization.py": {
+        "sha256": "a0beca1207247d612c35c57069adf4a56b93e0c1dbd75457cdedd88b6e3757d5",
+        "bytes": 1622
+      },
+      "main/backend/app/subprojects/demo_proj/mappings/workflow.py": {
+        "sha256": "6116b7b966a9e59ddd56218974423662804aaa12bf85602b9c785921085d2534",
+        "bytes": 983
+      },
+      "main/backend/app/subprojects/demo_proj/mappings/fields.py": {
+        "sha256": "92c788eb8d80481d3ab9bee8d7979986be6695afd65a01184f73a6abc0afd924",
+        "bytes": 2820
+      },
+      "main/backend/app/project_customization/projects/demo_proj/__init__.py": {
+        "sha256": "4069cd217a72aee83e4ddf3972f574b4fd850176336e2f96f95de569ae4ba12a",
+        "bytes": 267
+      }
+    }
+  },
+  "outline_summary": {
+    "title": "具身智能情报简报",
+    "sections": [
+      {
+        "section": "social",
+        "label": "社媒图谱"
+      },
+      {
+        "section": "market",
+        "label": "市场图谱"
+      },
+      {
+        "section": "policy",
+        "label": "政策图谱"
+      }
+    ],
+    "research_scope": "按现有社媒、市场和政策图谱视角搜集具身智能、机器人与自主系统信号。",
+    "authority": "DemoProjCustomization、WORKFLOW_MAPPING 与 FIELD_MAPPING 提供主题、关键词和图谱词表；本初版为原检索协议补充现场作为观察场景类型。demo没有证据分级政策，未评级只记录当前状态，不表示质量等级。",
+    "limits_basis": "max_materials=10复用google-news-scan已有采集cap，仅作为本mode上限，不声明检索channel等价；没有已声明的demo后续检索路线，因此max_followups=0。"
+  },
+  "domain_vocabulary": {
+    "域名": "具身智能情报简报",
+    "节点类型": [
+      "Post",
+      "Keyword",
+      "Entity",
+      "Topic",
+      "SentimentTag",
+      "User",
+      "Subreddit",
+      "MarketData",
+      "State",
+      "Segment",
+      "Policy",
+      "PolicyType",
+      "KeyPoint",
+      "现场"
+    ],
+    "边类型": [
+      "MENTIONS_KEYWORD",
+      "MENTIONS_ENTITY",
+      "HAS_TOPIC",
+      "HAS_SENTIMENT",
+      "AUTHORED_BY",
+      "IN_SUBREDDIT",
+      "CO_OCCURS",
+      "IN_STATE",
+      "HAS_SEGMENT",
+      "APPLIES_TO_STATE",
+      "HAS_TYPE",
+      "HAS_KEYPOINT",
+      "POLICY_RELATION"
+    ],
+    "问题意识视角": [
+      "社媒图谱",
+      "市场图谱",
+      "政策图谱"
+    ],
+    "大纲节": [
+      "social",
+      "market",
+      "policy"
+    ],
+    "池": [
+      "collect_embodied_signals"
+    ],
+    "档": [
+      "未评级"
+    ]
+  },
+  "domain_source_ref": {
+    "ref": {
+      "project_key": "demo_proj",
+      "module_id": "retrieval",
+      "namespace": "brief",
+      "type_id": "source",
+      "local_id": "demo-customization"
+    },
+    "observed_revision": "a45be59b488104503d128e15f47b84eb0def24acc75798b6a2e1250e345658da",
+    "content_digest": "92c788eb8d80481d3ab9bee8d7979986be6695afd65a01184f73a6abc0afd924"
+  },
+  "limits": {
+    "max_queries": 3,
+    "max_materials": 10,
+    "max_followups": 0
+  },
+  "routes": [
+    {
+      "route_id": "route:embodied-signals",
+      "label": "具身智能情报简报",
+      "pool": "collect_embodied_signals",
+      "outline_anchor": "具身智能情报简报",
+      "outline_sections": [
+        "social",
+        "market",
+        "policy"
+      ],
+      "perspectives": [
+        "社媒图谱",
+        "市场图谱",
+        "政策图谱"
+      ],
+      "node_types": [
+        "Post",
+        "Keyword",
+        "Entity",
+        "Topic",
+        "SentimentTag",
+        "User",
+        "Subreddit",
+        "MarketData",
+        "State",
+        "Segment",
+        "Policy",
+        "PolicyType",
+        "KeyPoint",
+        "现场"
+      ],
+      "target_edges": [
+        "MENTIONS_KEYWORD",
+        "MENTIONS_ENTITY",
+        "HAS_TOPIC",
+        "HAS_SENTIMENT",
+        "AUTHORED_BY",
+        "IN_SUBREDDIT",
+        "CO_OCCURS",
+        "IN_STATE",
+        "HAS_SEGMENT",
+        "APPLIES_TO_STATE",
+        "HAS_TYPE",
+        "HAS_KEYPOINT",
+        "POLICY_RELATION"
+      ],
+      "source_leads": [
+        "reddit-structured-scan",
+        "google-news-scan"
+      ],
+      "status": "active",
+      "query_ids": [
+        "query:demo:01",
+        "query:demo:02",
+        "query:demo:03"
+      ]
+    }
+  ],
+  "queries": [
+    {
+      "query_id": "query:demo:01",
+      "route_id": "route:embodied-signals",
+      "expression": "embodied ai",
+      "outline_sections": [
+        "social",
+        "market",
+        "policy"
+      ]
+    },
+    {
+      "query_id": "query:demo:02",
+      "route_id": "route:embodied-signals",
+      "expression": "humanoid robot",
+      "outline_sections": [
+        "social",
+        "market",
+        "policy"
+      ]
+    },
+    {
+      "query_id": "query:demo:03",
+      "route_id": "route:embodied-signals",
+      "expression": "robotics",
+      "outline_sections": [
+        "social",
+        "market",
+        "policy"
+      ]
+    }
+  ],
+  "source_registry": []
+}

@@ -5,6 +5,7 @@ import unittest
 from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Any, Callable
 from unittest.mock import patch
 
 import pytest
@@ -171,6 +172,86 @@ class WorkflowGraphApiIntegrationTestCase(unittest.TestCase):
         self.assertEqual(body["status"], "ok")
         self.assertEqual(body["data"]["status"], "done")
         self.assertEqual(body["data"]["session_id"], "as-1")
+
+    def test_workflow_readers_repeat_beyond_loop_threshold_and_observe_changes(self):
+        from httpx import Response
+        from app.services.skill_runtime import list_registered_skills
+        from app.services.workflow_graph import compiler as poll_compiler, runtime as poll_runtime
+
+        get: Callable[..., Response] = getattr(getattr(self, "client"), "get")
+        registrations = list_registered_skills()
+        readers = {
+            "workflow_graph.get_run", "workflow_graph.get_run_events",
+            "workflow_graph.get_run_agent_session", "workflow_graph.replay_run",
+            "workflow_graph.get_compiled",
+        }
+        self.assertEqual({item["skill_id"] for item in registrations if item["repeatable_read"]}, readers)
+        plan = SimpleNamespace(
+            program_id="poll-program", program_digest="a" * 64,
+            plan_id="poll-plan", plan_digest="b" * 64, ordered_steps=(),
+        )
+        session = {"session_id": "poll-run", "run_id": "poll-run", "status": "pending"}
+        def snapshot_dump(**kwargs: object) -> dict[str, str]:
+            return dict(session)
+
+        snapshot = SimpleNamespace(
+            run_id="poll-run", run_incarnation="workflow:poll-run", status="pending",
+            tasks=(), last_seq=3, model_dump=snapshot_dump,
+        )
+        revisions = {"runtime": 0, "compiled": 0}
+
+        def read_runtime(**kwargs: object) -> tuple[dict[str, Any], tuple[dict[str, Any], ...], tuple[dict[str, Any], ...]]:
+            self.assertEqual(kwargs, {
+                "run_id": "poll-run", "project_key": "demo_proj", "actor_id": "workflow-test-actor",
+            })
+            revisions["runtime"] += 1
+            events: tuple[dict[str, Any], ...] = tuple({"seq": index, "event_type": kind, "step_id": None, "event_metadata_json": metadata}
+                           for index, kind, metadata in (
+                               (1, "ProgramAccepted", {"program_id": plan.program_id, "program_digest": plan.program_digest}),
+                               (2, "PlanCompiled", {"plan_id": plan.plan_id, "plan_digest": plan.plan_digest}),
+                               (3, "RuntimeObservation", {"revision": revisions["runtime"]}),
+                           ))
+            return ({"run_id": "poll-run", "state": "READY", "incarnation": "workflow:poll-run",
+                     "updated_at": str(revisions["runtime"])}, (), events)
+
+        def read_compiled(graph_id: str) -> dict[str, str]:
+            self.assertEqual(graph_id, "poll-graph")
+            revisions["compiled"] += 1
+            return {"graph_id": graph_id, "version": "v1", "checksum": str(revisions["compiled"])}
+
+        store = SimpleNamespace(get_compiled=read_compiled)
+        cases: tuple[tuple[str, Callable[[dict[str, Any]], object]], ...] = (
+            ("/runs/poll-run", lambda data: data["updated_at"]),
+            ("/runs/poll-run/events", lambda data: data["items"][-1]["payload"]["revision"]),
+            ("/runs/poll-run/agent-session", lambda data: data["events"][-1]["payload"]["revision"]),
+            ("/runs/poll-run/replay?replay_mode=stateful", lambda data: data["events"][-1]["payload"]["revision"]),
+            ("/compiled/poll-graph", lambda data: data["checksum"]),
+        )
+        with (
+            patch.object(poll_runtime, "_read_runtime", side_effect=read_runtime) as reads,
+            patch.object(poll_runtime, "_load_agent_session_snapshot", return_value=snapshot),
+            patch.object(poll_runtime, "_read_runtime_plan", return_value=plan),
+            patch.object(poll_runtime, "_read_runtime_outputs", return_value=()),
+            patch.object(poll_compiler, "_resolved_store", return_value=store),
+        ):
+            for path, observation in cases:
+                with self.subTest(path=path):
+                    observations: list[object] = []
+                    data: dict[str, Any] = {}
+                    for _ in range(11):
+                        response = get(f"/api/v1/workflow-graph{path}", headers=self.headers)
+                        self.assertEqual(response.status_code, 200, response.text)
+                        data = response.json()["data"]
+                        observations.append(observation(data))
+                    self.assertNotEqual(observations[0], observations[-1])
+                    if path.endswith("agent-session"):
+                        self.assertEqual(data["session"], session)
+                        self.assertEqual(data["tasks"], [])
+                    if "/replay" in path:
+                        self.assertEqual(data["status"], "queued")
+                        self.assertTrue(data["replay_consistency"]["consistent"])
+            self.assertEqual(reads.call_count, 66)
+        self.assertEqual(revisions["compiled"], 11)
 
     def test_get_run_events_success(self):
         with patch(

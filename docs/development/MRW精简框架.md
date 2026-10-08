@@ -2,6 +2,8 @@
 
 > 2026-10-08 · 已提交基线`2f20e9f`中，从`a17930da`实施的有限删除波次及修复，使app Python从737文件299234行减至641文件231701行，净减67533行（22.57%）；JSON、前端、kit、工具与测试另账。局部构造、集中验证及八个Source/Agent等语义组合的本轮重构见[阶段§4](MRW平台结构精简与删减阶段.md#4-有限删除波次与待重构组合)。九项能力覆盖、本批CI通过和显著删减不等于全平台架构重构完成。首两批已提交结果与attempt保留于阶段§2.1/§2.2，旧部署Stage4–6继续STOPPED。
 
+已从提交`ee20e32d`完成四项有限收口：正式首次provisioning、宿主重复只读观察、demo检索声明、本机父iframe认证连续性。范围、owner、最小接口和退出条件见[阶段§4](MRW平台结构精简与删减阶段.md#四项遗留接缝的有限收口2026-10-08)；首次安装沿显式deployment边界，不把业务create/run或host登录变为授权来源。上轮八切口与验证保持原归属；四项真实消费、最终242项gate及必要新增成本统一见该节。
+
 ## 1. 从必要能力确定退役对象
 
 MRW服务项目中的来源获取、材料组织、检索、信息拓扑、分析和引用写作。保留范围由用户需要的能力、权威事实与不可替代的效果决定。目录、API mount、测试、checker或旧兼容入口的引用只是消费者定位线索，不能使整族实现永久保留；还必须判断消费者能否并入已选入口或已有kernel。
@@ -98,9 +100,9 @@ app的c3路径基线互斥覆盖：services398文件130558行、successor_runtim
 
 ## 5. 推进与验证
 
-用户已授权将阶段§4八个已调查切口继续实施，本轮从已提交`2f20e9f176087090be92f16130db740fdae593ec`开始。A URL提交、B旧tool桥、C未用native分支及G路由v4已有稳定点和局部见证；D resolver类型接缝、E runner原组合验证和F query真实组合重构的局部见证已通过；本轮中央验证已收口：backend2505 actual passed与4原skip，root1350 actual passed（含七gate242），两清单kept/missing/extra均0，公共边界类型0错误。B rev2含公共适配规则实际净减10，E实际净增46，必要Failure与readback修复成本不隐藏；细账与原失败attempt沿阶段§4。本轮源码净减583行至641文件231118行，配置/派生JSON另净减2593，测试含历史fixture净增1350（其中不可执行旧材料317行），与源码另账；原coverage核心100%、其余66.72%，真实host summary一次及canonical SQL读回通过。既有PASS保留原归属；本轮八切口已本地完成，整体平台重构及独立缺口不因此关闭。
+上轮八切口从`2f20e9f`实施并提交至`ee20e32d`：app Python净减583行至641文件231118行，JSON净减2593、测试含历史fixture净增1350另账。backend2505项与root1350项实际通过，原skip4项；细账、coverage、Failure修复及真实host/SQL证据保留于[阶段§4](MRW平台结构精简与删减阶段.md#4-有限删除波次与待重构组合)。当前四项接缝按同节独立合同与结果收口，沿真实依赖复用未变证据，必要新增成本全计，不把本次安装与观察能力补齐记为删除收益。
 
-首两批结果保持历史；当前从`a17930da`推进有限删除波次，能力覆盖分为来源采集、检索资源、材料导入、知识写作、宿主工作流、项目/API、选定Runtime、前端宿主适配、kit工具ops九项。九项不是全部剩余实现的穷尽清单；Source resolver/provider组织、Agent URL提交、搜索矩阵、discovery/clue组合、旧tool协议桥及native provider残留等本轮调查与实施面见阶段§4。每项按旧整体架构组织、迁移中介、迁移后残留、新架构特殊核分别定界，沿生产入口→旧组织→保留算法/功能/事实owner→既有贡献或Runtime装配→删除闭包→完成见证贯通，再形成可删闭包、同形收敛、具名保留或具体阻塞；整handler被注册或迁到新目录不构成重构。已定删除包验证后关闭该包，仍须继续具名未重构切口，不以补测试代替结构变化。分类全覆盖仍不等于services旧整体组织退役或单一Runtime/全能力同源接线完成；后两项须沿实际执行与事实owner分别证明，必要kernel只能逐项具名保留。预算、独占写面、原验证入口与总体退出见[阶段§4–5](MRW平台结构精简与删减阶段.md#4-有限删除波次与待重构组合)；物理代码面不冒充净减承诺，旧执行owner必须退出，必要权限/类型/UNKNOWN/恢复保持。
+首两批结果保持历史；从`a17930da`实施的有限删除波次，能力覆盖分为来源采集、检索资源、材料导入、知识写作、宿主工作流、项目/API、选定Runtime、前端宿主适配、kit工具ops九项。九项不是全部剩余实现的穷尽清单；Source resolver/provider组织、Agent URL提交、搜索矩阵、discovery/clue组合、旧tool协议桥及native provider残留等已调查与实施面见阶段§4。每项按旧整体架构组织、迁移中介、迁移后残留、新架构特殊核分别定界，沿生产入口→旧组织→保留算法/功能/事实owner→既有贡献或Runtime装配→删除闭包→完成见证贯通，再形成可删闭包、同形收敛、具名保留或具体阻塞；整handler被注册或迁到新目录不构成重构。已定删除包验证后关闭该包，仍须继续具名未重构切口，不以补测试代替结构变化。分类全覆盖仍不等于services旧整体组织退役或单一Runtime/全能力同源接线完成；后两项须沿实际执行与事实owner分别证明，必要kernel只能逐项具名保留。预算、独占写面、原验证入口与总体退出见[阶段§4–5](MRW平台结构精简与删减阶段.md#4-有限删除波次与待重构组合)；物理代码面不冒充净减承诺，旧执行owner必须退出，必要权限/类型/UNKNOWN/恢复保持。
 
 全局最多6名活跃Agent，root分发与Astra编排各1名，最多4名作者/调查者；集成owner占其中1席。领域作者不各写adapter补共同缺口；共同规则失败回到唯一owner，独立包继续。PG、coverage、前端build/E2E独占，pure最多2个资源隔离进程。原进度记录汇总现成分派、首次共同验收、失败、手写机械接线、调用/token及共同修复成本；缺失不记零，不能由局部通过推断整体提速。
 
@@ -112,4 +114,4 @@ app的c3路径基线互斥覆盖：services398文件130558行、successor_runtim
 
 精确历史可从`git show c3adced:docs/development/MRW平台结构精简与删减阶段.md`读取；原aggregate为`/tmp/mrw-structure-20261007-w4uct7gr/integration/ci-group-resumption-2.json`。这些是旧候选证据，新退役改动只能按未变依赖复用。全文件类型债、浏览器mocks、direct HOST写作工具证明范围和不完整调用/token成本仍保留，不新增为本次后置治理工程。
 
-当前状态：有限删除波次已取得上述源码净减；终版ci-pr精确清单2444项为69 actual passed、2371 kept、4 skipped，root suite为304 actual passed与1046 kept，七gate242、公共类型0错误、coverage原100/20门槛通过，具体时点及原失败attempt见阶段§4。真实本机host summary已取得canonical SQL读回；两项workflow已补有效Bearer并经过隔离scope/grant安装，原多resource installer修复19/19实际通过；领域Failure v2正文及Plan-aware replay已修复，两原live E2E实际通过，最后reader guard的受影响failure selector亦实际通过，success按未变依赖kept；v1正文与digest保持。首次正式provisioning入口、宿主只读循环十次、retrieval缺配置和未验证cookie代理lane仍独立保留。整体精简及全能力原生规则贯通仍未完成；未push或deploy，旧生产部署Stage4–6继续STOPPED。
+更早有限删除波次的基线测试与live结果保留于阶段§4，上轮八切口已提交`ee20e32d`；本轮仅收口该节四项遗留接缝，进度统一在其对应小节，不沿用旧计数作新结果。整体精简及全能力原生规则贯通不因本轮有限收口自动成立；未push/deploy，旧生产部署Stage4–6继续STOPPED。

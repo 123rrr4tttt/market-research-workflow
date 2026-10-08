@@ -43,6 +43,7 @@ class SkillRegistrationView(TypedDict):
     owner: str
     execution_profile: str
     concurrency_class: str
+    repeatable_read: bool
     input_schema: SkillDocument
     approval_policy: SkillDocument
     artifact_contract: SkillDocument
@@ -142,6 +143,7 @@ class SkillSpec:
     owner: str
     execution_profile: str = "default"
     concurrency_class: str = "read_only"
+    repeatable_read: bool = False
     input_schema: SkillDocument | None = None
     approval_policy: SkillDocument | None = None
     artifact_contract: SkillDocument | None = None
@@ -166,6 +168,7 @@ class SkillRuntime:
                     "owner": item.owner,
                     "execution_profile": item.execution_profile,
                     "concurrency_class": item.concurrency_class,
+                    "repeatable_read": item.repeatable_read,
                     "input_schema": dict(item.input_schema or {}),
                     "approval_policy": dict(item.approval_policy or {}),
                     "artifact_contract": dict(item.artifact_contract or {}),
@@ -194,6 +197,7 @@ class SkillRuntime:
         owner: str = "unknown",
         execution_profile: str = "default",
         concurrency_class: str = "read_only",
+        repeatable_read: bool = False,
         input_schema: Mapping[str, object] | None = None,
         approval_policy: Mapping[str, object] | None = None,
         artifact_contract: Mapping[str, object] | None = None,
@@ -217,6 +221,11 @@ class SkillRuntime:
 
         normalized_roles = tuple(_normalize_actor_roles(allowed_actor_roles))
         normalized_permissions = tuple(_normalize_permissions(required_permissions))
+        normalized_concurrency_class = _normalize_concurrency_class(concurrency_class)
+        if type(repeatable_read) is not bool:
+            _raise_skill_runtime_defect("repeatable_read must be a boolean", ValueError)
+        if repeatable_read and normalized_concurrency_class != "read_only":
+            _raise_skill_runtime_defect("repeatable_read requires read_only concurrency_class", ValueError)
 
         spec = SkillSpec(
             skill_id=resolved_skill_id,
@@ -225,7 +234,8 @@ class SkillRuntime:
             required_permissions=normalized_permissions,
             owner=str(owner or "unknown").strip() or "unknown",
             execution_profile=str(execution_profile or "default").strip() or "default",
-            concurrency_class=_normalize_concurrency_class(concurrency_class),
+            concurrency_class=normalized_concurrency_class,
+            repeatable_read=repeatable_read,
             input_schema=_normalize_contract_dict(input_schema),
             approval_policy=_normalize_contract_dict(approval_policy),
             artifact_contract=_normalize_contract_dict(artifact_contract),
@@ -272,7 +282,7 @@ class SkillRuntime:
                 KeyError,
             )
 
-        loop_guard_reason = _detect_skill_loop_guard(
+        loop_guard_reason = None if spec.repeatable_read else _detect_skill_loop_guard(
             skill_id=resolved_skill_id,
             payload=payload,
             args=args,
@@ -393,6 +403,7 @@ class SkillRuntime:
             allowed_actor_roles=("orchestration_runtime", "business_capability_wrapper", "user_facing_assistant"),
             required_permissions=("workflow_graph.read",),
             owner="workflow_graph.runtime",
+            repeatable_read=True,
         )
         self.register(
             skill_id="workflow_graph.get_run_events",
@@ -400,6 +411,7 @@ class SkillRuntime:
             allowed_actor_roles=("orchestration_runtime", "business_capability_wrapper", "user_facing_assistant"),
             required_permissions=("workflow_graph.read",),
             owner="workflow_graph.runtime",
+            repeatable_read=True,
         )
         self.register(
             skill_id="workflow_graph.get_run_agent_session",
@@ -407,6 +419,7 @@ class SkillRuntime:
             allowed_actor_roles=("orchestration_runtime", "business_capability_wrapper", "user_facing_assistant"),
             required_permissions=("workflow_graph.read",),
             owner="workflow_graph.runtime",
+            repeatable_read=True,
         )
         self.register(
             skill_id="workflow_graph.replay_run",
@@ -414,6 +427,7 @@ class SkillRuntime:
             allowed_actor_roles=("orchestration_runtime", "business_capability_wrapper", "user_facing_assistant"),
             required_permissions=("workflow_graph.read",),
             owner="workflow_graph.runtime",
+            repeatable_read=True,
         )
         self.register(
             skill_id="workflow_graph.get_compiled",
@@ -421,6 +435,7 @@ class SkillRuntime:
             allowed_actor_roles=("orchestration_runtime", "business_capability_wrapper", "user_facing_assistant"),
             required_permissions=("workflow_graph.read",),
             owner="workflow_graph.compiler",
+            repeatable_read=True,
         )
         self.register(
             skill_id="workflow_graph.template.list",
@@ -937,6 +952,7 @@ def register_skill(
     owner: str = "unknown",
     execution_profile: str = "default",
     concurrency_class: str = "read_only",
+    repeatable_read: bool = False,
     input_schema: Mapping[str, object] | None = None,
     approval_policy: Mapping[str, object] | None = None,
     artifact_contract: Mapping[str, object] | None = None,
@@ -951,6 +967,7 @@ def register_skill(
         owner=owner,
         execution_profile=execution_profile,
         concurrency_class=concurrency_class,
+        repeatable_read=repeatable_read,
         input_schema=input_schema,
         approval_policy=approval_policy,
         artifact_contract=artifact_contract,
