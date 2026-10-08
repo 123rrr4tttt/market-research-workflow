@@ -1,13 +1,27 @@
 from __future__ import annotations
-
-from collections.abc import Callable
+from app.services.document_queries.contracts import coerce_document_query_result_row
+from .structured_data_search import StructuredRecord
+from typing import Protocol
+from functorial_kit import Failure
+from dataclasses import dataclass
+from functools import partial
 import json
 import re
-from typing import Any
-
 from app.services.agent_sessions.service import AgentSessionService
-
+from app.services.agent_core.contracts import AgentCoreRequest, CoreToolCall, CoreToolResult, JSONObject, ToolStatus
+from app.services.agent_core.tool_support import (
+    SourceLibraryLister,
+    StructuredDataSearcher,
+    compact_json_value,
+    compact_session,
+    core_status,
+    json_list,
+    json_object,
+    runtime_failure_result,
+)
+from app.services.agent_core.tool_contribution import ProjectToolAuthorSource, ProjectToolOperation
 from .capability_registry import list_interactive_agent_capabilities
+from .control_tools import project_tool_sources, project_tool_declaration
 from .material_ontology import (
     EXTERNAL_DISCOVERY,
     INTERNAL_EXISTING,
@@ -23,19 +37,73 @@ from .structured_data_search import (
     read_project_structured_data_item,
     read_project_structured_data_items,
 )
-from .tool_contract import READ_ONLY_TOOL_PROTOCOL, build_capability_call, build_tool_definition
 from .tool_pool import AgentToolPoolAssembler, ToolPoolRequest, default_agent_runtime_feature_flags
 
 
-SourceLibraryLister = Callable[[str | None], list[dict[str, Any]]]
-StructuredDataSearcher = Callable[..., dict[str, Any]]
+@dataclass(frozen=True, slots=True)
+class ReadOnlyToolContext:
+    service: AgentSessionService
+    source_library_lister: SourceLibraryLister | None
+    structured_data_searcher: StructuredDataSearcher
 
 
-def _as_text(value: Any) -> str:
+class ReadToolOperation(Protocol):
+    def __call__(
+        self, tool_call: CoreToolCall, request: AgentCoreRequest, *, context: ReadOnlyToolContext
+    ) -> CoreToolResult: ...
+
+
+def _read_tool_declaration(
+    context: ReadOnlyToolContext, operation: ReadToolOperation, *, name: str, description: str, input_schema: JSONObject
+) -> tuple[JSONObject, ProjectToolOperation]:
+    return project_tool_declaration(
+        name=name, description=description, input_schema=input_schema, operation=partial(operation, context=context)
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class StructuredDataRead:
+    status: ToolStatus
+    summary: str
+    result: JSONObject
+    error: JSONObject | None = None
+
+
+def _objects(value: object) -> list[JSONObject]:
+    return [json_object(item) for item in json_list(value) if isinstance(item, dict)]
+
+
+def _datasets(value: object) -> list[str] | None:
+    items = json_list(value)
+    return [str(item) for item in items] if isinstance(value, list) else None
+
+
+def _limit(call: CoreToolCall, default: int) -> int:
+    value = call.arguments.get("limit") or default
+    if not isinstance(value, (str, int, float)):
+        raise TypeError("limit must be an integer")
+    return _integer(value)
+
+
+def _read_result(
+    call: CoreToolCall, *, status: ToolStatus, summary: str, result: JSONObject, error: JSONObject | None = None
+) -> CoreToolResult:
+    return CoreToolResult(
+        call_id=call.call_id,
+        tool_name=call.tool_name,
+        status=status,
+        model_summary=summary,
+        ui_summary=summary,
+        structured_content={"result": _compact_result_for_core(call.tool_name, result)},
+        error=error,
+    )
+
+
+def _as_text(value: object) -> str:
     return str(value or "").strip()
 
 
-def _compact_source_item(item: dict[str, Any]) -> dict[str, Any]:
+def _compact_source_item(item: JSONObject) -> JSONObject:
     return {
         "item_key": item.get("item_key"),
         "name": item.get("name"),
@@ -49,14 +117,16 @@ def _compact_source_item(item: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _matches_query(item: dict[str, Any], query: str) -> bool:
+def _matches_query(item: JSONObject, query: str) -> bool:
     if not query:
         return True
     haystack = " ".join(
-        _as_text(item.get(key)).lower()
-        for key in ("item_key", "name", "channel_key", "item_type", "description", "managed_by")
+        (
+            _as_text(item.get(key)).lower()
+            for key in ("item_key", "name", "channel_key", "item_type", "description", "managed_by")
+        )
     )
-    tags = " ".join(_as_text(tag).lower() for tag in item.get("tags") or [])
+    tags = " ".join(_as_text(tag).lower() for tag in json_list(item.get("tags")))
     return query.lower() in f"{haystack} {tags}"
 
 
@@ -74,17 +144,17 @@ def _extract_graph_id(command: str) -> str | None:
         cleaned = token.strip("`'\"：:；;。()[]{}")
         if not cleaned or cleaned.lower() in skip:
             continue
-        if any(marker in cleaned.lower() for marker in ("graph", "workflow", "_")) or len(cleaned) >= 4:
+        if any((marker in cleaned.lower() for marker in ("graph", "workflow", "_"))) or len(cleaned) >= 4:
             return cleaned
     return None
 
 
 def _parse_structured_read_ref(
     *,
-    dataset: Any | None = None,
-    record_id: Any | None = None,
-    item_id: Any | None = None,
-    resource_uri: Any | None = None,
+    dataset: object | None = None,
+    record_id: object | None = None,
+    item_id: object | None = None,
+    resource_uri: object | None = None,
 ) -> tuple[str, str]:
     dataset_text = _as_text(dataset)
     record_text = _as_text(record_id)
@@ -100,1263 +170,1360 @@ def _parse_structured_read_ref(
         if len(parts) == 3:
             dataset_text = dataset_text or parts[1]
             record_text = record_text or parts[2]
-    return dataset_text, record_text
+    return (dataset_text, record_text)
 
 
 def _query_tokens(query: str) -> list[str]:
     tokens = [
         token.strip().lower()
-        for token in re.split(r"[\s,，。；;:：/|()（）\[\]{}]+", str(query or ""))
+        for token in re.split("[\\s,，。；;:：/|()（）\\[\\]{}]+", str(query or ""))
         if token.strip()
     ]
     return [token for token in tokens if len(token) >= 2]
 
 
-def _compact_workflow_graph(record: dict[str, Any]) -> dict[str, Any]:
-    nodes = dict(record.get("nodes") or {})
+def _compact_workflow_graph(record: JSONObject) -> JSONObject:
+    nodes = json_object(record.get("nodes") or {})
     return {
         "graph_id": record.get("graph_id"),
         "version": record.get("version"),
         "checksum": record.get("checksum"),
         "node_count": len(nodes),
-        "topo_order": list(record.get("topo_order") or [])[:20],
-        "input_keys": sorted({key for node in nodes.values() for key in dict(node.get("params") or {}).keys()})[:20],
+        "topo_order": json_list(record.get("topo_order") or [])[:20],
+        "input_keys": sorted(
+            {key for node in nodes.values() for key in json_object(json_object(node).get("params") or {}).keys()}
+        )[:20],
     }
 
 
-class ReadOnlyAgentToolRuntime:
-    """Read-only tools that can answer fast chat turns without agent_batch."""
-
-    def __init__(
-        self,
-        *,
-        service: AgentSessionService,
-        source_library_lister: SourceLibraryLister | None = None,
-        structured_data_searcher: StructuredDataSearcher | None = None,
-    ) -> None:
-        self.service = service
-        self.source_library_lister = source_library_lister
-        self.structured_data_searcher = structured_data_searcher or query_project_structured_data
-
-    def supported_tool_names(self) -> set[str]:
-        return {str(item["name"]) for item in self.list_tool_definitions()}
-
-    def list_tool_definitions(self) -> list[dict[str, Any]]:
-        return [
-            build_tool_definition(
-                name="agent_runtime.capability.catalog",
-                capability_id="agent_runtime.capability.catalog",
-                description="List available agent capabilities and risk metadata.",
-                input_schema={"type": "object", "properties": {}, "additionalProperties": False},
-            ),
-            build_tool_definition(
-                name="agent_runtime.tool_pool.list",
-                capability_id="agent_runtime.tool_pool.list",
-                description="List the dynamically assembled tool pool grouped by core, deferred, disabled, and approval-required tools.",
-                input_schema={"type": "object", "properties": {}, "additionalProperties": False},
-            ),
-            build_tool_definition(
-                name="agent_runtime.tool.search",
-                capability_id="agent_runtime.tool.search",
-                description="Search the full agent tool pool and lazily discover tools by name, domain, risk, or description.",
-                input_schema={
-                    "type": "object",
-                    "properties": {
-                        "query": {"type": "string"},
-                        "limit": {"type": "integer", "minimum": 1, "maximum": 50},
+def _read_tool_declarations(context: ReadOnlyToolContext) -> tuple[tuple[JSONObject, ProjectToolOperation], ...]:
+    return (
+        _read_tool_declaration(
+            context,
+            capability_catalog,
+            name="agent_runtime.capability.catalog",
+            description="List available agent capabilities and risk metadata.",
+            input_schema={"type": "object", "properties": {}, "additionalProperties": False},
+        ),
+        _read_tool_declaration(
+            context,
+            tool_pool_list,
+            name="agent_runtime.tool_pool.list",
+            description="List the dynamically assembled tool pool grouped by core, deferred, disabled, and approval-required tools.",
+            input_schema={"type": "object", "properties": {}, "additionalProperties": False},
+        ),
+        _read_tool_declaration(
+            context,
+            tool_search,
+            name="agent_runtime.tool.search",
+            description="Search the full agent tool pool and lazily discover tools by name, domain, risk, or description.",
+            input_schema={
+                "type": "object",
+                "properties": {"query": {"type": "string"}, "limit": {"type": "integer", "minimum": 1, "maximum": 50}},
+                "additionalProperties": False,
+            },
+        ),
+        _read_tool_declaration(
+            context,
+            session_context,
+            name="agent_session.context.read",
+            description="Read the current agent session ledger, messages, tasks, events, artifacts, and approvals.",
+            input_schema={"type": "object", "properties": {}, "additionalProperties": False},
+        ),
+        _read_tool_declaration(
+            context,
+            project_summary,
+            name="project.summary.read",
+            description="Read the local project database and summarize project-scoped data, source-library coverage, and session counters without mutating state.",
+            input_schema={"type": "object", "properties": {}, "additionalProperties": False},
+        ),
+        _read_tool_declaration(
+            context,
+            project_structured_data_search,
+            name="project.structured_data.search",
+            description="Search or inventory already-stored structured project data across materials/extracted JSON, graph nodes, market metrics, products, prices, resource-pool entries, keyword memory, search history, and sources. This is read-only and never starts collection.",
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "Optional search text. Leave empty for a project data inventory.",
                     },
-                    "additionalProperties": False,
-                },
-            ),
-            build_tool_definition(
-                name="agent_session.context.read",
-                capability_id="agent_session.context.read",
-                description="Read the current agent session ledger, messages, tasks, events, artifacts, and approvals.",
-                input_schema={"type": "object", "properties": {}, "additionalProperties": False},
-            ),
-            build_tool_definition(
-                name="project.summary.read",
-                capability_id="project.summary.read",
-                description="Read the local project database and summarize project-scoped data, source-library coverage, and session counters without mutating state.",
-                input_schema={"type": "object", "properties": {}, "additionalProperties": False},
-            ),
-            build_tool_definition(
-                name="project.structured_data.search",
-                capability_id="project.structured_data.search",
-                description=(
-                    "Search or inventory already-stored structured project data across materials/extracted JSON, graph nodes, "
-                    "market metrics, products, prices, resource-pool entries, keyword memory, search history, and sources. "
-                    "This is read-only and never starts collection."
-                ),
-                input_schema={
-                    "type": "object",
-                    "properties": {
-                        "query": {
-                            "type": "string",
-                            "description": "Optional search text. Leave empty for a project data inventory.",
-                        },
-                        "limit": {"type": "integer", "minimum": 1, "maximum": 50},
-                        "datasets": {
-                            "type": "array",
-                            "items": {
-                                "type": "string",
-                                "enum": [
-                                    "materials",
-                                    "documents",  # Legacy input normalized by structured_data_search.
-                                    "graph_nodes",
-                                    "metric_points",
-                                    "products",
-                                    "price_observations",
-                                    "resource_pool_urls",
-                                    "resource_pool_sites",
-                                    "keyword_history",
-                                    "keyword_priors",
-                                    "search_history",
-                                    "sources",
-                                ],
-                            },
-                        },
-                    },
-                    "additionalProperties": False,
-                },
-            ),
-            build_tool_definition(
-                name="project.structured_data.item.read",
-                capability_id="project.structured_data.item.read",
-                description=(
-                    "Read one concrete already-stored structured project record returned by project.structured_data.search. "
-                    "Use dataset+record_id, item_id, or resource_uri from model_evidence_manifest. This is read-only."
-                ),
-                input_schema={
-                    "type": "object",
-                    "properties": {
-                        "project_key": {"type": "string"},
-                        "dataset": {"type": "string"},
-                        "record_id": {"type": "string"},
-                        "item_id": {"type": "string"},
-                        "resource_uri": {"type": "string"},
-                    },
-                    "additionalProperties": False,
-                },
-            ),
-            build_tool_definition(
-                name="project.structured_data.items.read",
-                capability_id="project.structured_data.items.read",
-                description="Read several concrete structured project records by manifest handles. This is read-only.",
-                input_schema={
-                    "type": "object",
-                    "properties": {
-                        "project_key": {"type": "string"},
+                    "limit": {"type": "integer", "minimum": 1, "maximum": 50},
+                    "datasets": {
+                        "type": "array",
                         "items": {
-                            "type": "array",
-                            "items": {
-                                "type": "object",
-                                "properties": {
-                                    "project_key": {"type": "string"},
-                                    "dataset": {"type": "string"},
-                                    "record_id": {"type": "string"},
-                                    "item_id": {"type": "string"},
-                                    "resource_uri": {"type": "string"},
-                                },
-                                "additionalProperties": False,
-                            },
+                            "type": "string",
+                            "enum": [
+                                "materials",
+                                "documents",
+                                "graph_nodes",
+                                "metric_points",
+                                "products",
+                                "price_observations",
+                                "resource_pool_urls",
+                                "resource_pool_sites",
+                                "keyword_history",
+                                "keyword_priors",
+                                "search_history",
+                                "sources",
+                            ],
                         },
-                        "limit": {"type": "integer", "minimum": 1, "maximum": 25},
                     },
-                    "additionalProperties": False,
                 },
-            ),
-            build_tool_definition(
-                name="project.context.resource.read",
-                capability_id="project.context.resource.read",
-                description="Read one concrete project context resource by resource_uri from project.context.bundle/model_evidence_manifest. This is read-only.",
-                input_schema={
-                    "type": "object",
-                    "required": ["resource_uri"],
-                    "properties": {
-                        "project_key": {"type": "string"},
-                        "resource_uri": {"type": "string"},
-                    },
-                    "additionalProperties": False,
-                },
-            ),
-            build_tool_definition(
-                name="project.context.bundle",
-                capability_id="project.context.bundle",
-                description=(
-                    "Build a compact material context bundle across internal existing project data, generated artifacts, "
-                    "writing documents, and source-library catalog entries. This is read-only and labels source catalog "
-                    "items as collection entrypoints rather than existing evidence."
-                ),
-                input_schema={
-                    "type": "object",
-                    "properties": {
-                        "query": {"type": "string"},
-                        "limit": {"type": "integer", "minimum": 1, "maximum": 50},
-                    },
-                    "additionalProperties": False,
-                },
-            ),
-            build_tool_definition(
-                name="source_library.item.list",
-                capability_id="source_library.item.list",
-                description="List effective project and shared source-library data-source items from the database without running collection or expanding execution plans.",
-                input_schema={
-                    "type": "object",
-                    "properties": {"limit": {"type": "integer", "minimum": 1, "maximum": 50}},
-                    "additionalProperties": False,
-                },
-            ),
-            build_tool_definition(
-                name="source_library.item.search",
-                capability_id="source_library.item.search",
-                description="Search source-library items by query text.",
-                input_schema={
-                    "type": "object",
-                    "properties": {
-                        "query": {"type": "string"},
-                        "limit": {"type": "integer", "minimum": 1, "maximum": 50},
-                    },
-                    "additionalProperties": False,
-                },
-            ),
-            build_tool_definition(
-                name="source_library.item.inspect",
-                capability_id="source_library.item.inspect",
-                description="Inspect one source-library item definition by item_key.",
-                input_schema={
-                    "type": "object",
-                    "properties": {"item_key": {"type": "string"}},
-                    "additionalProperties": False,
-                },
-            ),
-            build_tool_definition(
-                name="agent_artifact.search",
-                capability_id="agent_artifact.search",
-                description="Search artifacts in the current session.",
-                input_schema={
-                    "type": "object",
-                    "properties": {
-                        "query": {"type": "string"},
-                        "limit": {"type": "integer", "minimum": 1, "maximum": 50},
-                    },
-                    "additionalProperties": False,
-                },
-            ),
-            build_tool_definition(
-                name="agent_artifact.read",
-                capability_id="agent_artifact.read",
-                description="Read the latest or explicitly named artifact in the current session.",
-                input_schema={
-                    "type": "object",
-                    "properties": {"artifact_ref": {"type": "string"}},
-                    "additionalProperties": False,
-                },
-            ),
-            build_tool_definition(
-                name="workflow_graph.list",
-                capability_id="workflow_graph.list",
-                description="List recently compiled workflow graphs and workflow graph templates without running them.",
-                input_schema={
-                    "type": "object",
-                    "properties": {"limit": {"type": "integer", "minimum": 1, "maximum": 50}},
-                    "additionalProperties": False,
-                },
-            ),
-            build_tool_definition(
-                name="workflow_graph.inspect",
-                capability_id="workflow_graph.inspect",
-                description="Inspect one compiled workflow graph, including nodes, order, checksum, and expected input shape.",
-                input_schema={
-                    "type": "object",
-                    "properties": {"graph_id": {"type": "string"}},
-                    "additionalProperties": False,
-                },
-            ),
-            build_tool_definition(
-                name="ingest.status.read",
-                capability_id="ingest.status.read",
-                description="Read recent ingest and source-library job status without starting new collection.",
-                input_schema={
-                    "type": "object",
-                    "properties": {"limit": {"type": "integer", "minimum": 1, "maximum": 50}},
-                    "additionalProperties": False,
-                },
-            ),
-        ]
-
-    def execute(
-        self,
-        *,
-        tool_name: str,
-        turn_id: str,
-        session_id: str,
-        project_key: str | None,
-        command: str,
-        input_payload: dict[str, Any] | None = None,
-    ) -> dict[str, Any]:
-        payload = dict(input_payload or {})
-        name = _as_text(tool_name)
-        if name == "agent_runtime.capability.catalog":
-            return self.capability_catalog(turn_id=turn_id)
-        if name == "agent_runtime.tool_pool.list":
-            return self.tool_pool_list(turn_id=turn_id, project_key=project_key)
-        if name == "agent_runtime.tool.search":
-            return self.tool_search(
-                turn_id=turn_id,
-                project_key=project_key,
-                query=_as_text(payload.get("query")) or command,
-                limit=int(payload.get("limit") or 12),
-            )
-        if name == "agent_session.context.read":
-            return self.session_context(session_id=session_id, turn_id=turn_id)
-        if name == "project.summary.read":
-            return self.project_summary(project_key=project_key, session_id=session_id, turn_id=turn_id)
-        if name == "project.structured_data.search":
-            return self.project_structured_data_search(
-                project_key=project_key,
-                turn_id=turn_id,
-                query=_as_text(payload.get("query")) or command,
-                limit=int(payload.get("limit") or 12),
-                datasets=list(payload.get("datasets") or []) if isinstance(payload.get("datasets"), list) else None,
-            )
-        if name == "project.structured_data.item.read":
-            return self.project_structured_data_item_read(
-                project_key=_as_text(payload.get("project_key")) or project_key,
-                turn_id=turn_id,
-                dataset=_as_text(payload.get("dataset")) or None,
-                record_id=_as_text(payload.get("record_id")) or None,
-                item_id=_as_text(payload.get("item_id")) or None,
-                resource_uri=_as_text(payload.get("resource_uri")) or None,
-            )
-        if name == "project.structured_data.items.read":
-            return self.project_structured_data_items_read(
-                project_key=_as_text(payload.get("project_key")) or project_key,
-                turn_id=turn_id,
-                items=list(payload.get("items") or []) if isinstance(payload.get("items"), list) else [],
-                limit=int(payload.get("limit") or 8),
-            )
-        if name == "project.context.resource.read":
-            return self.project_context_resource_read(
-                project_key=_as_text(payload.get("project_key")) or project_key,
-                turn_id=turn_id,
-                resource_uri=_as_text(payload.get("resource_uri")),
-            )
-        if name == "project.context.bundle":
-            return self.project_context_bundle(
-                project_key=project_key,
-                session_id=session_id,
-                turn_id=turn_id,
-                query=_as_text(payload.get("query")) or command,
-                limit=int(payload.get("limit") or 8),
-            )
-        if name == "source_library.item.list":
-            return self.source_library_list(project_key=project_key, turn_id=turn_id, limit=int(payload.get("limit") or 12))
-        if name == "source_library.item.search":
-            return self.source_library_search(
-                project_key=project_key,
-                turn_id=turn_id,
-                query=_as_text(payload.get("query")) or command,
-                limit=int(payload.get("limit") or 12),
-            )
-        if name == "source_library.item.inspect":
-            return self.source_library_inspect(
-                project_key=project_key,
-                turn_id=turn_id,
-                item_key=_as_text(payload.get("item_key")) or _extract_source_item_key(command),
-            )
-        if name == "agent_artifact.search":
-            return self.artifact_search(
-                session_id=session_id,
-                turn_id=turn_id,
-                query=_as_text(payload.get("query")) or command,
-                limit=int(payload.get("limit") or 8),
-            )
-        if name == "agent_artifact.read":
-            return self.artifact_read(
-                session_id=session_id,
-                turn_id=turn_id,
-                artifact_ref=_as_text(payload.get("artifact_ref")) or None,
-            )
-        if name == "workflow_graph.list":
-            return self.workflow_graph_list(turn_id=turn_id, limit=int(payload.get("limit") or 12))
-        if name == "workflow_graph.inspect":
-            return self.workflow_graph_inspect(
-                turn_id=turn_id,
-                graph_id=_as_text(payload.get("graph_id")) or _extract_graph_id(command),
-            )
-        if name == "ingest.status.read":
-            return self.ingest_status_read(session_id=session_id, turn_id=turn_id, limit=int(payload.get("limit") or 12))
-        return build_capability_call(
-            turn_id=turn_id,
-            capability_id=name or "unknown",
-            protocol=READ_ONLY_TOOL_PROTOCOL,
-            status="skipped",
-            summary="read-only tool is not available in this runtime",
-            result={"tool_name": name},
-        )
-
-    def capability_catalog(self, *, turn_id: str) -> dict[str, Any]:
-        items = [
-            {
-                "capability_id": item.get("capability_id"),
-                "name": item.get("name"),
-                "domain": item.get("domain"),
-                "approval_level": item.get("approval_level"),
-                "concurrency_class": item.get("concurrency_class"),
-                "description": item.get("description"),
-            }
-            for item in list_interactive_agent_capabilities()
-        ]
-        return build_capability_call(
-            turn_id=turn_id,
-            capability_id="agent_runtime.capability.catalog",
-            protocol=READ_ONLY_TOOL_PROTOCOL,
-            status="completed",
-            summary=f"listed {len(items)} available agent capabilities",
-            result={"items": items, "total": len(items)},
-        )
-
-    def tool_pool_list(self, *, turn_id: str, project_key: str | None) -> dict[str, Any]:
-        pool = AgentToolPoolAssembler(service=self.service).assemble(
-            ToolPoolRequest(
-                project_key=project_key,
-                agent_mode="read_only",
-                feature_flags=default_agent_runtime_feature_flags(),
-            )
-        )
-        counts = dict(pool.get("counts") or {})
-        return build_capability_call(
-            turn_id=turn_id,
-            capability_id="agent_runtime.tool_pool.list",
-            protocol=READ_ONLY_TOOL_PROTOCOL,
-            status="completed",
-            summary=(
-                "assembled tool pool: "
-                f"core={counts.get('core') or 0}, deferred={counts.get('deferred') or 0}, "
-                f"disabled={counts.get('disabled') or 0}, approval_required={counts.get('approval_required') or 0}"
-            ),
-            result=pool,
-        )
-
-    def tool_search(self, *, turn_id: str, project_key: str | None, query: str, limit: int = 12) -> dict[str, Any]:
-        result = AgentToolPoolAssembler(service=self.service).search(
-            query=query,
-            request=ToolPoolRequest(
-                project_key=project_key,
-                agent_mode="read_only",
-                feature_flags=default_agent_runtime_feature_flags(),
-            ),
-            limit=limit,
-        )
-        return build_capability_call(
-            turn_id=turn_id,
-            capability_id="agent_runtime.tool.search",
-            protocol=READ_ONLY_TOOL_PROTOCOL,
-            status="completed",
-            summary=f"matched {result.get('total') or 0} agent tools for query",
-            result=result,
-        )
-
-    def session_context(self, *, session_id: str, turn_id: str) -> dict[str, Any]:
-        bundle = self.service.get_session_bundle(session_id)
-        tasks = list(bundle.get("tasks") or [])
-        events = list(bundle.get("events") or [])
-        artifacts = list(bundle.get("artifacts") or [])
-        messages = list(bundle.get("messages") or [])
-        recent_tool_results = self._recent_tool_results(events)
-        return build_capability_call(
-            turn_id=turn_id,
-            capability_id="agent_session.context.read",
-            protocol=READ_ONLY_TOOL_PROTOCOL,
-            status="completed",
-            summary=(
-                f"read session context: tasks={len(tasks)}, events={len(events)}, "
-                f"artifacts={len(artifacts)}, tool_results={len(recent_tool_results)}"
-            ),
-            result={
-                "session": bundle.get("session"),
-                "task_count": len(tasks),
-                "event_count": len(events),
-                "artifact_count": len(artifacts),
-                "approval_count": len(list(bundle.get("approvals") or [])),
-                "recent_tasks": tasks[-5:],
-                "recent_events": events[-8:],
-                "recent_messages": messages[-4:],
-                "recent_tool_results": recent_tool_results,
+                "additionalProperties": False,
             },
-        )
-
-    def project_summary(self, *, project_key: str | None, session_id: str, turn_id: str) -> dict[str, Any]:
-        source_summary = self._list_source_library_items(project_key=project_key, limit=200)
-        bundle = self.service.get_session_bundle(session_id)
-        channels: dict[str, int] = {}
-        enabled_count = 0
-        for item in source_summary["items"]:
-            channel_key = _as_text(item.get("channel_key")) or "unknown"
-            channels[channel_key] = channels.get(channel_key, 0) + 1
-            if item.get("enabled") is True:
-                enabled_count += 1
-        return build_capability_call(
-            turn_id=turn_id,
-            capability_id="project.summary.read",
-            protocol=READ_ONLY_TOOL_PROTOCOL,
-            status="completed",
-            summary=f"read project summary for {project_key or '-'}",
-            result={
-                "project_key": project_key,
-                "session": bundle.get("session"),
-                "session_counts": {
-                    "tasks": len(list(bundle.get("tasks") or [])),
-                    "events": len(list(bundle.get("events") or [])),
-                    "artifacts": len(list(bundle.get("artifacts") or [])),
-                    "messages": len(list(bundle.get("messages") or [])),
+        ),
+        _read_tool_declaration(
+            context,
+            project_structured_data_item_read,
+            name="project.structured_data.item.read",
+            description="Read one concrete already-stored structured project record returned by project.structured_data.search. Use dataset+record_id, item_id, or resource_uri from model_evidence_manifest. This is read-only.",
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "project_key": {"type": "string"},
+                    "dataset": {"type": "string"},
+                    "record_id": {"type": "string"},
+                    "item_id": {"type": "string"},
+                    "resource_uri": {"type": "string"},
                 },
-                "source_library": {
-                    "total": source_summary["total"],
-                    "enabled": enabled_count,
-                    "channels": channels,
-                    "sample": source_summary["items"][:8],
-                },
+                "additionalProperties": False,
             },
-        )
+        ),
+        _read_tool_declaration(
+            context,
+            project_structured_data_items_read,
+            name="project.structured_data.items.read",
+            description="Read several concrete structured project records by manifest handles. This is read-only.",
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "project_key": {"type": "string"},
+                    "items": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "project_key": {"type": "string"},
+                                "dataset": {"type": "string"},
+                                "record_id": {"type": "string"},
+                                "item_id": {"type": "string"},
+                                "resource_uri": {"type": "string"},
+                            },
+                            "additionalProperties": False,
+                        },
+                    },
+                    "limit": {"type": "integer", "minimum": 1, "maximum": 25},
+                },
+                "additionalProperties": False,
+            },
+        ),
+        _read_tool_declaration(
+            context,
+            project_context_resource_read,
+            name="project.context.resource.read",
+            description="Read one concrete project context resource by resource_uri from project.context.bundle/model_evidence_manifest. This is read-only.",
+            input_schema={
+                "type": "object",
+                "required": ["resource_uri"],
+                "properties": {"project_key": {"type": "string"}, "resource_uri": {"type": "string"}},
+                "additionalProperties": False,
+            },
+        ),
+        _read_tool_declaration(
+            context,
+            project_context_bundle,
+            name="project.context.bundle",
+            description="Build a compact material context bundle across internal existing project data, generated artifacts, writing documents, and source-library catalog entries. This is read-only and labels source catalog items as collection entrypoints rather than existing evidence.",
+            input_schema={
+                "type": "object",
+                "properties": {"query": {"type": "string"}, "limit": {"type": "integer", "minimum": 1, "maximum": 50}},
+                "additionalProperties": False,
+            },
+        ),
+        _read_tool_declaration(
+            context,
+            source_library_list,
+            name="source_library.item.list",
+            description="List effective project and shared source-library data-source items from the database without running collection or expanding execution plans.",
+            input_schema={
+                "type": "object",
+                "properties": {"limit": {"type": "integer", "minimum": 1, "maximum": 50}},
+                "additionalProperties": False,
+            },
+        ),
+        _read_tool_declaration(
+            context,
+            source_library_search,
+            name="source_library.item.search",
+            description="Search source-library items by query text.",
+            input_schema={
+                "type": "object",
+                "properties": {"query": {"type": "string"}, "limit": {"type": "integer", "minimum": 1, "maximum": 50}},
+                "additionalProperties": False,
+            },
+        ),
+        _read_tool_declaration(
+            context,
+            source_library_inspect,
+            name="source_library.item.inspect",
+            description="Inspect one source-library item definition by item_key.",
+            input_schema={
+                "type": "object",
+                "properties": {"item_key": {"type": "string"}},
+                "additionalProperties": False,
+            },
+        ),
+        _read_tool_declaration(
+            context,
+            artifact_search,
+            name="agent_artifact.search",
+            description="Search artifacts in the current session.",
+            input_schema={
+                "type": "object",
+                "properties": {"query": {"type": "string"}, "limit": {"type": "integer", "minimum": 1, "maximum": 50}},
+                "additionalProperties": False,
+            },
+        ),
+        _read_tool_declaration(
+            context,
+            artifact_read,
+            name="agent_artifact.read",
+            description="Read the latest or explicitly named artifact in the current session.",
+            input_schema={
+                "type": "object",
+                "properties": {"artifact_ref": {"type": "string"}},
+                "additionalProperties": False,
+            },
+        ),
+        _read_tool_declaration(
+            context,
+            workflow_graph_list,
+            name="workflow_graph.list",
+            description="List recently compiled workflow graphs and workflow graph templates without running them.",
+            input_schema={
+                "type": "object",
+                "properties": {"limit": {"type": "integer", "minimum": 1, "maximum": 50}},
+                "additionalProperties": False,
+            },
+        ),
+        _read_tool_declaration(
+            context,
+            workflow_graph_inspect,
+            name="workflow_graph.inspect",
+            description="Inspect one compiled workflow graph, including nodes, order, checksum, and expected input shape.",
+            input_schema={
+                "type": "object",
+                "properties": {"graph_id": {"type": "string"}},
+                "additionalProperties": False,
+            },
+        ),
+        _read_tool_declaration(
+            context,
+            ingest_status_read,
+            name="ingest.status.read",
+            description="Read recent ingest and source-library job status without starting new collection.",
+            input_schema={
+                "type": "object",
+                "properties": {"limit": {"type": "integer", "minimum": 1, "maximum": 50}},
+                "additionalProperties": False,
+            },
+        ),
+    )
 
-    def source_library_list(self, *, project_key: str | None, turn_id: str, limit: int = 12) -> dict[str, Any]:
-        listed = self._list_source_library_items(project_key=project_key, limit=limit)
-        return build_capability_call(
-            turn_id=turn_id,
-            capability_id="source_library.item.list",
-            protocol=READ_ONLY_TOOL_PROTOCOL,
-            status=listed["status"],
-            summary=listed["summary"],
-            result={"items": listed["items"], "total": listed["total"], "project_key": project_key},
-            error=listed.get("error"),
-        )
 
-    def project_structured_data_search(
-        self,
-        *,
-        project_key: str | None,
-        turn_id: str,
-        query: str | None,
-        limit: int = 12,
-        datasets: list[str] | None = None,
-    ) -> dict[str, Any]:
-        try:
-            result = self.structured_data_searcher(
-                project_key=project_key,
-                query=query,
-                limit=max(1, min(50, int(limit or 12))),
-                datasets=datasets,
-            )
-        except Exception as exc:  # noqa: BLE001
-            return build_capability_call(
-                turn_id=turn_id,
-                capability_id="project.structured_data.search",
-                protocol=READ_ONLY_TOOL_PROTOCOL,
-                status="failed",
-                summary=f"structured project data search failed: {exc}",
-                result={"project_key": project_key, "query": query, "items": [], "dataset_results": []},
-                error={"type": exc.__class__.__name__, "message": str(exc)},
-            )
-        if "model_evidence_manifest" not in result:
-            result["model_evidence_manifest"] = build_structured_data_model_evidence_manifest(
-                project_key=project_key,
-                query=query,
-                items=[item for item in list(result.get("items") or []) if isinstance(item, dict)],
-                limit=max(12, int(limit or 12)),
-            )
-        mode = str(result.get("query_mode") or "search")
-        total_matches = int(result.get("total_matches") or 0)
-        total_stored_rows = int(result.get("total_stored_rows") or 0)
-        error_count = len(list(result.get("errors") or []))
-        summary = (
-            f"read structured project data inventory: datasets={len(list(result.get('inventory') or []))}, samples={total_matches}, stored_rows={total_stored_rows}"
-            if mode == "inventory"
-            else f"searched structured project data: matches={total_matches}, datasets={len(list(result.get('dataset_results') or []))}, stored_rows={total_stored_rows}"
-        )
-        if result.get("fallback_used"):
-            summary = f"{summary}, returned_inventory_fallback={len(list(result.get('items') or []))}"
-        if error_count:
-            summary = f"{summary}, dataset_errors={error_count}"
-        status = "completed" if str(result.get("project_key") or "").strip() else "failed"
-        return build_capability_call(
-            turn_id=turn_id,
-            capability_id="project.structured_data.search",
-            protocol=READ_ONLY_TOOL_PROTOCOL,
-            status=status,
-            summary=summary,
-            result=result,
-            error={"type": "dataset_errors", "items": list(result.get("errors") or [])} if status == "failed" and error_count else None,
-        )
+def read_only_project_tool_sources(
+    *,
+    service: AgentSessionService,
+    source_library_lister: SourceLibraryLister | None = None,
+    structured_data_searcher: StructuredDataSearcher | None = None,
+) -> tuple[ProjectToolAuthorSource, ...]:
+    context = ReadOnlyToolContext(
+        service, source_library_lister, structured_data_searcher or query_project_structured_data
+    )
+    return project_tool_sources(
+        _read_tool_declarations(context),
+        scope_source="original read-only request scope and per-tool explicit manifest handles",
+        permission_source="CoreToolSpec.permission and original read-only service boundaries",
+        failure_family="original read-only observation status, dataset errors, and exceptions",
+        readback_semantics="compact projection of already-stored data; no dispatch or writer",
+    )
 
-    def project_structured_data_item_read(
-        self,
-        *,
-        project_key: str | None,
-        turn_id: str,
-        dataset: str | None = None,
-        record_id: str | None = None,
-        item_id: str | None = None,
-        resource_uri: str | None = None,
-    ) -> dict[str, Any]:
-        try:
-            result = read_project_structured_data_item(
-                project_key=project_key,
-                dataset=dataset,
-                record_id=record_id,
-                item_id=item_id,
-                resource_uri=resource_uri,
-            )
-        except Exception as exc:  # noqa: BLE001
-            # Keep the capability envelope intact when the authoritative store
-            # is unavailable; the configured searcher may still recover the
-            # item from an in-memory or alternate projection.
-            dataset_text, record_text = _parse_structured_read_ref(
-                dataset=dataset,
-                record_id=record_id,
-                item_id=item_id,
-                resource_uri=resource_uri,
-            )
-            result = {
-                "contract_version": "project.structured_data.item.read.v1",
-                "project_key": project_key,
-                "dataset": dataset_text,
-                "record_id": record_text,
-                "item": None,
-                "model_evidence_manifest": [],
-                "resource_uri": resource_uri,
-                "cleaned_text": "",
-                "source_ref": None,
-                "quality_flags": {},
-                "errors": [{"type": exc.__class__.__name__, "message": str(exc)}],
-            }
-        if not result.get("item"):
-            fallback = self._read_structured_item_via_searcher(
-                project_key=project_key,
-                dataset=dataset,
-                record_id=record_id,
-                item_id=item_id,
-                resource_uri=resource_uri,
-            )
-            if fallback.get("item"):
-                result = fallback
-        errors = [item for item in list(result.get("errors") or []) if isinstance(item, dict)]
-        item = result.get("item") if isinstance(result.get("item"), dict) else None
-        status = "completed" if item else "failed"
-        title = item.get("title") if item else None
-        return build_capability_call(
-            turn_id=turn_id,
-            capability_id="project.structured_data.item.read",
-            protocol=READ_ONLY_TOOL_PROTOCOL,
-            status=status,
-            summary=f"read structured project record {result.get('dataset')}/{result.get('record_id')}{f': {title}' if title else ''}" if item else "structured project record was not readable",
-            result=result,
-            error={"type": "structured_item_read_failed", "items": errors} if status == "failed" else None,
-        )
 
-    def project_structured_data_items_read(
-        self,
-        *,
-        project_key: str | None,
-        turn_id: str,
-        items: list[dict[str, Any]],
-        limit: int = 8,
-    ) -> dict[str, Any]:
-        result = read_project_structured_data_items(project_key=project_key, items=items, limit=limit)
-        recovered: list[dict[str, Any]] = []
-        if not result.get("items"):
-            for ref in items[: max(1, min(25, int(limit or 8)))]:
-                if not isinstance(ref, dict):
-                    continue
-                candidate = self._read_structured_item_via_searcher(
-                    project_key=ref.get("project_key") or project_key,
-                    dataset=ref.get("dataset"),
-                    record_id=ref.get("record_id"),
-                    item_id=ref.get("item_id"),
-                    resource_uri=ref.get("resource_uri"),
-                )
-                if candidate.get("item"):
-                    recovered.append(candidate)
-        if recovered:
-            result["items"] = recovered
-            manifest: list[dict[str, Any]] = []
-            for candidate in recovered:
-                manifest.extend([item for item in list(candidate.get("model_evidence_manifest") or []) if isinstance(item, dict)])
-            result["model_evidence_manifest"] = manifest
-            result["total_returned"] = len(recovered)
-        total = int(result.get("total_returned") or len(list(result.get("items") or [])))
-        status = "completed" if total else "failed"
-        return build_capability_call(
-            turn_id=turn_id,
-            capability_id="project.structured_data.items.read",
-            protocol=READ_ONLY_TOOL_PROTOCOL,
-            status=status,
-            summary=f"read {total} structured project record(s)",
-            result=result,
-            error={"type": "structured_items_read_failed", "items": list(result.get("errors") or [])} if status == "failed" else None,
-        )
+def capability_catalog(
+    tool_call: CoreToolCall, request: AgentCoreRequest, *, context: ReadOnlyToolContext
+) -> CoreToolResult:
+    items = [
+        {
+            "capability_id": item.get("capability_id"),
+            "name": item.get("name"),
+            "domain": item.get("domain"),
+            "approval_level": item.get("approval_level"),
+            "concurrency_class": item.get("concurrency_class"),
+            "description": item.get("description"),
+        }
+        for item in list_interactive_agent_capabilities()
+    ]
+    return _read_result(
+        tool_call,
+        status=core_status("completed"),
+        summary=f"listed {len(items)} available agent capabilities",
+        result={"items": items, "total": len(items)},
+    )
 
-    def project_context_resource_read(self, *, project_key: str | None, turn_id: str, resource_uri: str) -> dict[str, Any]:
-        result = read_project_context_resource(project_key=project_key, resource_uri=resource_uri)
-        if not result.get("item") and str(resource_uri or "").startswith("project://structured/"):
-            result = self._read_structured_item_via_searcher(project_key=project_key, resource_uri=resource_uri)
-        status = "completed" if result.get("item") else "failed"
-        return build_capability_call(
-            turn_id=turn_id,
-            capability_id="project.context.resource.read",
-            protocol=READ_ONLY_TOOL_PROTOCOL,
-            status=status,
-            summary="read project context resource" if status == "completed" else "project context resource was not readable",
-            result=result,
-            error={"type": "context_resource_read_failed", "items": list(result.get("errors") or [])} if status == "failed" else None,
-        )
 
-    def _read_structured_item_via_searcher(
-        self,
-        *,
-        project_key: str | None,
-        dataset: str | None = None,
-        record_id: Any | None = None,
-        item_id: str | None = None,
-        resource_uri: str | None = None,
-    ) -> dict[str, Any]:
-        dataset_text, record_text = _parse_structured_read_ref(dataset=dataset, record_id=record_id, item_id=item_id, resource_uri=resource_uri)
-        if not dataset_text or not record_text:
-            return {"item": None, "errors": [{"type": "missing_record_ref", "message": "dataset and record_id are required"}]}
-        try:
-            searched = self.structured_data_searcher(
-                project_key=project_key,
-                query=record_text,
-                limit=50,
-                datasets=[dataset_text],
+def tool_pool_list(
+    tool_call: CoreToolCall, request: AgentCoreRequest, *, context: ReadOnlyToolContext
+) -> CoreToolResult:
+    project_key = request.project_key
+    pool = AgentToolPoolAssembler(service=context.service).assemble(
+        ToolPoolRequest(
+            project_key=project_key, agent_mode="read_only", feature_flags=default_agent_runtime_feature_flags()
+        )
+    )
+    counts = json_object(pool.get("counts") or {})
+    return _read_result(
+        tool_call,
+        status=core_status("completed"),
+        summary=f"assembled tool pool: core={counts.get('core') or 0}, deferred={counts.get('deferred') or 0}, disabled={counts.get('disabled') or 0}, approval_required={counts.get('approval_required') or 0}",
+        result=pool,
+    )
+
+
+def tool_search(tool_call: CoreToolCall, request: AgentCoreRequest, *, context: ReadOnlyToolContext) -> CoreToolResult:
+    project_key = request.project_key
+    query = _as_text(tool_call.arguments.get("query")) or request.message
+    limit = _limit(tool_call, 12)
+    result = AgentToolPoolAssembler(service=context.service).search(
+        query=query,
+        request=ToolPoolRequest(
+            project_key=project_key, agent_mode="read_only", feature_flags=default_agent_runtime_feature_flags()
+        ),
+        limit=limit,
+    )
+    return _read_result(
+        tool_call,
+        status=core_status("completed"),
+        summary=f"matched {result.get('total') or 0} agent tools for query",
+        result=result,
+    )
+
+
+def session_context(
+    tool_call: CoreToolCall, request: AgentCoreRequest, *, context: ReadOnlyToolContext
+) -> CoreToolResult:
+    session_id = request.session_id
+    bundle = _session_bundle(context, session_id)
+    if isinstance(bundle, Failure):
+        return runtime_failure_result(tool_call, bundle)
+    tasks = _objects(bundle.get("tasks") or [])
+    events = _objects(bundle.get("events") or [])
+    artifacts = _objects(bundle.get("artifacts") or [])
+    messages = _objects(bundle.get("messages") or [])
+    recent_tool_results = _recent_tool_results(events)
+    return _read_result(
+        tool_call,
+        status=core_status("completed"),
+        summary=f"read session context: tasks={len(tasks)}, events={len(events)}, artifacts={len(artifacts)}, tool_results={len(recent_tool_results)}",
+        result={
+            "session": bundle.get("session"),
+            "task_count": len(tasks),
+            "event_count": len(events),
+            "artifact_count": len(artifacts),
+            "approval_count": len(json_list(bundle.get("approvals") or [])),
+            "recent_tasks": tasks[-5:],
+            "recent_events": events[-8:],
+            "recent_messages": messages[-4:],
+            "recent_tool_results": recent_tool_results,
+        },
+    )
+
+
+def _project_summary_payload(
+    context: ReadOnlyToolContext, *, project_key: str | None, session_id: str
+) -> JSONObject | Failure:
+    source_summary = _list_source_library_items(context=context, project_key=project_key, limit=200)
+    bundle = _session_bundle(context, session_id)
+    if isinstance(bundle, Failure):
+        return bundle
+    channels: dict[str, int] = {}
+    enabled_count = 0
+    for item in _objects(source_summary["items"]):
+        channel_key = _as_text(item.get("channel_key")) or "unknown"
+        channels[channel_key] = channels.get(channel_key, 0) + 1
+        if item.get("enabled") is True:
+            enabled_count += 1
+    return {
+        "project_key": project_key,
+        "session": bundle.get("session"),
+        "session_counts": {
+            "tasks": len(json_list(bundle.get("tasks") or [])),
+            "events": len(json_list(bundle.get("events") or [])),
+            "artifacts": len(json_list(bundle.get("artifacts") or [])),
+            "messages": len(json_list(bundle.get("messages") or [])),
+        },
+        "source_library": {
+            "total": source_summary["total"],
+            "enabled": enabled_count,
+            "channels": channels,
+            "sample": _objects(source_summary["items"])[:8],
+        },
+    }
+
+
+def project_summary(
+    tool_call: CoreToolCall, request: AgentCoreRequest, *, context: ReadOnlyToolContext
+) -> CoreToolResult:
+    result = _project_summary_payload(context, project_key=request.project_key, session_id=request.session_id)
+    if isinstance(result, Failure):
+        return runtime_failure_result(tool_call, result)
+    return _read_result(
+        tool_call, status="completed", summary=f"read project summary for {request.project_key or '-'}", result=result
+    )
+
+
+def source_library_list(
+    tool_call: CoreToolCall, request: AgentCoreRequest, *, context: ReadOnlyToolContext
+) -> CoreToolResult:
+    project_key = request.project_key
+    limit = _limit(tool_call, 12)
+    listed = _list_source_library_items(context=context, project_key=project_key, limit=limit)
+    return _read_result(
+        tool_call,
+        status=core_status(listed["status"]),
+        summary=str(listed["summary"]),
+        result={"items": _objects(listed["items"]), "total": listed["total"], "project_key": project_key},
+        error=json_object(listed.get("error")) or None,
+    )
+
+
+def _search_structured_data(
+    context: ReadOnlyToolContext,
+    *,
+    project_key: str | None,
+    query: str | None,
+    limit: int,
+    datasets: list[str] | None = None,
+) -> StructuredDataRead:
+    try:
+        result = json_object(
+            context.structured_data_searcher(
+                project_key=project_key, query=query, limit=max(1, min(50, _integer(limit or 12))), datasets=datasets
             )
-        except Exception as exc:  # noqa: BLE001
-            return {"item": None, "errors": [{"type": exc.__class__.__name__, "message": str(exc)}]}
-        candidates = [item for item in list(searched.get("items") or []) if isinstance(item, dict)]
-        item = next((candidate for candidate in candidates if str(candidate.get("record_id") or candidate.get("id") or "") == record_text), None)
-        if item is None and candidates:
-            item = candidates[0]
-        manifest = build_structured_data_model_evidence_manifest(
+        )
+    except Exception as exc:
+        return StructuredDataRead(
+            status=core_status("failed"),
+            summary=f"structured project data search failed: {exc}",
+            result={"project_key": project_key, "query": query, "items": [], "dataset_results": []},
+            error=json_object({"type": exc.__class__.__name__, "message": str(exc)}) or None,
+        )
+    if "model_evidence_manifest" not in result:
+        result["model_evidence_manifest"] = build_structured_data_model_evidence_manifest(
             project_key=project_key,
-            query=None,
-            items=[item] if item else [],
-            limit=1,
+            query=query,
+            items=_structured_records(_objects(result.get("items") or [])),
+            limit=max(12, _integer(limit or 12)),
         )
-        return {
+    mode = str(result.get("query_mode") or "search")
+    total_matches = _integer(result.get("total_matches") or 0)
+    total_stored_rows = _integer(result.get("total_stored_rows") or 0)
+    error_count = len(json_list(result.get("errors") or []))
+    summary = (
+        f"read structured project data inventory: datasets={len(json_list(result.get('inventory') or []))}, samples={total_matches}, stored_rows={total_stored_rows}"
+        if mode == "inventory"
+        else f"searched structured project data: matches={total_matches}, datasets={len(json_list(result.get('dataset_results') or []))}, stored_rows={total_stored_rows}"
+    )
+    if result.get("fallback_used"):
+        summary = f"{summary}, returned_inventory_fallback={len(json_list(result.get('items') or []))}"
+    if error_count:
+        summary = f"{summary}, dataset_errors={error_count}"
+    status = "completed" if str(result.get("project_key") or "").strip() else "failed"
+    return StructuredDataRead(
+        status=core_status(status),
+        summary=summary,
+        result=result,
+        error=json_object(
+            {"type": "dataset_errors", "items": json_list(result.get("errors") or [])}
+            if status == "failed" and error_count
+            else None
+        )
+        or None,
+    )
+
+
+def project_structured_data_search(
+    tool_call: CoreToolCall, request: AgentCoreRequest, *, context: ReadOnlyToolContext
+) -> CoreToolResult:
+    observation = _search_structured_data(
+        context,
+        project_key=request.project_key,
+        query=_as_text(tool_call.arguments.get("query")) or request.message,
+        limit=_limit(tool_call, 12),
+        datasets=_datasets(tool_call.arguments.get("datasets")),
+    )
+    return _read_result(
+        tool_call,
+        status=observation.status,
+        summary=observation.summary,
+        result=observation.result,
+        error=observation.error,
+    )
+
+
+def project_structured_data_item_read(
+    tool_call: CoreToolCall, request: AgentCoreRequest, *, context: ReadOnlyToolContext
+) -> CoreToolResult:
+    project_key = _as_text(tool_call.arguments.get("project_key")) or request.project_key
+    dataset = _as_text(tool_call.arguments.get("dataset")) or None
+    record_id = _as_text(tool_call.arguments.get("record_id")) or None
+    item_id = _as_text(tool_call.arguments.get("item_id")) or None
+    resource_uri = _as_text(tool_call.arguments.get("resource_uri")) or None
+    try:
+        result = json_object(
+            read_project_structured_data_item(
+                project_key=project_key,
+                dataset=dataset,
+                record_id=record_id,
+                item_id=item_id,
+                resource_uri=resource_uri,
+            )
+        )
+    except Exception as exc:
+        dataset_text, record_text = _parse_structured_read_ref(
+            dataset=dataset, record_id=record_id, item_id=item_id, resource_uri=resource_uri
+        )
+        result: JSONObject = {
             "contract_version": "project.structured_data.item.read.v1",
             "project_key": project_key,
             "dataset": dataset_text,
             "record_id": record_text,
-            "item": item,
-            "model_evidence_manifest": manifest,
-            "resource_uri": manifest[0]["resource_uri"] if manifest else resource_uri,
-            "cleaned_text": item.get("summary") if isinstance(item, dict) else "",
-            "source_ref": item.get("source_uri") if isinstance(item, dict) else None,
-            "errors": [] if item else [{"type": "record_not_found", "message": "structured record was not found"}],
+            "item": None,
+            "model_evidence_manifest": [],
+            "resource_uri": resource_uri,
+            "cleaned_text": "",
+            "source_ref": None,
+            "quality_flags": {},
+            "errors": [{"type": exc.__class__.__name__, "message": str(exc)}],
         }
-
-    def project_context_bundle(
-        self,
-        *,
-        project_key: str | None,
-        session_id: str,
-        turn_id: str,
-        query: str | None,
-        limit: int = 8,
-    ) -> dict[str, Any]:
-        query_text = _as_text(query)
-        material_intent = classify_material_intent(query_text)
-        safe_limit = max(1, min(50, int(limit or 8)))
-        summary_call = self.project_summary(project_key=project_key, session_id=session_id, turn_id=turn_id)
-        structured_call = self.project_structured_data_search(
+    if not result.get("item"):
+        fallback = _read_structured_item_via_searcher(
+            context=context,
             project_key=project_key,
-            turn_id=turn_id,
-            query=query_text,
-            limit=safe_limit,
+            dataset=dataset,
+            record_id=record_id,
+            item_id=item_id,
+            resource_uri=resource_uri,
         )
-        artifact_call = self.artifact_search(session_id=session_id, turn_id=turn_id, query=query_text, limit=safe_limit)
-        source_call = self.source_library_list(project_key=project_key, turn_id=turn_id, limit=safe_limit)
-        writing_documents = self._list_writing_documents(project_key=project_key, limit=safe_limit)
+        if fallback.get("item"):
+            result = fallback
+    errors = _objects(result.get("errors") or [])
+    item = json_object(result.get("item")) or None
+    status = "completed" if item else "failed"
+    title = item.get("title") if item else None
+    return _read_result(
+        tool_call,
+        status=core_status(status),
+        summary=f"read structured project record {result.get('dataset')}/{result.get('record_id')}{(f': {title}' if title else '')}"
+        if item
+        else "structured project record was not readable",
+        result=result,
+        error=json_object({"type": "structured_item_read_failed", "items": errors} if status == "failed" else None)
+        or None,
+    )
 
-        summary = dict(summary_call.get("result") or {})
-        structured = dict(structured_call.get("result") or {})
-        artifacts = dict(artifact_call.get("result") or {})
-        source_catalog = dict(source_call.get("result") or {})
-        inventory = [item for item in list(structured.get("inventory") or []) if isinstance(item, dict)]
-        structured_items = [item for item in list(structured.get("items") or []) if isinstance(item, dict)]
-        artifact_items = [item for item in list(artifacts.get("items") or []) if isinstance(item, dict)]
-        source_items = [item for item in list(source_catalog.get("items") or []) if isinstance(item, dict)]
-        writing_items = [item for item in list(writing_documents.get("items") or []) if isinstance(item, dict)]
 
-        internal_existing_count = int(structured.get("total_stored_rows") or 0) + len(writing_items)
-        internal_generated_count = int(artifacts.get("total") or len(artifact_items))
-        source_catalog_count = int(source_catalog.get("total") or len(source_items))
-        missing_evidence: list[str] = []
-        if query_text and not structured_items and not artifact_items and not writing_items:
-            missing_evidence.append("No matching internal material was found for the current query.")
-        if query_text and source_catalog_count == 0 and material_intent.scope in {"external", "mixed"}:
-            missing_evidence.append("No source-catalog entry is currently available for the external collection direction.")
+def project_structured_data_items_read(
+    tool_call: CoreToolCall, request: AgentCoreRequest, *, context: ReadOnlyToolContext
+) -> CoreToolResult:
+    project_key = _as_text(tool_call.arguments.get("project_key")) or request.project_key
+    items = _structured_records(tool_call.arguments.get("items"))
+    limit = _limit(tool_call, 8)
+    result = json_object(read_project_structured_data_items(project_key=project_key, items=items, limit=limit))
+    recovered: list[JSONObject] = []
+    if not result.get("items"):
+        for ref in items[: max(1, min(25, _integer(limit or 8)))]:
+            candidate = _read_structured_item_via_searcher(
+                context=context,
+                project_key=_as_text(ref.get("project_key")) or project_key,
+                dataset=_as_text(ref.get("dataset")) or None,
+                record_id=ref.get("record_id"),
+                item_id=_as_text(ref.get("item_id")) or None,
+                resource_uri=_as_text(ref.get("resource_uri")) or None,
+            )
+            if candidate.get("item"):
+                recovered.append(candidate)
+    if recovered:
+        result["items"] = recovered
+        manifest: list[JSONObject] = []
+        for candidate in recovered:
+            manifest.extend(_objects(candidate.get("model_evidence_manifest") or []))
+        result["model_evidence_manifest"] = manifest
+        result["total_returned"] = len(recovered)
+    total = _integer(result.get("total_returned") or len(json_list(result.get("items") or [])))
+    status = "completed" if total else "failed"
+    return _read_result(
+        tool_call,
+        status=core_status(status),
+        summary=f"read {total} structured project record(s)",
+        result=result,
+        error=json_object(
+            {"type": "structured_items_read_failed", "items": json_list(result.get("errors") or [])}
+            if status == "failed"
+            else None
+        )
+        or None,
+    )
 
-        evidence = []
-        for item in inventory[:safe_limit]:
-            evidence.append(
-                {
-                    "category": INTERNAL_EXISTING,
-                    "label": category_label(INTERNAL_EXISTING),
-                    "kind": "structured_dataset",
-                    "title": item.get("dataset") or item.get("label"),
-                    "count": item.get("total_rows") if item.get("total_rows") is not None else item.get("sample_count"),
-                }
-            )
-        for item in structured_items[:safe_limit]:
-            evidence.append(
-                {
-                    "category": INTERNAL_EXISTING,
-                    "label": category_label(INTERNAL_EXISTING),
-                    "kind": "structured_record",
-                    "title": item.get("title") or item.get("record_id"),
-                    "dataset": item.get("dataset"),
-                    "summary": item.get("summary"),
-                }
-            )
-        for item in writing_items[:safe_limit]:
-            evidence.append(
-                {
-                    "category": INTERNAL_EXISTING,
-                    "label": category_label(INTERNAL_EXISTING),
-                    "kind": "writing_document",
-                    "title": item.get("title") or item.get("doc_id"),
-                    "version": item.get("version") or item.get("head_version"),
-                }
-            )
-        for item in artifact_items[:safe_limit]:
-            evidence.append(
-                {
-                    "category": INTERNAL_GENERATED,
-                    "label": category_label(INTERNAL_GENERATED),
-                    "kind": "agent_artifact",
-                    "title": item.get("name") or item.get("artifact_type") or item.get("artifact_id"),
-                    "summary": item.get("summary"),
-                }
-            )
-        for item in source_items[:safe_limit]:
-            evidence.append(
-                {
-                    "category": SOURCE_CATALOG,
-                    "label": category_label(SOURCE_CATALOG),
-                    "kind": "source_catalog_item",
-                    "title": item.get("item_key") or item.get("name"),
-                    "channel_key": item.get("channel_key"),
-                    "enabled": item.get("enabled"),
-                    "note": "collection entrypoint, not already ingested evidence",
-                }
-            )
-        model_evidence_manifest = [
-            item
-            for item in list(structured.get("model_evidence_manifest") or [])
-            if isinstance(item, dict)
-        ][: max(1, safe_limit * 2)]
-        for item in writing_items[:safe_limit]:
-            doc_id = item.get("doc_id") or item.get("id")
-            if doc_id is None:
-                continue
-            model_evidence_manifest.append(
-                {
-                    "item_id": f"writing_document:{doc_id}",
-                    "resource_uri": f"project://writing/{project_key or ''}/document/{doc_id}",
-                    "project_key": project_key,
-                    "kind": "writing_document",
-                    "category": INTERNAL_EXISTING,
-                    "title": item.get("title") or f"document:{doc_id}",
-                    "short_snippet": item.get("summary") or "",
-                    "read_tool": "writing.document.read",
-                    "read_arguments": {"project_key": project_key, "doc_id": doc_id},
-                    "is_source_catalog_entry": False,
-                }
-            )
-        for item in artifact_items[:safe_limit]:
-            artifact_ref = item.get("artifact_id") or item.get("name")
-            if not artifact_ref:
-                continue
-            model_evidence_manifest.append(
-                {
-                    "item_id": f"agent_artifact:{artifact_ref}",
-                    "resource_uri": f"agent://artifact/{artifact_ref}",
-                    "project_key": project_key,
-                    "kind": "agent_artifact",
-                    "category": INTERNAL_GENERATED,
-                    "title": item.get("name") or item.get("artifact_type") or artifact_ref,
-                    "short_snippet": item.get("summary") or "",
-                    "read_tool": "agent_artifact.read",
-                    "read_arguments": {"artifact_ref": artifact_ref},
-                    "is_source_catalog_entry": False,
-                }
-            )
-        for item in source_items[:safe_limit]:
-            item_key = item.get("item_key") or item.get("name")
-            if not item_key:
-                continue
-            model_evidence_manifest.append(
-                {
-                    "item_id": f"source_catalog:{item_key}",
-                    "resource_uri": f"project://source-catalog/{project_key or ''}/{item_key}",
-                    "project_key": project_key,
-                    "kind": "source_catalog_item",
-                    "category": SOURCE_CATALOG,
-                    "title": item.get("name") or item_key,
-                    "short_snippet": item.get("description") or "",
-                    "read_tool": "source_library.item.inspect",
-                    "read_arguments": {"item_key": item_key},
-                    "is_source_catalog_entry": True,
-                    "note": "collection entrypoint, not already ingested evidence",
-                }
-            )
 
-        material_categories = {
-            INTERNAL_EXISTING: {
+def project_context_resource_read(
+    tool_call: CoreToolCall, request: AgentCoreRequest, *, context: ReadOnlyToolContext
+) -> CoreToolResult:
+    project_key = _as_text(tool_call.arguments.get("project_key")) or request.project_key
+    resource_uri = _as_text(tool_call.arguments.get("resource_uri"))
+    result = json_object(read_project_context_resource(project_key=project_key, resource_uri=resource_uri))
+    if not result.get("item") and str(resource_uri or "").startswith("project://structured/"):
+        result = _read_structured_item_via_searcher(context=context, project_key=project_key, resource_uri=resource_uri)
+    status = "completed" if result.get("item") else "failed"
+    return _read_result(
+        tool_call,
+        status=core_status(status),
+        summary="read project context resource"
+        if status == "completed"
+        else "project context resource was not readable",
+        result=result,
+        error=json_object(
+            {"type": "context_resource_read_failed", "items": json_list(result.get("errors") or [])}
+            if status == "failed"
+            else None
+        )
+        or None,
+    )
+
+
+def _read_structured_item_via_searcher(
+    *,
+    context: ReadOnlyToolContext,
+    project_key: str | None,
+    dataset: str | None = None,
+    record_id: object | None = None,
+    item_id: str | None = None,
+    resource_uri: str | None = None,
+) -> JSONObject:
+    dataset_text, record_text = _parse_structured_read_ref(
+        dataset=dataset, record_id=record_id, item_id=item_id, resource_uri=resource_uri
+    )
+    if not dataset_text or not record_text:
+        return {
+            "item": None,
+            "errors": [{"type": "missing_record_ref", "message": "dataset and record_id are required"}],
+        }
+    try:
+        searched = json_object(
+            context.structured_data_searcher(
+                project_key=project_key, query=record_text, limit=50, datasets=[dataset_text]
+            )
+        )
+    except Exception as exc:
+        return {"item": None, "errors": [{"type": exc.__class__.__name__, "message": str(exc)}]}
+    candidates = _objects(searched.get("items") or [])
+    item = next(
+        (
+            candidate
+            for candidate in candidates
+            if str(candidate.get("record_id") or candidate.get("id") or "") == record_text
+        ),
+        None,
+    )
+    if item is None and candidates:
+        item = candidates[0]
+    manifest = build_structured_data_model_evidence_manifest(
+        project_key=project_key, query=None, items=_structured_records([item] if item else []), limit=1
+    )
+    return {
+        "contract_version": "project.structured_data.item.read.v1",
+        "project_key": project_key,
+        "dataset": dataset_text,
+        "record_id": record_text,
+        "item": item,
+        "model_evidence_manifest": manifest,
+        "resource_uri": manifest[0]["resource_uri"] if manifest else resource_uri,
+        "cleaned_text": item.get("summary") if isinstance(item, dict) else "",
+        "source_ref": item.get("source_uri") if isinstance(item, dict) else None,
+        "errors": [] if item else [{"type": "record_not_found", "message": "structured record was not found"}],
+    }
+
+
+def project_context_bundle(
+    tool_call: CoreToolCall, request: AgentCoreRequest, *, context: ReadOnlyToolContext
+) -> CoreToolResult:
+    project_key = request.project_key
+    session_id = request.session_id
+    query = _as_text(tool_call.arguments.get("query")) or request.message
+    limit = _limit(tool_call, 8)
+    query_text = _as_text(query)
+    material_intent = classify_material_intent(query_text)
+    safe_limit = max(1, min(50, _integer(limit or 8)))
+    summary = _project_summary_payload(context, project_key=project_key, session_id=session_id)
+    if isinstance(summary, Failure):
+        return runtime_failure_result(tool_call, summary)
+    structured = _search_structured_data(context, project_key=project_key, query=query_text, limit=safe_limit).result
+    artifacts = _artifact_search_payload(context, session_id=session_id, query=query_text, limit=safe_limit)
+    if isinstance(artifacts, Failure):
+        return runtime_failure_result(tool_call, artifacts)
+    listed = _list_source_library_items(context=context, project_key=project_key, limit=safe_limit)
+    source_catalog: JSONObject = {
+        "items": _objects(listed["items"]),
+        "total": listed["total"],
+        "project_key": project_key,
+    }
+    writing_documents = _list_writing_documents(project_key=project_key, limit=safe_limit)
+    inventory = _objects(structured.get("inventory") or [])
+    structured_items = _objects(structured.get("items") or [])
+    artifact_items = _objects(artifacts.get("items") or [])
+    source_items = _objects(source_catalog.get("items") or [])
+    writing_items = _objects(writing_documents.get("items") or [])
+    internal_existing_count = _integer(structured.get("total_stored_rows") or 0) + len(writing_items)
+    internal_generated_count = _integer(artifacts.get("total") or len(artifact_items))
+    source_catalog_count = _integer(source_catalog.get("total") or len(source_items))
+    missing_evidence: list[str] = []
+    if query_text and (not structured_items) and (not artifact_items) and (not writing_items):
+        missing_evidence.append("No matching internal material was found for the current query.")
+    if query_text and source_catalog_count == 0 and (material_intent.scope in {"external", "mixed"}):
+        missing_evidence.append("No source-catalog entry is currently available for the external collection direction.")
+    evidence: list[JSONObject] = []
+    for item in inventory[:safe_limit]:
+        evidence.append(
+            {
+                "category": INTERNAL_EXISTING,
                 "label": category_label(INTERNAL_EXISTING),
-                "structured_datasets": len(inventory),
-                "stored_rows": int(structured.get("total_stored_rows") or 0),
-                "writing_documents": len(writing_items),
-            },
-            INTERNAL_GENERATED: {
+                "kind": "structured_dataset",
+                "title": item.get("dataset") or item.get("label"),
+                "count": item.get("total_rows") if item.get("total_rows") is not None else item.get("sample_count"),
+            }
+        )
+    for item in structured_items[:safe_limit]:
+        evidence.append(
+            {
+                "category": INTERNAL_EXISTING,
+                "label": category_label(INTERNAL_EXISTING),
+                "kind": "structured_record",
+                "title": item.get("title") or item.get("record_id"),
+                "dataset": item.get("dataset"),
+                "summary": item.get("summary"),
+            }
+        )
+    for item in writing_items[:safe_limit]:
+        evidence.append(
+            {
+                "category": INTERNAL_EXISTING,
+                "label": category_label(INTERNAL_EXISTING),
+                "kind": "writing_document",
+                "title": item.get("title") or item.get("doc_id"),
+                "version": item.get("version") or item.get("head_version"),
+            }
+        )
+    for item in artifact_items[:safe_limit]:
+        evidence.append(
+            {
+                "category": INTERNAL_GENERATED,
                 "label": category_label(INTERNAL_GENERATED),
-                "artifacts": internal_generated_count,
-            },
-            SOURCE_CATALOG: {
+                "kind": "agent_artifact",
+                "title": item.get("name") or item.get("artifact_type") or item.get("artifact_id"),
+                "summary": item.get("summary"),
+            }
+        )
+    for item in source_items[:safe_limit]:
+        evidence.append(
+            {
+                "category": SOURCE_CATALOG,
                 "label": category_label(SOURCE_CATALOG),
-                "items": source_catalog_count,
-                "enabled": int(dict(summary.get("source_library") or {}).get("enabled") or 0),
-            },
-            EXTERNAL_DISCOVERY: {
-                "label": category_label(EXTERNAL_DISCOVERY),
-                "suggested": bool(missing_evidence and material_intent.scope in {"external", "mixed"}),
-            },
-        }
-
-        result = {
-            "contract_version": "project.context.bundle.v1",
-            "project_key": project_key,
-            "query": query_text,
-            "material_intent": material_intent.to_dict(),
-            "material_categories": material_categories,
-            "model_evidence_manifest": model_evidence_manifest[: max(1, safe_limit * 4)],
-            "evidence": evidence[: max(1, safe_limit * 4)],
-            "missing_evidence": missing_evidence,
-            "source_catalog_note": "source-library items are collection/data-source entrypoints, not already ingested project materials.",
-            "components": {
-                "project_summary": summary,
-                "structured_data": structured,
-                "artifacts": artifacts,
-                "writing_documents": writing_documents,
-                "source_catalog": source_catalog,
-            },
-        }
-        return build_capability_call(
-            turn_id=turn_id,
-            capability_id="project.context.bundle",
-            protocol=READ_ONLY_TOOL_PROTOCOL,
-            status="completed",
-            summary=(
-                "built project material context bundle: "
-                f"internal_existing={internal_existing_count}, generated_artifacts={internal_generated_count}, "
-                f"source_catalog_items={source_catalog_count}, missing={len(missing_evidence)}"
-            ),
-            result=result,
+                "kind": "source_catalog_item",
+                "title": item.get("item_key") or item.get("name"),
+                "channel_key": item.get("channel_key"),
+                "enabled": item.get("enabled"),
+                "note": "collection entrypoint, not already ingested evidence",
+            }
         )
-
-    def source_library_search(self, *, project_key: str | None, turn_id: str, query: str, limit: int = 12) -> dict[str, Any]:
-        listed = self._list_source_library_items(project_key=project_key, limit=200)
-        query_text = _as_text(query)
-        matches = [item for item in listed["items"] if _matches_query(item, query_text)]
-        return build_capability_call(
-            turn_id=turn_id,
-            capability_id="source_library.item.search",
-            protocol=READ_ONLY_TOOL_PROTOCOL,
-            status=listed["status"],
-            summary=f"matched {len(matches)} source-library items for query",
-            result={
-                "query": query_text,
-                "items": matches[: max(1, limit)],
-                "total": len(matches),
-                "source_total": listed["total"],
+    model_evidence_manifest = _objects(structured.get("model_evidence_manifest") or [])[: max(1, safe_limit * 2)]
+    for item in writing_items[:safe_limit]:
+        doc_id = item.get("doc_id") or item.get("id")
+        if doc_id is None:
+            continue
+        model_evidence_manifest.append(
+            {
+                "item_id": f"writing_document:{doc_id}",
+                "resource_uri": f"project://writing/{project_key or ''}/document/{doc_id}",
                 "project_key": project_key,
-            },
-            error=listed.get("error"),
+                "kind": "writing_document",
+                "category": INTERNAL_EXISTING,
+                "title": item.get("title") or f"document:{doc_id}",
+                "short_snippet": item.get("summary") or "",
+                "read_tool": "writing.document.read",
+                "read_arguments": {"project_key": project_key, "doc_id": doc_id},
+                "is_source_catalog_entry": False,
+            }
         )
-
-    def source_library_inspect(self, *, project_key: str | None, turn_id: str, item_key: str | None) -> dict[str, Any]:
-        key = _as_text(item_key)
-        if not key:
-            return build_capability_call(
-                turn_id=turn_id,
-                capability_id="source_library.item.inspect",
-                protocol=READ_ONLY_TOOL_PROTOCOL,
-                status="skipped",
-                summary="source-library inspect skipped because no item_key was supplied",
-                result={"item": None, "project_key": project_key},
-            )
-        listed = self._list_source_library_items(project_key=project_key, limit=500)
-        item = next((candidate for candidate in listed["raw_items"] if _as_text(candidate.get("item_key")) == key), None)
-        status = "completed" if item else "skipped"
-        summary = f"inspected source-library item {key}" if item else f"source-library item {key} not found"
-        return build_capability_call(
-            turn_id=turn_id,
-            capability_id="source_library.item.inspect",
-            protocol=READ_ONLY_TOOL_PROTOCOL,
-            status=status,
-            summary=summary,
-            result={"item": item, "project_key": project_key},
+    for item in artifact_items[:safe_limit]:
+        artifact_ref = item.get("artifact_id") or item.get("name")
+        if not artifact_ref:
+            continue
+        model_evidence_manifest.append(
+            {
+                "item_id": f"agent_artifact:{artifact_ref}",
+                "resource_uri": f"agent://artifact/{artifact_ref}",
+                "project_key": project_key,
+                "kind": "agent_artifact",
+                "category": INTERNAL_GENERATED,
+                "title": item.get("name") or item.get("artifact_type") or artifact_ref,
+                "short_snippet": item.get("summary") or "",
+                "read_tool": "agent_artifact.read",
+                "read_arguments": {"artifact_ref": artifact_ref},
+                "is_source_catalog_entry": False,
+            }
         )
+    for item in source_items[:safe_limit]:
+        item_key = item.get("item_key") or item.get("name")
+        if not item_key:
+            continue
+        model_evidence_manifest.append(
+            {
+                "item_id": f"source_catalog:{item_key}",
+                "resource_uri": f"project://source-catalog/{project_key or ''}/{item_key}",
+                "project_key": project_key,
+                "kind": "source_catalog_item",
+                "category": SOURCE_CATALOG,
+                "title": item.get("name") or item_key,
+                "short_snippet": item.get("description") or "",
+                "read_tool": "source_library.item.inspect",
+                "read_arguments": {"item_key": item_key},
+                "is_source_catalog_entry": True,
+                "note": "collection entrypoint, not already ingested evidence",
+            }
+        )
+    material_categories: JSONObject = {
+        INTERNAL_EXISTING: {
+            "label": category_label(INTERNAL_EXISTING),
+            "structured_datasets": len(inventory),
+            "stored_rows": _integer(structured.get("total_stored_rows") or 0),
+            "writing_documents": len(writing_items),
+        },
+        INTERNAL_GENERATED: {"label": category_label(INTERNAL_GENERATED), "artifacts": internal_generated_count},
+        SOURCE_CATALOG: {
+            "label": category_label(SOURCE_CATALOG),
+            "items": source_catalog_count,
+            "enabled": _integer(json_object(summary.get("source_library") or {}).get("enabled") or 0),
+        },
+        EXTERNAL_DISCOVERY: {
+            "label": category_label(EXTERNAL_DISCOVERY),
+            "suggested": bool(missing_evidence and material_intent.scope in {"external", "mixed"}),
+        },
+    }
+    result: JSONObject = {
+        "contract_version": "project.context.bundle.v1",
+        "project_key": project_key,
+        "query": query_text,
+        "material_intent": json_object(material_intent.to_dict()),
+        "material_categories": material_categories,
+        "model_evidence_manifest": model_evidence_manifest[: max(1, safe_limit * 4)],
+        "evidence": evidence[: max(1, safe_limit * 4)],
+        "missing_evidence": missing_evidence,
+        "source_catalog_note": "source-library items are collection/data-source entrypoints, not already ingested project materials.",
+        "components": {
+            "project_summary": summary,
+            "structured_data": structured,
+            "artifacts": artifacts,
+            "writing_documents": writing_documents,
+            "source_catalog": source_catalog,
+        },
+    }
+    return _read_result(
+        tool_call,
+        status=core_status("completed"),
+        summary=f"built project material context bundle: internal_existing={internal_existing_count}, generated_artifacts={internal_generated_count}, source_catalog_items={source_catalog_count}, missing={len(missing_evidence)}",
+        result=result,
+    )
 
-    def artifact_search(self, *, session_id: str, turn_id: str, query: str | None = None, limit: int = 8) -> dict[str, Any]:
-        query_text = _as_text(query).lower()
-        query_tokens = _query_tokens(query_text)
-        bundle = self.service.get_session_bundle(session_id)
-        artifacts = list(bundle.get("artifacts") or [])
-        matches: list[dict[str, Any]] = []
-        for artifact in artifacts:
-            haystack = " ".join(
+
+def source_library_search(
+    tool_call: CoreToolCall, request: AgentCoreRequest, *, context: ReadOnlyToolContext
+) -> CoreToolResult:
+    project_key = request.project_key
+    query = _as_text(tool_call.arguments.get("query")) or request.message
+    limit = _limit(tool_call, 12)
+    listed = _list_source_library_items(context=context, project_key=project_key, limit=200)
+    query_text = _as_text(query)
+    matches = [item for item in _objects(listed["items"]) if _matches_query(item, query_text)]
+    return _read_result(
+        tool_call,
+        status=core_status(listed["status"]),
+        summary=f"matched {len(matches)} source-library items for query",
+        result={
+            "query": query_text,
+            "items": matches[: max(1, limit)],
+            "total": len(matches),
+            "source_total": listed["total"],
+            "project_key": project_key,
+        },
+        error=json_object(listed.get("error")) or None,
+    )
+
+
+def source_library_inspect(
+    tool_call: CoreToolCall, request: AgentCoreRequest, *, context: ReadOnlyToolContext
+) -> CoreToolResult:
+    project_key = request.project_key
+    item_key = _as_text(tool_call.arguments.get("item_key")) or _extract_source_item_key(request.message)
+    key = _as_text(item_key)
+    if not key:
+        return _read_result(
+            tool_call,
+            status=core_status("skipped"),
+            summary="source-library inspect skipped because no item_key was supplied",
+            result={"item": None, "project_key": project_key},
+        )
+    listed = _list_source_library_items(context=context, project_key=project_key, limit=500)
+    item = next(
+        (candidate for candidate in _objects(listed["raw_items"]) if _as_text(candidate.get("item_key")) == key), None
+    )
+    status = "completed" if item else "skipped"
+    summary = f"inspected source-library item {key}" if item else f"source-library item {key} not found"
+    return _read_result(
+        tool_call, status=core_status(status), summary=summary, result={"item": item, "project_key": project_key}
+    )
+
+
+def _artifact_search_payload(
+    context: ReadOnlyToolContext, *, session_id: str, query: str | None, limit: int
+) -> JSONObject | Failure:
+    query_text = _as_text(query).lower()
+    query_tokens = _query_tokens(query_text)
+    bundle = _session_bundle(context, session_id)
+    if isinstance(bundle, Failure):
+        return bundle
+    artifacts = _objects(bundle.get("artifacts") or [])
+    matches: list[JSONObject] = []
+    for artifact in artifacts:
+        haystack = " ".join(
+            (
                 _as_text(artifact.get(key)).lower()
                 for key in ("artifact_id", "artifact_type", "name", "path", "summary", "mime_type")
             )
-            if not query_text or query_text in haystack or any(token in haystack for token in query_tokens):
-                matches.append(artifact)
-        return build_capability_call(
-            turn_id=turn_id,
-            capability_id="agent_artifact.search",
-            protocol=READ_ONLY_TOOL_PROTOCOL,
-            status="completed",
-            summary=f"matched {len(matches)} session artifacts",
-            result={"query": query, "items": matches[: max(1, limit)], "total": len(matches)},
         )
+        if not query_text or query_text in haystack or any((token in haystack for token in query_tokens)):
+            matches.append(artifact)
+    return {"query": query, "items": matches[: max(1, limit)], "total": len(matches)}
 
-    def artifact_read(self, *, session_id: str, turn_id: str, artifact_ref: str | None = None) -> dict[str, Any]:
-        ref = _as_text(artifact_ref)
-        bundle = self.service.get_session_bundle(session_id)
-        artifacts = list(bundle.get("artifacts") or [])
-        artifact = None
-        if ref:
-            ref_lower = ref.lower()
-            artifact = next(
-                (
-                    candidate
-                    for candidate in artifacts
-                    if ref in {_as_text(candidate.get("artifact_id")), _as_text(candidate.get("name"))}
-                    or ref_lower
-                    in " ".join(
+
+def artifact_search(
+    tool_call: CoreToolCall, request: AgentCoreRequest, *, context: ReadOnlyToolContext
+) -> CoreToolResult:
+    query = _as_text(tool_call.arguments.get("query")) or request.message
+    result = _artifact_search_payload(context, session_id=request.session_id, query=query, limit=_limit(tool_call, 8))
+    if isinstance(result, Failure):
+        return runtime_failure_result(tool_call, result)
+    return _read_result(
+        tool_call, status="completed", summary=f"matched {result['total']} session artifacts", result=result
+    )
+
+
+def artifact_read(
+    tool_call: CoreToolCall, request: AgentCoreRequest, *, context: ReadOnlyToolContext
+) -> CoreToolResult:
+    session_id = request.session_id
+    artifact_ref = _as_text(tool_call.arguments.get("artifact_ref")) or None
+    ref = _as_text(artifact_ref)
+    bundle = _session_bundle(context, session_id)
+    if isinstance(bundle, Failure):
+        return runtime_failure_result(tool_call, bundle)
+    artifacts = _objects(bundle.get("artifacts") or [])
+    artifact = None
+    if ref:
+        ref_lower = ref.lower()
+        artifact = next(
+            (
+                candidate
+                for candidate in artifacts
+                if ref in {_as_text(candidate.get("artifact_id")), _as_text(candidate.get("name"))}
+                or ref_lower
+                in " ".join(
+                    (
                         _as_text(candidate.get(key)).lower()
                         for key in ("artifact_id", "artifact_type", "name", "path", "summary", "mime_type")
                     )
-                ),
-                None,
-            )
-        if not artifact and artifacts:
-            artifact = artifacts[-1]
-        return build_capability_call(
-            turn_id=turn_id,
-            capability_id="agent_artifact.read",
-            protocol=READ_ONLY_TOOL_PROTOCOL,
-            status="completed" if artifact else "skipped",
-            summary="read session artifact" if artifact else "no session artifact was available to read",
-            result={"artifact": artifact},
+                )
+            ),
+            None,
         )
+    if not artifact and artifacts:
+        artifact = artifacts[-1]
+    return _read_result(
+        tool_call,
+        status=core_status("completed" if artifact else "skipped"),
+        summary="read session artifact" if artifact else "no session artifact was available to read",
+        result={"artifact": artifact},
+    )
 
-    def workflow_graph_list(self, *, turn_id: str, limit: int = 12) -> dict[str, Any]:
-        try:
-            from app.services.workflow_graph import compiler
 
-            compiled = [_compact_workflow_graph(dict(row or {})) for row in compiler.list_compiled(limit=limit)]
-            templates = compiler.list_templates()
-            template_items = list(templates.get("items") or []) if isinstance(templates, dict) else []
-            return build_capability_call(
-                turn_id=turn_id,
-                capability_id="workflow_graph.list",
-                protocol=READ_ONLY_TOOL_PROTOCOL,
-                status="completed",
-                summary=f"listed {len(compiled)} compiled workflow graphs and {len(template_items)} templates",
-                result={
-                    "compiled_graphs": compiled,
-                    "templates": template_items[: max(1, limit)],
-                    "total_compiled": len(compiled),
-                    "total_templates": len(template_items),
-                },
-            )
-        except Exception as exc:  # noqa: BLE001
-            return build_capability_call(
-                turn_id=turn_id,
-                capability_id="workflow_graph.list",
-                protocol=READ_ONLY_TOOL_PROTOCOL,
-                status="failed",
-                summary=f"workflow graph list failed: {exc}",
-                result={"compiled_graphs": [], "templates": []},
-                error={"type": exc.__class__.__name__, "message": str(exc)},
-            )
+def workflow_graph_list(
+    tool_call: CoreToolCall, request: AgentCoreRequest, *, context: ReadOnlyToolContext
+) -> CoreToolResult:
+    limit = _limit(tool_call, 12)
+    try:
+        from app.services.workflow_graph import compiler
 
-    def workflow_graph_inspect(self, *, turn_id: str, graph_id: str | None) -> dict[str, Any]:
-        resolved_graph_id = _as_text(graph_id)
-        if not resolved_graph_id:
-            return build_capability_call(
-                turn_id=turn_id,
-                capability_id="workflow_graph.inspect",
-                protocol=READ_ONLY_TOOL_PROTOCOL,
-                status="skipped",
-                summary="workflow graph inspect skipped because no graph_id was supplied",
-                result={"graph": None},
-            )
-        try:
-            from app.services.workflow_graph import compiler
-
-            graph = dict(compiler.get_compiled(resolved_graph_id))
-            compact = _compact_workflow_graph(graph)
-            nodes = dict(graph.get("nodes") or {})
-            return build_capability_call(
-                turn_id=turn_id,
-                capability_id="workflow_graph.inspect",
-                protocol=READ_ONLY_TOOL_PROTOCOL,
-                status="completed",
-                summary=f"inspected workflow graph {resolved_graph_id}",
-                result={
-                    "graph": compact,
-                    "nodes": nodes,
-                    "edges": {
-                        "incoming": dict(graph.get("incoming_edges") or {}),
-                        "outgoing": dict(graph.get("outgoing_edges") or {}),
-                    },
-                    "options": dict(graph.get("options") or {}),
-                },
-            )
-        except Exception as exc:  # noqa: BLE001
-            return build_capability_call(
-                turn_id=turn_id,
-                capability_id="workflow_graph.inspect",
-                protocol=READ_ONLY_TOOL_PROTOCOL,
-                status="failed",
-                summary=f"workflow graph inspect failed for {resolved_graph_id}: {exc}",
-                result={"graph_id": resolved_graph_id},
-                error={"type": exc.__class__.__name__, "message": str(exc)},
-            )
-
-    def ingest_status_read(self, *, session_id: str, turn_id: str, limit: int = 12) -> dict[str, Any]:
-        try:
-            from app.services.job_logger import list_jobs
-
-            jobs = [
-                item
-                for item in list_jobs(limit=max(20, limit * 3))
-                if "ingest" in _as_text(item.get("job_type")).lower()
-                or "source_library" in _as_text(item.get("job_type")).lower()
-                or "source_library" in json.dumps(item.get("params") or {}, ensure_ascii=False, default=str).lower()
-            ]
-        except Exception as exc:  # noqa: BLE001
-            jobs = []
-            job_error = {"type": exc.__class__.__name__, "message": str(exc)}
-        else:
-            job_error = None
-
-        bundle = self.service.get_session_bundle(session_id)
-        recent_tasks = [
-            task
-            for task in list(bundle.get("tasks") or [])
-            if "ingest" in _as_text(task.get("task_type")).lower()
-            or "source" in _as_text(task.get("subject")).lower()
-            or "采集" in _as_text(task.get("subject"))
-        ][-limit:]
-        status_counts: dict[str, int] = {}
-        for job in jobs:
-            status = _as_text(job.get("status")) or "unknown"
-            status_counts[status] = status_counts.get(status, 0) + 1
-        status = "completed" if job_error is None else "failed"
-        return build_capability_call(
-            turn_id=turn_id,
-            capability_id="ingest.status.read",
-            protocol=READ_ONLY_TOOL_PROTOCOL,
-            status=status,
-            summary=f"read ingest status: recent_jobs={len(jobs[:limit])}, session_tasks={len(recent_tasks)}",
+        compiled = [_compact_workflow_graph(json_object(row or {})) for row in compiler.list_compiled(limit=limit)]
+        templates = json_object(compiler.list_templates())
+        template_items = json_list(templates.get("items"))
+        return _read_result(
+            tool_call,
+            status=core_status("completed"),
+            summary=f"listed {len(compiled)} compiled workflow graphs and {len(template_items)} templates",
             result={
-                "recent_jobs": jobs[: max(1, limit)],
-                "job_status_counts": status_counts,
-                "recent_session_tasks": recent_tasks,
-                "session_id": session_id,
+                "compiled_graphs": compiled,
+                "templates": template_items[: max(1, limit)],
+                "total_compiled": len(compiled),
+                "total_templates": len(template_items),
             },
-            error=job_error,
+        )
+    except Exception as exc:
+        return _read_result(
+            tool_call,
+            status=core_status("failed"),
+            summary=f"workflow graph list failed: {exc}",
+            result={"compiled_graphs": [], "templates": []},
+            error=json_object({"type": exc.__class__.__name__, "message": str(exc)}) or None,
         )
 
-    def _list_writing_documents(self, *, project_key: str | None, limit: int) -> dict[str, Any]:
-        key = _as_text(project_key)
-        if not key:
-            return {"status": "skipped", "items": [], "total": 0, "error": {"type": "missing_project_key", "message": "project_key is required"}}
-        try:
-            from app.services.projects import bind_project
-            from app.services.writing.document_service import list_documents
 
-            with bind_project(key):
-                raw_items = list_documents(project_key=key, limit=max(1, limit))
-        except Exception as exc:  # noqa: BLE001
-            return {"status": "failed", "items": [], "total": 0, "error": {"type": exc.__class__.__name__, "message": str(exc)}}
-        items = []
-        for item in raw_items:
-            if not isinstance(item, dict):
-                continue
-            items.append(
-                {
-                    "doc_id": item.get("doc_id") or item.get("id"),
-                    "title": item.get("title"),
-                    "version": item.get("version") or item.get("head_version"),
-                    "updated_at": item.get("updated_at"),
-                    "status": item.get("status"),
-                    "body_preview": _as_text(item.get("body_md"))[:240],
-                }
-            )
-        return {"status": "completed", "items": items[: max(1, limit)], "total": len(raw_items)}
+def workflow_graph_inspect(
+    tool_call: CoreToolCall, request: AgentCoreRequest, *, context: ReadOnlyToolContext
+) -> CoreToolResult:
+    graph_id = _as_text(tool_call.arguments.get("graph_id")) or _extract_graph_id(request.message)
+    resolved_graph_id = _as_text(graph_id)
+    if not resolved_graph_id:
+        return _read_result(
+            tool_call,
+            status=core_status("skipped"),
+            summary="workflow graph inspect skipped because no graph_id was supplied",
+            result={"graph": None},
+        )
+    try:
+        from app.services.workflow_graph import compiler
 
-    def _list_source_library_items(self, *, project_key: str | None, limit: int) -> dict[str, Any]:
-        if self.source_library_lister is None:
-            return {
-                "status": "skipped",
-                "summary": "source-library discovery unavailable in this runtime",
-                "items": [],
-                "raw_items": [],
-                "total": 0,
-            }
-        try:
-            raw_items = list(self.source_library_lister(project_key) or [])
-        except Exception as exc:  # noqa: BLE001
-            return {
-                "status": "failed",
-                "summary": f"source-library discovery failed: {exc}",
-                "items": [],
-                "raw_items": [],
-                "total": 0,
-                "error": {"type": exc.__class__.__name__, "message": str(exc)},
-            }
-        compact = [_compact_source_item(dict(item or {})) for item in raw_items]
+        graph = json_object(compiler.get_compiled(resolved_graph_id))
+        compact = _compact_workflow_graph(graph)
+        nodes = json_object(graph.get("nodes") or {})
+        return _read_result(
+            tool_call,
+            status=core_status("completed"),
+            summary=f"inspected workflow graph {resolved_graph_id}",
+            result={
+                "graph": compact,
+                "nodes": nodes,
+                "edges": {
+                    "incoming": json_object(graph.get("incoming_edges") or {}),
+                    "outgoing": json_object(graph.get("outgoing_edges") or {}),
+                },
+                "options": json_object(graph.get("options") or {}),
+            },
+        )
+    except Exception as exc:
+        return _read_result(
+            tool_call,
+            status=core_status("failed"),
+            summary=f"workflow graph inspect failed for {resolved_graph_id}: {exc}",
+            result={"graph_id": resolved_graph_id},
+            error=json_object({"type": exc.__class__.__name__, "message": str(exc)}) or None,
+        )
+
+
+def ingest_status_read(
+    tool_call: CoreToolCall, request: AgentCoreRequest, *, context: ReadOnlyToolContext
+) -> CoreToolResult:
+    session_id = request.session_id
+    limit = _limit(tool_call, 12)
+    try:
+        from app.services.job_logger import list_jobs
+
+        jobs = [
+            item
+            for item in list_jobs(limit=max(20, limit * 3))
+            if "ingest" in _as_text(item.get("job_type")).lower()
+            or "source_library" in _as_text(item.get("job_type")).lower()
+            or "source_library" in json.dumps(item.get("params") or {}, ensure_ascii=False, default=str).lower()
+        ]
+    except Exception as exc:
+        jobs = []
+        job_error = {"type": exc.__class__.__name__, "message": str(exc)}
+    else:
+        job_error = None
+    bundle = _session_bundle(context, session_id)
+    if isinstance(bundle, Failure):
+        return runtime_failure_result(tool_call, bundle)
+    recent_tasks = [
+        task
+        for task in _objects(bundle.get("tasks"))
+        if "ingest" in _as_text(task.get("task_type")).lower()
+        or "source" in _as_text(task.get("subject")).lower()
+        or "采集" in _as_text(task.get("subject"))
+    ][-limit:]
+    status_counts: dict[str, int] = {}
+    for job in jobs:
+        status = _as_text(job.get("status")) or "unknown"
+        status_counts[status] = status_counts.get(status, 0) + 1
+    status = "completed" if job_error is None else "failed"
+    return _read_result(
+        tool_call,
+        status=core_status(status),
+        summary=f"read ingest status: recent_jobs={len(jobs[:limit])}, session_tasks={len(recent_tasks)}",
+        result={
+            "recent_jobs": jobs[: max(1, limit)],
+            "job_status_counts": status_counts,
+            "recent_session_tasks": recent_tasks,
+            "session_id": session_id,
+        },
+        error=json_object(job_error) or None,
+    )
+
+
+def _list_writing_documents(*, project_key: str | None, limit: int) -> JSONObject:
+    key = _as_text(project_key)
+    if not key:
         return {
-            "status": "completed",
-            "summary": f"discovered {len(raw_items)} source-library items for project {project_key or '-'}",
-            "items": compact[: max(1, limit)],
-            "raw_items": raw_items,
-            "total": len(raw_items),
+            "status": "skipped",
+            "items": [],
+            "total": 0,
+            "error": {"type": "missing_project_key", "message": "project_key is required"},
         }
+    try:
+        from app.services.projects import bind_project
+        from app.services.writing.document_service import list_documents
 
-    @staticmethod
-    def _recent_tool_results(events: list[dict[str, Any]], *, limit: int = 8) -> list[dict[str, Any]]:
-        out: list[dict[str, Any]] = []
-        for event in events:
-            if str(event.get("event_type") or "") != "interactive_agent.tool_call_result":
-                continue
-            payload = dict(event.get("payload") or {})
-            out.append(
-                {
-                    "event_id": event.get("event_id"),
-                    "seq": event.get("seq"),
-                    "created_at": event.get("created_at"),
-                    "capability_id": payload.get("capability_id") or payload.get("tool_name"),
-                    "tool_name": payload.get("tool_name") or payload.get("capability_id"),
-                    "status": payload.get("status") or payload.get("stream_state"),
-                    "summary": payload.get("summary"),
-                    "error": payload.get("error"),
-                }
-            )
-        return out[-limit:]
+        with bind_project(key):
+            raw_items = list_documents(project_key=key, limit=max(1, limit))
+    except Exception as exc:
+        return {
+            "status": "failed",
+            "items": [],
+            "total": 0,
+            "error": {"type": exc.__class__.__name__, "message": str(exc)},
+        }
+    items: list[JSONObject] = []
+    for item in _objects(raw_items):
+        items.append(
+            {
+                "doc_id": item.get("doc_id") or item.get("id"),
+                "title": item.get("title"),
+                "version": item.get("version") or item.get("head_version"),
+                "updated_at": item.get("updated_at"),
+                "status": item.get("status"),
+                "body_preview": _as_text(item.get("body_md"))[:240],
+            }
+        )
+    return {"status": "completed", "items": items[: max(1, limit)], "total": len(raw_items)}
+
+
+def _list_source_library_items(*, context: ReadOnlyToolContext, project_key: str | None, limit: int) -> JSONObject:
+    if context.source_library_lister is None:
+        return {
+            "status": "skipped",
+            "summary": "source-library discovery unavailable in this runtime",
+            "items": [],
+            "raw_items": [],
+            "total": 0,
+        }
+    try:
+        raw_items = json_list(context.source_library_lister(project_key) or [])
+    except Exception as exc:
+        return {
+            "status": "failed",
+            "summary": f"source-library discovery failed: {exc}",
+            "items": [],
+            "raw_items": [],
+            "total": 0,
+            "error": {"type": exc.__class__.__name__, "message": str(exc)},
+        }
+    compact = [_compact_source_item(json_object(item or {})) for item in raw_items]
+    return {
+        "status": "completed",
+        "summary": f"discovered {len(raw_items)} source-library items for project {project_key or '-'}",
+        "items": compact[: max(1, limit)],
+        "raw_items": [json_object(item) for item in raw_items],
+        "total": len(raw_items),
+    }
+
+
+def _recent_tool_results(events: list[JSONObject], *, limit: int = 8) -> list[JSONObject]:
+    out: list[JSONObject] = []
+    for event in events:
+        if str(event.get("event_type") or "") != "interactive_agent.tool_call_result":
+            continue
+        payload = json_object(event.get("payload") or {})
+        out.append(
+            {
+                "event_id": event.get("event_id"),
+                "seq": event.get("seq"),
+                "created_at": event.get("created_at"),
+                "capability_id": payload.get("capability_id") or payload.get("tool_name"),
+                "tool_name": payload.get("tool_name") or payload.get("capability_id"),
+                "status": payload.get("status") or payload.get("stream_state"),
+                "summary": payload.get("summary"),
+                "error": payload.get("error"),
+            }
+        )
+    return out[-limit:]
+
+
+def _compact_result_for_core(tool_name: str, result: JSONObject) -> JSONObject:
+    """Keep tool results useful for the model/UI without replaying legacy envelopes."""
+    name = str(tool_name or "").strip()
+    payload = result
+    if name == "project.summary.read":
+        session = json_object(payload.get("session"))
+        return {
+            "project_key": payload.get("project_key"),
+            "session": compact_session(session),
+            "session_counts": json_object(payload.get("session_counts")),
+            "source_library": compact_json_value(payload.get("source_library"), max_items=10, max_depth=4),
+        }
+    if name == "project.structured_data.search":
+        return {
+            "project_key": payload.get("project_key"),
+            "query": payload.get("query"),
+            "query_mode": payload.get("query_mode"),
+            "model_evidence_manifest": compact_json_value(
+                payload.get("model_evidence_manifest"), max_items=16, max_depth=4
+            ),
+            "items": compact_json_value(payload.get("items"), max_items=12, max_depth=4),
+            "inventory": compact_json_value(payload.get("inventory"), max_items=20, max_depth=3),
+            "dataset_counts": json_object(payload.get("dataset_counts")),
+            "dataset_total_rows": json_object(payload.get("dataset_total_rows")),
+            "total_stored_rows": payload.get("total_stored_rows"),
+            "total_matches": payload.get("total_matches"),
+            "fallback_used": payload.get("fallback_used"),
+            "errors": compact_json_value(payload.get("errors"), max_items=8, max_depth=3),
+        }
+    if name in {"project.structured_data.item.read", "project.context.resource.read"}:
+        return {
+            "project_key": payload.get("project_key"),
+            "dataset": payload.get("dataset"),
+            "record_id": payload.get("record_id"),
+            "resource_uri": payload.get("resource_uri"),
+            "item": compact_json_value(payload.get("item"), max_items=18, max_depth=5),
+            "model_evidence_manifest": compact_json_value(
+                payload.get("model_evidence_manifest"), max_items=12, max_depth=4
+            ),
+            "cleaned_text": compact_json_value(payload.get("cleaned_text"), max_items=6, max_depth=2),
+            "source_ref": payload.get("source_ref"),
+            "quality_flags": compact_json_value(payload.get("quality_flags"), max_items=8, max_depth=3),
+            "errors": compact_json_value(payload.get("errors"), max_items=8, max_depth=3),
+        }
+    if name == "project.structured_data.items.read":
+        return {
+            "project_key": payload.get("project_key"),
+            "items": compact_json_value(payload.get("items"), max_items=8, max_depth=5),
+            "model_evidence_manifest": compact_json_value(
+                payload.get("model_evidence_manifest"), max_items=12, max_depth=4
+            ),
+            "total_returned": payload.get("total_returned"),
+            "errors": compact_json_value(payload.get("errors"), max_items=8, max_depth=3),
+        }
+    if name == "project.context.bundle":
+        return {
+            "project_key": payload.get("project_key"),
+            "query": payload.get("query"),
+            "material_intent": compact_json_value(payload.get("material_intent"), max_items=8, max_depth=4),
+            "material_categories": compact_json_value(payload.get("material_categories"), max_items=8, max_depth=4),
+            "model_evidence_manifest": compact_json_value(
+                payload.get("model_evidence_manifest"), max_items=18, max_depth=4
+            ),
+            "evidence": compact_json_value(payload.get("evidence"), max_items=18, max_depth=4),
+            "missing_evidence": compact_json_value(payload.get("missing_evidence"), max_items=8, max_depth=3),
+            "source_catalog_note": payload.get("source_catalog_note"),
+            "components": {
+                "structured_data": compact_json_value(
+                    json_object(json_object(payload.get("components")).get("structured_data")),
+                    max_items=12,
+                    max_depth=4,
+                ),
+                "writing_documents": compact_json_value(
+                    json_object(json_object(payload.get("components")).get("writing_documents")),
+                    max_items=8,
+                    max_depth=4,
+                ),
+                "artifacts": compact_json_value(
+                    json_object(json_object(payload.get("components")).get("artifacts")), max_items=8, max_depth=4
+                ),
+                "source_catalog": compact_json_value(
+                    json_object(json_object(payload.get("components")).get("source_catalog")), max_items=8, max_depth=4
+                ),
+            },
+        }
+    if name == "writing.document.section.read":
+        return {
+            "project_key": payload.get("project_key"),
+            "document": compact_json_value(payload.get("document"), max_items=12, max_depth=4),
+            "section": compact_json_value(payload.get("section"), max_items=12, max_depth=4),
+        }
+    if name == "agent_session.context.read":
+        return {
+            "session": compact_session(json_object(payload.get("session"))),
+            "task_count": payload.get("task_count"),
+            "event_count": payload.get("event_count"),
+            "artifact_count": payload.get("artifact_count"),
+            "approval_count": payload.get("approval_count"),
+            "recent_tasks": compact_json_value(payload.get("recent_tasks"), max_items=8, max_depth=4),
+            "recent_messages": compact_json_value(payload.get("recent_messages"), max_items=6, max_depth=4),
+            "recent_tool_results": compact_json_value(payload.get("recent_tool_results"), max_items=8, max_depth=4),
+        }
+    if name in {"source_library.item.list", "source_library.item.search"}:
+        return {
+            "project_key": payload.get("project_key"),
+            "query": payload.get("query"),
+            "total": payload.get("total"),
+            "source_total": payload.get("source_total"),
+            "items": compact_json_value(payload.get("items"), max_items=12, max_depth=3),
+        }
+    if name == "ingest.status.read":
+        return {
+            "session_id": payload.get("session_id"),
+            "job_status_counts": json_object(payload.get("job_status_counts")),
+            "recent_jobs": [_compact_job(json_object(item)) for item in json_list(payload.get("recent_jobs"))[:8]],
+            "recent_session_tasks": compact_json_value(payload.get("recent_session_tasks"), max_items=5, max_depth=3),
+        }
+    return json_object(compact_json_value(payload, max_items=20, max_depth=4))
+
+
+def _compact_job(job: JSONObject) -> JSONObject:
+    params = json_object(job.get("params"))
+    display_meta = json_object(params.get("display_meta"))
+    return {
+        "id": job.get("id"),
+        "job_type": job.get("job_type"),
+        "status": job.get("status"),
+        "item_key": params.get("item_key"),
+        "project_key": params.get("project_key"),
+        "summary": display_meta.get("summary"),
+        "started_at": job.get("started_at"),
+        "finished_at": job.get("finished_at"),
+        "error": job.get("error"),
+    }
+
+
+def _session_bundle(context: ReadOnlyToolContext, session_id: str) -> JSONObject | Failure:
+    bundle = context.service.get_session_bundle(session_id)
+    if isinstance(bundle, Failure):
+        return bundle
+    return json_object(bundle)
+
+
+def _integer(value: object) -> int:
+    if not isinstance(value, (str, int, float)):
+        raise TypeError("integer value is required")
+    return int(value)
+
+
+def _structured_records(value: object) -> list[StructuredRecord]:
+    return [coerce_document_query_result_row(item) for item in _objects(value)]

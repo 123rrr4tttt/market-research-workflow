@@ -5,7 +5,6 @@ import atexit
 from collections import deque
 from dataclasses import dataclass
 import hashlib
-import inspect
 import json
 import os
 import queue
@@ -29,7 +28,6 @@ from .codex_user_config import (
     resolve_codex_model,
     resolve_codex_reasoning_effort,
 )
-from .codex_macro_binding import NativeAgentBinding
 
 
 _ENDPOINT_RE = re.compile(r"ws://[^\s]+")
@@ -106,26 +104,10 @@ class CodexAppServerInvocation:
 
 
 @dataclass(frozen=True)
-class CodexNativeAgentInvocation:
-    content: str
-    endpoint: str
-    process_id: int | None
-    duration_seconds: float
-    thread_id: str
-    turn_id: str
-    environment_digest: str
-    tool_call_count: int
-    tool_calls: tuple[dict[str, Any], ...]
-    capability_status: dict[str, str]
-
-
-@dataclass(frozen=True)
 class _CodexTurnResult:
     content: str
     thread_id: str
     turn_id: str
-    tool_call_count: int
-    tool_calls: tuple[dict[str, Any], ...] = ()
 
 
 @dataclass(frozen=True)
@@ -183,7 +165,6 @@ class CodexAppServerCore:
         self.process_factory = process_factory or subprocess.Popen
         self.monotonic = monotonic
         self._lock = threading.RLock()
-        self._native_invoke_lock = threading.Lock()
         self._process: subprocess.Popen[str] | None = None
         self._endpoint: str | None = None
         self._stdout_thread: threading.Thread | None = None
@@ -199,9 +180,6 @@ class CodexAppServerCore:
         self._thread_mode = "model-only"
         self._thread_start_count = 0
         self._thread_reuse_count = 0
-        self._native_tool_call_count = 0
-        self._active_thread_id: str | None = None
-        self._active_turn_id: str | None = None
         self._last_start_duration_seconds: float | None = None
         self._last_invoke_duration_seconds: float | None = None
         self._codex_home: str | None = None
@@ -255,84 +233,6 @@ class CodexAppServerCore:
             duration_seconds=duration_seconds,
         )
 
-    def invoke_native(
-        self,
-        prompt: str,
-        *,
-        binding: NativeAgentBinding,
-        model: str | None = None,
-        timeout_seconds: int | None = None,
-        reasoning_effort: str | None = None,
-    ) -> CodexNativeAgentInvocation:
-        """Run one turn in an explicit native Agent capability environment."""
-
-        if not isinstance(binding, NativeAgentBinding):
-            # kit:boundary owner=codex.native_binding class=PROGRAMMER_DEFECT failure_family=none witness=test:test_native_api_rejects_invalid_authoring_before_process_start
-            raise TypeError("binding must be a NativeAgentBinding")
-        started_at = self.monotonic()
-        # extraRoots and the reusable thread are process state. Keep one native
-        # environment active at a time within this Core instance.
-        with self._native_invoke_lock:
-            endpoint = self._ensure_process()
-            with self._lock:
-                self._active_calls += 1
-            try:
-                result = asyncio.run(
-                    self._invoke_native_async(
-                        endpoint=endpoint,
-                        prompt=prompt,
-                        binding=binding,
-                        model=model,
-                        timeout_seconds=int(
-                            timeout_seconds
-                            or getattr(settings, "codex_cli_llm_timeout_seconds", 120)
-                            or 120
-                        ),
-                        reasoning_effort=reasoning_effort,
-                    )
-                )
-            finally:
-                with self._lock:
-                    self._active_calls = max(0, self._active_calls - 1)
-                    self._active_thread_id = None
-                    self._active_turn_id = None
-                    self._last_used_at = self.monotonic()
-        duration_seconds = self.monotonic() - started_at
-        with self._lock:
-            self._invoke_count += 1
-            self._native_tool_call_count += result.tool_call_count
-            self._last_invoke_duration_seconds = duration_seconds
-        return CodexNativeAgentInvocation(
-            content=result.content,
-            endpoint=_redact_app_server_endpoint(endpoint),
-            process_id=self._process.pid if self._process is not None else None,
-            duration_seconds=duration_seconds,
-            thread_id=result.thread_id,
-            turn_id=result.turn_id,
-            environment_digest=binding.environment_digest,
-            tool_call_count=result.tool_call_count,
-            tool_calls=result.tool_calls,
-            capability_status=binding.capability_status(),
-        )
-
-    def interrupt_native_turn(
-        self, *, thread_id: str, turn_id: str, timeout_seconds: int = 10
-    ) -> bool:
-        """Interrupt a known native turn through the app-server protocol."""
-
-        if not str(thread_id).strip() or not str(turn_id).strip():
-            # kit:boundary owner=codex.native_binding class=PROGRAMMER_DEFECT failure_family=none witness=test:test_native_api_rejects_invalid_authoring_before_process_start
-            raise ValueError("thread_id and turn_id are required")
-        endpoint = self._ensure_process()
-        return asyncio.run(
-            self._interrupt_native_turn_async(
-                endpoint=endpoint,
-                thread_id=str(thread_id),
-                turn_id=str(turn_id),
-                timeout_seconds=max(5, int(timeout_seconds)),
-            )
-        )
-
     def status(self) -> dict[str, Any]:
         with self._lock:
             process = self._process
@@ -355,24 +255,17 @@ class CodexAppServerCore:
                 "thread_mode": self._thread_mode if alive else None,
                 "thread_reuse_enabled": bool(
                     getattr(settings, "codex_cli_llm_reuse_thread", False)
-                ) or self._thread_mode == "native-agent",
+                ),
                 "thread_reuse_scope": (
-                    "workdir_model_project_scope_capability_skill_digest"
-                    if self._thread_mode == "native-agent"
-                    else (
-                        "workdir_model"
-                        if bool(getattr(settings, "codex_cli_llm_reuse_thread", False))
-                        else "disabled"
-                    )
+                    "workdir_model"
+                    if bool(getattr(settings, "codex_cli_llm_reuse_thread", False))
+                    else "disabled"
                 ),
                 "thread_key_hash": _thread_key_hash(self._thread_key)
                 if alive
                 else None,
                 "thread_start_count": self._thread_start_count,
                 "thread_reuse_count": self._thread_reuse_count,
-                "native_tool_call_count": self._native_tool_call_count,
-                "active_thread_id": self._active_thread_id,
-                "active_turn_id": self._active_turn_id,
                 "last_start_duration_seconds": self._last_start_duration_seconds,
                 "last_invoke_duration_seconds": self._last_invoke_duration_seconds,
                 "isolated_codex_home": _isolated_codex_home_evidence(self._codex_home)
@@ -397,8 +290,6 @@ class CodexAppServerCore:
             self._thread_id = None
             self._thread_key = None
             self._thread_mode = "model-only"
-            self._active_thread_id = None
-            self._active_turn_id = None
             self._active_calls = 0
             self._codex_home = None
             if not preserve_auth_events:
@@ -693,49 +584,6 @@ class CodexAppServerCore:
                 cause=exc,
             )
 
-    async def _invoke_native_async(
-        self,
-        *,
-        endpoint: str,
-        prompt: str,
-        binding: NativeAgentBinding,
-        model: str | None,
-        timeout_seconds: int,
-        reasoning_effort: str | None,
-    ) -> _CodexTurnResult:
-        try:
-            return await self._invoke_native_async_raw(
-                endpoint=endpoint,
-                prompt=prompt,
-                binding=binding,
-                model=model,
-                timeout_seconds=timeout_seconds,
-                reasoning_effort=reasoning_effort,
-            )
-        except _CodexFailureSignal as exc:
-            _raise_codex_failure(exc.failure)
-        except asyncio.TimeoutError as exc:
-            _raise_codex_failure(
-                _codex_failure(
-                    "endpoint_timeout",
-                    "codex native Agent request timed out",
-                    operation="app_server.native.websocket_receive",
-                    site="CodexAppServerCore._invoke_native_async",
-                    cause=exc,
-                    timeout_seconds=max(5, int(timeout_seconds or 120)),
-                )
-            )
-        except (json.JSONDecodeError, websockets.exceptions.WebSocketException, OSError) as exc:
-            _raise_codex_failure(
-                _codex_failure(
-                    "rpc_error",
-                    "codex native Agent websocket RPC failed",
-                    operation="app_server.native.websocket",
-                    site="CodexAppServerCore._invoke_native_async",
-                    cause=exc,
-                )
-            )
-
     async def _initialize_socket(self, ws: Any, *, timeout_seconds: int) -> None:
         await self._request(
             ws,
@@ -779,7 +627,6 @@ class CodexAppServerCore:
                 ws,
                 model=str(resolved_model) if resolved_model else None,
                 timeout_seconds=timeout,
-                binding=None,
             )
             turn_params: dict[str, Any] = {
                 "threadId": thread_id,
@@ -818,7 +665,6 @@ class CodexAppServerCore:
                     ws,
                     model=str(resolved_model) if resolved_model else None,
                     timeout_seconds=timeout,
-                    binding=None,
                 )
                 turn_params["threadId"] = thread_id
                 turn_response = await self._request(
@@ -834,185 +680,8 @@ class CodexAppServerCore:
                 thread_id=thread_id,
                 turn_id=turn_id,
                 timeout_seconds=timeout,
-                binding=None,
             )
             return result.content
-
-    async def _invoke_native_async_raw(
-        self,
-        *,
-        endpoint: str,
-        prompt: str,
-        binding: NativeAgentBinding,
-        model: str | None,
-        timeout_seconds: int,
-        reasoning_effort: str | None,
-    ) -> _CodexTurnResult:
-        timeout = max(5, int(timeout_seconds or 120))
-        async with websockets.connect(endpoint, open_timeout=min(10, timeout)) as ws:
-            await self._initialize_socket(ws, timeout_seconds=timeout)
-            await self._request(
-                ws,
-                request_id=2,
-                method="skills/extraRoots/set",
-                params={"extraRoots": list(binding.skill_roots)},
-                timeout_seconds=timeout,
-            )
-            skill_listing = await self._request(
-                ws,
-                request_id=3,
-                method="skills/list",
-                params={"cwds": [self.workdir_resolver()], "forceReload": True},
-                timeout_seconds=timeout,
-            )
-            self._verify_native_skills(binding=binding, response=skill_listing)
-
-            resolved_model = resolve_codex_model(
-                explicit_model=model,
-                configured_model=getattr(settings, "codex_cli_llm_model", ""),
-            )
-            thread_id = await self._ensure_thread_id(
-                ws,
-                model=str(resolved_model) if resolved_model else None,
-                timeout_seconds=timeout,
-                binding=binding,
-                request_id=4,
-            )
-            turn_params: dict[str, Any] = {
-                "threadId": thread_id,
-                "input": [
-                    {"type": "text", "text": prompt, "text_elements": []},
-                    *(skill.turn_input() for skill in binding.skills),
-                ],
-                "cwd": self.workdir_resolver(),
-                "approvalPolicy": binding.approval_policy,
-            }
-            if resolved_model:
-                turn_params["model"] = resolved_model
-            effort = str(
-                reasoning_effort
-                or getattr(settings, "codex_cli_llm_reasoning_effort", "")
-                or ""
-            ).strip()
-            if effort and effort.lower() != "none":
-                turn_params["effort"] = effort
-            pending_events: list[dict[str, Any]] = []
-            early_tool_calls: list[dict[str, Any]] = []
-            answered_calls: dict[str, tuple[dict[str, Any], dict[str, Any]]] = {}
-
-            async def handle_early_server_request(data: dict[str, Any]) -> None:
-                params = data.get("params") if isinstance(data.get("params"), dict) else {}
-                await self._dispatch_server_request(
-                    ws,
-                    data=data,
-                    binding=binding,
-                    thread_id=thread_id,
-                    turn_id=str(params.get("turnId") or ""),
-                    observations=early_tool_calls,
-                    answered_calls=answered_calls,
-                )
-
-            # A tool request can arrive before the turn/start RPC response.
-            # Never retry an unknown native turn/start outcome: its tools may
-            # already have run.
-            try:
-                turn_response = await self._request(
-                    ws,
-                    request_id=5,
-                    method="turn/start",
-                    params=turn_params,
-                    timeout_seconds=timeout,
-                    pending_events=pending_events,
-                    server_request_handler=handle_early_server_request,
-                )
-            except _CodexFailureSignal as exc:
-                # A managed app-server can restart independently of the Python
-                # process (idle reaper, daemon replacement, or container
-                # recovery).  Native bindings intentionally reuse a thread id,
-                # but that id is scoped to the app-server process.  Recreate
-                # the thread once when the server explicitly reports that the
-                # cached id no longer exists; do not retry arbitrary turn
-                # failures because a turn may already have executed tools.
-                failure_message = str(
-                    (exc.failure.context or {}).get("public_message") or ""
-                )
-                if "thread not found" not in failure_message.lower():
-                    # kit:boundary owner=codex.invocation.effect class=SHELL_BOUNDARY_EXCEPTION failure_family=codex.invocation.failure witness=test:test_native_rpc_failure_lift_preserves_failure_and_public_abi
-                    raise
-                with self._lock:
-                    self._thread_id = None
-                    self._thread_key = None
-                thread_id = await self._ensure_thread_id(
-                    ws,
-                    model=str(resolved_model) if resolved_model else None,
-                    timeout_seconds=timeout,
-                    binding=binding,
-                    request_id=6,
-                )
-                turn_params["threadId"] = thread_id
-                turn_response = await self._request(
-                    ws,
-                    request_id=7,
-                    method="turn/start",
-                    params=turn_params,
-                    timeout_seconds=timeout,
-                    pending_events=pending_events,
-                    server_request_handler=handle_early_server_request,
-                )
-            turn_id = str(((turn_response.get("turn") or {}).get("id")) or "").strip()
-            if not turn_id:
-                # kit:boundary owner=codex.invocation.effect class=SHELL_BOUNDARY_EXCEPTION failure_family=codex.invocation.failure witness=test:test_native_rpc_failure_lift_preserves_failure_and_public_abi
-                raise _CodexFailureSignal(
-                    _codex_failure(
-                        "server_event_error",
-                        "codex app-server turn/start returned no turn id",
-                        operation="app_server.native.turn_start",
-                        site="CodexAppServerCore._invoke_native_async_raw",
-                    )
-                )
-            with self._lock:
-                self._active_thread_id = thread_id
-                self._active_turn_id = turn_id
-            return await self._collect_turn_result(
-                ws,
-                thread_id=thread_id,
-                turn_id=turn_id,
-                timeout_seconds=timeout,
-                binding=binding,
-                pending_events=pending_events,
-                initial_tool_calls=early_tool_calls,
-                answered_calls=answered_calls,
-            )
-
-    @staticmethod
-    def _verify_native_skills(
-        *, binding: NativeAgentBinding, response: dict[str, Any]
-    ) -> None:
-        observed: set[tuple[str, str]] = set()
-        for group in response.get("data") or []:
-            if not isinstance(group, dict):
-                continue
-            for skill in group.get("skills") or []:
-                if isinstance(skill, dict) and bool(skill.get("enabled", True)):
-                    observed.add(
-                        (
-                            str(skill.get("name") or ""),
-                            str(Path(str(skill.get("path") or "")).expanduser().resolve()),
-                        )
-                    )
-        expected = {(skill.name, skill.path) for skill in binding.skills}
-        missing = sorted(expected - observed)
-        if missing:
-            # kit:boundary owner=codex.invocation.effect class=SHELL_BOUNDARY_EXCEPTION failure_family=codex.invocation.failure witness=test:test_native_rpc_failure_lift_preserves_failure_and_public_abi
-            raise _CodexFailureSignal(
-                _codex_failure(
-                    "server_event_error",
-                    "codex app-server did not expose the bound native skill",
-                    operation="app_server.native.skills_list",
-                    site="CodexAppServerCore._verify_native_skills",
-                    missing_skills=missing,
-                )
-            )
 
     async def _collect_turn_result(
         self,
@@ -1021,34 +690,13 @@ class CodexAppServerCore:
         thread_id: str,
         turn_id: str,
         timeout_seconds: int,
-        binding: NativeAgentBinding | None,
-        pending_events: list[dict[str, Any]] | None = None,
-        initial_tool_calls: list[dict[str, Any]] | None = None,
-        answered_calls: dict[str, tuple[dict[str, Any], dict[str, Any]]] | None = None,
     ) -> _CodexTurnResult:
         chunks: list[str] = []
         completed_text = ""
-        tool_calls = list(initial_tool_calls or [])
-        tool_call_count = len(tool_calls)
-        answered_calls = answered_calls if answered_calls is not None else {}
-        queued_events = deque(pending_events or [])
         while True:
-            data = (
-                queued_events.popleft()
-                if queued_events
-                else await self._recv_json(ws, timeout_seconds=timeout_seconds)
-            )
+            data = await self._recv_json(ws, timeout_seconds=timeout_seconds)
             if data.get("method") and "id" in data:
-                handled_tool = await self._dispatch_server_request(
-                    ws,
-                    data=data,
-                    binding=binding,
-                    thread_id=thread_id,
-                    turn_id=turn_id,
-                    observations=tool_calls if binding is not None else None,
-                    answered_calls=answered_calls if binding is not None else None,
-                )
-                tool_call_count += int(handled_tool)
+                await self._dispatch_server_request(ws, data=data)
                 continue
             if data.get("method") == "item/agentMessage/delta":
                 params = data.get("params") if isinstance(data.get("params"), dict) else {}
@@ -1063,22 +711,6 @@ class CodexAppServerCore:
                 params = data.get("params") if isinstance(data.get("params"), dict) else {}
                 turn = params.get("turn") if isinstance(params.get("turn"), dict) else {}
                 if not turn_id or turn.get("id") == turn_id:
-                    if binding is not None:
-                        status = str(turn.get("status") or "")
-                        if params.get("threadId") != thread_id or status != "completed":
-                            # kit:boundary owner=codex.invocation.effect class=SHELL_BOUNDARY_EXCEPTION failure_family=codex.invocation.failure witness=test:test_native_failed_turn_does_not_return_agent_text
-                            raise _CodexFailureSignal(
-                                _codex_failure(
-                                    "server_event_error",
-                                    "codex native Agent turn did not complete successfully",
-                                    operation="app_server.native.turn_completed",
-                                    site="CodexAppServerCore._collect_turn_result",
-                                    thread_id=thread_id,
-                                    turn_id=turn_id,
-                                    turn_status=status,
-                                    turn_error=turn.get("error"),
-                                )
-                            )
                     break
             elif data.get("error"):
                 # kit:boundary owner=codex.invocation.effect class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=codex.invocation.failure witness=test:test_codex_app_server_maps_server_event_error
@@ -1102,148 +734,30 @@ class CodexAppServerCore:
                     site="CodexAppServerCore._collect_turn_result",
                 )
             )
-        return _CodexTurnResult(
-            content, thread_id, turn_id, tool_call_count, tuple(tool_calls)
-        )
+        return _CodexTurnResult(content, thread_id, turn_id)
 
     async def _dispatch_server_request(
         self,
         ws: Any,
         *,
         data: dict[str, Any],
-        binding: NativeAgentBinding | None,
-        thread_id: str,
-        turn_id: str,
-        observations: list[dict[str, Any]] | None = None,
-        answered_calls: dict[str, tuple[dict[str, Any], dict[str, Any]]] | None = None,
     ) -> bool:
         request_id = data.get("id")
         method = str(data.get("method") or "")
-        params = data.get("params") if isinstance(data.get("params"), dict) else {}
-        if method != "item/tool/call" or binding is None:
-            await ws.send(
-                json.dumps(
-                    {
-                        "jsonrpc": "2.0",
-                        "id": request_id,
-                        "error": {
-                            "code": -32601,
-                            "message": f"server request not supported by this binding: {method}",
-                        },
-                    },
-                    ensure_ascii=False,
-                )
-            )
-            return False
-
-        namespace_value = params.get("namespace")
-        namespace = str(namespace_value) if namespace_value is not None else None
-        call_id = str(params.get("callId") or "").strip()
-        if answered_calls is not None and call_id in answered_calls:
-            prior_params, prior_result = answered_calls[call_id]
-            replay_result = (
-                prior_result
-                if prior_params == params
-                else {
-                    "contentItems": [
-                        {
-                            "type": "inputText",
-                            "text": "dynamic tool call id reused with different arguments",
-                        }
-                    ],
-                    "success": False,
-                }
-            )
-            await ws.send(
-                json.dumps(
-                    {"jsonrpc": "2.0", "id": request_id, "result": replay_result},
-                    ensure_ascii=False,
-                )
-            )
-            return False
-        tool = binding.find_tool(namespace=namespace, name=str(params.get("tool") or ""))
-        call_matches = (
-            bool(call_id)
-            and request_id is not None
-            and params.get("threadId") == thread_id
-            and params.get("turnId") == turn_id
-            and isinstance(params.get("arguments"), dict)
-        )
-        success = bool(tool and call_matches)
-        if success and tool is not None:
-            try:
-                from .native_tool_context import NativeToolCallContext, native_tool_call_context
-
-                # Dynamic Core handlers are ordinary synchronous project
-                # services in the existing runtime.  Run them off the
-                # app-server event loop so a mounted tool may legitimately
-                # invoke another synchronous/async-capable Core service (for
-                # example material extraction calling the persistent model)
-                # without nesting ``asyncio.run`` inside the websocket loop.
-                with native_tool_call_context(NativeToolCallContext(call_id, thread_id, turn_id)):
-                    if inspect.iscoroutinefunction(tool.handler):
-                        result = await tool.handler(params["arguments"])
-                    else:
-                        result = await asyncio.to_thread(tool.handler, params["arguments"])
-                        if inspect.isawaitable(result):
-                            result = await result
-                if isinstance(result, dict) and "tool_name" in result and "call_id" in result:
-                    success = result.get("status") not in {"failed", "canceled", "needs_approval"}
-                output = result if isinstance(result, str) else json.dumps(
-                    result, ensure_ascii=False, sort_keys=True, default=str
-                )
-            except Exception as exc:  # handler failure is returned to the native turn
-                success = False
-                output = f"{type(exc).__name__}: {exc}"
-        else:
-            output = "dynamic tool call rejected: unknown tool, scope mismatch, or invalid arguments"
-        response = {
-            "contentItems": [{"type": "inputText", "text": output}],
-            "success": success,
-        }
         await ws.send(
             json.dumps(
                 {
                     "jsonrpc": "2.0",
                     "id": request_id,
-                    "result": response,
+                    "error": {
+                        "code": -32601,
+                        "message": f"server request not supported by this binding: {method}",
+                    },
                 },
                 ensure_ascii=False,
             )
         )
-        if answered_calls is not None and call_id:
-            answered_calls[call_id] = (dict(params), response)
-        if observations is not None:
-            observations.append(
-                {
-                    "call_id": call_id,
-                    "namespace": namespace,
-                    "tool": str(params.get("tool") or ""),
-                    "success": success,
-                }
-            )
-        return True
-
-    async def _interrupt_native_turn_async(
-        self,
-        *,
-        endpoint: str,
-        thread_id: str,
-        turn_id: str,
-        timeout_seconds: int,
-    ) -> bool:
-        async with websockets.connect(
-            endpoint, open_timeout=min(10, timeout_seconds)
-        ) as ws:
-            await self._initialize_socket(ws, timeout_seconds=timeout_seconds)
-            await self._request(
-                ws,
-                request_id=2,
-                method="turn/interrupt",
-                params={"threadId": thread_id, "turnId": turn_id},
-                timeout_seconds=timeout_seconds,
-            )
-        return True
+        return False
 
     async def _ensure_thread_id(
         self,
@@ -1251,51 +765,28 @@ class CodexAppServerCore:
         *,
         model: str | None,
         timeout_seconds: int,
-        binding: NativeAgentBinding | None = None,
         request_id: int = 2,
     ) -> str:
         workdir = self.workdir_resolver()
-        if binding is None:
-            thread_key = (workdir, str(model or ""))
-            reuse_thread = bool(getattr(settings, "codex_cli_llm_reuse_thread", False))
-        else:
-            thread_key = (
-                "native-agent",
-                workdir,
-                str(model or ""),
-                binding.project_key,
-                binding.scope_id,
-                binding.environment_digest,
-            )
-            reuse_thread = True
+        thread_key = (workdir, str(model or ""))
+        reuse_thread = bool(getattr(settings, "codex_cli_llm_reuse_thread", False))
         if reuse_thread:
             with self._lock:
                 if self._thread_id and self._thread_key == thread_key:
                     self._thread_reuse_count += 1
                     return self._thread_id
-        if binding is None:
-            thread_params: dict[str, Any] = {
-                "cwd": workdir,
-                "sandbox": "read-only",
-                "approvalPolicy": "never",
-                "ephemeral": True,
-                "baseInstructions": (
-                    "You are a mounted Codex model core for another application. "
-                    "Follow the user's prompt exactly. Do not run shell commands, edit files, or call tools. "
-                    "If the prompt requires JSON, return only JSON."
-                ),
-                "developerInstructions": "Act only as a chat/model provider for this prompt. Keep answers concise and return promptly.",
-            }
-        else:
-            thread_params = {
-                "cwd": workdir,
-                "sandbox": binding.sandbox,
-                "approvalPolicy": binding.approval_policy,
-                "ephemeral": binding.ephemeral,
-                "baseInstructions": binding.base_instructions,
-                "developerInstructions": binding.developer_instructions,
-                "dynamicTools": binding.dynamic_tool_specs(),
-            }
+        thread_params: dict[str, Any] = {
+            "cwd": workdir,
+            "sandbox": "read-only",
+            "approvalPolicy": "never",
+            "ephemeral": True,
+            "baseInstructions": (
+                "You are a mounted Codex model core for another application. "
+                "Follow the user's prompt exactly. Do not run shell commands, edit files, or call tools. "
+                "If the prompt requires JSON, return only JSON."
+            ),
+            "developerInstructions": "Act only as a chat/model provider for this prompt. Keep answers concise and return promptly.",
+        }
         if model:
             thread_params["model"] = model
         thread_response = await self._request(
@@ -1320,7 +811,7 @@ class CodexAppServerCore:
             if reuse_thread:
                 self._thread_id = thread_id
                 self._thread_key = thread_key
-                self._thread_mode = "native-agent" if binding is not None else "model-only"
+                self._thread_mode = "model-only"
             else:
                 self._thread_id = None
                 self._thread_key = None
@@ -1336,8 +827,6 @@ class CodexAppServerCore:
         method: str,
         params: dict[str, Any],
         timeout_seconds: int,
-        pending_events: list[dict[str, Any]] | None = None,
-        server_request_handler: Callable[[dict[str, Any]], Any] | None = None,
     ) -> dict[str, Any]:
         await ws.send(
             json.dumps(
@@ -1353,12 +842,7 @@ class CodexAppServerCore:
         )
         while True:
             data = await self._recv_json(ws, timeout_seconds=timeout_seconds)
-            if data.get("method") and "id" in data and server_request_handler:
-                await server_request_handler(data)
-                continue
             if data.get("id") != request_id:
-                if pending_events is not None and data.get("method"):
-                    pending_events.append(data)
                 continue
             if data.get("error"):
                 # kit:boundary owner=codex.invocation.effect class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=codex.invocation.failure witness=test:test_codex_app_server_maps_rpc_error

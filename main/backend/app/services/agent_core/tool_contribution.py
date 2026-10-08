@@ -8,7 +8,7 @@ caller explicitly invokes the registered handler.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from typing import Protocol
 
@@ -26,12 +26,26 @@ from functorial_kit.native_contribution import (
     ProjectedContributionSpec,
 )
 
-from .contracts import CoreToolSpec
+from .contracts import AgentCoreRequest, CoreEvent, CoreToolCall, CoreToolResult, CoreToolSpec
 from .macro_tools import FacilityBinding, FacilityHandler, facility_tool_projection
 
 
 PROJECT_TOOL_REGISTRY_OWNER = "app.services.agent_core.registry.CoreToolRegistry"
 PROJECT_TOOL_CONTRIBUTION_OWNER = "app.services.agent_core.project_tools"
+ProjectToolOperation = Callable[[CoreToolCall, AgentCoreRequest], CoreToolResult]
+
+
+def bind_project_tool_operation(operation: ProjectToolOperation) -> FacilityHandler:
+    """Lower an operation that does not consume registry metadata or emit events."""
+    def handler(
+        call: CoreToolCall,
+        _spec: CoreToolSpec,
+        request: AgentCoreRequest,
+        _emit: Callable[[CoreEvent], None],
+    ) -> CoreToolResult:
+        return operation(call, request)
+
+    return handler
 
 
 class ProjectToolRegistry(Protocol):
@@ -271,6 +285,8 @@ __all__ = [
     "ProjectToolAssemblyContext",
     "ProjectToolAuthorSource",
     "ProjectToolBinding",
+    "ProjectToolOperation",
+    "bind_project_tool_operation",
     "compile_project_tool_native",
     "register_project_tool_contributions",
 ]

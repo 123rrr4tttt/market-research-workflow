@@ -1,9 +1,94 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
 from enum import Enum
-from typing import Annotated, Any, Dict, Literal
+from typing import TYPE_CHECKING, Annotated, Any, Dict, Literal, NotRequired, Protocol, TypedDict
+
+if TYPE_CHECKING:
+    from .item_resolver import ExecutionPayload, ExecutionRequest
+    from .runner import RunnerObject
+
+
+
+class RoutingStageObservation(TypedDict):
+    budget: int
+    parallelism: int
+    fail_fast: bool
+    timeout_seconds: float | None
+    tasks_total: int
+    timed_out: int
+
+
+class RoutingDiagnostics(TypedDict):
+    concurrency_plan: dict[str, object]
+    url_stage: RoutingStageObservation
+
+
+class RoutingObservation(TypedDict, total=False):
+    by_url: list[RunnerObject]
+    records: list[RunnerObject]
+    stats: dict[str, int]
+    legacy_counts: dict[str, int]
+    errors: list[str]
+    middle_layer_protocol: dict[str, object]
+    url_routing_parallelism: int
+    diagnostics: RoutingDiagnostics
+    execution_layer: str
+    inserted: NotRequired[int]
+    updated: NotRequired[int]
+    skipped: NotRequired[int]
+
+
+class RoutingLegacyCounts(TypedDict):
+    inserted: int
+    updated: int
+    skipped: int
+    inserted_valid: int
+    rejected_count: int
+    rejection_breakdown: dict[str, int]
+
+
+class RoutingSummary(TypedDict):
+    inserted: int
+    updated: int
+    skipped: int
+    errors: list[str]
+    error_details: list[RunnerObject]
+    channels_used: list[str]
+    by_url: list[RunnerObject]
+    records: list[RunnerObject]
+    stats: dict[str, int]
+    legacy_counts: RoutingLegacyCounts
+
+
+class SourceChannelExecutor(Protocol):
+    def __call__(
+        self, *, channel: Mapping[str, object], params: Mapping[str, object],
+        project_key: str | None, item_key: str | None,
+    ) -> RunnerObject: ...
+
+
+class SourceItemExecutor(Protocol):
+    def __call__(
+        self, *, item: dict[str, object], request: ExecutionRequest,
+        channel_map: dict[str, dict[str, object]],
+    ) -> ExecutionPayload: ...
+
+
+class SourceClusterExecutor(Protocol):
+    def __call__(
+        self, *, item: dict[str, object], params: dict[str, object],
+        project_key: str | None, channel_map: dict[str, dict[str, object]],
+    ) -> ExecutionPayload: ...
+
+
+class SourceUrlExecutor(Protocol):
+    def __call__(
+        self, *, item: dict[str, object], params: dict[str, object],
+        project_key: str | None, channel_map: dict[str, dict[str, object]],
+        execution_layer: Literal["execute", "terminal_output_only"],
+    ) -> RoutingObservation: ...
 
 ItemType = Literal["user_defined", "service_aggregated"]
 ManagedBy = Literal["user", "system"]
@@ -290,6 +375,26 @@ class FrontDoorExecutionProtocol:
     concurrency_plan: Dict[str, Any]
     source_tier: str
     onboarding_priority: str
+
+    def to_dict(self) -> dict[str, object]:
+        payload: dict[str, object] = {field.name: getattr(self, field.name) for field in fields(self)}
+        payload["query_terms"] = list(self.query_terms)
+        payload["site_entries"] = list(self.site_entries)
+        payload["candidate_urls"] = list(self.candidate_urls)
+        payload["concurrency_plan"] = dict(self.concurrency_plan)
+        pipeline_mode = {
+            "search_then_route": "query_search_candidate_fetch",
+            "url_routing": "candidate_fetch",
+        }.get(self.execution_mode, "single_channel_execute")
+        payload["pipeline"] = {
+            "mode": pipeline_mode,
+            "query_stage": bool(self.query_terms) and self.execution_mode == "search_then_route",
+            "search_stage": self.execution_mode == "search_then_route",
+            "candidate_stage": self.execution_mode in {"search_then_route", "url_routing"},
+            "detail_fetch_stage": self.write_mode == "front_door_url_routing",
+            "candidate_source_count": len(self.site_entries),
+        }
+        return payload
 
 
 @dataclass(slots=True, frozen=True)

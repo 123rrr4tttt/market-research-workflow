@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import unittest
+import json
 from contextlib import nullcontext
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import pytest
@@ -12,6 +14,201 @@ from app.services.agent_sessions.store import InMemoryAgentSessionStore
 
 
 pytestmark = pytest.mark.unit
+
+
+@pytest.fixture
+def url_pool_core_consumer():
+    from app.services.agent_core.authoring_tools import AuthoringToolContext, authoring_ingest_writing_batch_sources
+    from app.services.agent_core.contracts import AgentCoreRequest, CoreToolCall
+    from app.services.agent_core.host_authorization import TrustedHostContext
+    from app.services.agent_core.tool_contribution import register_project_tool_contributions
+    from app.services.request_identity import authenticated_actor_context
+
+    service = AgentSessionService(store=InMemoryAgentSessionStore())
+    session_id = service.create_session(
+        source="trusted_host", entrypoint_type="agent_core", goal="Submit URL", project_key="demo_proj",
+    )["session"]["session_id"]
+    host = TrustedHostContext(
+        "demo_proj", session_id, "url-thread", "url-turn", "url-input",
+        actor_context=authenticated_actor_context(actor_id="url-actor", source="test-host", auth_mode="test-auth"),
+    )
+    service.create_host_user_message(host, content="collect the approved URL")
+    registry = CoreToolRegistry()
+    assert register_project_tool_contributions(
+        registry, authoring_ingest_writing_batch_sources(
+            AuthoringToolContext(service=service, structured_data_searcher=lambda **_kwargs: {})
+        ),
+    ) is None
+    events = []
+
+    def execute(arguments, call_id="url-call"):
+        return registry.execute_tool(
+            tool_call=CoreToolCall(tool_name="ingest.url_pool.submit", call_id=call_id, arguments=arguments),
+            request=AgentCoreRequest(message="collect", session_id=session_id, project_key="demo_proj", turn_id=host.turn_id),
+            trusted_context=host, authorization_service=service, emit=events.append,
+        )
+
+    return service, session_id, execute, events
+
+
+@pytest.fixture
+def url_pool_effects():
+    with (
+        patch("app.models.base.engine"),
+        patch("app.successor_runtime.substrate.postgres.session.ServerProjectScopeResolver") as resolver,
+        patch("app.composition.production.submit_installed_program", return_value=(
+            {"run_id": "canonical-url-run", "state": "RUNNING"}, ("work:canonical-url-run:1",),
+        )) as runtime,
+        patch("app.services.agent_core.authoring_tools.bind_project", return_value=nullcontext()),
+        patch("app.services.ingest.url_pool.ingest_url_via_source_library_frontdoor", return_value={
+            "task_id": "sync-task", "status": "accepted",
+        }) as frontdoor,
+    ):
+        resolver.return_value.resolve.return_value = SimpleNamespace(project_registry_revision=1, scope_digest="a" * 64)
+        yield runtime, frontdoor
+
+
+@pytest.mark.parametrize("async_mode", [False, True])
+def test_authoring_url_pool_submit_normalization_and_replay_through_core(url_pool_core_consumer, url_pool_effects, async_mode):
+    service, session_id, execute, _events = url_pool_core_consumer
+    runtime, frontdoor = url_pool_effects
+    arguments = {
+        "project_key": "demo_proj", "url": " https://example.gov/report ", "query_terms": [],
+        "strict_mode": False, "async_mode": async_mode, "search_options": {"top": 2}, "source_name": " ",
+        "artifact_name": " custom.json ", "metadata": {"title": "Top title", "review_key": "top-review"},
+        "ingest_payload": {
+            "project_key": "demo_proj", "url": "https://example.gov/other",
+            "query_terms": ["policy", " policy ", "中文"], "strict_mode": True, "async_mode": True,
+            "search_options": {"payload": 1}, "source_name": "Payload source",
+            "metadata": {"title": "Payload title", "review_key": "payload-review", "origin": "kept"},
+        },
+    }
+    result = execute(arguments)
+    assert result.status == "completed", result.to_dict()
+    artifact = next(item for item in service.list_artifacts(session_id) if item["name"] == "custom.json")
+    submission = artifact["content_json"]["submissions"][0]
+    assert submission["query_terms"] == ["policy", "中文"]
+    assert submission["strict_mode"] is True
+    assert submission["source_name"] == ""
+    assert submission["metadata"] == {"title": "Top title", "review_key": "top-review", "origin": "kept"}
+    assert submission["candidate_review_key"] == "top-review"
+    assert submission["idempotency_key"] == "9977663609056f6436945a8b"
+    dispatch = result.structured_content["dispatch_result"]
+    assert dispatch["effective_payload"] == {
+        "url": "https://example.gov/report", "project_key": "demo_proj", "query_terms": ["policy", "中文"],
+        "strict_mode": True, "async_mode": async_mode, "agent_session_id": session_id,
+    }
+    if async_mode:
+        runtime.assert_called_once()
+        frontdoor.assert_not_called()
+        submitted = runtime.call_args.kwargs
+        assert submitted["actor_id"] == "url-actor"
+        assert submitted["run_id"] == "url-single-agent-3d8c1f20375cc288b4918f7b"
+        assert submitted["logical_request_id"] == submission["idempotency_key"]
+        assert json.loads(submitted["values"][0][1]) == {
+            "url": "https://example.gov/report", "project_key": "demo_proj", "query_terms": ["policy", "中文"],
+            "extra_params": {"strict_mode": True, "enable_extraction": True, "top": 2},
+            "enable_extraction": True, "target": None, "context": None,
+        }
+        assert dispatch["runtime_state"] == "RUNNING"
+        assert dispatch["status"] == "submitted"
+        assert result.structured_content["runtime_run_ref"] == "runtime-run:canonical-url-run"
+    else:
+        runtime.assert_not_called()
+        frontdoor.assert_called_once_with(
+            url="https://example.gov/report", project_key="demo_proj", query_terms=["policy", "中文"],
+            strict_mode=True, search_options={"top": 2}, frontdoor_options={"enabled": True},
+            entrypoint="agent_core.ingest.url_pool.submit", source_name="agent_core_url_pool_submit", enable_extraction=True,
+        )
+        assert result.structured_content["task_id"] == "sync-task"
+    replayed = execute(arguments, call_id="url-replay")
+    assert replayed.status == "completed"
+    assert replayed.structured_content["replayed"] is True
+    assert "async_mode" not in replayed.structured_content
+    assert service.list_artifacts(session_id) == [artifact]
+    assert runtime.call_count + frontdoor.call_count == 1
+
+
+@pytest.mark.parametrize("options", [None, {}])
+def test_authoring_url_pool_submit_explicit_options_override_payload_and_defaults(url_pool_core_consumer, url_pool_effects, options):
+    service, session_id, execute, _events = url_pool_core_consumer
+    runtime, frontdoor = url_pool_effects
+    result = execute({"search_options": options, "idempotency_key": " explicit-key ", "artifact_name": " ",
+                      "ingest_payload": {"url": "https://example.gov/default", "search_options": {"nested": True}}})
+    assert result.status == "completed", result.to_dict()
+    frontdoor.assert_not_called()
+    submitted = runtime.call_args.kwargs
+    assert submitted["logical_request_id"] == "explicit-key"
+    body = json.loads(submitted["values"][0][1])
+    assert body["query_terms"] == []
+    assert body["extra_params"] == {"strict_mode": False, "enable_extraction": True}
+    dispatch = result.structured_content["dispatch_result"]
+    assert dispatch["params"] == {"url": "https://example.gov/default", "query_terms": None, "strict_mode": False,
+                                  **({"search_options": {}} if options == {} else {})}
+    artifact = service.list_artifacts(session_id)[0]
+    assert artifact["name"] == "ingest.url_pool_submissions.json"
+    submission = artifact["content_json"]["submissions"][0]
+    assert submission["source_name"] == "https://example.gov/default"
+    assert submission["async_mode"] is True
+
+
+def test_authoring_url_pool_submit_keeps_core_nested_project_scope_guard(url_pool_core_consumer, url_pool_effects):
+    service, session_id, execute, _events = url_pool_core_consumer
+    runtime, frontdoor = url_pool_effects
+    result = execute({"project_key": "demo_proj", "url": "https://example.gov/report", "async_mode": True,
+                      "ingest_payload": {"project_key": "other-project"}})
+    assert result.status == "failed"
+    assert result.error["code"] == "session_project_mismatch"
+    runtime.assert_not_called()
+    frontdoor.assert_not_called()
+    assert service.list_artifacts(session_id) == []
+
+
+@pytest.mark.parametrize("async_mode", [False, True])
+@pytest.mark.parametrize("phase", ["before", "after"])
+def test_authoring_url_pool_submit_preserves_abort_dispatch_boundary(url_pool_core_consumer, url_pool_effects, async_mode, phase):
+    service, session_id, execute, events = url_pool_core_consumer
+    runtime, frontdoor = url_pool_effects
+    if phase == "before":
+        service.store.update_session(session_id, {"status": "canceled"})
+    else:
+        effect = runtime if async_mode else frontdoor
+        original = effect.return_value
+        def cancel_after_dispatch(**_kwargs):
+            service.store.update_session(session_id, {"status": "canceled"})
+            return original
+        effect.side_effect = cancel_after_dispatch
+    result = execute({"url": "https://example.gov/abort", "async_mode": async_mode})
+    expected = int(phase == "after")
+    assert result.status == "canceled", result.to_dict()
+    assert result.structured_content["dispatched_count"] == expected
+    assert result.structured_content["skipped_items"] == ["https://example.gov/abort"]
+    assert events[-1].payload["dispatched_count"] == expected
+    assert runtime.call_count + frontdoor.call_count == expected
+    assert service.list_artifacts(session_id) == []
+    if phase == "after":
+        assert "dispatch_result" in result.structured_content
+
+
+def test_authoring_url_pool_submit_bounds_history_and_preserves_frontdoor_readback(url_pool_core_consumer, url_pool_effects):
+    service, session_id, execute, _events = url_pool_core_consumer
+    runtime, frontdoor = url_pool_effects
+    prior = [{"idempotency_key": f"previous-{index}", "async_mode": bool(index % 2)} for index in range(100)]
+    service.store.upsert_artifact({
+        "session_id": session_id, "name": "ingest.url_pool_submissions.json", "artifact_type": "url_pool_ingest_submission_state",
+        "content_json": {"submissions": prior, "retained": "original"},
+    })
+    frontdoor.return_value = {"task_id": "sync-task", "effective_payload": {"frontdoor": "original"}}
+    result = execute({"url": "https://example.gov/new", "async_mode": False})
+    assert result.status == "completed", result.to_dict()
+    runtime.assert_not_called()
+    frontdoor.assert_called_once()
+    content = service.list_artifacts(session_id)[0]["content_json"]
+    assert content["retained"] == "original"
+    assert content["submissions"][:-1] == prior[1:]
+    assert len(content["submissions"]) == 100
+    assert content["counts"] == {"submitted": 101, "async": 50, "sync": 51}
+    assert result.structured_content["dispatch_result"]["effective_payload"] == {"frontdoor": "original"}
 
 
 class SharedCoreToolProjectionUnitTest(unittest.TestCase):
@@ -714,3 +911,123 @@ class SharedCoreToolProjectionUnitTest(unittest.TestCase):
         assert "task.continue" not in guidance
         assert "task.retry" not in guidance
         assert guidance.index("runtime summary") < guidance.index("cancellation observation")
+
+
+@pytest.fixture
+def source_web_core_consumer():
+    import socket
+    from app.services.agent_core.contracts import AgentCoreRequest, CoreToolCall
+    from app.services.agent_core.query_tools import register_query_project_tools
+
+    service = AgentSessionService(store=InMemoryAgentSessionStore())
+    session_id = service.create_session(
+        source="user", entrypoint_type="agent_core", goal="Search sources", project_key="demo_proj",
+    )["session"]["session_id"]
+    registry = CoreToolRegistry()
+    assert register_query_project_tools(registry=registry, service=service) is None
+
+    def execute(arguments):
+        return registry.execute_tool(
+            tool_call=CoreToolCall(tool_name="source.web.search", call_id="web-search", arguments=arguments),
+            request=AgentCoreRequest(message="base", session_id=session_id, project_key="demo_proj"),
+            emit=lambda _event: None,
+        )
+
+    public_dns = [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("93.184.216.34", 0))]
+    with (
+        patch("app.services.source_library.external_project.socket.getaddrinfo", return_value=public_dns),
+        patch("app.services.ingest.url_pool.ingest_url_via_source_library_frontdoor", side_effect=AssertionError("search cannot ingest")),
+        patch("app.composition.production.submit_installed_program", side_effect=AssertionError("search cannot submit a write")),
+    ):
+        yield execute, service, session_id
+
+
+def test_source_web_search_matrix_core_preserves_order_failure_trust_and_dedupe(source_web_core_consumer):
+    from app.services.search.candidate_contracts import Candidate, CandidateBundle, ProviderObservation
+
+    execute, service, session_id = source_web_core_consumer
+    calls = []
+
+    def discover(request):
+        calls.append((request.topic, request.provider, request.max_results))
+        if len(calls) == 1:
+            raise OSError("first branch unavailable")
+        rows = [
+            {"link": "http://127.0.0.1/private", "title": "Private", "snippet": "blocked", "source": request.provider, "keyword": request.topic},
+            {"link": "https://www.gov.uk/policy", "title": "Official policy", "snippet": "policy evidence", "source": request.provider, "keyword": request.topic},
+        ]
+        candidates = tuple(Candidate(
+            resource_uri=row["link"], title=row["title"], snippet=row["snippet"],
+            source=row["source"], keyword=row["keyword"], original_rank=99, result_rank=90 + index,
+            relevance_score=1.0, raw=row,
+        ) for index, row in enumerate(rows, start=1))
+        observations = (ProviderObservation(request.provider, "test", request.topic, "completed", 2),)
+        if len(calls) == 2:
+            observations += (ProviderObservation(request.provider, "fallback", request.topic, "failed", 0, "timeout", "TimeoutError", "partial branch"),)
+        return CandidateBundle(request, candidates, (), observations, "candidates_observed")
+
+    with patch("app.services.agent_core.query_tools.discover_candidates", side_effect=discover):
+        result = execute({
+            "query": "base", "query_variants": ["base", "official", "market", "other"],
+            "providers": ["auto", "serpapi", "ddg"], "matrix_mode": True, "max_results": 20,
+        })
+    assert result.status == "completed", result.to_dict()
+    assert calls == [
+        ("base", "auto", 5), ("base", "serpapi", 5), ("base", "ddg", 5),
+        ("official", "auto", 5), ("official", "serpapi", 5), ("official", "ddg", 5),
+        ("market", "auto", 5), ("market", "serpapi", 5),
+    ]
+    content = result.structured_content
+    assert content["contract_version"] == "source.web.search.v1"
+    assert content["project_write_performed"] is False and content["ingest_performed"] is False
+    branches = content["search_branches"]
+    assert [branch["status"] for branch in branches] == ["failed", "partial"] + ["completed"] * 6
+    assert branches[0]["error"] == {"code": "OSError", "message": "first branch unavailable"}
+    assert [item["status"] for item in branches[1]["observations"]] == ["completed", "failed"]
+    candidates = content["candidates"]
+    assert len(candidates) == 2
+    assert candidates[0]["url"] == "https://www.gov.uk/policy"
+    assert candidates[0]["trust"]["status"] == "accepted"
+    assert candidates[0]["rank"] == 2  # Wire rank remains original branch enumeration.
+    assert candidates[0]["branch_count"] == 7
+    assert candidates[1]["trust"]["status"] == "rejected"
+    assert service.list_artifacts(session_id) == []
+
+
+def test_source_web_search_nonmatrix_failure_core_keeps_exact_error(source_web_core_consumer):
+    execute, service, session_id = source_web_core_consumer
+    with patch("app.services.agent_core.query_tools.discover_candidates", side_effect=OSError("provider unavailable")) as discover:
+        result = execute({"query": "base", "provider": "serpapi"})
+    assert discover.call_count == 1
+    assert result.status == "failed"
+    assert result.error == {"code": "OSError", "message": "provider unavailable"}
+    assert result.structured_content["contract_version"] == "source.web.search.v1"
+    assert result.structured_content["project_write_performed"] is False
+    assert result.structured_content["ingest_performed"] is False
+    assert service.list_artifacts(session_id) == []
+
+
+@pytest.mark.parametrize("url_field,date_field", [("url", "published_at"), ("href", "date")])
+def test_source_web_search_real_candidate_constructor_keeps_scalar_fallback(source_web_core_consumer, url_field, date_field):
+    execute, service, session_id = source_web_core_consumer
+    # These fields intentionally produce empty typed URI/snippet/source in the
+    # real discover_candidates constructor; its raw compatibility fields remain.
+    row = {
+        url_field: "https://www.gov.uk/legacy", "body": "legacy body", "provider": "legacy-provider",
+        "title": "Legacy title", "keyword": "legacy keyword", "rank": 77,
+        date_field: {"value": "2026-10-08", "precision": "day"},
+    }
+    with patch("app.services.search.candidate_search.search_sources", return_value=[row]):
+        result = execute({"query": "legacy", "provider": "serpapi"})
+    assert result.status == "completed", result.to_dict()
+    candidate, = result.structured_content["candidates"]
+    assert candidate["url"] == "https://www.gov.uk/legacy"
+    assert candidate["title"] == "Legacy title"
+    assert candidate["snippet"] == "legacy body"
+    assert candidate["source_provider"] == "legacy-provider"
+    assert candidate["keyword"] == "legacy keyword"
+    assert candidate["published_at"] == {"value": "2026-10-08", "precision": "day"}
+    assert candidate["rank"] == 1
+    assert result.structured_content["project_write_performed"] is False
+    assert result.structured_content["ingest_performed"] is False
+    assert service.list_artifacts(session_id) == []

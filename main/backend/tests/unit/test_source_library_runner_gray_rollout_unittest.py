@@ -105,10 +105,7 @@ class SourceLibraryRunnerGrayRolloutUnitTestCase(unittest.TestCase):
             provider_ports.set_crawler_provider_resolver(original_resolver)
 
     def test_json_boundaries_share_recursive_legacy_semantics(self):
-        from app.services.source_library.runner import (
-            _crawler_json_object,
-            _shared_json_object,
-        )
+        from app.services.source_library.runner import _json_object
 
         source = {
             1: "integer-key",
@@ -119,18 +116,14 @@ class SourceLibraryRunnerGrayRolloutUnitTestCase(unittest.TestCase):
             "nested": {"ok": True},
         }
 
-        crawler = _crawler_json_object(source)
-        shared = _shared_json_object(source)
+        crawler = _json_object(source)
 
         self.assertEqual(crawler["1"], "integer-key")
-        self.assertEqual(crawler["set"], shared["set"])
         self.assertEqual(set(crawler["set"]), {"a", "b"})
-        self.assertEqual(crawler["frozenset"], shared["frozenset"])
         self.assertEqual(set(crawler["frozenset"]), {"x", "y"})
         self.assertEqual(crawler["tuple"], [1, 2])
         self.assertEqual(crawler["error"], "invalid option")
         self.assertEqual(crawler["nested"], {"ok": True})
-        self.assertEqual(shared, crawler)
 
     def test_registered_scrapy_output_ingest_is_the_terminal_material_writer(self):
         from app.services.source_library.provider_ports import CrawlerOutputIngestResult
@@ -470,6 +463,269 @@ class SourceLibraryRunnerGrayRolloutUnitTestCase(unittest.TestCase):
                 self.assertEqual(error.exception.provider_type, "scrapy")
         finally:
             provider_ports.set_crawler_provider_resolver(original_resolver)
+
+
+def _run_crawler_provider(provider: object, *, params: dict[str, object] | None = None):
+    from app.services.source_library.runner import _run_via_crawler_provider_registry
+
+    with patch("app.services.source_library.runner.resolve_crawler_provider", return_value=provider):
+        return _run_via_crawler_provider_registry(
+            channel={"channel_key": "crawler.demo_proj", "provider_type": "scrapy", "execution_policy": {"timeout": 7}},
+            params={
+                "spider": "news_spider",
+                "attempt_id": "attempt-explicit",
+                "idempotency_key": "key-explicit",
+                **(params or {}),
+            },
+            project_key="demo_proj",
+            provider_type="scrapy",
+        )
+
+
+def test_canonical_readback_and_ingest_project_once_after_effects() -> None:
+    from app.services.source_library.provider_ports import CrawlerOutputIngestResult
+    from app.successor_runtime.capabilities.source_contracts import (
+        ReadbackTerminal,
+        ReadbackWaiting,
+    )
+
+    initial = ReadbackWaiting(attempt_ref="provider-attempt:attempt-explicit", observed_at="2026-10-08T00:00:00Z")
+    events: list[str] = []
+
+    class Provider:
+        def dispatch(self, request):
+            events.append("dispatch")
+            return CrawlerDispatchResult("scrapy", "queued", "job-1", terminal_readback=initial)
+
+        def poll(self, **options):
+            events.append("poll")
+            assert options == {
+                "external_job_id": "job-1",
+                "project": "demo_proj",
+                "spider": "news_spider",
+                "options": {"attempt_id": "attempt-explicit", "idempotency_key": "key-explicit"},
+            }
+            return {"provider_status": "completed", "observed_at": "2026-10-08T00:01:00Z"}
+
+    ingest = CrawlerOutputIngestResult("ingested", {"import_result": {"inserted": "1", "updated": 2, "skipped": 3}})
+    terminal_to_plain = ReadbackTerminal.to_plain
+    ingest_to_plain = CrawlerOutputIngestResult.to_plain
+    with (
+        patch.object(
+            ReadbackWaiting, "to_plain", autospec=True, side_effect=ReadbackWaiting.to_plain
+        ) as waiting_projection,
+        patch.object(ReadbackTerminal, "to_plain", autospec=True, side_effect=terminal_to_plain) as terminal_projection,
+        patch.object(
+            CrawlerOutputIngestResult, "to_plain", autospec=True, side_effect=ingest_to_plain
+        ) as ingest_projection,
+    ):
+
+        def ingest_effect(request):
+            events.append("ingest")
+            assert waiting_projection.call_count == terminal_projection.call_count == ingest_projection.call_count == 0
+            assert (request.wait_timeout_seconds, request.poll_interval_seconds, request.max_items) == (1.0, 5.0, 1000)
+            return ingest
+
+        with patch("app.services.source_library.runner.ingest_crawler_output", side_effect=ingest_effect):
+            result = _run_crawler_provider(
+                Provider(),
+                params={
+                    "output_ingest": {
+                        "enabled": True,
+                        "wait_timeout_seconds": -5,
+                        "poll_interval_seconds": 20,
+                        "max_items": 5000,
+                    }
+                },
+            )
+        assert waiting_projection.call_count == 0
+        assert terminal_projection.call_count == ingest_projection.call_count == 1
+    assert events == ["dispatch", "ingest", "poll"]
+    assert result["status"] == "completed"
+    assert (result["inserted"], result["updated"], result["skipped"]) == (1, 2, 3)
+    assert result["readback"] is result["terminal_readback"]
+    assert result["terminal_readback"]["readback"]["terminal_status"] == "COMPLETED"
+    assert result["reconciliation"] == {
+        "required": False,
+        "state": "terminal_readback",
+        "derived_as": "none",
+        "durability": "not_configured",
+    }
+
+
+@pytest.mark.parametrize("provider_status, expected", [("completed", "accepted"), ("unknown", "failed")])
+def test_dispatch_ack_and_unknown_survive_unavailable_poll(provider_status: str, expected: str) -> None:
+    class Provider:
+        def dispatch(self, request):
+            return CrawlerDispatchResult("scrapy", provider_status, "job-1")
+
+        def poll(self, **options):
+            raise RuntimeError("poll unavailable")
+
+    result = _run_crawler_provider(Provider())
+    assert result["status"] == expected
+    assert result["dispatch_acknowledged"] is (provider_status == "completed")
+    assert result["terminal_readback"] is None
+    assert result["reconciliation"]["state"] == ("not_attempted" if provider_status == "completed" else "unknown")
+
+
+@pytest.mark.parametrize("legacy_method", [False, True])
+@pytest.mark.parametrize("terminal_status, expected", [("COMPLETED", "completed"), ("CANCELLED", "failed")])
+def test_legacy_terminal_observation_controls_poll_and_status(
+    legacy_method: bool,
+    terminal_status: str,
+    expected: str,
+) -> None:
+    payload = {"kind": "terminal", "readback": {"terminal_status": terminal_status}}
+    projections: list[str] = []
+
+    class LegacyReadback:
+        def to_plain(self):
+            projections.append("legacy")
+            return payload
+
+    class Provider:
+        def dispatch(self, request):
+            return CrawlerDispatchResult(
+                "scrapy",
+                "unknown",
+                "job-1",
+                terminal_readback=LegacyReadback() if legacy_method else payload,
+            )
+
+        def poll(self, **options):
+            pytest.fail("a present legacy observation must suppress the initial poll")
+
+    result = _run_crawler_provider(Provider())
+    assert result["status"] == expected
+    assert result["readback"] == payload
+    assert result["readback"] is result["terminal_readback"]
+    assert projections == (["legacy"] if legacy_method else [])
+    assert result["reconciliation"]["state"] == "terminal_readback"
+    assert result["errors"] == ([] if expected == "completed" else ["crawler provider terminal status: cancelled"])
+
+
+def test_legacy_readback_exception_keeps_initial_and_poll_boundaries() -> None:
+    class LegacyReadback:
+        def to_plain(self):
+            raise ValueError("legacy conversion failed")
+
+    class Provider:
+        def dispatch(self, request):
+            return CrawlerDispatchResult("scrapy", "queued", "job-1", terminal_readback=LegacyReadback())
+
+        def poll(self, **options):
+            return {"provider_status": "queued"}
+
+    with pytest.raises(ValueError, match="legacy conversion failed"):
+        _run_crawler_provider(Provider())
+
+    class PollProvider(Provider):
+        def dispatch(self, request):
+            return CrawlerDispatchResult("scrapy", "queued", "job-1")
+
+    with patch("app.services.source_library.runner.typed_crawler_readback", return_value=LegacyReadback()):
+        result = _run_crawler_provider(PollProvider())
+    assert result["status"] == "accepted"
+    assert result["terminal_readback"] is None
+
+
+@pytest.mark.parametrize("kind", ["exception", "failure", "foreign_failure", "noncanonical"])
+def test_dispatch_failure_fields_and_identity_remain_exact(kind: str) -> None:
+    from mrw_functorial_kit.core.application_failure_semantics import source_library_contract_failures
+    from mrw_functorial_kit.core.provider_port_failures import crawler_runtime_failures
+
+    class Provider:
+        def dispatch(self, request):
+            if kind == "exception":
+                raise RuntimeError("transport unavailable")
+            if kind == "failure":
+                return crawler_runtime_failures.fail("scrapyd_transport", "transport failed", {})
+            if kind == "foreign_failure":
+                return source_library_contract_failures.fail("required_params_missing", "foreign failure", {})
+            return {"provider_status": "completed"}
+
+    result = _run_crawler_provider(Provider())
+    assert result["status"] == "failed"
+    assert result["errors"][0]["family"] == crawler_runtime_failures.name
+    assert result["errors"][0]["code"] == (
+        "scrapyd_response_invalid" if kind == "noncanonical" else "scrapyd_transport"
+    )
+    assert result["execution_policy"] == {"timeout": 7}
+    assert result["runtime_channel"]["runtime_scope"] == "project_config"
+    if kind == "noncanonical":
+        assert not {"attempt_id", "idempotency_key", "reconciliation"} & result.keys()
+    else:
+        assert result["attempt_id"] == "attempt-explicit"
+        assert result["idempotency_key"] == "key-explicit"
+        assert result["reconciliation"]["state"] == "unknown"
+        assert result["reconciliation"]["required"] is False
+
+
+def test_invalid_explicit_attempt_store_fails_before_dispatch() -> None:
+    provider = SimpleNamespace(dispatch=lambda _request: pytest.fail("invalid store must block dispatch"))
+    result = _run_crawler_provider(provider, params={"durable_store": object()})
+    assert result["errors"][0]["context"]["reason_code"] == "attempt_store_unavailable"
+    assert result["reconciliation"] == {
+        "required": True,
+        "state": "unknown",
+        "derived_as": "durable_attempt_store",
+        "durability": "injected_repository",
+    }
+
+
+@pytest.mark.parametrize("invalid_option", [False, True])
+def test_ingest_failure_precedes_terminal_completion_and_keeps_effect_boundary(invalid_option: bool) -> None:
+    from app.successor_runtime.capabilities.source_contracts import AuthoritativeProviderReadback, ReadbackTerminal
+
+    class Provider:
+        def dispatch(self, request):
+            return CrawlerDispatchResult(
+                "scrapy",
+                "queued",
+                "job-1",
+                terminal_readback=ReadbackTerminal(
+                    AuthoritativeProviderReadback(
+                        "provider-attempt:attempt-explicit", "job-1", "COMPLETED", "receipt-1", "now"
+                    )
+                ),
+            )
+
+    with patch(
+        "app.services.source_library.runner.ingest_crawler_output", side_effect=RuntimeError("ingest unavailable")
+    ) as ingest:
+        result = _run_crawler_provider(
+            Provider(),
+            params={
+                "output_ingest": {
+                    "enabled": True,
+                    "wait_timeout_seconds": [1] if invalid_option else 0,
+                }
+            },
+        )
+    assert result["status"] == "failed"
+    assert result["terminal_readback"]["kind"] == "terminal"
+    assert len(result["errors"]) == 1
+    if invalid_option:
+        ingest.assert_not_called()
+        assert "crawler option 'output_ingest.wait_timeout_seconds' must be numeric" in result["errors"][0]
+    else:
+        ingest.assert_called_once()
+        assert ingest.call_args.args[0].wait_timeout_seconds == 120.0
+        assert result["errors"] == ["crawler output ingest failed: ingest unavailable"]
+
+
+def test_malformed_terminal_observation_fails_before_output_ingest() -> None:
+    from app.successor_runtime.capabilities.source_contracts import ReadbackTerminal
+
+    class Provider:
+        def dispatch(self, request):
+            return CrawlerDispatchResult("scrapy", "queued", "job-1", terminal_readback=ReadbackTerminal(None))
+
+    with patch("app.services.source_library.runner.ingest_crawler_output") as ingest:
+        with pytest.raises(AttributeError, match="to_plain"):
+            _run_crawler_provider(Provider(), params={"output_ingest": {"enabled": True}})
+    ingest.assert_not_called()
 
 
 if __name__ == "__main__":

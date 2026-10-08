@@ -143,6 +143,56 @@ class EndpointEffectContract:
     conditional_discriminator: str | None = None
     conditional_branches: tuple[str, ...] = ()
 
+    @classmethod
+    def from_declaration(cls, declaration: Mapping[str, object]) -> EndpointEffectContract:
+        """Expand only fields fixed by the effect type; retain explicit authority."""
+        try:
+            effect_class = EffectClass(declaration.get("effect_class"))
+        except (TypeError, ValueError) as exc:
+            raise RouteEffectContractError(
+                "route_effect_unclassified", "effect class is outside the closed route vocabulary"
+            ) from exc
+        required = {"effect_class", "admission", *_EFFECT_PORTS_BY_CLASS[effect_class]}
+        if effect_class is EffectClass.PROVIDER_CALL:
+            required.add("provider_class")
+        if effect_class is EffectClass.CONDITIONAL:
+            required.add("conditional_discriminator")
+        missing, extra = required - declaration.keys(), declaration.keys() - required
+        if missing or extra or declaration.get("admission") is None:
+            raise RouteEffectContractError(
+                "route_effect_unclassified", "effect declaration fields are not explicit",
+                details={"missing": sorted(missing), "extra": sorted(extra)},
+            )
+        try:
+            admission = EffectAdmission(declaration["admission"])
+        except (TypeError, ValueError) as exc:
+            raise RouteEffectContractError(
+                "route_effect_unclassified", "effect admission is outside the closed route vocabulary"
+            ) from exc
+        try:
+            provider_class = ProviderClass(declaration.get("provider_class", ProviderClass.NULL))
+        except (TypeError, ValueError) as exc:
+            raise RouteEffectContractError(
+                "provider_class_mismatch", "provider class is outside the closed provider vocabulary"
+            ) from exc
+        discriminator = None
+        branches: tuple[str, ...] = ()
+        if effect_class is EffectClass.CONDITIONAL:
+            discriminator = _clean_text(declaration["conditional_discriminator"])
+            if discriminator is None or discriminator not in _CONDITIONAL_DISCRIMINATOR_BRANCHES:
+                raise RouteEffectContractError(
+                    "route_effect_mismatch", "conditional discriminator is outside the closed vocabulary"
+                )
+            branches = _CONDITIONAL_DISCRIMINATOR_BRANCHES[discriminator]
+        return cls(
+            effect_class=effect_class, admission=admission, provider_class=provider_class,
+            provider_port=_clean_text(declaration.get("provider_port")),
+            canonical_writer_port=_clean_text(declaration.get("canonical_writer_port")),
+            external_auth_port=_clean_text(declaration.get("external_auth_port")),
+            filesystem_port=_clean_text(declaration.get("filesystem_port")),
+            conditional_discriminator=discriminator, conditional_branches=branches,
+        )
+
     def __post_init__(self) -> None:
         try:
             effect_class = (

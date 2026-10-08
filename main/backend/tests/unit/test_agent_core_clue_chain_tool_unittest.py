@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import unittest
+from dataclasses import replace
+from unittest.mock import patch
 
 import pytest
+from functorial_kit import Failure
 
 from app.services.agent_core import AgentCoreRequest, CoreToolCall
 from app.services.agent_core.project_tools import build_project_core_tool_registry
@@ -11,6 +14,7 @@ from app.services.agent_core.query_tools import (
     register_query_project_tools,
 )
 from app.services.agent_core.registry import CoreToolRegistry
+from app.services.agent_core.tool_contribution import register_project_tool_contributions
 from app.services.agent_sessions.service import AgentSessionService
 from app.services.agent_sessions.store import InMemoryAgentSessionStore
 
@@ -69,6 +73,96 @@ class AgentCoreClueChainToolUnitTest(unittest.TestCase):
             if item["name"] == "clue_chain_expansions.json"
         )
         assert artifact["content_json"]["guardrails"]["silent_promote_allowed"] is False
+
+    def test_query_operation_construction_and_registration_have_no_effect(self):
+        service, _session_id = self._service_and_session()
+        with (
+            patch.object(service, "list_artifacts") as artifacts,
+            patch.object(service.store, "upsert_artifact") as writer,
+            patch("app.services.agent_core.query_tools.discover_candidates") as provider,
+            patch("app.services.agent_core.query_tools.build_source_candidate_plan") as trust,
+        ):
+            registry = CoreToolRegistry()
+            assert register_query_project_tools(registry=registry, service=service) is None
+        artifacts.assert_not_called()
+        writer.assert_not_called()
+        provider.assert_not_called()
+        trust.assert_not_called()
+
+    def test_chain_expand_only_writes_review_request_and_replays_original_artifact(self):
+        from app.services.clue_chains import service as clue_service_module
+
+        service, session_id = self._service_and_session()
+        registry = CoreToolRegistry()
+        assert register_query_project_tools(registry=registry, service=service) is None
+        arguments = {
+            "project_key": "demo_proj", "chain_id": "chain-review", "query": "robotics evidence",
+            "frontier_node_ids": ["company", "pilot"], "mode": "source_library_search",
+            "limit": 2, "idempotency_key": "review-request-1",
+        }
+        with (
+            patch.object(clue_service_module, "expand_chain", create=True) as obsolete_module_writer,
+            patch.object(clue_service_module.ClueChainService, "try_expand_chain") as canonical_try_writer,
+            patch.object(clue_service_module.ClueChainService, "expand_chain") as canonical_writer,
+            patch.object(clue_service_module.ClueChainService, "record_hop") as canonical_hop_writer,
+            patch("app.services.agent_core.query_tools.discover_candidates") as provider,
+        ):
+            first = self._execute(registry, session_id, "chain.expand", arguments)
+            second = self._execute(registry, session_id, "chain.expand", arguments)
+        for writer in (obsolete_module_writer, canonical_try_writer, canonical_writer, canonical_hop_writer, provider):
+            writer.assert_not_called()
+        assert first.status == second.status == "completed"
+        assert first.structured_content["replayed"] is False
+        content = second.structured_content
+        assert content["replayed"] is True
+        for key in ("expansion_request", "hop", "candidates", "decision_gate"):
+            assert content[key] == first.structured_content[key]
+        assert content["requires_review"] is True
+        assert content["promoted_to_graph"] is False
+        assert content["graph_mutation_performed"] is False
+        assert content["external_network_io"] is False
+        assert content["decision_gate"]["gate"] == "ChainDecision"
+        assert content["service_status"] == {
+            "service_adapter": "app.services.clue_chains.service", "status": "handler_missing",
+            "expected_handlers": ["expand_chain", "request_chain_expansion", "create_expansion_request"],
+        }
+        artifacts = service.list_artifacts(session_id)
+        assert not isinstance(artifacts, Failure)
+        artifacts = [artifact for artifact in artifacts if artifact["name"] == "clue_chain_expansions.json"]
+        assert len(artifacts) == 1
+        stored = artifacts[0]["content_json"]
+        assert stored["replay_keys"] == ["review-request-1"]
+        assert len(stored["requests"]) == len(stored["hops"]) == 1
+        assert len(stored["candidates"]) == 2
+        assert stored["counts"]["promoted"] == 0
+        assert all(candidate["review_status"] == "pending_review" for candidate in stored["candidates"])
+
+    def test_chain_expand_session_failure_preserves_original_family_without_writer(self):
+        service = AgentSessionService(store=InMemoryAgentSessionStore())
+        registry = CoreToolRegistry()
+        assert register_query_project_tools(registry=registry, service=service) is None
+        failure = service.list_artifacts("missing-session")
+        assert isinstance(failure, Failure)
+        with patch.object(service.store, "upsert_artifact") as writer:
+            result = self._execute(registry, "missing-session", "chain.expand", {"chain_id": "chain-missing"})
+        writer.assert_not_called()
+        assert result.status == "failed"
+        assert result.error["failure"] == {
+            "family": failure.family, "code": failure.code, "message": failure.message, "context": failure.context,
+        }
+
+    def test_chain_expand_permission_rejection_precedes_artifact_write(self):
+        service, session_id = self._service_and_session()
+        source = next(source for source in query_project_tool_sources(service=service)
+                      if source.tool_spec.name == "chain.expand")
+        source = replace(source, tool_spec=replace(source.tool_spec, permission="ask"))
+        registry = CoreToolRegistry()
+        assert register_project_tool_contributions(registry, (source,)) is None
+        with patch.object(service, "list_artifacts") as reader, patch.object(service.store, "upsert_artifact") as writer:
+            result = self._execute(registry, session_id, "chain.expand", {"chain_id": "chain-denied"})
+        assert result.status == "needs_approval"
+        reader.assert_not_called()
+        writer.assert_not_called()
 
     def _execute(self, registry, session_id: str, tool_name: str, arguments: dict):
         spec = registry.get(tool_name)

@@ -1,10 +1,13 @@
 from __future__ import annotations
 
-from contextlib import nullcontext
-from typing import Any, Callable, NoReturn
+from contextlib import AbstractContextManager, nullcontext
+from typing import Callable, NoReturn
 
 from functorial_kit import Failure
 from mrw_functorial_kit.core.application_failure_semantics import source_library_contract_failures
+
+from ..item_resolver import ExecutionPayload, ExecutionRequest, channel_default_params, item_mapping_fields, terminal_output_params
+from ..types import SourceChannelExecutor
 
 _FAILURE_WITNESS = "test:test_w01_source_export_failures"
 
@@ -45,14 +48,13 @@ def _raise_orchestrator_failure(failure: Failure) -> NoReturn:
 
 def run_single_channel_orchestrator(
     *,
-    item: dict[str, Any],
-    request: Any,
-    channel_map: dict[str, dict[str, Any]],
-    deep_merge: Callable[[dict[str, Any], dict[str, Any]], dict[str, Any]],
-    bind_project: Callable[[str | None], Any],
-    run_channel: Callable[..., dict[str, Any]],
-    execution_request_to_dict: Callable[[Any], dict[str, Any]],
-) -> dict[str, Any]:
+    item: dict[str, object],
+    request: ExecutionRequest,
+    channel_map: dict[str, dict[str, object]],
+    deep_merge: Callable[[dict[str, object], dict[str, object]], dict[str, object]],
+    bind_project: Callable[[str], AbstractContextManager[object]],
+    run_channel: SourceChannelExecutor,
+) -> ExecutionPayload:
     channel_key = str(item.get("channel_key") or "").strip()
     channel = channel_map.get(channel_key)
     if channel is None:
@@ -72,17 +74,13 @@ def run_single_channel_orchestrator(
             )
         )
 
-    params = deep_merge(channel.get("default_params") or {}, request.params)
-    params = dict(params)
-    params["_source_library_execution_layer"] = "terminal_output_only"
-    params["_source_library_terminal_output_only"] = True
-    params["source_library_execution_layer"] = "terminal_output_only"
-    params["source_library_terminal_output_only"] = True
+    params = deep_merge(channel_default_params(channel.get("default_params") or {}), request.params)
+    params = terminal_output_params(params)
     params["_source_library_item"] = {
         "item_key": request.item_key,
         "channel_key": channel_key,
         "name": item.get("name"),
-        "extra": dict(item.get("extra") or {}) if isinstance(item.get("extra"), dict) else {},
+        "extra": item_mapping_fields(item.get("extra")),
     }
     if channel_key == "handler.cluster":
         params.setdefault("_item_key", request.item_key)
@@ -94,12 +92,4 @@ def run_single_channel_orchestrator(
             project_key=request.project_key,
             item_key=request.item_key,
         )
-    if isinstance(result, dict):
-        result.setdefault("execution_request", execution_request_to_dict(request))
-
-    return {
-        "item_key": request.item_key,
-        "channel_key": channel_key,
-        "params": params,
-        "result": result,
-    }
+    return request.complete(result, channel_key=channel_key, params=params)

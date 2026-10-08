@@ -13,6 +13,7 @@ from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 import difflib
 import json
+from typing import TYPE_CHECKING
 
 from functorial_kit import Failure
 
@@ -56,6 +57,9 @@ from .tool_support import (
     utcnow_iso,
 )
 from .tool_contribution import ProjectToolAuthorSource
+
+if TYPE_CHECKING:
+    from app.successor_runtime.capabilities.acquisition_url import UrlSingleUrlRequest
 
 
 def _session_artifacts(service: AgentSessionService, session_id: str) -> list[JSONObject]:
@@ -804,6 +808,93 @@ def _ingest_url_pool_submit_spec() -> CoreToolSpec:
     )
 
 
+@dataclass(frozen=True)
+class _UrlPoolSubmission:
+    project_key: str
+    url: str
+    query_terms: tuple[str, ...]
+    strict_mode: bool
+    async_mode: bool
+    search_options: JSONObject | None
+    source_name: str
+    metadata: JSONObject
+    candidate_review_key: str
+    idempotency_key: str
+    artifact_name: str
+
+    @classmethod
+    def from_call(cls, tool_call: CoreToolCall, request: AgentCoreRequest) -> _UrlPoolSubmission:
+        arguments = tool_call.arguments
+        payload = json_object(arguments.get("ingest_payload"))
+        project_key = str(arguments.get("project_key") or payload.get("project_key") or request.project_key or "").strip()
+        url = str(arguments.get("url") or payload.get("url") or "").strip()
+        query_terms = normalize_string_list(arguments.get("query_terms") or payload.get("query_terms"))
+        strict_mode = bool(arguments.get("strict_mode") or payload.get("strict_mode") or False)
+        options = arguments.get("search_options", payload.get("search_options"))
+        search_options = json_object(options) if isinstance(options, Mapping) else None
+        metadata = {**json_object(payload.get("metadata")), **json_object(arguments.get("metadata"))}
+        review_key = str(arguments.get("candidate_review_key") or metadata.get("review_key") or "").strip()
+        idempotency_key = str(arguments.get("idempotency_key") or "").strip() or stable_hash({
+            "project_key": project_key, "url": url, "query_terms": query_terms,
+            "strict_mode": strict_mode, "search_options": search_options, "candidate_review_key": review_key,
+        })
+        return cls(
+            project_key=project_key, url=url, query_terms=tuple(query_terms), strict_mode=strict_mode,
+            async_mode=bool(arguments.get("async_mode", payload.get("async_mode", True))),
+            search_options=search_options, metadata=metadata, candidate_review_key=review_key,
+            source_name=str(arguments.get("source_name") or payload.get("source_name") or metadata.get("title") or url).strip(),
+            idempotency_key=idempotency_key,
+            artifact_name=str(arguments.get("artifact_name") or "ingest.url_pool_submissions.json").strip()
+            or "ingest.url_pool_submissions.json",
+        )
+
+    @property
+    def run_id(self) -> str:
+        return f"url-single-agent-{stable_hash({'project_key': self.project_key, 'url': self.url, 'idempotency_key': self.idempotency_key})[:24]}"
+
+    def view(self) -> JSONObject:
+        return {"contract_version": "ingest.url_pool.submit.v1", "project_key": self.project_key, "url": self.url}
+
+    def parameters(self) -> JSONObject:
+        return {"url": self.url, "query_terms": list(self.query_terms) or None, "strict_mode": self.strict_mode}
+
+    def effective_payload(self, session_id: str) -> JSONObject:
+        return {**self.parameters(), "project_key": self.project_key, "async_mode": self.async_mode,
+                "agent_session_id": session_id}
+
+    def runtime_request(self) -> UrlSingleUrlRequest:
+        from app.services.collect_runtime.contracts import source_library_compat_response
+        from app.successor_runtime.capabilities.acquisition_url import UrlSingleUrlRequest
+
+        return UrlSingleUrlRequest(
+            url=self.url, project_key=self.project_key, query_terms=self.query_terms,
+            extra_params={"strict_mode": self.strict_mode, "enable_extraction": True,
+                          **source_library_compat_response(self.search_options or {})},
+            enable_extraction=True,
+        )
+
+    def runtime_view(self, run: Mapping[str, object], work_item_ids: Sequence[str], session_id: str) -> JSONObject:
+        return {
+            "task_id": None, "status": "submitted", "async": True, "task_result_status": "submitted",
+            "runtime_run_ref": f"runtime-run:{str(run.get('run_id') or self.run_id)}",
+            "runtime_state": str(run.get("state") or ""), "work_item_ids": list(work_item_ids),
+            "params": {**self.parameters(), **({"search_options": self.search_options} if self.search_options is not None else {})},
+            "effective_payload": self.effective_payload(session_id),
+        }
+
+    def submission_view(
+        self, *, task_id: str, runtime_run_ref: str, work_item_ids: list[str],
+        dispatch_view: JSONValue, submitted_at: str, source_call_id: str,
+    ) -> JSONObject:
+        return {
+            "idempotency_key": self.idempotency_key, "project_key": self.project_key, "url": self.url,
+            "task_id": task_id, "runtime_run_ref": runtime_run_ref, "work_item_ids": work_item_ids,
+            "query_terms": list(self.query_terms), "strict_mode": self.strict_mode, "async_mode": self.async_mode,
+            "source_name": self.source_name, "metadata": self.metadata, "candidate_review_key": self.candidate_review_key,
+            "dispatch_result": dispatch_view, "submitted_at": submitted_at, "source_call_id": source_call_id,
+        }
+
+
 def _ingest_url_pool_submit_handler(
     service: AgentSessionService,
 ) -> Callable[[CoreToolCall, CoreToolSpec, AgentCoreRequest, Callable[[CoreEvent], None]], CoreToolResult]:
@@ -813,15 +904,11 @@ def _ingest_url_pool_submit_handler(
         request: AgentCoreRequest,
         emit: Callable[[CoreEvent], None],
     ) -> CoreToolResult:
-        ingest_payload = json_object(tool_call.arguments.get("ingest_payload"))
-        project_key = str(
-            tool_call.arguments.get("project_key") or ingest_payload.get("project_key") or request.project_key or ""
-        ).strip()
-        if not project_key:
+        submit = _UrlPoolSubmission.from_call(tool_call, request)
+        if not submit.project_key:
             return missing_project_result(tool_call)
 
-        url = str(tool_call.arguments.get("url") or ingest_payload.get("url") or "").strip()
-        if not url:
+        if not submit.url:
             return CoreToolResult(
                 call_id=tool_call.call_id,
                 tool_name=tool_call.tool_name,
@@ -831,85 +918,49 @@ def _ingest_url_pool_submit_handler(
                 structured_content={"arguments": json_object(tool_call.arguments)},
             )
 
-        query_terms = normalize_string_list(tool_call.arguments.get("query_terms") or ingest_payload.get("query_terms"))
-        strict_mode = bool(tool_call.arguments.get("strict_mode") or ingest_payload.get("strict_mode") or False)
-        async_mode = bool(tool_call.arguments.get("async_mode", ingest_payload.get("async_mode", True)))
-        search_options_value: object = tool_call.arguments.get("search_options", ingest_payload.get("search_options"))
-        normalized_search_options = json_object(search_options_value)
-        search_options = normalized_search_options if isinstance(search_options_value, Mapping) else None
-        metadata = json_object(ingest_payload.get("metadata"))
-        metadata.update(json_object(tool_call.arguments.get("metadata")))
-        source_name = str(
-            tool_call.arguments.get("source_name") or ingest_payload.get("source_name") or metadata.get("title") or url
-        ).strip()
-        artifact_name = (
-            str(tool_call.arguments.get("artifact_name") or "ingest.url_pool_submissions.json").strip()
-            or "ingest.url_pool_submissions.json"
-        )
-        candidate_review_key = str(
-            tool_call.arguments.get("candidate_review_key") or metadata.get("review_key") or ""
-        ).strip()
-        idempotency_key = str(tool_call.arguments.get("idempotency_key") or "").strip() or stable_hash(
-            {
-                "project_key": project_key,
-                "url": url,
-                "query_terms": query_terms,
-                "strict_mode": strict_mode,
-                "search_options": search_options,
-                "candidate_review_key": candidate_review_key,
-            }
-        )
-
         if session_abort_requested(service=service, session_id=request.session_id):
             return abort_requested_result(
                 service=service,
                 request=request,
                 tool_call=tool_call,
                 emit=emit,
-                skipped_items=[url],
+                skipped_items=[submit.url],
                 dispatched_count=0,
             )
 
         existing_artifact = next(
-            (item for item in _session_artifacts(service, request.session_id) if item.get("name") == artifact_name),
+            (item for item in _session_artifacts(service, request.session_id) if item.get("name") == submit.artifact_name),
             None,
         )
         existing_content = json_object((existing_artifact or {}).get("content_json"))
         submissions = [json_object(item) for item in json_list(existing_content.get("submissions"))]
         replayed_submission = next(
-            (item for item in submissions if str(item.get("idempotency_key") or "") == idempotency_key), None
+            (item for item in submissions if str(item.get("idempotency_key") or "") == submit.idempotency_key), None
         )
         if replayed_submission:
             return CoreToolResult(
                 call_id=tool_call.call_id,
                 tool_name=tool_call.tool_name,
                 status="completed",
-                model_summary=f"URL-pool ingest submission was already queued for {url}.",
-                ui_summary=f"URL-pool ingest already queued: {url}",
+                model_summary=f"URL-pool ingest submission was already queued for {submit.url}.",
+                ui_summary=f"URL-pool ingest already queued: {submit.url}",
                 structured_content={
-                    "contract_version": "ingest.url_pool.submit.v1",
-                    "project_key": project_key,
-                    "url": url,
+                    **submit.view(),
                     "replayed": True,
                     "submission": compact_json_value(replayed_submission, max_items=18, max_depth=5),
                 },
-                artifact_refs=(str((existing_artifact or {}).get("artifact_id") or artifact_name),),
+                artifact_refs=(str((existing_artifact or {}).get("artifact_id") or submit.artifact_name),),
             )
 
-        task_search_options: dict[str, object] = {
-            key: value for key, value in json_object(search_options).items()
-        }
-        run_id = (
-            f"url-single-agent-{stable_hash({'project_key': project_key, 'url': url, 'idempotency_key': idempotency_key})[:24]}"
-        )
+        run_id = submit.run_id
         try:
-            if async_mode:
+            if submit.async_mode:
                 from .host_authorization import current_verified_host_authorization
 
                 authorization = current_verified_host_authorization()
                 if (
                     authorization is None
-                    or authorization.context.project_key != project_key
+                    or authorization.context.project_key != submit.project_key
                     or authorization.context.session_id != request.session_id
                 ):
                     return CoreToolResult(
@@ -922,9 +973,7 @@ def _ingest_url_pool_submit_handler(
                             "message": "no verified host authorization for URL-pool durable submission",
                         },
                         structured_content={
-                            "contract_version": "ingest.url_pool.submit.v1",
-                            "project_key": project_key,
-                            "url": url,
+                            **submit.view(),
                             "async_mode": True,
                         },
                     )
@@ -944,9 +993,7 @@ def _ingest_url_pool_submit_handler(
                             "message": "verified host authorization has no trusted request actor",
                         },
                         structured_content={
-                            "contract_version": "ingest.url_pool.submit.v1",
-                            "project_key": project_key,
-                            "url": url,
+                            **submit.view(),
                             "async_mode": True,
                         },
                     )
@@ -955,40 +1002,26 @@ def _ingest_url_pool_submit_handler(
                 from app.successor_runtime.capabilities.acquisition_url import (
                     URL_SINGLE_URL_KIND,
                     URL_SINGLE_URL_OWNER,
-                    UrlSingleUrlRequest,
                     build_url_single_url_program,
                 )
-                from app.successor_runtime.capabilities.checksum import CanonicalJsonObject
                 from app.successor_runtime.substrate.postgres.session import ServerProjectScopeResolver
-                from app.services.collect_runtime.contracts import source_library_compat_response
                 from datetime import datetime, timezone
 
                 actor_id = actor_context.actor_id
                 trace_id = f"agent_core.ingest.url_pool.submit:{run_id}"
-                extra_params: CanonicalJsonObject = {
-                    "strict_mode": strict_mode,
-                    "enable_extraction": True,
-                }
-                extra_params.update(source_library_compat_response(task_search_options))
                 with runtime_engine.connect() as connection:
-                    project_scope = ServerProjectScopeResolver(connection=connection).resolve(project_key)
+                    project_scope = ServerProjectScopeResolver(connection=connection).resolve(submit.project_key)
                 closure = build_url_single_url_program(
-                    request=UrlSingleUrlRequest(
-                        url=url,
-                        project_key=project_key,
-                        query_terms=tuple(query_terms),
-                        extra_params=extra_params,
-                        enable_extraction=True,
-                    ),
+                    request=submit.runtime_request(),
                     program_id=f"program:{run_id}",
-                    project_key=project_key,
+                    project_key=submit.project_key,
                     project_registry_revision=project_scope.project_registry_revision,
                     project_scope_digest=project_scope.scope_digest,
                     incarnation=f"url-single-agent:{run_id}",
                 )
                 run, work_item_ids = submit_installed_program(
                     engine=runtime_engine,
-                    project_key=project_key,
+                    project_key=submit.project_key,
                     actor_id=actor_id,
                     program=closure.program,
                     operation_catalog=closure.catalog,
@@ -996,7 +1029,7 @@ def _ingest_url_pool_submit_handler(
                     values=closure.values,
                     idempotency_id=f"url-single-agent-idem:{run_id}",
                     identity_capability_id=URL_SINGLE_URL_OWNER,
-                    logical_request_id=idempotency_key,
+                    logical_request_id=submit.idempotency_key,
                     identity_operation_kind=URL_SINGLE_URL_KIND,
                     run_id=run_id,
                     incarnation=f"url-single-agent:{run_id}",
@@ -1006,58 +1039,27 @@ def _ingest_url_pool_submit_handler(
                     now=datetime.now(timezone.utc),
                     queue="celery",
                 )
-                canonical_run_id = str(run.get("run_id") or run_id)
-                run_ref = f"runtime-run:{canonical_run_id}"
-                dispatch_result: JSONObject = {
-                    "task_id": None,
-                    "status": "submitted",
-                    "async": True,
-                    "task_result_status": "submitted",
-                    "runtime_run_ref": run_ref,
-                    "runtime_state": str(run.get("state") or ""),
-                    "work_item_ids": list(work_item_ids),
-                    "params": {
-                        "url": url,
-                        "query_terms": query_terms or None,
-                        "strict_mode": strict_mode,
-                        **({"search_options": search_options} if isinstance(search_options, dict) else {}),
-                    },
-                    "effective_payload": {
-                        "url": url,
-                        "project_key": project_key,
-                        "query_terms": query_terms or None,
-                        "strict_mode": strict_mode,
-                        "async_mode": True,
-                        "agent_session_id": request.session_id,
-                    },
-                }
+                dispatch_result = submit.runtime_view(run, work_item_ids, request.session_id)
             else:
-                with bind_project(project_key):
+                with bind_project(submit.project_key):
                     from app.services.ingest.url_pool import ingest_url_via_source_library_frontdoor
 
                     dispatch_result = json_object(
                         ingest_url_via_source_library_frontdoor(
-                            url=url,
-                            project_key=project_key,
-                            query_terms=query_terms or None,
-                            strict_mode=strict_mode,
-                            search_options=task_search_options,
+                            url=submit.url,
+                            project_key=submit.project_key,
+                            query_terms=list(submit.query_terms) or None,
+                            strict_mode=submit.strict_mode,
+                            search_options=dict(submit.search_options or {}),
                             frontdoor_options={"enabled": True},
                             entrypoint="agent_core.ingest.url_pool.submit",
-                            source_name=source_name or "agent_core_url_pool_submit",
+                            source_name=submit.source_name or "agent_core_url_pool_submit",
                             enable_extraction=True,
                         )
                     )
                     dispatch_result.setdefault(
                         "effective_payload",
-                        {
-                            "url": url,
-                            "project_key": project_key,
-                            "query_terms": query_terms or None,
-                            "strict_mode": strict_mode,
-                            "async_mode": False,
-                            "agent_session_id": request.session_id,
-                        },
+                        submit.effective_payload(request.session_id),
                     )
         except Exception as exc:  # noqa: BLE001
             return CoreToolResult(
@@ -1067,11 +1069,7 @@ def _ingest_url_pool_submit_handler(
                 model_summary=f"URL-pool ingest submission failed: {exc}",
                 error={"code": exc.__class__.__name__, "message": str(exc)},
                 structured_content={
-                    "contract_version": "ingest.url_pool.submit.v1",
-                    "project_key": project_key,
-                    "url": url,
-                    "async_mode": async_mode,
-                    "search_options": search_options,
+                    **submit.view(), "async_mode": submit.async_mode, "search_options": submit.search_options,
                 },
             )
 
@@ -1081,13 +1079,10 @@ def _ingest_url_pool_submit_handler(
                 request=request,
                 tool_call=tool_call,
                 emit=emit,
-                skipped_items=[url],
+                skipped_items=[submit.url],
                 dispatched_count=1,
                 structured_content={
-                    "contract_version": "ingest.url_pool.submit.v1",
-                    "project_key": project_key,
-                    "url": url,
-                    "async_mode": async_mode,
+                    **submit.view(), "async_mode": submit.async_mode,
                     "dispatch_result": compact_json_value(dispatch_result, max_items=20, max_depth=5),
                 },
             )
@@ -1099,29 +1094,17 @@ def _ingest_url_pool_submit_handler(
             for item in json_list(dispatch_result.get("work_item_ids"))
             if str(item or "").strip()
         ]
-        submission: JSONObject = {
-            "idempotency_key": idempotency_key,
-            "project_key": project_key,
-            "url": url,
-            "task_id": task_id,
-            "runtime_run_ref": runtime_run_ref,
-            "work_item_ids": work_item_ids,
-            "query_terms": query_terms,
-            "strict_mode": strict_mode,
-            "async_mode": async_mode,
-            "source_name": source_name,
-            "metadata": metadata,
-            "candidate_review_key": candidate_review_key,
-            "dispatch_result": compact_json_value(dispatch_result, max_items=20, max_depth=5),
-            "submitted_at": utcnow_iso(),
-            "source_call_id": tool_call.call_id,
-        }
-        submissions = [item for item in submissions if str(item.get("idempotency_key") or "") != idempotency_key]
+        dispatch_view = compact_json_value(dispatch_result, max_items=20, max_depth=5)
+        submission = submit.submission_view(
+            task_id=task_id, runtime_run_ref=runtime_run_ref, work_item_ids=work_item_ids,
+            dispatch_view=dispatch_view, submitted_at=utcnow_iso(), source_call_id=tool_call.call_id,
+        )
+        submissions = [item for item in submissions if str(item.get("idempotency_key") or "") != submit.idempotency_key]
         submissions.append(submission)
         updated_content: JSONObject = {
             **existing_content,
             "contract_version": "ingest.url_pool.submit.v1",
-            "project_key": project_key,
+            "project_key": submit.project_key,
             "updated_at": utcnow_iso(),
             "submissions": submissions[-100:],
             "counts": {
@@ -1134,16 +1117,16 @@ def _ingest_url_pool_submit_handler(
             service,
             {
                 "session_id": request.session_id,
-                "name": artifact_name,
+                "name": submit.artifact_name,
                 "artifact_type": "url_pool_ingest_submission_state",
                 "mime_type": "application/json",
                 "content_text": json.dumps(updated_content, ensure_ascii=False, sort_keys=True, default=str),
                 "content_json": updated_content,
                 "metadata": {
-                    "project_key": project_key,
+                    "project_key": submit.project_key,
                     "contract_version": "ingest.url_pool.submit.v1",
                     "auto_written_by": "agent_core",
-                    "idempotency_key": idempotency_key,
+                    "idempotency_key": submit.idempotency_key,
                 },
             }
         )
@@ -1154,25 +1137,22 @@ def _ingest_url_pool_submit_handler(
             tool_name=tool_call.tool_name,
             status="completed",
             model_summary=(
-                f"Submitted URL-pool ingest for {url}. Project={project_key}. "
-                f"async_mode={async_mode}; task_id={task_id or 'not returned'}."
+                f"Submitted URL-pool ingest for {submit.url}. Project={submit.project_key}. "
+                f"async_mode={submit.async_mode}; task_id={task_id or 'not returned'}."
             ),
-            ui_summary=f"Submitted URL-pool ingest: {url}",
+            ui_summary=f"Submitted URL-pool ingest: {submit.url}",
             structured_content={
-                "contract_version": "ingest.url_pool.submit.v1",
-                "project_key": project_key,
-                "url": url,
-                "async_mode": async_mode,
+                **submit.view(), "async_mode": submit.async_mode,
                 "task_id": task_id,
                 "runtime_run_ref": runtime_run_ref,
                 "work_item_ids": work_item_ids,
-                "dispatch_result": compact_json_value(dispatch_result, max_items=20, max_depth=5),
+                "dispatch_result": dispatch_view,
                 "submission": compact_json_value(submission, max_items=20, max_depth=5),
                 "artifact": compact_json_value(artifact, max_items=16, max_depth=4),
                 "replayed": False,
                 "next_gate": "inspect_ingest_status_or_source_artifacts",
             },
-            artifact_refs=(str(artifact.get("artifact_id") or artifact_name),),
+            artifact_refs=(str(artifact.get("artifact_id") or submit.artifact_name),),
         )
 
     return handler

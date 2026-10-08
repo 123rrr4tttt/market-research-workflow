@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, Literal, TypeGuard
+from collections.abc import Mapping
+from typing import Any, Callable, Dict, Literal, NotRequired, TypeGuard, TypedDict
 
 from .types import (
     FrontDoorExecutionProtocol,
@@ -9,6 +10,14 @@ from .types import (
 )
 
 SourceMode = Literal["protocol_search", "provider_harvest", "site_search", "url_execution"]
+
+
+class ExecutionPayload(TypedDict):
+    item_key: str
+    channel_key: str | None
+    params: dict[str, object]
+    result: dict[str, object]
+    orchestrator: NotRequired[dict[str, str]]
 
 
 @dataclass(frozen=True)
@@ -21,6 +30,31 @@ class ExecutionRequest:
     protocol: FrontDoorExecutionProtocol
     warnings: list[str] = field(default_factory=list[str])
     taxonomy: Dict[str, Any] = field(default_factory=dict[str, Any])
+
+    def attach_result(self, payload: ExecutionPayload) -> ExecutionPayload:
+        payload["result"].setdefault("execution_request", execution_request_to_dict(self))
+        return payload
+
+    def complete(
+        self, result: Mapping[str, object], *, channel_key: str | None,
+        params: dict[str, object] | None = None,
+    ) -> ExecutionPayload:
+        return self.attach_result({
+            "item_key": self.item_key,
+            "channel_key": channel_key,
+            "params": self.params if params is None else params,
+            "result": result if isinstance(result, dict) else dict(result),
+        })
+
+
+def terminal_output_params(params: Mapping[str, object]) -> dict[str, object]:
+    return {
+        **params,
+        "_source_library_execution_layer": "terminal_output_only",
+        "_source_library_terminal_output_only": True,
+        "source_library_execution_layer": "terminal_output_only",
+        "source_library_terminal_output_only": True,
+    }
 
 
 def execution_request_to_dict(request: ExecutionRequest) -> Dict[str, Any]:
@@ -185,6 +219,25 @@ def _is_site_search_authoritative(
 
 def _is_object_dict(value: object) -> TypeGuard[dict[object, object]]:
     return isinstance(value, dict)
+
+
+def _is_object_mapping(value: object) -> TypeGuard[Mapping[object, object]]:
+    return isinstance(value, Mapping)
+
+
+def _has_parameter_keys(value: Mapping[object, object]) -> TypeGuard[Mapping[str, object]]:
+    return all(isinstance(key, str) for key in value)
+
+
+def channel_default_params(value: object) -> dict[str, object]:
+    if not _is_object_mapping(value) or not _has_parameter_keys(value):
+        # kit:boundary owner=source_library.item_resolver.channel_defaults class=PROGRAMMER_DEFECT failure_family=none witness=test:test_run_item_payload_preserves_opaque_mapping_defaults_and_override
+        raise TypeError("source channel default_params must be a mapping with string keys")
+    return dict(value)
+
+
+def item_mapping_fields(value: object) -> dict[object, object]:
+    return dict(value) if _is_object_dict(value) else {}
 
 
 def _as_dict(value: object) -> Dict[str, Any]:

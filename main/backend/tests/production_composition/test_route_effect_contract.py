@@ -160,7 +160,7 @@ def test_v3_registry_rejects_missing_or_extra_effect_fields(tmp_path: Path) -> N
         "route_template": "/example",
         "domain": "example",
         "operation": "example.read",
-        "metrics_label": "example:/example",
+        "metrics_label": "legacy-custom-label",
         "methods": ["GET"],
         "required_scope": "api:invoke",
         "required_approval_ids": [],
@@ -178,6 +178,11 @@ def test_v3_registry_rejects_missing_or_extra_effect_fields(tmp_path: Path) -> N
         },
     }
     payload = {"schema": "mrw.production.route-bindings.v3", "bindings": [entry], "exemptions": []}
+    valid = tmp_path / "valid-v3.json"
+    valid.write_text(json.dumps(payload), encoding="utf-8")
+    legacy, = load_production_route_bindings(valid)
+    assert legacy.effect_contract == EndpointEffectContract(effect_class="read")
+    assert legacy.metrics_label == "legacy-custom-label"
     missing = tmp_path / "missing.json"
     missing_payload = json.loads(json.dumps(payload))
     del missing_payload["bindings"][0]["effect_contract"]["provider_port"]
@@ -195,7 +200,7 @@ def test_v3_registry_rejects_missing_or_extra_effect_fields(tmp_path: Path) -> N
     assert extra_exc.value.code == "route_effect_unclassified"
 
 
-def test_v3_registry_shape_and_route_effect_invariants() -> None:
+def test_registry_shape_and_route_effect_invariants() -> None:
     bindings = load_production_route_bindings()
     contracts = [binding.effect_contract for binding in bindings]
     conditional = [contract for contract in contracts if contract.effect_class is EffectClass.CONDITIONAL]
@@ -286,3 +291,75 @@ def test_v3_registry_shape_and_route_effect_invariants() -> None:
         and contract.provider_class is ProviderClass.LLM
         for contract in provider_calls
     )
+
+
+@pytest.mark.parametrize(
+    "effect",
+    [
+        {"effect_class": "read"},
+        {"effect_class": "read", "admission": None},
+        {"effect_class": "read", "admission": "admitted", "provider_port": None},
+        {"effect_class": "read", "admission": "admitted", "unknown": None},
+        {"effect_class": "provider_call", "admission": "blocked_until_effect_binding", "provider_port": None},
+        {"effect_class": "provider_call", "admission": "blocked_until_effect_binding", "provider_class": "llm"},
+        {"effect_class": "provider_call", "admission": "admitted", "provider_port": None, "provider_class": "llm"},
+        {"effect_class": "conditional", "admission": "blocked_until_effect_binding"},
+        {"effect_class": "conditional", "admission": "blocked_until_effect_binding", "conditional_discriminator": "unknown.v1"},
+        {"effect_class": "external_auth", "admission": "admitted", "external_auth_port": None},
+        {"effect_class": "external_auth", "admission": "blocked_until_effect_binding"},
+        {"effect_class": "canonical_write", "admission": "blocked_until_effect_binding"},
+        {"effect_class": "filesystem_subprocess", "admission": "blocked_until_effect_binding"},
+        {"effect_class": "unknown", "admission": "admitted"},
+    ],
+)
+def test_compact_effect_declaration_rejects_missing_foreign_or_unbound_fields(effect: dict) -> None:
+    with pytest.raises(RouteEffectContractError):
+        EndpointEffectContract.from_declaration(effect)
+
+
+@pytest.mark.parametrize("admission,port", [("admitted", "auth.port.v1"), ("blocked_until_effect_binding", None)])
+def test_compact_effect_preserves_explicit_admission_and_owned_port(admission: str, port: str | None) -> None:
+    compact = EndpointEffectContract.from_declaration({
+        "effect_class": "external_auth", "admission": admission, "external_auth_port": port,
+    })
+    assert compact == EndpointEffectContract(effect_class="external_auth", admission=admission, external_auth_port=port)
+
+
+def test_compact_conditional_uses_original_closed_branches_and_stays_blocked() -> None:
+    effect = EndpointEffectContract.from_declaration({
+        "effect_class": "conditional", "admission": "admitted",
+        "conditional_discriminator": "handler_effect_path.v1",
+    })
+    assert effect.conditional_branches == ("no_effect_or_read", "external_or_legacy_effect")
+    assert effect.admission is EffectAdmission.BLOCKED_UNTIL_EFFECT_BINDING
+
+
+@pytest.mark.parametrize("mutation", ["missing_scope", "missing_effect", "extra_metrics", "unknown_schema"])
+def test_v4_route_loader_keeps_explicit_identity_authority_and_version(tmp_path: Path, mutation: str) -> None:
+    payload = json.loads((BACKEND_ROOT / "app/composition/production_route_bindings.json").read_text())
+    payload["bindings"] = [payload["bindings"][0]]
+    row = payload["bindings"][0]
+    if mutation == "missing_scope":
+        del row["required_scope"]
+    elif mutation == "missing_effect":
+        del row["effect_contract"]
+    elif mutation == "extra_metrics":
+        row["metrics_label"] = "injected"
+    else:
+        payload["schema"] = "mrw.production.route-bindings.v5"
+    path = tmp_path / "invalid.json"
+    path.write_text(json.dumps(payload))
+    with pytest.raises(RouteEffectContractError):
+        load_production_route_bindings(path)
+
+
+def test_v4_metrics_uses_normalized_binding_identity(tmp_path: Path) -> None:
+    payload = json.loads((BACKEND_ROOT / "app/composition/production_route_bindings.json").read_text())
+    payload["bindings"] = [payload["bindings"][0]]
+    row = payload["bindings"][0]
+    row["domain"] = "  example  "
+    row["route_template"] = "  /example  "
+    path = tmp_path / "normalized.json"
+    path.write_text(json.dumps(payload))
+    binding, = load_production_route_bindings(path)
+    assert binding.metrics_label == f"{binding.domain}:{binding.route_template}" == "example:/example"

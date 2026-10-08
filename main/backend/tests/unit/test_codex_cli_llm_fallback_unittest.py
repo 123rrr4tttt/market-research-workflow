@@ -1821,6 +1821,101 @@ tokens used
         self.assertEqual(parsed["features"]["plugins"], False)
         self.assertNotIn("user-mcp-secret", config_text)
 
+    def test_persistent_core_rejects_server_requests_during_model_turn(self):
+        class FakeWebSocket:
+            def __init__(self, request_method):
+                self.sent = []
+                self.messages = [
+                    {"id": 999, "result": {"ignored": True}},
+                    {"id": 1, "result": {}},
+                    {"id": 2, "result": {"thread": {"id": "thread-1"}}},
+                    {"id": 3, "result": {"turn": {"id": "turn-1"}}},
+                    {"id": 44, "method": request_method, "params": {}},
+                    {
+                        "method": "item/agentMessage/delta",
+                        "params": {"turnId": "other-turn", "delta": "ignored"},
+                    },
+                    {
+                        "method": "item/agentMessage/delta",
+                        "params": {"turnId": "turn-1", "delta": "partial"},
+                    },
+                    {
+                        "method": "item/completed",
+                        "params": {"item": {"type": "agentMessage", "text": "done"}},
+                    },
+                    {"method": "turn/completed", "params": {"turn": {"id": "turn-1"}}},
+                ]
+
+            async def send(self, payload):
+                self.sent.append(json.loads(payload))
+
+            async def recv(self):
+                return json.dumps(self.messages.pop(0))
+
+        class FakeConnect:
+            def __init__(self, websocket):
+                self.websocket = websocket
+
+            async def __aenter__(self):
+                return self.websocket
+
+            async def __aexit__(self, exc_type, exc, traceback):
+                return False
+
+        for method in ("item/commandExecution/requestApproval", "item/tool/call"):
+            with self.subTest(method=method):
+                websocket = FakeWebSocket(method)
+                with patch(
+                    "app.services.llm.codex_app_server._cleanup_stale_isolated_codex_homes",
+                    return_value=[],
+                ):
+                    core = CodexAppServerCore(
+                        codex_bin_resolver=lambda: "/tmp/codex",
+                        workdir_resolver=lambda: "/tmp",
+                        disabled_features_resolver=lambda: [],
+                    )
+                try:
+                    with (
+                        patch(
+                            "app.services.llm.codex_app_server.websockets.connect",
+                            return_value=FakeConnect(websocket),
+                        ),
+                        patch(
+                            "app.services.llm.codex_app_server.settings.codex_cli_llm_reuse_thread",
+                            False,
+                        ),
+                    ):
+                        content = asyncio.run(
+                            core._invoke_async_raw(
+                                endpoint="ws://127.0.0.1:1",
+                                prompt="prompt",
+                                model="gpt-test",
+                                timeout_seconds=5,
+                                reasoning_effort=None,
+                            )
+                        )
+                    self.assertEqual(content, "done")
+                    self.assertEqual(
+                        websocket.sent[-1],
+                        {
+                            "jsonrpc": "2.0",
+                            "id": 44,
+                            "error": {
+                                "code": -32601,
+                                "message": f"server request not supported by this binding: {method}",
+                            },
+                        },
+                    )
+                    thread_request = next(
+                        item for item in websocket.sent if item.get("method") == "thread/start"
+                    )
+                    self.assertEqual(thread_request["params"]["sandbox"], "read-only")
+                    self.assertEqual(thread_request["params"]["approvalPolicy"], "never")
+                    self.assertNotIn("dynamicTools", thread_request["params"])
+                    self.assertEqual(websocket.messages, [])
+                finally:
+                    core.shutdown()
+
     def test_persistent_core_reuses_app_server_thread(self):
         core = CodexAppServerCore(
             codex_bin_resolver=lambda: "/tmp/codex",

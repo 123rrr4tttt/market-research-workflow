@@ -15,6 +15,22 @@
       "git_revision": "98e96fca2db751659eab59c05e575e3453e6aa2b",
       "relative_path": "main/backend/app/api/market.py",
       "sha256": "784692991c403d56c93fddfc823545327ebaae3e404081b335b5a21c550ec862"
+    },
+    {
+      "bytes": 1879,
+      "fixture": "stage1__api__reports.py.source",
+      "git_path": "main/backend/app/api/reports.py",
+      "git_revision": "98e96fca2db751659eab59c05e575e3453e6aa2b",
+      "relative_path": "main/backend/app/api/reports.py",
+      "sha256": "2a052bdca291cb2e6814382dc86fd993f9b3565e5dd4298fcac2263c6f1fabe5"
+    },
+    {
+      "bytes": 8609,
+      "fixture": "stage1__api__successor_runtime.py.source",
+      "git_path": "main/backend/app/api/successor_runtime.py",
+      "git_revision": "9fa8aefaae8f30a080f3d2dcac6dfb6ff9f773e0",
+      "relative_path": "main/backend/app/api/successor_runtime.py",
+      "sha256": "d4aa9373609889ba3cf44d14237eab199fe4491cb7d24c8d37c5c2ee0b229d8f"
     }
   ],
   "schema": "mrw.test.stage1-current-binding-history.v1"

@@ -1750,3 +1750,86 @@ def test_retrieval_gap_followup_consumes_suffix_budget_without_replaying_prefix(
                 if item["ref"]["ref"]["type_id"] == "attempt"
             ]
             assert len(attempt_elements) == 2
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("abort_before", [False, True])
+def test_core_url_submit_reaches_canonical_runtime_and_preserves_abort(
+    live_database: LiveDatabase, monkeypatch: pytest.MonkeyPatch, abort_before: bool,
+) -> None:
+    from app.services.agent_core.authoring_tools import AuthoringToolContext, authoring_ingest_writing_batch_sources
+    from app.services.agent_core.contracts import AgentCoreRequest, CoreToolCall
+    from app.services.agent_core.host_authorization import TrustedHostContext
+    from app.services.agent_core.registry import CoreToolRegistry
+    from app.services.agent_core.tool_contribution import register_project_tool_contributions
+    from app.services.agent_sessions.service import AgentSessionService
+    from app.services.agent_sessions.store import InMemoryAgentSessionStore
+    from app.services.request_identity import authenticated_actor_context
+    from app.services.ingest import url_pool
+
+    queued = _install_real_task_transport(monkeypatch, live_database)
+    monkeypatch.setattr("app.models.base.engine", live_database.engine)
+    owner = build_initial_retrieval_program(
+        project_key=PROJECT_KEY, root_run_id="authority-only", plan=_retrieval_plan("url-core", query_count=1),
+        project_registry_revision=REGISTRY_REVISION, project_scope_digest=SCOPE_DIGEST,
+        idempotency_key="authority-only",
+    )
+    with live_database.engine.begin() as connection:
+        _install_retrieval_authority(connection, live_database, registry=owner.registry)
+    service = AgentSessionService(store=InMemoryAgentSessionStore())
+    session_id = service.create_session(
+        source="trusted_host", entrypoint_type="agent_core", goal="URL submission", project_key=PROJECT_KEY,
+    )["session"]["session_id"]
+    host = TrustedHostContext(
+        PROJECT_KEY, session_id, "url-pg-thread", "url-pg-turn", "url-pg-input",
+        actor_context=authenticated_actor_context(
+            actor_id=live_database.runtime_scope.actor_id, source="test-host", auth_mode="test-auth",
+        ),
+    )
+    service.create_host_user_message(host, content="Collect the URL")
+    registry = CoreToolRegistry()
+    assert register_project_tool_contributions(registry, authoring_ingest_writing_batch_sources(
+        AuthoringToolContext(service=service, structured_data_searcher=lambda **_: {}),
+    )) is None
+    acquired: list[str] = []
+
+    def acquire(request: Any) -> UrlSingleUrlOutcome:
+        acquired.append(request.url)
+        return UrlSingleUrlOutcome(status="completed", inserted=0, updated=0, skipped=1)
+
+    monkeypatch.setattr(url_pool, "invoke_url_single_url", acquire)
+    runs, work = PUBLIC_TABLES["runtime_runs"], PUBLIC_TABLES["runtime_work_items"]
+    with live_database.engine.connect() as connection:
+        before_runs = set(connection.execute(sa.select(runs.c.run_id)).scalars())
+        before_work = set(connection.execute(sa.select(work.c.work_item_id)).scalars())
+    if abort_before:
+        service.store.update_session(session_id, {"status": "canceled"})
+    result = registry.execute_tool(
+        tool_call=CoreToolCall(tool_name="ingest.url_pool.submit", call_id="url-pg-call", arguments={
+            "url": "https://example.invalid/url-core", "async_mode": True,
+        }),
+        request=AgentCoreRequest(message="collect", session_id=session_id, project_key=PROJECT_KEY, turn_id=host.turn_id),
+        trusted_context=host, authorization_service=service, emit=lambda _event: None,
+    )
+    if abort_before:
+        assert result.status == "canceled", result.to_dict()
+        with live_database.engine.connect() as connection:
+            assert set(connection.execute(sa.select(runs.c.run_id)).scalars()) == before_runs
+            assert set(connection.execute(sa.select(work.c.work_item_id)).scalars()) == before_work
+        assert not queued and not acquired
+        return
+    assert result.status == "completed", result.to_dict()
+    run_id = str(result.structured_content["runtime_run_ref"]).removeprefix("runtime-run:")
+    assert result.structured_content["work_item_ids"]
+    assert not acquired  # Core submits; the original task owns execution.
+    _drain_retrieval_root(live_database, queued, run_id)
+    with live_database.engine.connect() as connection:
+        run = connection.execute(sa.select(runs).where(runs.c.run_id == run_id)).mappings().one()
+        assert run["state"] == "COMPLETED"
+        assert run["project_key"] == PROJECT_KEY
+        attempts = PUBLIC_TABLES["runtime_effect_attempts"]
+        assert connection.execute(sa.select(sa.func.count()).select_from(attempts).where(
+            attempts.c.run_id == run_id,
+        )).scalar_one() == 1
+    assert acquired == ["https://example.invalid/url-core"]
+    assert service.list_artifacts(session_id)

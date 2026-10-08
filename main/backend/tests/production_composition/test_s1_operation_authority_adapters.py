@@ -324,7 +324,7 @@ def test_route_registry_loader_fails_closed_on_new_authority_fields(tmp_path: Pa
     registry = json.loads(source.read_text(encoding="utf-8"))
     registry["bindings"] = [registry["bindings"][0]]
 
-    assert registry["schema"] == "mrw.production.route-bindings.v3"
+    assert registry["schema"] == "mrw.production.route-bindings.v4"
     first = registry["bindings"][0]
     assert "effect_contract" in first
     assert not {"provider_class", "requires_provider", "requires_canonical_writer"} & first.keys()
@@ -341,7 +341,10 @@ def test_route_registry_loader_fails_closed_on_new_authority_fields(tmp_path: Pa
     registry = json.loads(source.read_text(encoding="utf-8"))
     registry["bindings"] = [registry["bindings"][0]]
     invalid = tmp_path / "invalid.json"
-    registry["bindings"][0]["effect_contract"]["provider_class"] = "database"
+    registry["bindings"][0]["effect_contract"] = {
+        "effect_class": "provider_call", "admission": "blocked_until_effect_binding",
+        "provider_port": None, "provider_class": "database",
+    }
     invalid.write_text(json.dumps(registry), encoding="utf-8")
     with pytest.raises(RouteEffectContractError, match="closed provider vocabulary"):
         load_production_route_bindings(invalid)
@@ -352,8 +355,6 @@ def test_route_registry_loader_fails_closed_on_new_authority_fields(tmp_path: Pa
     effect["admission"] = "admitted"
     effect["provider_port"] = "example.provider.v1"
     effect["provider_class"] = "null"
-    effect["conditional_discriminator"] = None
-    effect["conditional_branches"] = []
     inconsistent.write_text(json.dumps(registry), encoding="utf-8")
     with pytest.raises(RouteEffectContractError, match="non-null provider class"):
         load_production_route_bindings(inconsistent)

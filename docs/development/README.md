@@ -2,11 +2,13 @@
 
 项目修改从当前源码、原生声明和相关测试出发。运行步骤见[使用说明](../usage.md)，模块与事实归属见[架构说明](../architecture/README.md)。
 
-总体设计见[MRW精简框架](MRW精简框架.md)，当前结果及剩余切口见[阶段§4](MRW平台结构精简与删减阶段.md#4-有限删除波次与待重构组合)。从`a17930da`实施的有限删除波次及本批修复使app Python由299234减至231701行，净减67533行（22.57%）；JSON、前端、kit、工具与测试另账，首两批历史保持在阶段§2.1/§2.2。
+当前迁移从已提交`2f20e9f`接续：URL提交、旧tool桥、未用native分支和路由v4已有稳定点及局部见证；resolver类型接缝、runner原组合验证及query重构局部见证已通过，本轮集中验证已完成：backend2505 actual passed与4原skip，root1350 actual passed（含七gate242），两清单kept/missing/extra均0；公共边界类型0错误，coverage核心100%、其余66.72%。本轮app Python净减583行至231118行，JSON另净减2593，测试含历史fixture净增1350，其中不可执行旧材料317行单列。B含公共规则实际净减10行，E实际净增46行，必要修复成本单列；完整新结果见[阶段§4](MRW平台结构精简与删减阶段.md#4-有限删除波次与待重构组合)，下列集中验证是已提交基线的证据。
+
+总体设计见[MRW精简框架](MRW精简框架.md)，当前结果及剩余切口见[阶段§4](MRW平台结构精简与删减阶段.md#4-有限删除波次与待重构组合)。已提交基线`2f20e9f`中，从`a17930da`实施的有限删除波次及修复使app Python由299234减至231701行，净减67533行（22.57%）；JSON、前端、kit、工具与测试另账，首两批历史保持在阶段§2.1/§2.2。
 
 终版ci-pr精确清单2444项为69 actual passed＋2371 kept＋4 skipped；root suite为304 actual passed＋1046 kept，七gate242、公共类型0错误、coverage原100/20门槛通过。实际本机host summary已有canonical SQL读回；两项workflow已通过有效Bearer与隔离安装接线，原多resource installer修复19/19实际通过；领域Failure v2正文及Plan-aware replay修复完成，两原live E2E实际通过，最后reader guard的受影响failure selector补验通过，success按未变依赖kept；v1字节保持。产品首次正式provisioning、宿主只读循环十次、retrieval缺配置及未验证cookie代理lane仍独立记录。测试时点、原失败attempt及未验证范围均以阶段文档为准。
 
-本批删除与九项能力覆盖不等于整体架构重构完成。source resolver/runner、Agent URL提交、search matrix、discovery/clue组合、旧tool协议桥等仍有具名待重构组织，不能把整handler包装或搬家叫特殊核保留；八个现有切口按旧整体架构组织、迁移中介、迁移后残留、新架构特殊核归属，逐项列出生产入口到保留核、现有装配、旧闭包删除和完成见证；独占写面与接缝依赖沿阶段文档实施，不新建Runtime或大框架。旧部署Stage4–6继续STOPPED，未push或deploy；[原结构整理方案](MRW结构整理方案与分发包.md)只作历史。
+本批删除与九项能力覆盖不等于整体架构重构完成。source resolver/runner、Agent URL提交、search matrix、discovery/clue组合、旧tool协议桥等八个切口已按本轮合同实施并取得局部见证，中央结果见阶段§4。具名保留核与其他未进入本轮闭包的组织仍分别承担后续判断，不能把整handler包装或搬家叫特殊核保留；生产入口、原装配、旧闭包删除和权限/失败保持继续按真实证据确定，不新建Runtime或大框架。旧部署Stage4–6继续STOPPED，未push或deploy；[原结构整理方案](MRW结构整理方案与分发包.md)只作历史。
 
 ## 找到修改位置
 

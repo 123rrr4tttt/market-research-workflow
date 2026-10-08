@@ -864,3 +864,33 @@ def test_terminal_hook_fails_closed_if_shared_commit_transition_is_absent(
                 observed_at=NOW,
             ),
         )
+
+
+@pytest.mark.parametrize("return_ref", ["mrw.return.runtime-value.v1", "mrw.functorial-successor.return.single-typed-output.v1"])
+def test_non_admission_return_needs_no_prototype_bundle(return_ref: str) -> None:
+    returns = build_first_specimen_return_contract_registry().resolve_required(return_ref)
+    binding = ReturnContractBinding.from_contract(return_ref, returns)
+    assert not binding.admission_required
+    assignment = _assignment()
+    claim_binding = _claim(assignment, _authorization(assignment))
+    lifecycle = _lifecycle(claim_binding)
+    terminal = TerminalOutcome(
+        claimed=lifecycle, kind=EffectTerminalKind.SUCCEEDED,
+        authority_digest=_authorization(assignment).binding_digest,
+        output_digest=_digest("runtime-value"), observed_at=NOW,
+    )
+    hook = PostgresFirstSpecimenTerminalHook(activation=_Activation(object()))
+    assert hook.prepare_terminal(
+        connection=object(), scope=_scope(),
+        claim=SimpleNamespace(assignment=SimpleNamespace(
+            assignment_kind=AssignmentKind.INTERPRET, return_contract_binding=binding,
+        )),
+        lifecycle=lifecycle, outcome=InterpreterOutcome.succeeded(_digest("runtime-value")),
+        terminal=terminal,
+    ) is terminal
+
+
+def test_required_admission_without_bundle_remains_fail_closed() -> None:
+    hook = PostgresFirstSpecimenTerminalHook(activation=_Activation(object()))
+    with pytest.raises(FirstSpecimenTerminalError, match="requires an installed admission bundle"):
+        hook._default_admission(object(), _scope(), object())

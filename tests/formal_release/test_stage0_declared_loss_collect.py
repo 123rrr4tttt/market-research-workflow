@@ -6,6 +6,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[2]
+HISTORICAL_RECORD_REVISION = "203611915bd2659adff4aadfbb67485daed8964a"
 EVIDENCE_PATH = (
     ROOT
     / "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release"
@@ -29,8 +30,16 @@ def _load() -> dict[str, object]:
 def _path_is_resolvable(relative: str) -> bool:
     if (ROOT / relative).is_file():
         return True
+    historical_record = subprocess.run(
+        ["git", "show", f"{HISTORICAL_RECORD_REVISION}:{EVIDENCE_PATH.relative_to(ROOT).as_posix()}"],
+        cwd=ROOT,
+        capture_output=True,
+        check=False,
+    )
+    assert historical_record.returncode == 0
+    assert historical_record.stdout == EVIDENCE_PATH.read_bytes()
     completed = subprocess.run(
-        ["git", "cat-file", "-e", f"HEAD:{relative}"],
+        ["git", "cat-file", "-e", f"{HISTORICAL_RECORD_REVISION}:{relative}"],
         cwd=ROOT,
         capture_output=True,
         check=False,

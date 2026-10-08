@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import sys
 import unittest
+from collections import UserDict
+from dataclasses import replace
 from pathlib import Path
-from types import SimpleNamespace
 from unittest.mock import patch
 
 import pytest
@@ -168,13 +169,11 @@ class SourceLibraryResolverUnitTestCase(unittest.TestCase):
                 "param_schema": {},
             }
         ]
-        request = SimpleNamespace(source_mode="single_channel", warnings=[], item_key="demo.item")
-
         with (
             patch("app.services.source_library.resolver.get_ingest_config", return_value=None),
-            patch("app.services.source_library.resolver.ItemResolver.resolve", return_value=request) as item_resolver,
+            patch("app.services.source_library.resolver.ItemResolver.resolve", wraps=resolver.ItemResolver.resolve) as item_resolver,
             patch(
-                "app.services.source_library.resolver._run_source_mode_single_channel",
+                "app.services.source_library.resolver.run_site_search_orchestrator",
                 return_value={"result": {"inserted": 1}},
             ) as run_single_channel,
         ):
@@ -1244,6 +1243,60 @@ class SourceLibraryResolverUnitTestCase(unittest.TestCase):
         self.assertEqual(taxonomy["item_type"], "service_aggregated")
         self.assertEqual(taxonomy["managed_by"], "system")
         self.assertTrue(taxonomy["site_search_authoritative"])
+
+    def test_run_item_payload_preserves_opaque_mapping_defaults_and_override(self):
+        default_value, item_value, override_value, extra_value = (object() for _ in range(4))
+        item = {
+            "item_key": "opaque.params",
+            "channel_key": "rss.opaque",
+            "enabled": True,
+            "params": {"opaque": item_value},
+            "extra": {"opaque_extra": extra_value},
+        }
+        channels = [{
+            "channel_key": "rss.opaque", "enabled": True,
+            "default_params": UserDict({"default_opaque": default_value, "opaque": default_value}),
+        }]
+        with patch("app.services.source_library.resolver.run_channel", return_value={"records": []}) as run:
+            payload = resolver.run_item_payload(
+                item=item, channels=channels, override_params={"opaque": override_value},
+            )
+        effective = run.call_args.kwargs["params"]
+        self.assertIs(effective["default_opaque"], default_value)
+        self.assertIs(effective["opaque"], override_value)
+        self.assertIs(effective["_source_library_item"]["extra"]["opaque_extra"], extra_value)
+        self.assertIs(payload["params"]["opaque"], override_value)
+        self.assertIs(payload["result"]["execution_request"]["params"]["opaque"], override_value)
+
+        protocol = resolver._build_frontdoor_protocol(item=item, params=item["params"], project_key=None)
+        open_protocol = replace(protocol, concurrency_plan={"opaque": default_value})
+        self.assertIs(open_protocol.to_dict()["concurrency_plan"]["opaque"], default_value)
+
+        request = resolver.ItemResolver.resolve(
+            item=item, params=item["params"], project_key=None,
+            channel_map={row["channel_key"]: row for row in channels},
+            build_frontdoor_protocol=resolver._build_frontdoor_protocol,
+            is_handler_cluster_item=resolver._is_handler_cluster_item,
+            has_site_entries=resolver._has_site_entries,
+        )
+        direct_item = {**item, "extra": {7: extra_value}}
+        with patch("app.services.source_library.resolver.run_channel", return_value={"records": []}) as run:
+            resolver.run_single_channel_orchestrator(
+                item=direct_item, request=request, channel_map={row["channel_key"]: row for row in channels},
+                deep_merge=resolver._deep_merge, bind_project=resolver.bind_project,
+                run_channel=resolver.run_channel,
+            )
+        self.assertEqual(set(run.call_args.kwargs["params"]["_source_library_item"]["extra"]), {7})
+        self.assertIs(run.call_args.kwargs["params"]["_source_library_item"]["extra"][7], extra_value)
+        self.assertIs(run.call_args.kwargs["params"]["opaque"], item_value)
+
+        for invalid_defaults in ({7: default_value}, [("opaque", default_value)], default_value):
+            with self.subTest(default_type=type(invalid_defaults).__name__):
+                invalid_channels = [{**channels[0], "default_params": invalid_defaults}]
+                with patch("app.services.source_library.resolver.run_channel") as run:
+                    with self.assertRaisesRegex(TypeError, "default_params must be a mapping with string keys"):
+                        resolver.run_item_payload(item=item, channels=invalid_channels)
+                run.assert_not_called()
 
 
 if __name__ == "__main__":

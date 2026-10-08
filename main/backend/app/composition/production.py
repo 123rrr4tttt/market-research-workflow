@@ -67,7 +67,7 @@ from app.successor_runtime.substrate.postgres.runtime_failures import RuntimeFai
 
 
 PRODUCTION_ENVIRONMENTS = frozenset({"production", "prod"})
-_ROUTE_BINDING_SCHEMA = "mrw.production.route-bindings.v3"
+_ROUTE_BINDING_SCHEMAS = ("mrw.production.route-bindings.v3", "mrw.production.route-bindings.v4")
 _ROUTE_BINDING_FILE = Path(__file__).with_name("production_route_bindings.json")
 _WILDCARD_VALUES = frozenset({"*", "all", "any"})
 _TOKEN_HEADER = "Authorization"
@@ -444,7 +444,7 @@ def _read_registry(path: Path | str) -> dict[str, Any]:
             "route_effect_unclassified",
             "production route binding registry is unavailable or malformed",
         ) from exc
-    if not isinstance(content, dict) or content.get("schema") != _ROUTE_BINDING_SCHEMA:
+    if not isinstance(content, dict) or content.get("schema") not in _ROUTE_BINDING_SCHEMAS:
         raise RouteEffectContractError(
             "route_effect_unclassified",
             "production route binding registry schema mismatch",
@@ -501,6 +501,9 @@ def load_production_route_bindings(
         "capability_id",
         "effect_contract",
     }
+    compact = content["schema"] == "mrw.production.route-bindings.v4"
+    if compact:
+        required_fields.remove("metrics_label")
     effect_required_fields = {
         "effect_class",
         "admission",
@@ -531,23 +534,16 @@ def load_production_route_bindings(
             )
         effect_missing = effect_required_fields - effect_raw.keys()
         effect_extra = effect_raw.keys() - effect_required_fields
-        if effect_missing or effect_extra:
+        if not compact and (effect_missing or effect_extra):
             raise RouteEffectContractError(
                 "route_effect_unclassified",
                 "effect contract fields are not explicit",
                 details={"missing": sorted(effect_missing), "extra": sorted(effect_extra)},
             )
         try:
-            effect_contract = EndpointEffectContract(
-                effect_class=effect_raw.get("effect_class"),
-                admission=effect_raw.get("admission"),
-                provider_port=effect_raw.get("provider_port"),
-                provider_class=effect_raw.get("provider_class"),
-                canonical_writer_port=effect_raw.get("canonical_writer_port"),
-                external_auth_port=effect_raw.get("external_auth_port"),
-                filesystem_port=effect_raw.get("filesystem_port"),
-                conditional_discriminator=effect_raw.get("conditional_discriminator"),
-                conditional_branches=effect_raw.get("conditional_branches"),
+            effect_contract = (
+                EndpointEffectContract.from_declaration(effect_raw)
+                if compact else EndpointEffectContract(**effect_raw)
             )
         except RouteEffectContractError:
             raise
@@ -560,17 +556,14 @@ def load_production_route_bindings(
             route_template=raw.get("route_template"),
             domain=raw.get("domain"),
             operation=raw.get("operation"),
-            metrics_label=raw.get("metrics_label"),
+            metrics_label=(
+                f"{str(raw['domain'] or '').strip()}:{str(raw['route_template'] or '').strip()}"
+                if compact else raw.get("metrics_label")
+            ),
             methods=raw.get("methods", ()),
-            required_scope=raw.get("required_scope", "api:invoke"),
+            required_scope=raw["required_scope"],
             required_approval_ids=raw.get("required_approval_ids", ()),
-            requires_provider=effect_contract.requires_provider,
-            provider_class=effect_contract.provider_class,
-            requires_canonical_writer=effect_contract.requires_canonical_writer,
-            approval_required=effect_contract.approval_required,
             capability_id=raw.get("capability_id"),
-            canonical_owner_ref=("successor-runtime" if effect_contract.requires_canonical_writer else None),
-            writer_port_kind=effect_contract.canonical_writer_port,
             effect_contract=effect_contract,
         )
         for method in binding.methods:
@@ -1900,7 +1893,6 @@ def execute_successor_work_item(
     business_readback: BrokerBusinessReadback | None = None,
 ) -> RunOnceReport:
     """Wake the existing RuntimeNode from a persisted assignment identity."""
-    from app.successor_runtime.capabilities import build_first_specimen_bundle
     from app.successor_runtime.capabilities.retrieval_candidate_native import (
         RETRIEVAL_CANDIDATE_DISCOVER_V3_KIND,
     )
@@ -1986,7 +1978,6 @@ def execute_successor_work_item(
                                        assignment.claim_authority_epoch),
         installations=(), additional_handlers=handlers,
         terminal_hook=PostgresFirstSpecimenTerminalHook(
-            bundle_factory=build_first_specimen_bundle,
             activation=PostgresFirstSpecimenActivationPort(
                 catalog,
                 active_child_materializer_factory=_retrieval_active_child_materializer,

@@ -1,17 +1,23 @@
 from __future__ import annotations
 
 import unittest
-from types import SimpleNamespace
-from unittest.mock import patch
+from dataclasses import replace
+from unittest.mock import Mock, patch
 
 import pytest
 
 from app.services.agent_runtime.capability_registry import classify_goal, select_capabilities_for_goal
-from app.services.agent_runtime.control_tools import AgentControlToolRuntime
+from sqlalchemy.engine import Engine
+
+from app.services.agent_runtime.control_tools import control_project_tool_sources, task_cancel
+from app.services.agent_core.contracts import AgentCoreRequest, CoreToolCall
+from app.services.agent_core.registry import CoreToolRegistry
+from app.services.agent_core.tool_contribution import register_project_tool_contributions
 from app.services.agent_core.host_authorization import (
     TrustedHostContext,
     VerifiedHostAuthorization,
     verified_host_authorization_channel,
+    canonical_arguments_sha256,
 )
 from app.services.agent_core.tool_support import session_abort_requested
 from app.services.request_identity import RequestActorContext
@@ -53,7 +59,19 @@ class AgentControlToolsUnitTest(unittest.TestCase):
             "task-failed",
             {"status": "failed", "result_summary": "boom"},
         )
-        self.runtime = AgentControlToolRuntime(service=self.service)
+        self.registry = CoreToolRegistry()
+        self.assertIsNone(register_project_tool_contributions(
+            self.registry, control_project_tool_sources(service=self.service),
+        ))
+
+    def _invoke(self, name: str, *, session_id: str, turn_id: str):
+        call = CoreToolCall(tool_name=name, call_id="call-control")
+        request = AgentCoreRequest(message="control", session_id=session_id, turn_id=turn_id)
+        if name == "task.cancel":
+            spec = self.registry.get(name)
+            assert spec is not None
+            return task_cancel(call, request, service=self.service)
+        return self.registry.execute_tool(tool_call=call, request=request, emit=lambda _event: None)
 
     def _authorization(self, session_id: str) -> VerifiedHostAuthorization:
         actor = RequestActorContext(
@@ -95,12 +113,12 @@ class AgentControlToolsUnitTest(unittest.TestCase):
         self.assertNotIn("agent_batch.nl_command.submit", [item["capability_id"] for item in select_capabilities_for_goal("你好")])
 
     def test_task_cancel_requires_verified_host_authorization(self):
-        call = self.runtime.execute("task.cancel", session_id=self.session_id, turn_id="turn-control")
+        call = self._invoke("task.cancel", session_id=self.session_id, turn_id="turn-control")
 
-        self.assertEqual(call["status"], "failed")
-        self.assertEqual(call["error"]["type"], "Failure")
-        self.assertEqual(call["error"]["code"], "host_authorization_missing")
-        self.assertEqual(call["result"], {"session_id": self.session_id})
+        self.assertEqual(call.status, "failed")
+        self.assertEqual(call.error["type"], "Failure")
+        self.assertEqual(call.error["code"], "host_authorization_missing")
+        self.assertEqual(call.structured_content["result"], {"session_id": self.session_id})
 
     def test_task_cancel_passes_authenticated_request_actor_to_canonical_runtime(self):
         bundle = self.service.create_session(
@@ -111,20 +129,59 @@ class AgentControlToolsUnitTest(unittest.TestCase):
             compat_job_id="run-7",
         )
         session_id = bundle["session"]["session_id"]
-        runtime = AgentControlToolRuntime(service=self.service, engine=SimpleNamespace())
+        runtime_engine = Mock(spec=Engine)
         with (
             verified_host_authorization_channel(self._authorization(session_id)),
             patch.object(self.service, "cancel_run", return_value={"state": "CANCELLING"}) as cancel_run,
         ):
-            call = runtime.task_cancel(turn_id="turn-control", session_id=session_id)
+            spec = self.registry.get("task.cancel")
+            assert spec is not None
+            call = task_cancel(
+                CoreToolCall(tool_name="task.cancel", call_id="call-control"),
+                AgentCoreRequest(message="cancel", session_id=session_id, turn_id="turn-control"),
+                service=self.service, engine=runtime_engine,
+            )
 
-        self.assertEqual(call["status"], "completed")
+        self.assertEqual(call.status, "completed")
         cancel_run.assert_called_once_with(
             "run-7",
             actor_id="authenticated-user-7",
             project_key="demo_proj",
-            engine=runtime._engine,
+            engine=runtime_engine,
         )
+
+    def test_task_cancel_real_registry_keeps_verified_target_and_actor(self):
+        bundle = self.service.create_session(
+            source="runtime", entrypoint_type="runtime_projection", goal="cancel canonical run",
+            project_key="demo_proj", compat_job_id="run-registry",
+        )
+        session_id = bundle["session"]["session_id"]
+        call = CoreToolCall(tool_name="task.cancel", call_id="call-7")
+        request = AgentCoreRequest(message="cancel", session_id=session_id, project_key="demo_proj", turn_id="turn-control")
+        authorization = replace(self._authorization(session_id), arguments_sha256=canonical_arguments_sha256({}))
+        runtime_engine = Mock(spec=Engine)
+        with (
+            patch("app.services.agent_runtime.control_tools._runtime_engine", return_value=runtime_engine),
+            patch.object(self.service, "cancel_run", return_value={"state": "CANCELLING"}) as cancel_run,
+        ):
+            result = self.registry.execute_tool(
+                tool_call=call, request=request, emit=lambda _event: None,
+                trusted_context=authorization.context, host_authorization=authorization,
+            )
+        self.assertEqual(result.status, "completed")
+        cancel_run.assert_called_once_with(
+            "run-registry", actor_id="authenticated-user-7", project_key="demo_proj", engine=runtime_engine,
+        )
+
+    def test_task_cancel_rejects_other_target_without_canonical_write(self):
+        with (
+            verified_host_authorization_channel(self._authorization("other-session")),
+            patch.object(self.service, "cancel_run") as cancel_run,
+        ):
+            result = self._invoke("task.cancel", session_id=self.session_id, turn_id="turn-control")
+        self.assertEqual(result.status, "failed")
+        self.assertEqual(result.error["code"], "host_context_session_mismatch")
+        cancel_run.assert_not_called()
 
     def test_abort_readback_passes_authenticated_request_actor_to_runtime_projection(self):
         bundle = self.service.create_session(
@@ -151,38 +208,47 @@ class AgentControlToolsUnitTest(unittest.TestCase):
     def test_legacy_continue_is_rejected_without_mutating_session(self):
         before = self.service.get_session(self.session_id)
 
-        call = self.runtime.execute("task.continue", session_id=self.session_id, turn_id="turn-control")
+        call = self._invoke("task.continue", session_id=self.session_id, turn_id="turn-control")
 
-        self.assertEqual(call["status"], "failed")
-        self.assertEqual(call["error"]["type"], "UnsupportedTool")
+        self.assertEqual(call.status, "failed")
+        self.assertEqual(call.error["code"], "tool_not_registered")
         self.assertEqual(self.service.get_session(self.session_id), before)
 
     def test_task_summary_reads_session_owner_projection(self):
-        call = self.runtime.execute("task.summary", session_id=self.session_id, turn_id="turn-control")
+        call = self._invoke("task.summary", session_id=self.session_id, turn_id="turn-control")
 
-        self.assertEqual(call["status"], "completed")
-        summary = call["result"]["summary"]
+        self.assertEqual(call.status, "completed")
+        summary = call.structured_content["result"]["summary"]
         self.assertEqual(summary["session_id"], self.session_id)
         self.assertEqual(summary["status"], self.service.get_session(self.session_id)["status"])
         self.assertEqual(summary["task_counts"], {"completed": 1, "failed": 1})
 
     def test_failure_results_are_preserved(self):
-        summary_call = self.runtime.execute("task.summary", session_id="missing-session", turn_id="turn-control")
+        summary_call = self._invoke("task.summary", session_id="missing-session", turn_id="turn-control")
 
-        self.assertEqual(summary_call["status"], "failed")
-        self.assertEqual(summary_call["error"]["code"], "session_not_found")
-        self.assertEqual(summary_call["error"]["context"], {"session_id": "missing-session"})
+        self.assertEqual(summary_call.status, "failed")
+        self.assertEqual(summary_call.error["code"], "session_not_found")
+        self.assertEqual(summary_call.error["context"], {"session_id": "missing-session"})
+
+    def test_summary_exception_is_preserved_by_registry(self):
+        with patch.object(self.service, "get_session_summary", side_effect=OSError("summary unavailable")):
+            result = self._invoke("task.summary", session_id=self.session_id, turn_id="turn-control")
+        self.assertEqual(result.status, "failed")
+        self.assertEqual(result.error, {"type": "OSError", "message": "summary unavailable"})
+        self.assertEqual(result.structured_content["result"], {"session_id": self.session_id})
 
     def test_task_cancel_preserves_missing_host_authorization_failure(self):
-        call = self.runtime.execute("task.cancel", session_id="missing-session", turn_id="turn-control")
+        call = self._invoke("task.cancel", session_id="missing-session", turn_id="turn-control")
 
-        self.assertEqual(call["status"], "failed")
-        self.assertEqual(call["error"]["type"], "Failure")
-        self.assertEqual(call["error"]["code"], "host_authorization_missing")
-        self.assertEqual(call["result"], {"session_id": "missing-session"})
+        self.assertEqual(call.status, "failed")
+        self.assertEqual(call.error["type"], "Failure")
+        self.assertEqual(call.error["code"], "host_authorization_missing")
+        self.assertEqual(call.structured_content["result"], {"session_id": "missing-session"})
 
     def test_control_tool_exports_preserve_host_authorization_contract(self):
-        definitions = {item["name"]: item for item in self.runtime.list_tool_definitions()}
+        definitions = {
+            spec.name: spec.metadata["legacy_tool_definition"] for spec in self.registry.list_specs()
+        }
 
         self.assertEqual(set(definitions), {"task.cancel", "task.summary"})
         self.assertEqual(definitions["task.cancel"]["approval_level"], "explicit_user_request")

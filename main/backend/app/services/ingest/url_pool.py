@@ -874,7 +874,7 @@ def _run_source_library_frontdoor_ingress(
 
     ctx = bind_project(project_key) if project_key else nullcontext()
     with ctx:
-        routed: JsonObject = run_item_with_url_routing(
+        routed = run_item_with_url_routing(
             item=synthetic_item,
             params=params,
             project_key=project_key,

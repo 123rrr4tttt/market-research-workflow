@@ -370,15 +370,12 @@ def test_source_library_run_item_payload_returns_execution_fact_for_single_sourc
             "param_schema": {},
         }
     ]
-    request = SimpleNamespace(source_mode="single_channel", warnings=[], item_key="demo.item")
-
     with (
         patch("app.services.source_library.resolver.get_ingest_config", return_value=None),
-        patch("app.services.source_library.resolver.ItemResolver.resolve", return_value=request),
         patch(
-            "app.services.source_library.resolver._run_source_mode_single_channel",
+            "app.services.source_library.resolver._run_handler_cluster_item",
             return_value={"result": {"inserted": 1}},
-        ),
+        ) as run_effect,
     ):
         result = source_library_resolver.run_item_payload(
             item=item,
@@ -390,6 +387,9 @@ def test_source_library_run_item_payload_returns_execution_fact_for_single_sourc
             },
         )
 
+    run_effect.assert_called_once()
+    assert run_effect.call_args.kwargs["params"]["single_source_guard"] == guard
+    assert result["result"]["execution_request"]["source_mode"] == "site_search"
     execution_fact = result["execution_fact"]
     assert result["single_source_guard"] == guard
     assert result["strict_source"] == guard
