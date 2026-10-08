@@ -1,6 +1,6 @@
 # MRW 精简框架
 
-> 2026-10-07 · 当前工作按整族退役重新组织，基线为已提交的 `c3adced5946a52b66be4494aba3dbb707ee879b5`。上一轮完成的是迁移保持与本地验证，生产仅净减29行，不构成全局退役或显著瘦身完成。当前为退役设计与定界，尚未执行本轮删除。具体包、预算和验证入口见[平台结构精简与删减阶段](MRW平台结构精简与删减阶段.md)。
+> 2026-10-08 · 当前主线为原生规则贯通生产消费者并同批整族退役，基线为已提交的 `c3adced5946a52b66be4494aba3dbb707ee879b5`。上一轮完成的是迁移保持与本地验证，生产仅净减29行，不构成全局退役或显著瘦身完成。当前为退役设计与定界，尚未执行本轮删除。具体包、预算和验证入口见[平台结构精简与删减阶段](MRW平台结构精简与删减阶段.md)。
 
 ## 1. 从必要能力确定退役对象
 
@@ -34,13 +34,27 @@ API挂载见`A/api/__init__.py`，包括上述领域、配置/治理、skills、
 
 这张地图定义需要判断的能力，不给现有实现发放保留凭证。每个退役包先指出仍需哪项用户操作、哪一事实owner和哪种独立效果，再定位最小实现；如果只是旧表示或包装继续引用另一层，应切掉包装和其专属接线。真实的草稿/发布、材料/索引、项目出现位置、provider协议和运行生命周期差异继续保留。
 
-## 3. 整族退役的组织方式
+## 3. 同源接线与整族退役
 
-工作沿一条完整链展开：保留必要能力 → 明确整族退役对象 → 取得最小保留核 → 切断真实消费者 → 连同注册、adapter、配置、专属测试和当前文档同批删除 → 独立收支与保持验证。整族的终点是旧职责已不可执行且实现已删除；新入口能调用、服务委托给新runtime、删掉一个循环或只减少导入数量均不足以完成。
+主线是原生typed能力语义与真实特殊kernel → 已有native rule同源派生 → 实际production声明查找、handler安装与reader消费 → 同批切断并删除重复声明、装配、注册、旧adapter、执行owner及其专属tests/checkers。能力定义固定输入/输出类型、身份、权限与效果关系；规则保持这些关联，构造既选Runtime所需对象，投影仅供工具检查。生产消费者必须使用同一typed native对象，不能凭相同kind另维护一份factory表。注册存在、委托成功或删一个循环都不构成整族退出。
 
-优先处理已被替代、没有现役能力要求的零新增整族删除。必要替代只为具体退役包的真实缝隙实现最小首例，已有原语能表达的部分直接复用。新代码、共核、接缝、派生生产物和转出目录成本全部归入实际受益的删除族；没有一个可无限扩建的“共享建设预算”。若替代方案膨胀或仍依赖旧runtime，退回该删除族重新缩小承载，不能把旧实现留下并宣布迁移完成。
+能力族以原生typed定义及对象身份`i`为索引：`D_i`包含明确的输入/输出、effects、failures和authority关系，`P_i`是纯检查投影，`C_i(d)`是与定义相容的当前资源/授权上下文，`B_i(d)`是保留该定义类型关联的实际绑定。两种有向解释共用语义源，生产实例只绑定上下文，不重抄定义：
 
-上一轮workflow净增999、retrieval净增3763、shared净增1594，是原跨目录替换族的独立复审责任。单个services子目录的增减不能替换这三个口径，source净减5991也不能抹去其增长。`projection_contracts.py`及`retrieval_material_native.py`有真实消费者，应按具体类型与效果重新定界，不是假定零引用的删除对象。已经退掉的staged/effect文件和旧URL ThreadPool区间不得再次计入可删量。
+$$
+d_i\in D_i,\qquad \pi_i:D_i\to P_i,\qquad a_i:\prod_{d:D_i}\bigl(C_i(d)\to B_i(d)\bigr).
+$$
+
+这是待实现和见证的设计义务，不是已验证定理；只主张已声明端点及有序复合保持，不自动推出交换、自然性或不同形状同构，不据此新增代码schema。operation输入/输出、codec、kernel签名及reader结果关系须由同一原生定义维持；本批重复接线产生的Any/宽dict随壳消除，不能先擦成object/cast再称同源。JSON/provider不可信值只在解析边界开放，经原具体模型或判别失败收窄后进入领域/Runtime；现有无关类型债不纳入全库清零。
+
+已有局部链路证明此方向可复用，但尚未全域贯通。`successor_runtime/capabilities/knowledge_graph_projection_contribution.py`的`KnowledgeGraphProjectionAuthorSource`经`lower_knowledge_graph_projection_author_source`派生contract/profile/dataclass codec/Program atom，`knowledge_graph_projection_native_rule`及`KNOWLEDGE_GRAPH_PROJECTION_NATIVE_RULE`组织规则；`assembly/knowledge_assembly.py`实际调用`native.assemble`和`binding.install`。图的`substrate/postgres/c8_graph_projector.py::project_graph_generation/read_active_graph`仍承担不能由模板猜出的业务/持久化语义。这是静态链路证据，不是本轮运行证明。
+
+首公共接缝取workflow的真实production路径：`workflow_native_contribution.py::build_workflow_runtime_definition`、`assemble_workflow_native_definition`及`WORKFLOW_NATIVE_CONTRIBUTION_RULE`已有类型与规则，`workflow_assembly.py::build_workflow_assembly`仍有手写binding/refs；`composition/production.py::_installed_operation_facts`和`_installed_operation_handler`又按同一kind独立分支。将已有typed operation definition加显式kernel/codec/authority绑定沿原规则派生，供同一个生产安装入口读取，消除这部分重复录入。复用`PersistentOperationHandler`及`services/workflow_graph/__init__.py`的`submit_installed_program`与reader；`runtime.py::invoke_workflow_runtime_node`的输入关系与`execute_node`效果继续由领域核承担。`contributions/project_catalog.py`当前主要给CLI/check投影，`retrieval_native_catalog.py`也区分native与projection，均不能单凭catalog声称worker已安装。
+
+标准化范围包括source/material/knowledge/writing/host/项目API、同步工具与reader、前端manifest和WebUI边界，均沿各自权威源到原消费者；durable operation只承担首公共案例。已贯通的前端manifest等形状直接复用，真实protocol/lifecycle差异不抹平。能力按真实形状处理：已有规则支持的同形定义直接复用；新语义形状只补当前所需的一条规则；特殊kernel与权限判断由作者明确；无现役需求的功能整体退役。不强制所有API/CRUD变成durable，也不以`Any`或unchecked cast抹平输入输出差异。领域作者只提供语义、类型、特殊核及独立见证；公共规则owner补lower/derive缺口；集成owner唯一维护共享production消费者、有效native目录及其投影与sync/check。三者是责任分工，可以由同一作者承担，不增加管理层。
+
+公共首例由一个owner贯通原声明、真实消费者及删除闭包；依赖该接缝的同形批量迁移随后展开，已有形状、独立kernel和安全删除不等待。一次权威事实修改应驱动所有已确定装配字段；非默认同形定义也必须到真实消费者，可用现有第二实例或受控测试实例。交叉输入输出类型、重复/缺失identity、错误authority须明确失败，声明和sync/check不得执行effect。框架机制用原kit独立见证验证，项目迁移用真实消费者验证行为、顺序、失败与权限，二者不能互相替代；首例不是新审批关卡，不另建万能CapabilitySpec、Runtime、DSL、scheduler或注册审批平台。
+
+新规则、公共首例、派生生产物、提取和集成成本均计回受益删除族；没有无限共享建设预算。旧services整体承载、旧runtime及旧执行owner全部退役，既选Runtime保留必要核并压缩重复壳，不推倒重写。上一轮workflow＋999、retrieval＋3763、shared＋1594继续分别复审，source−5991不抵消；有消费者的`projection_contracts.py`、`retrieval_material_native.py`按类型与效果定界，已退staged/effect和旧URL ThreadPool不得重复算删除。
 
 ## 4. 全项目规模预算与收支约束
 
@@ -69,11 +83,13 @@ app当前路径基线互斥覆盖：services398文件130558行、successor_runti
 
 每个实现包发放前，从精确删除闭包取得最低删除量`D`、新增上限`A_max`和最低净减`N_min`，实际另报`D_actual/A_actual/N_actual`。新增包括公共接缝、派生生产物及跨目录提取；不得以难为由保留完整services或已被替代的旧runtime。当前已证明首批`D=2155/A_max=6/N_min=2149`保持硬约束，仅覆盖三个小闭包，不构成整体目标；已定安全删除包不等待所有预算校准。上一轮新增18141、删除18170、净减29仍只是历史迁移结果。
 
-以一个有真实消费者的代表性收缩包校准最小充分保留核、实际删除与替代成本；已有证据充分就复用，不增流程门禁。具名保留核与互斥删除包预算形成后，由root裁定可执行总体区间与累计净减，继续扩展同形删除，不无限定界，也不以首批或总净减大于零结项。实际缺口回到对应包修正，不为行数弱化类型、权限、UNKNOWN、恢复或消费者见证。
+以workflow公共首例及同形迁移的真实消费者校准最小充分保留核、实际删除与替代成本；已有证据充分就复用，不增流程门禁。具名保留核与互斥删除包预算形成后，由root裁定可执行总体区间与累计净减，继续扩展同形删除，不无限定界，也不以首批或总净减大于零结项。实际缺口回到对应包修正，不为行数弱化类型、权限、UNKNOWN、恢复或消费者见证。
 
 ## 5. 推进与验证
 
-当前先核清现核保持、真实消费者与旧执行owner边界，并行推进已确认的零新增或最小替代整族包；再以真实收缩包校准成本，扩展同形删除；最后按有证据的总体区间与累计净减收口。依赖共同接口的替代由一个owner打通最小首例，已有证据直接复用；独立领域、前端和工具包不等全域定界。消费者与共享写面按实际依赖交接，不触发另一轮全面构造或大kernel建设。全局最多6名活跃Agent（含root分发与Astra编排各1名），其余最多4个作者/调查席和4个独立写面；共享贡献源、registry/checker、启动入口和测试资源按实际冲突交接。
+当前可执行前沿包括已证安全删除、已有规则支持且闭包预算明确的迁移，以及workflow首例的精确接缝/预算定界；本轮只形成方案，不把这些包记为实施ready或passed。首例一名owner贯通共享规则与production后，释放依赖它的同形作者；公共消费者和目录始终由集成owner串行收敛，消费者切换与整族删除同包验收。具体合同、依赖、写面及命令见阶段文档；完整路径覆盖账只防漏项，不决定架构切片。
+
+全局最多6名活跃Agent，root分发与Astra编排各1名，最多4名作者/调查者；集成owner占其中1席。领域作者不各写adapter补共同缺口；共同规则失败回到唯一owner，独立包继续。PG、coverage、前端build/E2E独占，pure最多2个资源隔离进程。原进度记录汇总现成分派、首次共同验收、失败、手写机械接线、调用/token及共同修复成本；缺失不记零，不能由局部通过推断整体提速。
 
 复用原贡献权威源与`sync/check`，派生registry、sketch和witness不手工改表。停用功能的专属测试/脚本/selector随功能退役；仍存在的相邻能力、身份和权限见证继续执行，现役七gate不降低。原测试命令、公共类型检查、PG、coverage、build及其独占资源见[工作包文档](MRW平台结构精简与删减阶段.md)。本轮文档改写不运行这些验证，不构成退役执行或发布证据；后续删除沿用户已授权范围和预算就绪派发，普通定界不新增审批。
 
@@ -83,4 +99,4 @@ app当前路径基线互斥覆盖：services398文件130558行、successor_runti
 
 精确历史可从`git show c3adced:docs/development/MRW平台结构精简与删减阶段.md`读取；原aggregate为`/tmp/mrw-structure-20261007-w4uct7gr/integration/ci-group-resumption-2.json`。这些是旧候选证据，新退役改动只能按未变依赖复用。全文件类型债、浏览器mocks、direct HOST写作工具证明范围和不完整调用/token成本仍保留，不新增为本次后置治理工程。
 
-当前状态：未经证明的硬行数帽已撤回，结构退役方向、全项目计量和已证首批预算保持；总体规模承诺待真实收缩包校准，退役实施未完成。本轮只修改原文档，无生产/测试代码更改、未实际退役、未运行代码验证；文档随本次交付统一提交；未push或deploy。旧生产部署Stage4–6任务继续STOPPED，不恢复历史任务。
+当前状态：方案已转向同源规则贯通生产消费者与同批删除；未经证明的硬行数帽继续撤回，全项目计量与已证首批预算保持，公共首例闭包及总体规模承诺尚待校准。本轮只修改原文档，无生产/测试代码更改、未实际退役、未运行代码验证；文档随本次交付统一提交；未push或deploy。旧生产部署Stage4–6任务继续STOPPED，不恢复历史任务。

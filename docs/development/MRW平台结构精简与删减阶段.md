@@ -1,10 +1,10 @@
 # MRW 平台结构精简与删减阶段
 
-> 2026-10-07 · **当前：整族退役设计与定界，实施未开始。** 基线`c3adced5946a52b66be4494aba3dbb707ee879b5`；上一轮迁移保持结果列为§8历史，不再等同整体精简完成。平台必要能力和事实归属沿[MRW精简框架](MRW精简框架.md)，流程沿[19号规则](../../development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/19_direct-testing-batch-freeze-amendment.v1.md)；[06号入口](../../development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/06_production-deployment-stage-progress.v1.md)的旧部署任务保持停止。
+> 2026-10-08 · **当前：同源接线与整族退役方案，实施未开始。** 基线`c3adced5946a52b66be4494aba3dbb707ee879b5`；上一轮迁移保持结果列为§8历史，不再等同整体精简完成。平台必要能力和事实归属沿[MRW精简框架](MRW精简框架.md)，流程沿[19号规则](../../development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/19_direct-testing-batch-freeze-amendment.v1.md)；[06号入口](../../development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/06_production-deployment-stage-progress.v1.md)的旧部署任务保持停止。
 
 ## 1. 退役终点与边界
 
-本轮终点是必要能力由最小现有核承担，旧实现族及其消费者接线整批消失，并达到发包前的净减承诺。保留用户能力、对象身份、权限、真实effect和失败观察，不默认保留目录、API、测试或checker。每包明确是停止冗余功能，还是保留能力的实现替换；前者记录撤回范围，后者证明原必要观察保持。
+本轮按“typed语义/特殊kernel → native rule派生 → production声明查找、handler安装与reader → 同批切断旧路径并整族删除”组织。终点是必要能力由最小现有核承担，重复声明、装配、注册、旧adapter/执行owner及专属tests/checkers整批消失，并达到发包前净减承诺。保留用户能力、对象身份、权限、真实effect和失败观察，不默认保留目录、API、测试或checker。每包明确是停止冗余功能，还是保留能力的实现替换；前者记录撤回范围，后者证明原必要观察保持。
 
 services旧整体组织承载与successor重复承载都在退役范围，API/胶水和其它app源码不漏账。必要领域类型、特殊kernel、provider/DB效果逐项证明后接已有原生贡献位置，不把services全量搬家或包装进新runtime/domain/DSL。唯一耐久Runtime沿既选内核，领域writer、DB/provider和host权威不转给API或投影。真实必要核可以暂在原文件承载，但必须具名、压缩且没有整文件/整目录保留豁免。
 
@@ -29,42 +29,54 @@ services旧整体组织承载与successor重复承载都在退役范围，API/�
 
 零新增包只能清理既有义务并复用仍存见证。如果当前贡献源/注册闭包要求新代码，先返回该包重新定界和预算，不能在A=0名义下偷偷新增。历史快照保持原字节；仅取消已退功能的当前生成/验证入口，仍需读取的历史失败标识继续通过原只读路径解释。
 
-## 4. 运行结构专项与全域定界包
+## 4. 原生规则贯通与删除工作包
 
-运行结构专项由耐久内核owner统一承担：沿既选核和真实消费者确定最小充分保留结构，在原实现内删除或合并重复codec/state、first-specimen/sample、install/admission/reconcile外壳和冻结审批生产化，保留必要typed语言、claim/commit、PG事务与读回；不先新建另一套kernel或全面重写；同时切断旧services执行owner与控制循环。领域canonical writer保持原权威，PG终态记录原子性与current grant重读不得丢失。Runtime跨目录成本全部追入该专项，不能移到领域handler或kit逃账。先核清保持与退役边界，再以真实收缩包推进；不能以迁移PASS代替旧执行owner退出，也不因难度将旧runtime永久保留。
+共同合同沿§3的cwd、解释器与依赖，验证命令由§6执行；本轮不执行。发包前把下表符号范围落实为精确文件/符号闭包和D/A_max/N_min，公共规则与集成成本计回受益族；当前未定预算的迁移仅可做有界定界，不能写成实施ready。规则已支持的形状直接使用，真实新形状交唯一规则owner补当前缺口，领域作者不各造解析/装配协议。框架机制和项目消费者分别验收，沿原kit和七gate，不新建门禁系统。
 
-下表是本轮当前工作，不是无限期后置。每个owner输出“必要能力/权威或effect → 具体核 → 要退整族 → 精确消费者和注册闭包 → 互斥文件集 → D/A_max/N_min → 原验证selector”，形成可直接派发的实现包。基线行数只是调查面，不是可删承诺。先扣除§3已分配文件，再为剩余文件发预算；item_writer跨包只有按顺序交接，没有重复成本。
-
-| 具名定界包／owner | c3精确路径范围与规模 | 必须交付的删除对象、核与消费者裁定 | 现成接口／验证入口 |
+| 实际工作包／目标 | 权威输入与现成接口／输出 | 独占写面、依赖与包内并发 | 可执行验证／完成条件 |
 | --- | --- | --- | --- |
-| **来源采集承载定界／来源owner** | `services/{source_library,collect_runtime,ingest,crawlers,crawlers_mgmt,ingest_config,http}/**`：126文件38587行 | `url_pool.py::execute_single_url_kernel`及`terminal_writer`等Material写入核，与collect入口、summary、telemetry、retry/canary/digestion脚手架分开。当前url_pool2112行，旧ThreadPool与旧1049行区间已退，禁止重计。对`digestion_scaffold.py`2903及live canary专属入口先明确停止能力或保持替换，不以checker存在全保 | 原acquisition贡献与Material writer；V-source、原URL adapter/T22 consumer。D/A_max/N_min未定，不能新增实施 |
-| **检索与资源承载定界／检索owner** | `services/{search,project_retrieval,resource_pool,discovery,indexer}/**`：56文件19896行 | `project_retrieval/execution.py`2893行按预算判断、候选/URL/正式化核、装配与运行投影拆；resource/search现有入口也审能否合并，不能因mount保整族。交出每条实际检索能力最小保留核与旧服务切断点 | 原`retrieval_candidate_native`、`retrieval_material_native`、`retrieval_flow_native`及正式Material写入；V-retrieval/V-index。D/A_max/N_min未定 |
-| **材料知识写作承载定界／材料owner** | `services/{document_queries,document_views,information_topology,typed_knowledge,graph,clue_chains,writing,extraction}/**`：93文件19534行 | 原Material/拓扑/引用身份和写作事务是事实依据；重审Graph投影、typed sample/live表示、查询装饰与图谱重复层。`api/policies/dashboard/admin`的引用需寻找可合并消费者，不构成graph3786行的永久豁免 | 原document query/view、typed知识和writing writer；V-data及原引用写作consumer。D/A_max/N_min未定 |
-| **宿主与工作流承载定界／宿主工作流owner** | `services/{agent_core,agent_runtime,agent_batch,agent_sessions,workflow_graph,llm}/**`：85文件37575行 | host推理与MRW授权、消息/批准/业务结果分开；工作流仅`executors/kernel.py::execute_node`先定位为特殊解释核，store/runtime必须逐符号重证。旧合同壳、LLM重复adapter和批次装配全部进入退出判断，不保整文件 | 既有CoreToolSpec、workflow/batch native及已选Runtime；V-control/V-workflow/V-host。D/A_max/N_min未定 |
-| **项目治理及旧工具定界／项目治理owner** | `services/{projects,aggregator,governance,local_index,stats,streamplus}/**`：19文件3307行；local_index/streamplus先扣§3 | projects scope、聚合与显式清理效果逐核保留；stats1190行与`main/backend/scripts/check_time_density_runtime_support.py`851行同义尚未证，必须查configured live/release gate/pinned consumer后给出合并或停止闭包，不臆造零新增 | 原project registry/领域事务；V-project与相关现存time semantics原checker。D/A_max/N_min未定 |
-| **服务根胶水定界／服务集成owner** | `services/*.py`的19个tracked文件11659行，不含任何子目录 | 精确含`codex_oauth,derived,document_admin,job_logger,keyword_generation,keyword_memory,llm_report_export,llm_report_export_audit,llm_report_export_token_state,llm_report_generator,llm_report_source_enrichment,llm_report_trends,observability_tasks,report,request_identity,settings_manager,skill_runtime,task_readback_metadata,tasks.py`；分别核auth/写入/export效果与可退路由胶水，不能漏账或以根目录全保 | 原host auth、writer、task/skill贡献入口；对应业务owner原consumer。D/A_max/N_min未定 |
-| **原生能力与样板定界／原生能力owner** | `successor_runtime/{capabilities,specification,research,ops_domain}/**`：103文件55651行；扣ops_domain已定包 | `specification`2280行连生成脚本/exact-byte历史重放查清；其余capability DTO/特殊核、acceptance/sample/强制装配分别定界。`source_contracts.py`4245、`knowledge_common.py`1597、`material_ingest_common.py`708均须逐consumer重证，禁止无依据80%目标或因测试引用整保 | 原native贡献定义及catalog；V-kit、原catalog/历史reader见证。D/A_max/N_min未定 |
-| **耐久核与装配定界／耐久内核owner** | `successor_runtime/{language,runtime,substrate,assembly}/**`及其根`__init__.py`：130文件79503行 | 当前唯一Runtime的claim/commit/UNKNOWN/cancel、typed codec、恢复与effect边界保留必要语义；逐模块删重复表示、安装/样板依赖和桥。调查面79503仅为物理基线；按必要保留核与真实消费者确定删除闭包和替代成本，不要求重写现核。`projection_contracts.py`由ports/native/projection registry真实消费，须评估最小合同，不能误删 | 原Program/compiler/Runtime ports、ValueRepository、原Postgres实现；V-core/V-durable/V-kit。实施子包D/A_max/N_min及闭包待定，已证包先行 |
-| **API消费者切断定界／API集成owner** | `api/**`：39文件26297行 | 逐路由归具体用户能力，停止冗余功能入口；保留入口转回已选kernel，消除另行拼接/补写与兼容层。`api/__init__.py`与successor mount唯一集成写者，不按mount存在豁免 | 原API envelope/auth/项目scope、原native提交与reader；相关原integration/core tests。D/A_max/N_min未定 |
-| **平台其余承载定界／平台owner** | app其余88文件15463行：`composition,contracts,models,production_contract,production_observability,project_customization,settings,subprojects,successor_migration`及根`__init__,celery_app,main,release_identity,startup_hooks,web_ui_routes.py` | 模型/合同权威、启动与运维effect按能力核；历史migration/sample/profile和启动胶水给整族退出终点。不得把“其它”当无需调查残差，root文件只按该owner交接 | 原composition、registry、启动与观测入口；V-project/V-ops/V-host/V-kit及真实受影响原测试。D/A_max/N_min未定 |
+| **workflow公共首例／规则与集成同一owner**：同一typed定义驱动生产声明查找与handler安装，替换同kind两处手写分支 | `capabilities/workflow_native_contribution.py::{build_workflow_runtime_definition,assemble_workflow_native_definition,WORKFLOW_NATIVE_CONTRIBUTION_RULE}`；`PersistentOperationHandler`、原提交/reader；参考知识图投影的lower/assemble/install。输出最小规则扩展、原production消费者接入及被替代分支/装配删除；不另造factory清单 | 1作者贯通`workflow_native_contribution.py`、`assembly/workflow_assembly.py`及`composition/production.py`的workflow接缝，必要有效native目录及原测试；集成owner同人，禁止其它包同时写production/catalog。领域`services/workflow_graph/runtime.py::invoke_workflow_runtime_node/execute_node`只按必要接口改，不生成其输入/effect语义。D/A/N待精确闭包 | V-wiring＋V-workflow、V-type/V-kit及受影响V-durable。非默认同形定义进入真实production入口；当前尚缺该新接缝的非默认production见证，须在原测试补最小实例，不能把既有catalog见证当覆盖；事实改动自动带动装配，crossed input/output、重复/缺失identity、错authority均拒绝；声明/sync无effect，原权限/事务/UNKNOWN/cancel/恢复保持；旧分支删除才完成 |
+| **既选Runtime收缩与旧执行owner退出／耐久内核owner**：旧runtime/services执行owner与循环退出，现核冗余结构合并删除 | 原Program/compiler/Runtime ports/ValueRepository及Postgres实现；按真实消费者收缩language/runtime/substrate/assembly中重复codec/state/install-admission/first-specimen/reconcile/recovery与冻结审批样板。保留claim/commit、current grant、UNKNOWN/cancel、事务和实际必要恢复，独立领域writer不迁权，不另建kernel | 1owner、最多1个独立写面；workflow共享assembly/production/catalog仍由唯一集成owner维护，不与首例争写。可先定界不依赖新规则的重复闭包并收缩已有支持形状，实施前固定具名闭包D/A/N；物理79503不作净减，迁出成本计回原族 | V-core/V-durable/V-type/V-kit；查清所有现役consumer及独立领域writer，原效果/失败/恢复观察保持，所退旧owner不可执行、重复结构已删且达到包预算才完成 |
+| **同形能力迁移／领域作者**：复用已贯通规则并给出族内完整删除闭包 | 已知族：workflow剩余节点/读回；retrieval的`retrieval_{candidate,material,flow}_native`与`retrieval_native_catalog`；source的原source contracts/resolution/acquisition贡献；material/knowledge/writing原类型与writer贡献；host/项目API及同步工具/reader原权限与服务合同；前端manifest/WebUI原适配边界。每族先判已支持/新形状/特殊核/无需求；输出语义、typed定义、特殊kernel与独立见证，不逐能力手写contract/profile/codec/装配 | 每族1作者；有效native目录/production由集成席合入。最多3领域作者＋1集成席，互不改同一贡献源或consumer；依赖新接缝的形状等首例，既有形状与独立kernel可先做。workflow与首例共享文件须交接；source的item_writer等常量包释放；各族D/A/N未定，不假报可批量执行 | workflow用V-wiring/V-workflow；retrieval用V-retrieval及`focused main/backend/tests/successor_runtime/test_retrieval_native_catalog.py main/backend/tests/unit/test_retrieval_flow_native.py`；source用V-source；knowledge/material/writing用V-wiring中的知识图原见证及V-data；host/项目API用V-host/V-project；同步reader用对应原消费者测试，frontend/WebUI用V-ui。真实消费者保持且机械接线由规则派生；输入/输出、codec、kernel签名及reader结果关联保持，重复接线Any/宽dict随壳消除，不先擦为object/cast；不支持形状回规则owner |
+| **生产消费者收敛／唯一集成owner**：同一有效native组合供实际安装与投影消费 | 接收已验证typed native对象，使用`_installed_operation_facts/_installed_operation_handler`原入口及原reader；`contributions/project_catalog.py`当前CLI/check投影不能冒充worker目录，retrieval native/projection保持类型差异。输出原入口对同源对象的消费及重复列表、refs、手工装配删除，不建新注册层 | 1作者独占`composition/production.py`、共享assembly、有效native目录、project projection、贡献sync/check及受影响共享consumer；按族串行合并。可与不触及这些写面的最多3作者并行，首次workflow合并属于首例，不重复发包/计成本 | V-type/V-kit、V-durable及各族原API/reader测试；同一事实修改沿依赖到达真实消费者，当前grant仍执行前重读，派生投影无写权，安装失败不回退旧factory。无共享输入一致性不运行集成验证 |
+| **整族删除与净量结算／对应族owner**：切断旧执行与重复承载 | 原consumer已切换的证据、权威贡献源与该包D/A/N；输出旧声明/adapter/执行owner、专属tests/checkers/config及当前文档同批删除；现选Runtime只去冗余壳 | 每族1作者，最多2个互斥删除写面，同时仍受4席总限；consumer/catalog/checker交集归集成席串行。切换和删除是同一包完成条件，不拆成接入已完成/删除无限后置。无现役需求包直接沿§3，不依赖首例 | 各族focused selector、引用清零及V-kit，真实受影响集成沿V-durable/V-suite。保留必要独立见证和历史字节，原失败/恢复观察保持；达到原定D/A/N且旧路径不可执行才完成 |
 
-全项目其它具名包由root分配现有作者席，按真实用途与删除闭包取得精确收支：**前端owner**审`main/frontend-modern/src`的真实页面/交互与重复表达；**工具集成owner**覆盖kit、贡献、backend/root scripts、迁移、ops、search-lab、frontend tools和local入口，按当前用途停止或替换工具，selector随被测职责退役；**WebUI适配owner**相对具名上游分离vendor内MRW实现及测试增量，未知量不记零；**测试与文档集成owner**在职责退役后合并重复验证/说明并保留独立见证、现役合同及冻结历史。每包使用原入口和原测试，不新增统计平台；现役工具不可改标签逃账。
+已调查workflow首例的首要未定接缝是：workflow现有definition/context/binding如何最小扩展到原production安装需要的typed kernel/codec/authority与readback关联，避免再按kind重建一份名单。首例owner必须用实际调用面确定，不能预建覆盖所有未来能力的协议；这不表示全平台其它形状或预算已经确定，其余族继续按本表分类和定界。知识图投影已有装配路径可复用机制，不能据此认定retrieval动态步骤、source外部效果及所有CRUD都是同一语义形状。同步工具/reader、前端manifest和WebUI继续各自protocol/lifecycle，不因本首例添耐久层；真正外部JSON/provider输入在原解析边界收窄，不扩大为全库类型债治理。
 
-services六行恰398文件130558行；successor两行恰233文件135154行，连API与其它覆盖758文件。调查owner覆盖完整面，实施写权只按随后精确包授权。两面有真实消费者关联时必须把双方修改合入同一退役闭包，不能各保一层互相引用。
+### 全路径预算与删除覆盖账
 
-增长复审不是另一个可扩建包：workflow＋999由宿主工作流owner联合原生能力owner对`workflow_graph`、`workflow_legacy_dsl/workflow_native_contribution/workflow_slice_acceptance`定界；retrieval＋3763由检索owner联合原生能力owner对`project_retrieval`与`retrieval_*_native`定界；shared＋1594由耐久内核owner把共用codec/安装/表示成本逐项归回实际受益族。增量沿上一轮跨目录family口径保留，不与本轮独占文件基线混算；`retrieval_material_native`的真实生产引用已核，已不存在的staged/effect文件不列候选。
+下表只防漏文件，不作为主要架构切片或目录保留凭证。按上述能力链圈定互斥闭包，再向本账归集删除、保留核与新增；先扣§3已分配文件，跨目录成本只计一次。路径相对`A`，各面D/A/N随实际包形成。
 
-## 5. 工作顺序、独占写面与资源
+| 覆盖责任面 | c3路径范围 | 文件／行数 |
+| --- | --- | ---: |
+| 来源采集 | `services/{source_library,collect_runtime,ingest,crawlers,crawlers_mgmt,ingest_config,http}` | 126／38587 |
+| 检索资源 | `services/{search,project_retrieval,resource_pool,discovery,indexer}` | 56／19896 |
+| 材料知识写作 | `services/{document_queries,document_views,information_topology,typed_knowledge,graph,clue_chains,writing,extraction}` | 93／19534 |
+| 宿主工作流 | `services/{agent_core,agent_runtime,agent_batch,agent_sessions,workflow_graph,llm}` | 85／37575 |
+| 项目治理 | `services/{projects,aggregator,governance,local_index,stats,streamplus}` | 19／3307 |
+| 服务根胶水 | `services/*.py`的19个tracked文件 | 19／11659 |
+| 原生能力与样板 | `successor_runtime/{capabilities,specification,research,ops_domain}` | 103／55651 |
+| 运行结构与装配 | `successor_runtime/{language,runtime,substrate,assembly}`及根`__init__.py`，含领域handler | 130／79503 |
+| API | `api/**` | 39／26297 |
+| 其它平台 | app其余全部tracked源码，包括composition、models/contracts、启动、观测及项目定义 | 88／15463 |
 
-1. **保持现核并推进已证删除**：核清必要typed/authority/effect、真实消费者与旧执行owner边界；已确认的零新增或最小替代整族包并行推进，不等待所有预算校准。旧runtime全量退役与唯一路径方向不变，当前既选核只压缩冗余，不推倒重写。
-2. **代表包校准并扩展同形删除**：由一个owner完成有真实消费者的代表性收缩包，核实最小充分保留核、真实删除与替代成本；已有充分证据直接复用，不新增流程门禁。每包独立固定D/A/N后扩展；领域、API、前端和工具的无依赖包继续并行，共享消费者、贡献源与生成闭包由集成owner串行交接。
-3. **有据形成总体承诺并收口**：具名必要保留核与互斥删除包预算形成后，由root裁定可执行总体区间与累计净减并持续实施，不无限定界。整体按结构退出、已证收支及必要行为保持验收；typed、权限、UNKNOWN、恢复和真实消费者验证不能为行数削减。工具职责退役才取消selector，现役七gate不降低；passed、kept、skip/not_run及失败分列，首批小包或净减大于零不构成整体完成。
+前六面398文件130558行、successor两面233文件135154行，加API与其它覆盖758文件307472行。前端、kit/native贡献、脚本/迁移/ops/search-lab/local入口、vendor内MRW定制及测试/现役文档继续按框架全项目账定界；独立用途删除可先行，不能以archive标签逃账。workflow＋999/retrieval＋3763/shared＋1594沿旧跨目录family口径复审，不与本表重计。当前url_pool2112行中的旧ThreadPool已退；staged/effect旧文件不得重计；stats与time-density checker同义尚未证，真实consumer引用只用于定位，不能全保或假报零新增。
 
-全局最多6名活跃Agent，明确包含root分发1名和Astra编排1名，因此最多4名实际作者或调查者、最多4个独立写面。集成owner从这4个席位中指定，不能另增第7名集成层；root负责分发和预算裁定，Astra只编排、只读审查和文档维护，其它owner实施；Astra不执行代码验证。可并行的是无重叠贡献源/consumer/测试资源的实际包，不是仅文件名不同。`pre_release_gate.sh`的local-index/streamplus两已退selector由同一集成owner串行清理；item_writer先常量包后来源包。ops_domain涉及的贡献源、派生registry/sketch/witness和公共checker同样集中交接，不能两个作者各改同一生成闭包。
+## 5. 执行前沿、职责与资源
 
-定界的安全拆分上限：来源采集2片（provider/source接口；ingest/collect效果与胶水）、检索资源2片（project_retrieval；search/resource/discovery/indexer）、材料知识2片（typed/topology/graph/clue关系；document/writing/extraction）、宿主工作流2片（host/core/llm授权；batch/session/workflow）、项目治理1片、服务根胶水2片（auth/tasks/skill；document/report/settings）、原生能力2片（capabilities；specification/research/ops历史生成）、耐久核2片（language/runtime语义；substrate/assembly实现）、API2片（领域入口；宿主/控制/运维入口）、平台其它2片（models/contracts/项目定义；composition/启动/观测）。这些均是只读片，结论由该包唯一owner汇合；所有片共用上述4席上限，不同时启动整张表。未定共同接口不派多个实施者各造adapter；实施并发只在互斥预算包和共享消费者交接固定后成立。
+当前前沿是§3三个已证预算的安全包、workflow首例精确闭包/预算定界，以及已有支持形状和独立kernel的有界准备；本轮仅方案，尚无实施ready/passed。首例1作者贯通后，依赖该规则的同形包才释放；已经充分证明的规则路径直接复用，不增审批关卡。root按具名保留核、互斥包和实测公共成本裁定后续可执行总体区间与累计净减，不无限定界、不恢复已撤硬帽，也不以首批2149或净减大于零结项。
 
-PG、coverage、frontend build/E2E各独占窗口；pure最多2并行进程，分别独立tmp/cache/Hypothesis目录及明确的DB/服务不可达端口，不写共享coverage。所有权威定义、注册和所需见证同步后才供消费者执行。测试删除不代表测试通过；停用专属功能后的验收必须指向仍在的相邻能力与引用清零。
+| 可执行前沿 | 依赖、并发与收敛边界 |
+| --- | --- |
+| 安全删除与公共接缝首例 | §3安全包可先行；1名规则兼集成owner定界并贯通workflow首例，另≤3名不争写作者，总作者≤4。闭包预算在实施及验证前固定；不依赖新规则的已有形状、独立Runtime重复结构收缩不等首例 |
+| 首例贯通后的同形迁移 | 只释放依赖已证明规则的形状，≤3名领域作者＋1名集成；新形状及未定预算继续由对应owner定界，不据此阻塞无依赖包 |
+| 每族消费者与删除闭合 | 共享消费者串行合入 → 原消费者验证 → 同包删旧 → 实际收支结算；这些是一个包的完成依赖，不能接入即结项或把删除无限后置 |
+| 一致输入上的集成验证 | 集成owner集中运行受影响gate及真实PG等原验证；验证期间禁止改所测输入面，其它无依赖写面可继续。源码并发不等于测试并发，资源限制沿下文执行 |
+| 总体覆盖与净量收口 | 汇总全项目具名保留核、互斥删除包与全部替代成本，由root据实际闭包裁定总体区间和累计净减；未知形状/预算保留身份与owner，不以局部通过或首批净减代替整体完成 |
+
+全局最多6名活跃Agent：root分发/裁定1名、Astra编排/只读审查/文档1名、作者或调查者最多4名，集成owner占其中1席。领域作者给语义/类型/特殊核/独立见证；规则owner补lower/derive缺口；集成owner唯一改共享production消费者和有效目录/投影。首例期间规则与集成由同人承担，另3席可做独立包；批量期最多3领域作者＋1集成。共同错误归唯一owner修复，无依赖包继续；不能让每个迁移作者重建同一parser/adapter。每包回传结果/文件/验证/风险及净量，成本沿原进度记录汇总，不新建平台。
+
+源码并行不等于测试并行：PG、coverage、frontend build/E2E各独占；pure最多2进程，使用独立tmp/cache/Hypothesis目录和明确不可达DB/服务端口，不写共享coverage。同一权威源、registry、shared checker及装配只能由集成owner在一致输入上sync/check。§3的local-index与streamplus可分作者删除，但`pre_release_gate.sh`由同一集成席串行清selector；item_writer先常量包后source包。ops贡献源/派生registry同样集中交接；已有七gate和相邻能力验证不因专属测试退出而降低。
 
 ## 6. 原验证入口
 
@@ -89,11 +101,21 @@ focused() (
 | V-data | `focused main/backend/tests/unit/test_document_queries_contracts_unittest.py main/backend/tests/unit/test_document_views_unittest.py main/backend/tests/unit/test_information_topology_document_materials_unittest.py main/backend/tests/unit/test_writing_document_service_unittest.py` |
 | V-control／V-workflow | `focused main/backend/tests/unit/test_agent_sessions_service_unittest.py main/backend/tests/unit/test_agent_batch_api_unittest.py main/backend/tests/unit/test_workflow_graph_runtime_unittest.py main/backend/tests/integration/test_workflow_graph_api_unittest.py` |
 | V-project | `focused main/backend/tests/unit/test_project_customization_service_factory_unittest.py main/backend/tests/core_business/test_project_customization_core_contract.py` |
+| V-wiring | `focused main/backend/tests/successor_runtime/test_c1_native_catalog.py main/backend/tests/successor_runtime/test_c8_graph_projection_contribution.py main/backend/tests/unit/test_workflow_graph_executor_kernel_unittest.py`；知识图已有catalog纯性、非默认registry、重复identity和真实装配见证作参考；在原workflow测试与V-durable补同源变化、非默认production、类型/identity/authority负向与无effect见证；不声称现有文件已覆盖新接缝 |
 | V-core | `focused main/backend/tests/successor_runtime/test_program_ast.py main/backend/tests/successor_runtime/test_compiler.py main/backend/tests/successor_runtime/test_p3_traversal_foundation.py main/backend/tests/successor_runtime/test_p0d_event_replay.py` |
-| V-durable | 原`main/backend/tests/successor_runtime/{test_agent_batch_api_pg,test_request_cancel,test_mixed_operation_worker,test_traversal_persistent_activation,test_successor_production_wiring}.py`，设置实际专属`SUCCESSOR_TEST_DATABASE_URL`，fixture资源先核再运行，PG独占 |
+| V-durable | workflow首例复用下列精确命令及`test_p0c_postgres_activation.py`相关原见证；原`main/backend/tests/successor_runtime/{test_agent_batch_api_pg,test_request_cancel,test_mixed_operation_worker,test_traversal_persistent_activation,test_successor_production_wiring}.py`，设置实际专属`SUCCESSOR_TEST_DATABASE_URL`，fixture资源先核再运行，PG独占 |
 | V-type／V-kit | `MRW_TYPECHECK_PYTHON=.venv/bin/python main/backend/.venv311/bin/python scripts/dev.py typecheck --public-boundaries`；原venv `scripts/dev.py sync`（有声明变更时）再`check`、`test`、`gates`；受影响原ruff保持，不手改派生表 |
 | V-suite | `bash scripts/test-standardize.sh ci-pr -q`及原`coverage`入口，100/20不降；沿现有selector清单核精确新增/退役/资源分区，capacity原Unix-socket条件保持。只按实际交付与依赖跑，不由文档编辑触发 |
 | V-host／V-ui | 沿实际改动选择原auth/typed-fetch/manifest/浏览器与写作API见证；真实provider调用需其原授权资源。无宿主适配改动不新加模型测试；vendor/generated分账 |
+
+workflow真实worker回放使用原`live_database`fixture，先核隔离并独占PG窗口；复用已配置专属地址，不能通过`focused`的不可达DB环境执行，保留原退出码。以下只是待实施命令，本轮未运行；新增的非默认production见证进入同一原测试文件，不靠增加生产业务功能证明扩展性。
+
+```bash
+PYTHONPATH="$PWD:$PWD/src:$PWD/main/backend" \
+SUCCESSOR_TEST_DATABASE_URL="${SUCCESSOR_TEST_DATABASE_URL:?use the existing isolated PostgreSQL test database}" \
+main/backend/.venv311/bin/python -m pytest -q -rs \
+  main/backend/tests/successor_runtime/test_mixed_operation_worker.py::test_graph_facade_real_tasks_replay_exact_upstream_outputs
+```
 
 所有测试路径相对根cwd；不把已删local-index/streamplus/ops专属测试写作退役后的验收命令。引用清零使用现有`rg`并明确源码/脚本/贡献源观察边界；历史快照允许残留原文本，不要求改写历史。若原声明/门禁仍绑定该专属义务，先修权威源并sync，不跳过现役七gate。
 
@@ -101,8 +123,8 @@ focused() (
 
 - 必要能力、事实owner、真实effect、身份/当前权限和失败语义保持；明确停用能力已撤去公开与内部执行入口。
 - services旧整体承载、successor冗余族、API/胶水及其它承载均完成具体处置；必要核逐项有依据，不能把全目录改名、委托或保留互相引用当退役。
-- 每个实施包整族退出并达到发包前D/A_max/N_min；全项目具名必要保留核与互斥包覆盖明确，达到root据真实闭包裁定的总体区间与累计净减，不以局部收支合格代替整体退役。
-- 原注册/配置/派生见证/专属测试/文档同批一致；必要行为、公共类型、现役七gate及实际交付要求通过，kept、skip、not_run与失败按原归属记录。
+- 每个实施包同源规则到达实际production/worker/reader消费者，旧接线与实现整族退出并达到发包前D/A_max/N_min；全项目必要核及互斥包覆盖明确，达到root据真实闭包裁定的总体区间与累计净减，不以注册或接入通过代替整体退役。
+- 原注册/配置/派生见证/专属测试/文档同批一致；非默认同形定义到真实消费者且类型/identity/authority错误拒绝，声明/sync无effect；框架机制与项目迁移分别具备必要行为、公共类型、现役七gate及实际交付证据，operation/codec/kernel/reader保持具体类型关系，kept、skip、not_run与失败按原归属记录。
 - 成本包含共同修复和跨目录新增；生产/测试/工具/前端/vendor/历史分列，不以删文档、搬家或旧dirty回撤抵扣。缺失调用/token和完整验收成本不记零，不报无证据提速。
 
 内部全面类型治理、UI重设计、性能和新扩展建设不自动加入退出条件。它们也不能被拿来掩盖当前结构退役未完成。未经证明的硬规模承诺已撤回，精确包定界、代表性收缩与总体承诺校准仍未完成；这不授权永久保留完整services或旧runtime。
@@ -115,4 +137,4 @@ focused() (
 
 原frontend14含route mocks及Codex iframe mock shell，direct HOST1只证明注册写作工具/approval/turn及canonical API/SQL读回；内部类型/Ruff债、4skip和缺失调用/token成本继续保留。上一轮workflow＋999/retrieval＋3763/shared＋1594的独立增长责任进入本轮定界，source下降不抵消。
 
-本轮实际完成：保留c3源码定位、全项目盘点与已证首批预算，撤回未经证明的硬行数上限和净减承诺，改为现核保持、代表包校准及有据总体收口，更新框架、本文及开发README入口。纠正了旧ThreadPool区间、不存在staged/effect文件的重复删除候选，撤回projection_contracts/material_native零consumer误判和无依据80%目标。没有生产/测试代码修改、实际退役或代码验证执行；文档随本次交付统一提交；未push或deploy。下一工作按§3与§4现有包执行；旧Stage4–6部署任务继续STOPPED。
+本轮实际完成：复用局部静态链路与全项目基线，明确workflow同源接线公共首例、同形迁移、共享消费者收敛和同批整族删除合同；十责任面缩为覆盖账，已撤硬帽不恢复，已证首批预算保持，更新框架、本文及README入口。纠正了旧ThreadPool区间、不存在staged/effect文件的重复删除候选，撤回projection_contracts/material_native零consumer误判和无依据80%目标。没有生产/测试代码修改、实际退役或代码验证执行；文档随本次交付统一提交；未push或deploy。下一工作按§3与§4现有包执行；旧Stage4–6部署任务继续STOPPED。
