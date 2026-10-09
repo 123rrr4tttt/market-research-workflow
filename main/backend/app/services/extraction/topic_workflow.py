@@ -1,10 +1,15 @@
 from __future__ import annotations
 
 import os
+from collections.abc import Callable, Iterator, Mapping
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextvars import copy_context
 from dataclasses import dataclass
-from typing import Any
+from typing import NoReturn, Protocol, TypeGuard, TypeVar, runtime_checkable
+
+from functorial_kit import Failure
+
+from mrw_functorial_kit.core.provider_port_failures import ingest_operation_failures
 
 from ..ingest.postprocess_frontdoor import run_frontdoor_extraction
 
@@ -14,8 +19,142 @@ TOPIC_FIELDS = {
     "operation": "operation_structured",
 }
 
+TopicPayload = dict[str, object]
+TopicMap = dict[object, object]
+TopicExtractor = Callable[[str, str], object]
+ItemT = TypeVar("ItemT")
 
-def empty_topic_structured() -> dict[str, Any]:
+
+@runtime_checkable
+class _ObjectIterable(Protocol):
+    def __iter__(self) -> Iterator[object]: ...
+
+
+def _is_object_dict(value: object) -> TypeGuard[dict[object, object]]:
+    return isinstance(value, dict)
+
+
+def _object_view(value: object) -> TopicMap:
+    return value if _is_object_dict(value) else {}
+
+
+_TOPIC_FAILURE_WITNESS = "test:test_topic_merge_preserves_invalid_item_and_confidence_semantics"
+_TOPIC_FAILURE_CONTEXT_KEYS = frozenset(
+    {
+        "boundary_class",
+        "failure_family",
+        "operation",
+        "owner",
+        "public_exception",
+        "public_message",
+        "site",
+        "witness",
+    }
+)
+
+
+def _payload_failure(message: str, *, site: str, **details: object) -> Failure:
+    context: dict[str, object] = {
+        "boundary_class": "PURE_CONTRACT_FAILURE",
+        "failure_family": ingest_operation_failures.name,
+        "operation": "merge_topic_structured",
+        "owner": site,
+        "public_exception": "TypeError",
+        "public_message": message,
+        "site": site,
+        "witness": _TOPIC_FAILURE_WITNESS,
+    }
+    context.update(details)
+    return ingest_operation_failures.fail("extraction_payload_invalid", message, context)
+
+
+def _raise_payload_failure(failure: Failure) -> NoReturn:
+    context = failure.context or {}
+    if (
+        not ingest_operation_failures.matches(failure)
+        or _TOPIC_FAILURE_CONTEXT_KEYS - set(context)
+        or context.get("failure_family") != ingest_operation_failures.name
+        or context.get("public_exception") != "TypeError"
+    ):
+        # kit:boundary owner=extraction.topic_workflow.failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_topic_merge_preserves_invalid_item_and_confidence_semantics
+        raise TypeError("topic payload failure lift context is incomplete or inconsistent")
+    # kit:boundary owner=extraction.topic_workflow.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=ingest.operation.failure witness=test:test_topic_merge_preserves_invalid_item_and_confidence_semantics
+    raise TypeError(str(context["public_message"]))
+
+
+def _object_list(value: object) -> list[object] | Failure:
+    if not value:
+        return []
+    if isinstance(value, _ObjectIterable):
+        return list(value)
+    return _payload_failure(
+        f"topic collection is not iterable: {type(value).__name__}",
+        site="extraction.topic_workflow.collection",
+        actual_type=type(value).__name__,
+    )
+
+
+def _item_view(value: object) -> TopicMap | Failure:
+    if not value:
+        return {}
+    if _is_object_dict(value):
+        return value
+    return _payload_failure(
+        f"topic item is not an object: {type(value).__name__}",
+        site="extraction.topic_workflow.item",
+        actual_type=type(value).__name__,
+    )
+
+
+def _required_object_list(value: object) -> list[object]:
+    result = _object_list(value)
+    if isinstance(result, Failure):
+        _raise_payload_failure(result)
+    return result
+
+
+def _required_item_view(value: object) -> TopicMap:
+    result = _item_view(value)
+    if isinstance(result, Failure):
+        _raise_payload_failure(result)
+    return result
+
+
+def _text_list(value: object) -> list[str]:
+    return [str(item).lower() for item in _required_object_list(value)]
+
+
+def _float_value(value: object) -> float | Failure:
+    if value is None:
+        return 0.0
+    if isinstance(value, (str, int, float)):
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            pass
+    return _payload_failure(
+        f"topic confidence is not numeric: {type(value).__name__}",
+        site="extraction.topic_workflow.confidence",
+        actual_type=type(value).__name__,
+    )
+
+
+def _dedupe(items: list[ItemT], key_fn: Callable[[ItemT], str]) -> list[ItemT]:
+    seen: set[str] = set()
+    out: list[ItemT] = []
+    for item in items:
+        try:
+            key = key_fn(item)
+        except Exception:
+            key = str(item)
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(item)
+    return out
+
+
+def empty_topic_structured() -> TopicPayload:
     return {
         "entities": [],
         "relations": [],
@@ -28,58 +167,62 @@ def empty_topic_structured() -> dict[str, Any]:
     }
 
 
-def topic_has_data(payload: Any) -> bool:
-    return isinstance(payload, dict) and bool(
-        payload.get("entities") or payload.get("relations") or payload.get("facts") or payload.get("topics") or payload.get("signals")
+def topic_has_data(payload: object) -> bool:
+    view = _object_view(payload)
+    return bool(
+        view.get("entities")
+        or view.get("relations")
+        or view.get("facts")
+        or view.get("topics")
+        or view.get("signals")
     )
 
 
-def merge_topic_structured(existing: dict[str, Any] | None, incoming: dict[str, Any] | None) -> dict[str, Any]:
-    base = existing if isinstance(existing, dict) else {}
-    nxt = incoming if isinstance(incoming, dict) else {}
-
-    def _dedupe(items: list[Any], key_fn):
-        seen = set()
-        out = []
-        for item in items:
-            try:
-                k = key_fn(item)
-            except Exception:
-                k = str(item)
-            if k in seen:
-                continue
-            seen.add(k)
-            out.append(item)
-        return out
+def merge_topic_structured(existing: object, incoming: object) -> TopicPayload:
+    base = _object_view(existing)
+    nxt = _object_view(incoming)
 
     entities = _dedupe(
-        list(base.get("entities") or []) + list(nxt.get("entities") or []),
-        lambda e: f"{str((e or {}).get('text') or '').strip().lower()}::{str((e or {}).get('type') or '').strip().lower()}",
+        _required_object_list(base.get("entities")) + _required_object_list(nxt.get("entities")),
+        lambda entity: (
+            f"{str(_required_item_view(entity).get('text') or '').strip().lower()}::"
+            f"{str(_required_item_view(entity).get('type') or '').strip().lower()}"
+        ),
     )
     relations = _dedupe(
-        list(base.get("relations") or []) + list(nxt.get("relations") or []),
-        lambda r: "::".join([
-            str((r or {}).get("subject") or "").strip().lower(),
-            str((r or {}).get("predicate") or "").strip().lower(),
-            str((r or {}).get("object") or "").strip().lower(),
+        _required_object_list(base.get("relations")) + _required_object_list(nxt.get("relations")),
+        lambda relation: "::".join([
+            str(_required_item_view(relation).get("subject") or "").strip().lower(),
+            str(_required_item_view(relation).get("predicate") or "").strip().lower(),
+            str(_required_item_view(relation).get("object") or "").strip().lower(),
         ]),
     )
     facts = _dedupe(
-        list(base.get("facts") or []) + list(nxt.get("facts") or []),
-        lambda f: f"{str((f or {}).get('fact_type') or '').strip().lower()}::{str(sorted((f or {}).items()))}",
+        _required_object_list(base.get("facts")) + _required_object_list(nxt.get("facts")),
+        lambda fact: (
+            f"{str(_required_item_view(fact).get('fact_type') or '').strip().lower()}::"
+            f"{str(sorted(_required_item_view(fact).items()))}"
+        ),
     )
     topics = _dedupe(
-        [str(x).strip() for x in (list(base.get("topics") or []) + list(nxt.get("topics") or [])) if str(x).strip()],
-        lambda x: x.lower(),
+        [
+            str(item).strip()
+            for item in _required_object_list(base.get("topics")) + _required_object_list(nxt.get("topics"))
+            if str(item).strip()
+        ],
+        lambda topic: topic.lower(),
     )
-    signals = dict(base.get("signals") or {})
-    signals.update(nxt.get("signals") or {})
-    try:
-        confidence = max(float(base.get("confidence") or 0.0), float(nxt.get("confidence") or 0.0))
-    except Exception:
-        confidence = 0.0
+    signals = dict(_object_view(base.get("signals")))
+    signals.update(_object_view(nxt.get("signals")))
+    base_confidence = _float_value(base.get("confidence"))
+    next_confidence = _float_value(nxt.get("confidence"))
+    confidence = (
+        0.0
+        if isinstance(base_confidence, Failure) or isinstance(next_confidence, Failure)
+        else max(base_confidence, next_confidence)
+    )
     source_excerpt = str(nxt.get("source_excerpt") or base.get("source_excerpt") or "")[:800]
-    out = {
+    out: TopicPayload = {
         "entities": entities[:80],
         "relations": relations[:80],
         "facts": facts[:80],
@@ -150,17 +293,17 @@ def score_chunk_for_topic(
     topic: str,
     chunk_text: str,
     *,
-    extracted_data: dict[str, Any] | None,
-    er: dict[str, Any] | None,
-    dicts: dict[str, Any],
+    extracted_data: object,
+    er: object,
+    dicts: Mapping[str, object],
 ) -> tuple[int, list[str]]:
     s = str(chunk_text or "").lower()
     score = 0
     matched: list[str] = []
-    predicates = [str(x).lower() for x in (dicts.get("predicates") or [])]
-    modifiers = [str(x).lower() for x in (dicts.get("modifiers") or [])]
-    topic_nouns = [str(x).lower() for x in (dicts.get(f"{topic}_nouns") or [])]
-    component_nouns = [str(x).lower() for x in (dicts.get("components") or [])]
+    predicates = _text_list(dicts.get("predicates"))
+    modifiers = _text_list(dicts.get("modifiers"))
+    topic_nouns = _text_list(dicts.get(f"{topic}_nouns"))
+    component_nouns = _text_list(dicts.get("components"))
 
     for token, weight in [(predicates, 1), (modifiers, 1), (topic_nouns, 2)]:
         for t in token:
@@ -174,13 +317,13 @@ def score_chunk_for_topic(
                 score += 1
                 matched.append(t)
 
-    ex = extracted_data if isinstance(extracted_data, dict) else {}
-    if topic == "operation" and (isinstance(ex.get("market"), dict) or isinstance(ex.get("sentiment"), dict)):
+    ex = _object_view(extracted_data)
+    if topic == "operation" and (_is_object_dict(ex.get("market")) or _is_object_dict(ex.get("sentiment"))):
         score += 1
         matched.append("__market_or_sentiment_signal__")
     if topic == "company":
-        ents = (er or {}).get("entities") if isinstance(er, dict) else []
-        if any(str((e or {}).get("type") or "").upper() == "ORG" for e in (ents or [])):
+        ents = _required_object_list(_object_view(er).get("entities"))
+        if any(str(_object_view(entity).get("type") or "").upper() == "ORG" for entity in ents):
             score += 2
             matched.append("__org_entity__")
 
@@ -194,7 +337,7 @@ def select_chunks_with_coverage(scored_chunks: list[TopicChunk], *, max_chunks: 
     candidates = [c for c in scored_chunks if c.score >= min_score]
     if not candidates:
         return [], 0.0
-    all_terms = set()
+    all_terms: set[str] = set()
     for c in candidates:
         all_terms.update([t for t in c.matched_terms if not t.startswith("__")])
     selected: list[TopicChunk] = []
@@ -220,7 +363,7 @@ def select_chunks_with_coverage(scored_chunks: list[TopicChunk], *, max_chunks: 
     return selected, coverage_ratio
 
 
-def _default_topic_extractor(topic: str, text: str) -> dict[str, Any]:
+def _default_topic_extractor(topic: str, text: str) -> TopicMap:
     result = run_frontdoor_extraction(
         title=None,
         content=text,
@@ -235,15 +378,19 @@ def _default_topic_extractor(topic: str, text: str) -> dict[str, Any]:
             "include_operation": topic == "operation",
         },
     )
-    domains = result.get("domains") if isinstance(result, dict) else None
+    domains = _object_view(result.get("domains"))
     field = TOPIC_FIELDS[topic]
-    payload = domains.get(field) if isinstance(domains, dict) else None
-    return payload if isinstance(payload, dict) else empty_topic_structured()
+    payload = domains.get(field)
+    return _object_view(payload) if _is_object_dict(payload) else _object_view(empty_topic_structured())
 
 
-def _extract_topic_from_chunk(topic_extractor: Any, topic: str, text: str) -> dict[str, Any]:
+def _extract_topic_from_chunk(topic_extractor: TopicExtractor, topic: str, text: str) -> TopicMap:
     payload = topic_extractor(topic, text)
-    return payload if isinstance(payload, dict) else empty_topic_structured()
+    return _object_view(payload) if _is_object_dict(payload) else _object_view(empty_topic_structured())
+
+
+def _resolve_topic_extractor(value: object) -> TopicExtractor:
+    return value if callable(value) else _default_topic_extractor
 
 
 def _resolve_parallel_workers(total_tasks: int) -> int:
@@ -259,12 +406,12 @@ def _resolve_parallel_workers(total_tasks: int) -> int:
 
 def _run_topic_chunk_tasks(
     *,
-    topic_extractor: Any,
+    topic_extractor: TopicExtractor,
     tasks: list[tuple[str, TopicChunk]],
-) -> dict[str, list[dict[str, Any]]]:
+) -> dict[str, list[TopicMap]]:
     if not tasks:
         return {}
-    grouped: dict[str, list[dict[str, Any]]] = {}
+    grouped: dict[str, list[TopicMap]] = {}
     workers = _resolve_parallel_workers(len(tasks))
     if workers == 1:
         for topic, ch in tasks:
@@ -283,32 +430,36 @@ def _run_topic_chunk_tasks(
             try:
                 payload = future.result()
             except Exception:
-                payload = empty_topic_structured()
-            grouped.setdefault(topic, []).append(payload if isinstance(payload, dict) else empty_topic_structured())
+                payload = _object_view(empty_topic_structured())
+            grouped.setdefault(topic, []).append(payload)
     return grouped
 
 
 def run_topic_extraction_workflow(
     *,
-    extraction_app: Any | None,
+    extraction_app: object | None,
     text: str,
     topics: list[str],
-    extracted_data: dict[str, Any] | None,
-    dictionaries: dict[str, Any],
+    extracted_data: object,
+    dictionaries: Mapping[str, object],
     max_selected_chunks: int = 6,
     fallback_max_chunks: int = 8,
-    topic_extractor: Any | None = None,
-) -> dict[str, Any]:
+    topic_extractor: object | None = None,
+) -> dict[str, object]:
     del extraction_app  # Retained for backward-compatible call sites; topic extraction now routes via topic_extractor/frontdoor.
-    ex = extracted_data if isinstance(extracted_data, dict) else {}
-    er = ex.get("entities_relations") if isinstance(ex.get("entities_relations"), dict) else None
+    ex = _object_view(extracted_data)
+    er = _object_view(ex.get("entities_relations"))
     chunks = segment_text(text, target_size=1000, overlap=120, max_chunks=30)
     if not chunks:
         return {"results": {t: empty_topic_structured() for t in topics}, "diagnostics": {"chunks_total": 0}}
-    effective_topic_extractor = topic_extractor if callable(topic_extractor) else _default_topic_extractor
+    effective_topic_extractor = _resolve_topic_extractor(topic_extractor)
 
-    topic_results: dict[str, dict[str, Any]] = {}
-    diagnostics: dict[str, Any] = {"chunks_total": len(chunks), "topics": {}}
+    topic_results: dict[str, TopicPayload] = {}
+    topic_diagnostics: dict[str, object] = {}
+    diagnostics: dict[str, object] = {
+        "chunks_total": len(chunks),
+        "topics": topic_diagnostics,
+    }
     total_chunk_tasks = 0
 
     for topic in topics:
@@ -338,7 +489,7 @@ def run_topic_extraction_workflow(
             for payload in residual_payloads.get(topic, []):
                 merged = merge_topic_structured(merged, payload)
         topic_results[topic] = merged
-        diagnostics["topics"][topic] = {
+        topic_diagnostics[topic] = {
             "selected_chunks": [c.chunk_id for c in selected],
             "selected_count": len(selected),
             "coverage_ratio": round(float(coverage), 4),

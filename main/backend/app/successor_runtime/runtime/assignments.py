@@ -18,7 +18,12 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from app.successor_runtime.language.object_contracts import OperationContractRef
 from app.successor_runtime.language.object_contracts import ReturnContract
 
-from .failure_policy import canonical_digest, raise_runtime_failure, runtime_failure
+from .failure_policy import (
+    canonical_digest,
+    public_exception_type,
+    raise_runtime_failure,
+    runtime_failure,
+)
 
 _RUNTIME_CONTRACT_WITNESS = "test:test_w07_runtime_failure_lift_context"
 
@@ -73,14 +78,7 @@ def raise_assignment_failure(failure: Failure) -> None:
 
 
 def _exception_type_from_failure(failure: Failure) -> type[Exception]:
-    name = (failure.context or {}).get("public_exception")
-    return {
-        "TypeError": TypeError,
-        "ValueError": ValueError,
-        "OverflowError": OverflowError,
-        "KeyError": KeyError,
-        "AttributeError": AttributeError,
-    }.get(name, ValueError)
+    return public_exception_type(failure)
 
 
 class ContentAddressedBinding(FrozenContract):
@@ -103,7 +101,11 @@ class ContentAddressedBinding(FrozenContract):
         if "binding_digest" in content:
             # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
             raise ValueError("binding_digest is derived from canonical binding content")
-        provisional = cls.model_construct(**content, binding_digest="0" * 64)
+        provisional = cls.model_construct(
+            _fields_set=None,
+            **content,
+            binding_digest="0" * 64,
+        )
         return cls(
             **content,
             binding_digest=canonical_digest(

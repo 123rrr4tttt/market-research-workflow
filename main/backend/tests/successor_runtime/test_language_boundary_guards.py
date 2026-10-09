@@ -14,6 +14,7 @@ import json
 import sys
 from pathlib import Path
 from types import SimpleNamespace
+from typing import TypeGuard
 
 import pytest
 from functorial_kit import Failure
@@ -89,6 +90,14 @@ MATERIAL_REF = ObjectType(
     codec_id="mrw.first-specimen.codec.v1",
     canonical_codec_version="1",
 )
+
+
+def _is_object_list(value: object) -> TypeGuard[list[object]]:
+    return isinstance(value, list)
+
+
+def _is_string_object_dict(value: object) -> TypeGuard[dict[str, object]]:
+    return isinstance(value, dict) and all(isinstance(key, str) for key in value)
 
 
 def _value_ref(value_id: str, object_type: ObjectType) -> ValueRef:
@@ -644,6 +653,42 @@ def test_program_codec_shape_guards_return_typed_failure() -> None:
         result = try_decode_ast(root)
         assert isinstance(result, Failure)
         assert result.code == "PROGRAM_CODEC_INVALID"
+
+
+def test_program_codec_rejects_unknown_transform_kind_as_typed_failure_and_legacy_lift() -> None:
+    spec = dataclasses.replace(
+        _program_for_root(identity_node(INTENT)),
+        transform_refs=(TransformRef("guard.transform", "1", "0" * 64),),
+    ).with_digest()
+    payload = encode_program_spec(spec)
+    program = payload.get("program")
+    assert _is_string_object_dict(program)
+    encoded_refs = program.get("transform_refs")
+    assert _is_object_list(encoded_refs) and len(encoded_refs) == 2
+    refs = encoded_refs[1]
+    assert _is_object_list(refs) and len(refs) == 1
+    tagged_ref = refs[0]
+    assert _is_string_object_dict(tagged_ref)
+    encoded_ref = tagged_ref.get("$json")
+    assert isinstance(encoded_ref, str)
+    ref_fields = json.loads(encoded_ref)
+    assert _is_string_object_dict(ref_fields)
+    ref_fields["transform_kind"] = "unknown"
+    tagged_ref["$json"] = json.dumps(
+        ref_fields, sort_keys=True, separators=(",", ":")
+    )
+
+    result = try_decode_program_spec(payload)
+
+    assert isinstance(result, Failure)
+    assert result.family == "successor.language.failure"
+    assert result.code == "PROGRAM_CODEC_INVALID"
+    assert result.context and result.context["public_exception"] == "ProgramCodecError"
+    with pytest.raises(
+        program_module.ProgramCodecError,
+        match="unsupported transform reference kind 'unknown'",
+    ):
+        program_module.decode_program_spec(payload)
 
 
 def test_program_codec_rejects_unsupported_storage_kind_as_typed_failure() -> None:

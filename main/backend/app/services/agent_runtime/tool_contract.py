@@ -35,9 +35,9 @@ class ToolExecutionContext:
     project_key: str | None = None
     user: str | None = None
     abort_signal: Any | None = None
-    budget: dict[str, Any] = field(default_factory=dict)
+    budget: dict[str, Any] = field(default_factory=lambda: dict[str, Any]())
     permissions: tuple[str, ...] = ()
-    feature_flags: dict[str, bool] = field(default_factory=dict)
+    feature_flags: dict[str, bool] = field(default_factory=lambda: dict[str, bool]())
     options: ToolCallOptions = field(default_factory=ToolCallOptions)
     event_writer: Callable[[dict[str, Any]], None] | None = None
     artifact_writer: Callable[[dict[str, Any]], dict[str, Any]] | None = None

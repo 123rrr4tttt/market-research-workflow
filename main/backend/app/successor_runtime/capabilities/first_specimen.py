@@ -3,10 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Annotated, Literal, NoReturn, TypeAlias, overload
-
-from functorial_kit import Failure
-from mrw_functorial_kit.core.w06_semantics import first_specimen_capability_failures
+from typing import Annotated, Literal, TypeAlias, overload
 
 from app.successor_runtime.language.object_contracts import (
     CAPTURE_DOCUMENT_SNAPSHOT_RETURN_CONTRACT_REF,
@@ -33,14 +30,25 @@ from .checksum import content_digest, require_hex64
 from .codecs import PayloadCodec, dataclass_codec
 from .contracts import OperationContract
 from .profiles import (
+    AuthorityProfileContent,
     AuthorityProfile,
     ContractProfileRef,
+    EffectProfileContent,
     EffectProfile,
+    FailureProfileContent,
     FailureProfile,
+    InterpreterProfileContent,
     InterpreterProfile,
+    ObservationProfileContent,
     ObservationProfile,
+    ResourceProfileContent,
     ResourceProfile,
+    SemanticProfileContent,
     SemanticProfile,
+)
+from .failure import (
+    capability_failure as _capability_failure,
+    raise_capability_failure as _raise_capability_failure,
 )
 
 __all__ = [
@@ -64,34 +72,6 @@ __all__ = [
 ]
 
 
-def _capability_failure(code: str, message: str, **context: object) -> Failure:
-    """Construct the closed W06 failure value shared by this capability family."""
-
-    return first_specimen_capability_failures.fail(
-        code,
-        message,
-        {
-            "owner": "first_specimen.capabilities",
-            "effect_boundary": "first_specimen.capability.contract_core",
-            "failure_family": first_specimen_capability_failures.name,
-            "boundary_class": "PURE_CONTRACT_FAILURE",
-            "witness": "test:test_w06_first_specimen_failure_lifts",
-            **context,
-        },
-    )
-
-
-def _raise_capability_failure(
-    failure: Failure,
-    exception_type: type[Exception] = ValueError,
-    *exception_args: object,
-) -> NoReturn:
-    """Lift a typed core failure only at the compatibility ABI boundary."""
-
-    # kit:boundary owner=first_specimen.capabilities class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=first_specimen.capability.failure witness=test:test_w06_retained_failure_lifts_preserve_public_abi
-    raise exception_type(*(exception_args or (failure.message,)))
-
-
 def _object_type(type_id: str) -> ObjectType:
     return OBJECT_TYPE_BY_ID.get(type_id, ObjectType(type_id))
 
@@ -111,7 +91,7 @@ def _semantic_profile(
     creates: tuple[str, ...],
     creates_relations: tuple[str, ...] = (),
 ) -> SemanticProfile:
-    values = dict(
+    values = SemanticProfileContent(
         semantic_profile_id=f"{kind}.semantic",
         semantic_profile_version="1.0.0",
         reads=reads,
@@ -131,7 +111,7 @@ def _effect_profile(
     irreversible: bool = False,
     human_approval_required: bool = False,
 ) -> EffectProfile:
-    values = dict(
+    values = EffectProfileContent(
         effect_profile_id=f"{kind}.effect",
         effect_profile_version="1.0.0",
         execution_class=execution_class,
@@ -148,7 +128,7 @@ def _effect_profile(
 
 
 def _resource_profile(kind: str, *, soft_limit: int = 240, hard_limit: int = 300) -> ResourceProfile:
-    values = dict(
+    values = ResourceProfileContent(
         resource_profile_id=f"{kind}.resource",
         resource_profile_version="1.0.0",
         resource_classes=("cpu",),
@@ -166,7 +146,7 @@ def _resource_profile(kind: str, *, soft_limit: int = 240, hard_limit: int = 300
 
 
 def _failure_profile(kind: str, *, retryable: bool = False, readback: str = "none") -> FailureProfile:
-    values = dict(
+    values = FailureProfileContent(
         failure_profile_id=f"{kind}.failure",
         failure_profile_version="1.0.0",
         typed_failures=("INVALID_INPUT", "INTERPRETER_UNAVAILABLE", "ASSIGNMENT_BINDING_MISMATCH"),
@@ -189,7 +169,7 @@ def _authority_profile(
     approval_required: bool = False,
     approval_kinds: tuple[str, ...] = (),
 ) -> AuthorityProfile:
-    values = dict(
+    values = AuthorityProfileContent(
         authority_profile_id=f"{kind}.authority",
         authority_profile_version="1.0.0",
         grant_scopes=("project",),
@@ -209,7 +189,7 @@ def _interpreter_profile(
     readback: str | None,
     receipt_codec_ref: str,
 ) -> InterpreterProfile:
-    values = dict(
+    values = InterpreterProfileContent(
         interpreter_profile_id=f"{kind}.interpreter",
         interpreter_profile_version="1.0.0",
         supported_contract_kinds=(kind,),
@@ -227,7 +207,7 @@ def _interpreter_profile(
 
 
 def _observation_profile(kind: str, *, compatible_with_legacy: bool = False) -> ObservationProfile:
-    values = dict(
+    values = ObservationProfileContent(
         observation_profile_id=f"{kind}.observation",
         observation_profile_version="1.0.0",
         dimensions=(
@@ -362,7 +342,7 @@ class ClaimOrGapInput:
     requirement: str = ""
     reason: str = ""
     missing_evidence_or_decision: str = ""
-    reopen_policy: dict[str, str] = field(default_factory=dict)
+    reopen_policy: dict[str, str] = field(default_factory=dict[str, str])
     closure_condition: str = ""
     payload_digest: str = ""
 
@@ -722,7 +702,7 @@ def build_first_specimen_bundle() -> Annotated[FirstSpecimenCapabilityBundle, Li
             InternalExportInput,
         ),
     )
-    profiles = {}
+    profiles: dict[str, object] = {}
     for contract in contracts:
         profiles[contract.ref.kind] = {
             "semantic": f"{contract.ref.kind}.semantic",

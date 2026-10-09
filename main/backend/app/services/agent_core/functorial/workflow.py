@@ -18,7 +18,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from itertools import pairwise
-from typing import Annotated, Any, NoReturn, TypeAlias
+from collections.abc import Iterator
+from typing import Annotated, Any, NoReturn, TypeAlias, TypeGuard, TypedDict
 
 from functorial_kit import Failure
 from mrw_functorial_kit.core.agent_service_semantics import (
@@ -39,8 +40,34 @@ _FAILURE_WITNESS = "test:test_w02_functorial_projection_failure_lifts"
 ProjectionFailure: TypeAlias = Failure
 
 
+def _is_object_dict(value: object) -> TypeGuard[dict[object, object]]:
+    return isinstance(value, dict)
+
+
+def _is_string_dict(value: object) -> TypeGuard[dict[str, object]]:
+    return _is_object_dict(value) and all(isinstance(key, str) for key in value)
+
+
+def _is_object_list(value: object) -> TypeGuard[list[object]]:
+    return isinstance(value, list)
+
+
+def _is_object_tuple(value: object) -> TypeGuard[tuple[object, ...]]:
+    return isinstance(value, tuple)
+
+
 class WorkflowValidationError(ValueError):
     """Raised when a workflow ref list is malformed, unresolved, or mis-ordered."""
+
+
+class _ResolvedNode(TypedDict):
+    ref: str
+    kind: str
+    id: str
+    input_schema: dict[str, object]
+    output_schema: dict[str, object]
+    composition: object
+    ancestors: frozenset[str]
 
 
 def _projection_failure(code: str, message: str, **details: Any) -> Failure:
@@ -98,7 +125,7 @@ def _normalize_steps(steps: Any) -> tuple[str, ...] | ProjectionFailure:
             "workflow_steps_invalid_type", "steps must be a list of refs, not a string"
         )
     try:
-        iterator = iter(steps)
+        iterator: Iterator[object] = iter(steps)
     except TypeError:
         return _projection_failure(
             "workflow_steps_invalid_type", "steps must be an iterable of refs"
@@ -108,7 +135,7 @@ def _normalize_steps(steps: Any) -> tuple[str, ...] | ProjectionFailure:
     for index, step in enumerate(iterator):
         if isinstance(step, str):
             ref = step.strip()
-        elif isinstance(step, dict) and "ref" in step:
+        elif _is_string_dict(step) and "ref" in step:
             ref = str(step.get("ref") or "").strip()
         else:
             return _projection_failure(
@@ -141,12 +168,12 @@ def _split_ref(ref: str) -> tuple[str, str] | ProjectionFailure:
     return kind, ref_id
 
 
-def _get_schema(spec: dict[str, Any], key: str) -> dict[str, Any]:
+def _get_schema(spec: dict[str, object], key: str) -> dict[str, object]:
     value = spec.get(key)
-    return value if isinstance(value, dict) else {}
+    return dict(value) if _is_string_dict(value) else {}
 
 
-def _resolve_ref(ref: str) -> tuple[str, str, dict[str, Any]] | ProjectionFailure:
+def _resolve_ref(ref: str) -> tuple[str, str, dict[str, object]] | ProjectionFailure:
     """Resolve a ref to ``(kind, id, spec)`` against the shared catalog."""
     parsed = _split_ref(ref)
     if isinstance(parsed, Failure):
@@ -189,13 +216,13 @@ def _schemas_compatible(
     return not (out_t in _SCALAR_TYPES and in_t in _SCALAR_TYPES)
 
 
-def _validate_workflow(steps: tuple[str, ...]) -> list[dict[str, Any]] | ProjectionFailure:
+def _validate_workflow(steps: tuple[str, ...]) -> list[_ResolvedNode] | ProjectionFailure:
     """Check reference completeness and ordered compatibility.
 
     Returns the resolved step list (order preserved) or raises
     :class:`WorkflowValidationError`.
     """
-    def resolve(ref: str, ancestors: frozenset[str]) -> dict[str, Any] | ProjectionFailure:
+    def resolve(ref: str, ancestors: frozenset[str]) -> _ResolvedNode | ProjectionFailure:
         resolved = _resolve_ref(ref)
         if isinstance(resolved, Failure):
             return resolved
@@ -212,10 +239,10 @@ def _validate_workflow(steps: tuple[str, ...]) -> list[dict[str, Any]] | Project
             "ancestors": ancestors | {ref},
         }
 
-    pending: list[dict[str, Any] | Failure] = [resolve(ref, frozenset()) for ref in steps]
+    pending: list[_ResolvedNode | Failure] = [resolve(ref, frozenset()) for ref in steps]
     if any(isinstance(node, Failure) for node in pending):
         return next(node for node in pending if isinstance(node, Failure))
-    flattened: list[dict[str, Any]] = []
+    flattened: list[_ResolvedNode] = []
     while pending:
         node = pending.pop(0)
         if isinstance(node, Failure):
@@ -224,13 +251,17 @@ def _validate_workflow(steps: tuple[str, ...]) -> list[dict[str, Any]] | Project
             composition = node["composition"]
             if composition is None:
                 composition = ()
-            if not isinstance(composition, (list, tuple)):
+            if _is_object_list(composition):
+                composition_items: list[object] | tuple[object, ...] = composition
+            elif _is_object_tuple(composition):
+                composition_items = composition
+            else:
                 return _projection_failure(
                     "composition_step_invalid",
                     f"motif composition must be a list, got {type(composition).__name__}",
                     ref=node["ref"],
                 )
-            for ref in composition:
+            for ref in composition_items:
                 if not isinstance(ref, str) or not ref.strip():
                     return _projection_failure(
                         "composition_step_invalid",
@@ -258,19 +289,10 @@ def _validate_workflow(steps: tuple[str, ...]) -> list[dict[str, Any]] | Project
                 left=left["ref"],
                 right=right["ref"],
             )
-    return [
-        {
-            "ref": node["ref"],
-            "kind": node["kind"],
-            "id": node["id"],
-            "input_schema": node["input_schema"],
-            "output_schema": node["output_schema"],
-        }
-        for node in flattened
-    ]
+    return flattened
 
 
-def _build_program(resolved: list[dict[str, Any]]) -> dict[str, Any]:
+def _build_program(resolved: list[_ResolvedNode]) -> dict[str, object]:
     """Assemble a minimal fixed linear DAG program from resolved steps."""
     nodes = [
         {
@@ -286,8 +308,8 @@ def _build_program(resolved: list[dict[str, Any]]) -> dict[str, Any]:
     return {"codec": _PROGRAM_CODEC, "kind": "linear", "nodes": nodes, "edges": edges}
 
 
-def _as_schema(value: Any) -> dict[str, Any]:
-    return dict(value) if isinstance(value, dict) else {}
+def _as_schema(value: object) -> dict[str, object]:
+    return dict(value) if _is_string_dict(value) else {}
 
 
 def _build_workflow_program(
@@ -322,8 +344,12 @@ def _build_workflow_program(
         laws_tuple = _DEFAULT_LAWS
     elif isinstance(laws, str):
         laws_tuple = (laws,)
-    elif isinstance(laws, (list, tuple)):
-        laws_tuple = tuple(str(item) for item in laws)
+    elif _is_object_list(laws):
+        raw_laws: list[object] | tuple[object, ...] = laws
+        laws_tuple = tuple(str(item) for item in raw_laws)
+    elif _is_object_tuple(laws):
+        raw_laws = laws
+        laws_tuple = tuple(str(item) for item in raw_laws)
     else:
         return _projection_failure("workflow_step_invalid", "laws must be a list or string")
 

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import importlib
+
 import pytest
 from functorial_kit import Failure
 
@@ -71,14 +73,14 @@ def test_w01_report_export_token_failure_is_typed_before_abi_lift() -> None:
 def test_w01_loader_yaml_dependency_failure_is_typed_before_runtime_error_lift(tmp_path, monkeypatch) -> None:
     yaml_path = tmp_path / "library.yaml"
     yaml_path.write_text("items: []", encoding="utf-8")
-    original_import = __import__
+    original_import_module = importlib.import_module
 
-    def missing_yaml(name, *args, **kwargs):
+    def missing_yaml(name, package=None):
         if name == "yaml":
             raise ImportError("pyyaml missing")
-        return original_import(name, *args, **kwargs)
+        return original_import_module(name, package)
 
-    monkeypatch.setattr("builtins.__import__", missing_yaml)
+    monkeypatch.setattr(importlib, "import_module", missing_yaml)
     outcome = loader.try_load_single_file(yaml_path)
     assert isinstance(outcome, Failure)
     assert outcome.family == "source_library.loader.failure"

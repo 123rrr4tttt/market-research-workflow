@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from math import ceil
-from typing import Annotated, Any, Mapping
+from typing import Annotated, Iterable, Protocol, runtime_checkable, TypeGuard
 
 from .gate_reason_codes import normalize_reason_code
 from .retry_policy import RETRY_CLASS_PERMANENT, RETRY_CLASS_TRANSIENT
@@ -11,7 +12,40 @@ CONTRACT_VERSION = "ingest.frontdoor_slo.v1"
 TRI_STATE_STATUSES: tuple[str, ...] = ("success", "degraded_success", "failed")
 
 
-def new_frontdoor_slo_summary() -> dict[str, Any]:
+def _is_string_key(value: object) -> bool:
+    return isinstance(value, str)
+
+
+@runtime_checkable
+class _StringKeyInspectable(Protocol):
+    def keys(self) -> Iterable[object]: ...
+
+
+def _has_only_string_keys(value: object) -> bool:
+    if not isinstance(value, _StringKeyInspectable):
+        return False
+    return all(map(_is_string_key, value.keys()))
+
+
+def _is_object_mapping(value: object) -> TypeGuard[Mapping[str, object]]:
+    if not _has_only_string_keys(value):
+        return False
+    return isinstance(value, Mapping)
+
+
+def _is_object_list(value: object) -> TypeGuard[list[object]]:
+    return isinstance(value, list)
+
+
+def _object_mapping(value: object) -> Mapping[str, object]:
+    return value if _is_object_mapping(value) else {}
+
+
+def _int_counter(value: object) -> dict[str, int]:
+    return {key: _as_non_negative_int(item) for key, item in _object_mapping(value).items()}
+
+
+def new_frontdoor_slo_summary() -> dict[str, object]:
     return {
         "sample_size": 0,
         "dashboard_status_counts": {status: 0 for status in TRI_STATE_STATUSES},
@@ -25,17 +59,17 @@ def new_frontdoor_slo_summary() -> dict[str, Any]:
     }
 
 
-def _as_non_negative_int(value: Any) -> int:
+def _as_non_negative_int(value: object) -> int:
     try:
-        parsed = int(value)
+        parsed = int(value) if isinstance(value, (str, bytes, int, float)) else 0
     except Exception:  # noqa: BLE001
         return 0
     return max(0, parsed)
 
 
-def _as_non_negative_float(value: Any) -> float | None:
+def _as_non_negative_float(value: object) -> float | None:
     try:
-        parsed = float(value)
+        parsed = float(value) if isinstance(value, (str, bytes, int, float)) else -1.0
     except Exception:  # noqa: BLE001
         return None
     if parsed < 0:
@@ -43,30 +77,32 @@ def _as_non_negative_float(value: Any) -> float | None:
     return parsed
 
 
-def _normalize_dashboard_status(value: Any) -> str:
+def _normalize_dashboard_status(value: object) -> str:
     status = str(value or "").strip().lower()
     if status in TRI_STATE_STATUSES:
         return status
     return "failed"
 
 
-def _merge_counter(target: dict[str, int], key: Any, value: Any) -> None:
+def _merge_counter(target: dict[str, int], key: object, value: object) -> None:
     normalized_key = normalize_reason_code(key, default="")
     if not normalized_key:
         return
     target[normalized_key] = _as_non_negative_int(target.get(normalized_key)) + _as_non_negative_int(value)
 
 
-def _merge_retry_observability(summary: dict[str, Any], retry_observability: Mapping[str, Any]) -> None:
-    reason_counts = retry_observability.get("retry_count_by_reason")
-    if isinstance(reason_counts, Mapping):
-        target_reason_counts = summary.setdefault("retry_count_by_reason", {})
+def _merge_retry_observability(summary: dict[str, object], retry_observability: Mapping[str, object]) -> None:
+    reason_counts = _object_mapping(retry_observability.get("retry_count_by_reason"))
+    if reason_counts:
+        target_reason_counts = _int_counter(summary.get("retry_count_by_reason"))
+        summary["retry_count_by_reason"] = target_reason_counts
         for reason, count in reason_counts.items():
             _merge_counter(target_reason_counts, reason, count)
 
     class_counts = retry_observability.get("retry_count_by_class")
-    if isinstance(class_counts, Mapping):
-        target_class_counts = summary.setdefault("retry_count_by_class", {})
+    if _is_object_mapping(class_counts):
+        target_class_counts = _int_counter(summary.get("retry_count_by_class"))
+        summary["retry_count_by_class"] = target_class_counts
         for klass in (RETRY_CLASS_TRANSIENT, RETRY_CLASS_PERMANENT):
             target_class_counts[klass] = _as_non_negative_int(target_class_counts.get(klass)) + _as_non_negative_int(
                 class_counts.get(klass)
@@ -82,62 +118,66 @@ def _percentile_nearest_rank(values: list[float], percentile: float) -> float | 
 
 
 def record_frontdoor_slo_observation(
-    summary: dict[str, Any],
-    projection: Mapping[str, Any] | None,
+    summary: dict[str, object],
+    projection: Mapping[str, object] | None,
 ) -> None:
-    if not isinstance(summary, dict) or not isinstance(projection, Mapping):
+    if projection is None:
         return
 
     status = _normalize_dashboard_status(projection.get("dashboard_status"))
     summary["sample_size"] = _as_non_negative_int(summary.get("sample_size")) + 1
 
-    status_counts = summary.setdefault("dashboard_status_counts", {})
-    if not isinstance(status_counts, dict):
-        status_counts = {}
-        summary["dashboard_status_counts"] = status_counts
+    status_counts = _int_counter(summary.get("dashboard_status_counts"))
+    summary["dashboard_status_counts"] = status_counts
     for allowed in TRI_STATE_STATUSES:
         status_counts.setdefault(allowed, 0)
     status_counts[status] = _as_non_negative_int(status_counts.get(status)) + 1
 
     latency_ms = _as_non_negative_float(projection.get("latency_ms"))
     if latency_ms is not None:
-        samples = summary.setdefault("latency_ms_samples", [])
-        if isinstance(samples, list):
-            samples.append(latency_ms)
+        raw_samples = summary.get("latency_ms_samples")
+        samples = [float(item) for item in raw_samples if isinstance(item, (int, float))] if _is_object_list(raw_samples) else []
+        samples.append(latency_ms)
+        summary["latency_ms_samples"] = samples
 
     retry_observability = projection.get("retry_observability")
-    if isinstance(retry_observability, Mapping):
+    if _is_object_mapping(retry_observability):
         _merge_retry_observability(summary, retry_observability)
 
     if bool(projection.get("retryable")):
         summary["retryable_samples"] = _as_non_negative_int(summary.get("retryable_samples")) + 1
-        if not isinstance(retry_observability, Mapping):
-            retry_counts = summary.setdefault("retry_count_by_reason", {})
-            if isinstance(retry_counts, dict):
-                _merge_counter(retry_counts, projection.get("reason_code") or "retryable", 1)
+        if not _is_object_mapping(retry_observability):
+            retry_counts = _int_counter(summary.get("retry_count_by_reason"))
+            summary["retry_count_by_reason"] = retry_counts
+            _merge_counter(retry_counts, projection.get("reason_code") or "retryable", 1)
 
 
-def build_frontdoor_slo_payload(summary: Mapping[str, Any] | None) -> Annotated[
-    dict[str, Any],
+def build_frontdoor_slo_payload(summary: Mapping[str, object] | None) -> Annotated[
+    dict[str, object],
     "kit:non-authoritative derived_as=view fact_source=summary+tri_state_contract+latency_samples witness=test:test_w03_ingest_ports_authority_metadata",
 ]:
-    raw = summary if isinstance(summary, Mapping) else {}
+    raw = summary or {}
     sample_size = _as_non_negative_int(raw.get("sample_size"))
     denominator = float(sample_size) if sample_size > 0 else 1.0
-    raw_status_counts = raw.get("dashboard_status_counts") if isinstance(raw.get("dashboard_status_counts"), Mapping) else {}
+    raw_status_counts = _object_mapping(raw.get("dashboard_status_counts"))
     status_counts = {
         status: _as_non_negative_int(raw_status_counts.get(status))
         for status in TRI_STATE_STATUSES
     }
+    raw_latency_samples = raw.get("latency_ms_samples")
+    latency_items = raw_latency_samples if _is_object_list(raw_latency_samples) else []
     latency_samples = [
         sample
-        for sample in (_as_non_negative_float(item) for item in list(raw.get("latency_ms_samples") or []))
+        for sample in (
+            _as_non_negative_float(item)
+            for item in latency_items
+        )
         if sample is not None
     ]
     p95_latency_ms = _percentile_nearest_rank(latency_samples, 95.0)
     retryable_samples = _as_non_negative_int(raw.get("retryable_samples"))
-    retry_reason_counts = dict(raw.get("retry_count_by_reason") or {})
-    retry_class_counts = dict(raw.get("retry_count_by_class") or {})
+    retry_reason_counts = _int_counter(raw.get("retry_count_by_reason"))
+    retry_class_counts = _int_counter(raw.get("retry_count_by_class"))
 
     return {
         "contract_version": CONTRACT_VERSION,

@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 from collections import deque
+from collections.abc import Mapping
 from dataclasses import dataclass
 import hashlib
 import json
 from threading import RLock
 import time
-from typing import Any, Mapping
+from typing import TypeGuard
 
 from celery import signals
 from prometheus_client import Counter, Histogram
@@ -30,6 +31,18 @@ _LOGGER = __name__
 _MAX_TRACES = 128
 
 
+def _is_object_mapping(value: object) -> TypeGuard[Mapping[object, object]]:
+    return isinstance(value, Mapping)
+
+
+def _string_items(value: Mapping[object, object]) -> dict[str, object]:
+    return {
+        key: item
+        for key, item in value.items()
+        if isinstance(key, str)
+    }
+
+
 @dataclass
 class _WorkerTaskContext:
     task_id: str
@@ -49,11 +62,11 @@ class _WorkerTaskContext:
 _LOCK = RLock()
 _CONTEXTS: dict[str, _WorkerTaskContext] = {}
 _TRACE_ORDER: deque[str] = deque()
-_TRACES: dict[str, list[dict[str, Any]]] = {}
-_INSTALLED = False
+_TRACES: dict[str, list[dict[str, object]]] = {}
+_installed = False
 
 
-def _identity(value: Any, *, fallback: str = "unknown", label: bool = False) -> str:
+def _identity(value: object, *, fallback: str = "unknown", label: bool = False) -> str:
     text = str(value or "").strip() or fallback
     if label:
         return text[:128]
@@ -63,22 +76,24 @@ def _identity(value: Any, *, fallback: str = "unknown", label: bool = False) -> 
     return f"sha256:{digest}"
 
 
-def _runtime_identity(kwargs: Mapping[str, Any]) -> dict[str, Any]:
+def _runtime_identity(kwargs: Mapping[str, object]) -> dict[str, object]:
     readback = kwargs.get("runtime_readback")
-    source = readback if isinstance(readback, Mapping) else kwargs
-    return dict(source)
+    if _is_object_mapping(readback):
+        return _string_items(readback)
+    return dict(kwargs)
 
 
 def _context(
     *,
     task_name: str,
-    task_request: Any,
-    kwargs: Mapping[str, Any],
+    task_request: object,
+    kwargs: Mapping[str, object],
 ) -> _WorkerTaskContext:
     runtime = _runtime_identity(kwargs)
-    delivery_info = getattr(task_request, "delivery_info", None)
-    if not isinstance(delivery_info, Mapping):
-        delivery_info = {}
+    delivery_value = getattr(task_request, "delivery_info", None)
+    delivery_info = (
+        delivery_value if _is_object_mapping(delivery_value) else None
+    )
     return _WorkerTaskContext(
         task_id=_identity(getattr(task_request, "id", None), fallback="unknown"),
         task_name=_identity(task_name or getattr(task_request, "task", None), label=True),
@@ -86,8 +101,8 @@ def _context(
         queue=_identity(
             kwargs.get("queue")
             or runtime.get("queue")
-            or delivery_info.get("routing_key")
-            or delivery_info.get("queue"),
+            or (delivery_info.get("routing_key") if delivery_info is not None else None)
+            or (delivery_info.get("queue") if delivery_info is not None else None),
             label=True,
         ),
         project_key=_identity(kwargs.get("project_key"), label=True),
@@ -103,7 +118,7 @@ def _context(
     )
 
 
-def _event(context: _WorkerTaskContext, event: str, **extra: Any) -> dict[str, Any]:
+def _event(context: _WorkerTaskContext, event: str, **extra: object) -> dict[str, object]:
     return {
         "event": event,
         "timestamp": time.time(),
@@ -123,7 +138,7 @@ def _event(context: _WorkerTaskContext, event: str, **extra: Any) -> dict[str, A
     }
 
 
-def _emit(event_payload: Mapping[str, Any]) -> None:
+def _emit(event_payload: Mapping[str, object]) -> None:
     import logging
 
     logging.getLogger(_LOGGER).info(
@@ -132,7 +147,7 @@ def _emit(event_payload: Mapping[str, Any]) -> None:
     )
 
 
-def _remember_trace(trace_id: str, event_payload: Mapping[str, Any]) -> None:
+def _remember_trace(trace_id: str, event_payload: Mapping[str, object]) -> None:
     if trace_id in _TRACES:
         _TRACES[trace_id].append(dict(event_payload))
         return
@@ -145,9 +160,9 @@ def _remember_trace(trace_id: str, event_payload: Mapping[str, Any]) -> None:
 def observe_worker_task_started(
     *,
     task_name: str,
-    task_request: Any,
-    kwargs: Mapping[str, Any],
-) -> dict[str, Any]:
+    task_request: object,
+    kwargs: Mapping[str, object],
+) -> dict[str, object]:
     context = _context(task_name=task_name, task_request=task_request, kwargs=kwargs)
     event_payload = _event(context, "worker_task_started")
     with _LOCK:
@@ -160,11 +175,11 @@ def observe_worker_task_started(
 def observe_worker_task_finished(
     *,
     task_name: str,
-    task_request: Any,
-    kwargs: Mapping[str, Any],
+    task_request: object,
+    kwargs: Mapping[str, object],
     state: str,
-    result: Any = None,
-) -> dict[str, Any]:
+    result: object = None,
+) -> dict[str, object]:
     task_id = _identity(getattr(task_request, "id", None))
     with _LOCK:
         context = _CONTEXTS.pop(task_id, None)
@@ -183,11 +198,12 @@ def observe_worker_task_finished(
         ).hexdigest()
     except Exception:
         result_digest = "unavailable"
+    duration_seconds = max(0.0, time.monotonic() - context.started_monotonic)
     event_payload = _event(
         context,
         "worker_task_finished",
         status=status,
-        duration_seconds=max(0.0, time.monotonic() - context.started_monotonic),
+        duration_seconds=duration_seconds,
         result_sha256=result_digest,
     )
     WORKER_TASKS.labels(
@@ -204,51 +220,66 @@ def observe_worker_task_finished(
         context.queue,
         context.project_key,
         context.line_key,
-    ).observe(event_payload["duration_seconds"])
+    ).observe(duration_seconds)
     with _LOCK:
         _remember_trace(context.trace_id, event_payload)
     _emit(event_payload)
     return dict(event_payload)
 
 
-def worker_trace_snapshot(trace_id: str) -> list[dict[str, Any]]:
+def worker_trace_snapshot(trace_id: str) -> list[dict[str, object]]:
     normalized = _identity(trace_id)
     with _LOCK:
         return [dict(item) for item in _TRACES.get(normalized, [])]
 
 
 def install_worker_observability() -> None:
-    global _INSTALLED
-    if _INSTALLED:
+    global _installed
+    if _installed:
         return
 
-    @signals.task_prerun.connect(weak=False)
-    def _task_prerun(task=None, **kwargs: object) -> None:
+    def task_prerun(task: object = None, **_kwargs: object) -> None:
         if task is None:
             return
         request = getattr(task, "request", None)
         task_kwargs = getattr(request, "kwargs", None)
+        typed_kwargs = (
+            _string_items(task_kwargs)
+            if _is_object_mapping(task_kwargs)
+            else {}
+        )
         observe_worker_task_started(
             task_name=str(getattr(task, "name", "") or getattr(request, "task", "")),
             task_request=request,
-            kwargs=task_kwargs if isinstance(task_kwargs, Mapping) else {},
+            kwargs=typed_kwargs,
         )
 
-    @signals.task_postrun.connect(weak=False)
-    def _task_postrun(task=None, state=None, retval=None, **kwargs: object) -> None:
+    def task_postrun(
+        task: object = None,
+        state: object = None,
+        retval: object = None,
+        **_kwargs: object,
+    ) -> None:
         if task is None:
             return
         request = getattr(task, "request", None)
         task_kwargs = getattr(request, "kwargs", None)
+        typed_kwargs = (
+            _string_items(task_kwargs)
+            if _is_object_mapping(task_kwargs)
+            else {}
+        )
         observe_worker_task_finished(
             task_name=str(getattr(task, "name", "") or getattr(request, "task", "")),
             task_request=request,
-            kwargs=task_kwargs if isinstance(task_kwargs, Mapping) else {},
+            kwargs=typed_kwargs,
             state=str(state or "unknown"),
             result=retval,
         )
 
-    _INSTALLED = True
+    signals.task_prerun.connect(task_prerun, weak=False)
+    signals.task_postrun.connect(task_postrun, weak=False)
+    _installed = True
 
 
 __all__ = [

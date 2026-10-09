@@ -7,22 +7,22 @@ from .chains import (
 )
 
 
-_CLASSIFICATION_CHAIN = None
-_SUMMARY_CHAIN = None
+_classification_chain = None
+_summary_chain = None
 
 
 def _get_classification_chain():
-    global _CLASSIFICATION_CHAIN
-    if _CLASSIFICATION_CHAIN is None:
-        _CLASSIFICATION_CHAIN = build_policy_classification_chain()
-    return _CLASSIFICATION_CHAIN
+    global _classification_chain
+    if _classification_chain is None:
+        _classification_chain = build_policy_classification_chain()
+    return _classification_chain
 
 
 def _get_summary_chain():
-    global _SUMMARY_CHAIN
-    if _SUMMARY_CHAIN is None:
-        _SUMMARY_CHAIN = build_policy_summary_chain()
-    return _SUMMARY_CHAIN
+    global _summary_chain
+    if _summary_chain is None:
+        _summary_chain = build_policy_summary_chain()
+    return _summary_chain
 
 
 def classify_policy_text(document: str) -> PolicyClassification:
@@ -39,5 +39,4 @@ def batch_classify(documents: list[str]) -> list[PolicyClassification]:
 
 def batch_summarize(documents: list[str]) -> list[str]:
     return list(_get_summary_chain().batch([{"document": doc} for doc in documents]))
-
 

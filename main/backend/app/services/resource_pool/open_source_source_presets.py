@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from typing import Any, NoReturn
 
 from functorial_kit import Failure
+
 from mrw_functorial_kit.core.provider_port_failures import resource_pool_contract_failures
 
 

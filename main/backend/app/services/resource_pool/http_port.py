@@ -82,18 +82,18 @@ class OfficialAccessPort(Protocol):
     def handle(self, params: dict[str, Any], project_key: str | None) -> dict[str, Any]: ...
 
 
-_HTTP_FETCH_PORT: HttpFetchPort | None = None
-_OFFICIAL_ACCESS_PORT: OfficialAccessPort | None = None
+_http_fetch_port: HttpFetchPort | None = None
+_official_access_port: OfficialAccessPort | None = None
 
 
 def set_http_fetch_port(port: HttpFetchPort) -> None:
-    global _HTTP_FETCH_PORT
-    _HTTP_FETCH_PORT = port
+    global _http_fetch_port
+    _http_fetch_port = port
 
 
 def set_official_access_port(port: OfficialAccessPort) -> None:
-    global _OFFICIAL_ACCESS_PORT
-    _OFFICIAL_ACCESS_PORT = port
+    global _official_access_port
+    _official_access_port = port
 
 
 def fetch_html(
@@ -106,10 +106,10 @@ def fetch_html(
     retries: int = 3,
     backoff: float = 1.5,
 ) -> tuple[str, HttpFetchResponse]:
-    if _HTTP_FETCH_PORT is None:
+    if _http_fetch_port is None:
         # kit:boundary — composition was not initialized in this process.
         raise PortNotConfigured("resource-pool HTTP fetch port is not configured")
-    return _HTTP_FETCH_PORT.fetch_html(
+    return _http_fetch_port.fetch_html(
         url,
         headers=headers,
         params=params,
@@ -125,10 +125,10 @@ def handle_official_access_api(
     *,
     project_key: str | None,
 ) -> dict[str, Any]:
-    if _OFFICIAL_ACCESS_PORT is None:
+    if _official_access_port is None:
         # kit:boundary — composition was not initialized in this process.
         raise RuntimeError("resource-pool official-access port is not configured")
-    return _OFFICIAL_ACCESS_PORT.handle(params, project_key)
+    return _official_access_port.handle(params, project_key)
 
 
 def make_html_parser(html: str) -> HTMLParser:

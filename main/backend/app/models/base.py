@@ -3,13 +3,24 @@ from __future__ import annotations
 import logging
 import random
 import time
-from typing import Any, Callable, NoReturn, TypeVar
+from collections.abc import Callable, Mapping
+from contextlib import AbstractContextManager
+from dataclasses import dataclass
+from typing import Generic, NoReturn, Protocol, TypeVar, overload
 
-from sqlalchemy import create_engine, event, text
+from sqlalchemy import BigInteger, create_engine, event, text
 from sqlalchemy.exc import DBAPIError, DisconnectionError, OperationalError, TimeoutError as SATimeoutError
-from sqlalchemy.orm import sessionmaker, declarative_base, declarative_mixin
-from sqlalchemy import BigInteger, Column
-import os
+from sqlalchemy.engine import Connection
+from sqlalchemy.orm import (
+    DeclarativeBase,
+    Mapped,
+    Session,
+    SessionTransaction,
+    declarative_mixin,
+    mapped_column,
+    sessionmaker,
+)
+from sqlalchemy.sql.schema import Table
 
 from ..settings.config import settings
 from ..services.projects.context import current_project_schema
@@ -18,6 +29,22 @@ from mrw_functorial_kit.core.application_failure_semantics import database_sessi
 
 logger = logging.getLogger("app.models.base")
 T = TypeVar("T")
+SessionT = TypeVar("SessionT", bound="RetrySession")
+
+
+class RetrySession(Protocol):
+    def commit(self) -> None: ...
+
+    def rollback(self) -> None: ...
+
+
+RetryOperation = Callable[[SessionT], T]
+RetrySessionFactory = Callable[[], AbstractContextManager[SessionT]]
+
+
+@dataclass(frozen=True, slots=True)
+class _RetrySuccess(Generic[T]):
+    value: T
 
 _RETRIABLE_SQLSTATES = {
     "40001",  # serialization_failure
@@ -41,7 +68,7 @@ def _is_local_database() -> bool:
     return "localhost" in settings.database_url or "127.0.0.1" in settings.database_url
 
 
-def _get_connect_args():
+def _get_connect_args() -> dict[str, bool | int | str]:
     """根据数据库类型返回连接参数"""
     if "postgresql" in settings.database_url:
         connect_args = {
@@ -55,7 +82,7 @@ def _get_connect_args():
     return {}
 
 
-def _get_pool_config():
+def _get_pool_config() -> dict[str, bool | int | str]:
     """根据环境返回连接池配置。优先使用显式配置，再根据本地/容器环境给出保守兜底。"""
     if _is_local_database():
         return {
@@ -84,7 +111,12 @@ engine = create_engine(
     connect_args=_get_connect_args(),
     **pool_config
 )
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine, future=True)
+SessionLocal: sessionmaker[Session] = sessionmaker(
+    autocommit=False,
+    autoflush=False,
+    bind=engine,
+    future=True,
+)
 
 
 def _normalize_isolation_level(raw: str | None) -> str | None:
@@ -92,7 +124,7 @@ def _normalize_isolation_level(raw: str | None) -> str | None:
     return _ISOLATION_TO_SQL.get(level)
 
 
-def _get_session_setup_sqls(schema):
+def _get_session_setup_sqls(schema: str | None) -> list[str]:
     sqls: list[str] = []
     is_postgres = "postgresql" in settings.database_url
     timeout_ms = max(0, int(settings.db_statement_timeout_ms or 0))
@@ -113,12 +145,18 @@ def _get_session_setup_sqls(schema):
     return sqls
 
 
-@event.listens_for(SessionLocal, "after_begin")
-def _set_project_schema(session, transaction, connection):  # noqa: ANN001
+def _set_project_schema(
+    session: Session,
+    transaction: SessionTransaction,
+    connection: Connection,
+) -> None:
     """Set transaction safety defaults and route ORM operations to current project schema."""
     schema = current_project_schema()
     for statement in _get_session_setup_sqls(schema):
         connection.execute(text(statement))
+
+
+event.listen(SessionLocal, "after_begin", _set_project_schema)
 
 
 def _extract_sqlstate(exc: Exception) -> str | None:
@@ -130,7 +168,7 @@ def _extract_sqlstate(exc: Exception) -> str | None:
     return None
 
 
-def classify_db_exception(exc: Exception) -> dict[str, Any]:
+def classify_db_exception(exc: Exception) -> dict[str, bool | str | None]:
     sqlstate = _extract_sqlstate(exc)
     lower = str(exc).lower()
     is_connection_issue = (
@@ -152,26 +190,56 @@ def classify_db_exception(exc: Exception) -> dict[str, Any]:
     }
 
 
+@overload
 def run_with_session_retry(
-    operation: Callable[[Any], T],
+    operation: RetryOperation[Session, T],
     *,
-    session_factory: Callable[[], Any] = SessionLocal,
+    session_factory: RetrySessionFactory[Session] = SessionLocal,
     max_attempts: int | None = None,
     base_backoff_ms: int | None = None,
     max_backoff_ms: int | None = None,
-    log_context: dict[str, Any] | None = None,
+    log_context: Mapping[str, object] | None = None,
+) -> T: ...
+
+
+@overload
+def run_with_session_retry(
+    operation: RetryOperation[SessionT, T],
+    *,
+    session_factory: RetrySessionFactory[SessionT],
+    max_attempts: int | None = None,
+    base_backoff_ms: int | None = None,
+    max_backoff_ms: int | None = None,
+    log_context: Mapping[str, object] | None = None,
+) -> T: ...
+
+
+def run_with_session_retry(
+    operation: RetryOperation[SessionT, T],
+    *,
+    session_factory: RetrySessionFactory[SessionT] = SessionLocal,
+    max_attempts: int | None = None,
+    base_backoff_ms: int | None = None,
+    max_backoff_ms: int | None = None,
+    log_context: Mapping[str, object] | None = None,
 ) -> T:
+    def tagged_operation(session: SessionT) -> _RetrySuccess[T] | Failure:
+        result = operation(session)
+        if isinstance(result, Failure) and database_session_retry_failures.matches(result):
+            return result
+        return _RetrySuccess(result)
+
     outcome = run_with_session_retry_effect(
-        operation,
+        tagged_operation,
         session_factory=session_factory,
         max_attempts=max_attempts,
         base_backoff_ms=base_backoff_ms,
         max_backoff_ms=max_backoff_ms,
         log_context=log_context,
     )
-    if isinstance(outcome, Failure) and database_session_retry_failures.matches(outcome):
+    if isinstance(outcome, Failure):
         _raise_session_retry_failure(outcome)
-    return outcome
+    return outcome.value
 
 
 def _session_retry_failure(
@@ -179,9 +247,9 @@ def _session_retry_failure(
     message: str,
     *,
     operation: str,
-    context: dict[str, Any] | None = None,
+    context: dict[str, object] | None = None,
 ) -> Failure:
-    details: dict[str, Any] = {
+    details: dict[str, object] = {
         "owner": "database.session_retry",
         "operation": operation,
         "site": "app.models.base.run_with_session_retry",
@@ -211,14 +279,38 @@ def _raise_session_retry_failure(failure: Failure) -> NoReturn:
     raise cause
 
 
+@overload
 def run_with_session_retry_effect(
-    operation: Callable[[Any], T],
+    operation: RetryOperation[Session, T],
     *,
-    session_factory: Callable[[], Any] = SessionLocal,
+    session_factory: RetrySessionFactory[Session] = SessionLocal,
     max_attempts: int | None = None,
     base_backoff_ms: int | None = None,
     max_backoff_ms: int | None = None,
-    log_context: dict[str, Any] | None = None,
+    log_context: Mapping[str, object] | None = None,
+) -> T | Failure: ...
+
+
+@overload
+def run_with_session_retry_effect(
+    operation: RetryOperation[SessionT, T],
+    *,
+    session_factory: RetrySessionFactory[SessionT],
+    max_attempts: int | None = None,
+    base_backoff_ms: int | None = None,
+    max_backoff_ms: int | None = None,
+    log_context: Mapping[str, object] | None = None,
+) -> T | Failure: ...
+
+
+def run_with_session_retry_effect(
+    operation: RetryOperation[SessionT, T],
+    *,
+    session_factory: RetrySessionFactory[SessionT] = SessionLocal,
+    max_attempts: int | None = None,
+    base_backoff_ms: int | None = None,
+    max_backoff_ms: int | None = None,
+    log_context: Mapping[str, object] | None = None,
 ) -> T | Failure:
     """Execute a transaction and return known effect failures as values."""
     attempts = max(1, int(max_attempts or settings.db_transaction_retry_attempts or 1))
@@ -298,30 +390,47 @@ def run_with_session_retry_effect(
     raise RuntimeError("run_with_session_retry reached unexpected empty state")
 
 
-Base = declarative_base()
+class Base(DeclarativeBase):
+    pass
+
+
+def require_model_table(table: object) -> Table:
+    """Return a mapped model's native table or fail at the mapping boundary."""
+
+    if not isinstance(table, Table):
+        # kit:boundary owner=database.schema.model_table class=PROGRAMMER_DEFECT failure_family=none witness=test:test_schema_startup_rejects_non_table_model_before_ddl
+        raise TypeError("mapped model __table__ must be a SQLAlchemy Table")
+    return table
 
 
 @declarative_mixin
 class BigIDMixin:
     """统一的主键定义，使用BigInteger以提升容量，并保持自增语义。"""
 
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(
+        BigInteger,
+        primary_key=True,
+        autoincrement=True,
+    )
 
 
-def get_db_pool_status() -> dict:
+def get_db_pool_status() -> dict[str, int | str]:
     """Expose SQLAlchemy pool state for health/observability endpoints."""
     pool = engine.pool
-    status = {
+    status: dict[str, int | str] = {
         "pool_class": pool.__class__.__name__,
         "status": pool.status(),
     }
     for attr in ("size", "checkedin", "checkedout", "overflow"):
-        fn = getattr(pool, attr, None)
-        if callable(fn):
-            try:
-                status[attr] = fn()
-            except Exception:  # noqa: BLE001
-                continue
+        reader: object = getattr(pool, attr, None)
+        if not callable(reader):
+            continue
+        try:
+            value: object = reader()
+        except Exception:  # noqa: BLE001
+            continue
+        if isinstance(value, int) and not isinstance(value, bool):
+            status[attr] = value
     return status
 
 

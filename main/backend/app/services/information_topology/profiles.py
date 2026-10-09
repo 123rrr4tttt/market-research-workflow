@@ -3,12 +3,17 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Callable, Mapping
+from typing import Any, Callable, Mapping, TypeGuard
 
 from functorial_kit import Failure
 
 from .contracts import (
-    BoundRef, PatchOperation, TopologyState, TopologyView, ViewSpec, topology_failures,
+    BoundRef,
+    PatchOperation,
+    TopologyState,
+    TopologyView,
+    ViewSpec,
+    topology_failures,
     topology_state_codec,
 )
 
@@ -30,8 +35,8 @@ class EndpointRule:
 
 @dataclass(frozen=True, slots=True)
 class TypeRule:
-    attributes: Mapping[str, AttributeRule] = field(default_factory=dict)
-    endpoints: Mapping[str, EndpointRule] = field(default_factory=dict)
+    attributes: Mapping[str, AttributeRule] = field(default_factory=dict[str, AttributeRule])
+    endpoints: Mapping[str, EndpointRule] = field(default_factory=dict[str, EndpointRule])
     allow_extra_attributes: bool = False
     # Declares which authored attribute carries this type's domain relation token.
     # Readers project the declared value into the structural read field
@@ -65,19 +70,19 @@ def _fail(message: str, path: str) -> Failure:
     return topology_failures.fail("INVALID_STRUCTURE", message, {"path": path})
 
 
-def _json_value(value: Any) -> bool:
+def _json_value(value: object) -> bool:
     if value is None or isinstance(value, (str, bool, int)):
         return True
     if isinstance(value, float):
         return value == value and value not in (float("inf"), float("-inf"))
-    if isinstance(value, (list, tuple)):
+    if _is_object_sequence(value):
         return all(_json_value(item) for item in value)
-    if isinstance(value, Mapping):
+    if _is_object_mapping(value):
         return all(isinstance(key, str) and _json_value(item) for key, item in value.items())
     return False
 
 
-def _attribute_matches(value: Any, value_type: str) -> bool:
+def _attribute_matches(value: object, value_type: str) -> bool:
     return {
         "string": lambda: isinstance(value, str),
         "integer": lambda: type(value) is int,
@@ -147,14 +152,15 @@ def validate_state(profile: ProfileSpec, state: TopologyState) -> Failure | None
             if attr_rule.required and name not in element.attributes:
                 return _fail("required attribute missing", f"{path}.attributes.{name}")
         for name, value in element.attributes.items():
-            if not isinstance(name, str) or not _json_value(value):
+            name_value = _runtime_value(name)
+            if not isinstance(name_value, str) or not _json_value(value):
                 return _fail("attribute is not JSON data", f"{path}.attributes")
-            rule = type_rule.attributes.get(name)
+            rule = type_rule.attributes.get(name_value)
             if rule is None:
                 if not type_rule.allow_extra_attributes:
-                    return _fail("attribute not declared by profile", f"{path}.attributes.{name}")
+                    return _fail("attribute not declared by profile", f"{path}.attributes.{name_value}")
             elif not _attribute_matches(value, rule.value_type):
-                return _fail("attribute has wrong type", f"{path}.attributes.{name}")
+                return _fail("attribute has wrong type", f"{path}.attributes.{name_value}")
     if len(projects) > 1:
         return _fail("state contains multiple projects", "elements")
 
@@ -232,10 +238,14 @@ def project_view(
         return failure
     if (spec.profile_id, spec.profile_version) != (profile.profile_id, profile.version):
         return topology_failures.fail("UNKNOWN_PROFILE", "view profile identity or version differs")
-    if not spec.definition_id or not spec.definition_version or any(
-        not isinstance(key, str) or not key or not isinstance(value, str) or not value
+    revisions_valid = all(
+        isinstance(_runtime_value(key), str)
+        and bool(key)
+        and isinstance(_runtime_value(value), str)
+        and bool(value)
         for key, value in input_revisions.items()
-    ):
+    )
+    if not spec.definition_id or not spec.definition_version or not revisions_valid:
         return topology_failures.fail("INVALID_STRUCTURE", "view definition or input revisions are incomplete")
     members, relations, organization = spec.project(state)
     available = {element.ref for element in state.elements}
@@ -284,3 +294,15 @@ def apply_patch(
     candidate = TopologyState(state.profile_id, state.profile_version, tuple(elements))
     failure = validate_state(profile, candidate)
     return failure if failure is not None else candidate
+
+
+def _is_object_sequence(value: object) -> TypeGuard[list[object] | tuple[object, ...]]:
+    return isinstance(value, (list, tuple))
+
+
+def _is_object_mapping(value: object) -> TypeGuard[Mapping[object, object]]:
+    return isinstance(value, Mapping)
+
+
+def _runtime_value(value: object) -> object:
+    return value

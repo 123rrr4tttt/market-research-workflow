@@ -10,10 +10,10 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from datetime import datetime
-from typing import Any
+from typing import TypeGuard
 
 from sqlalchemy import MetaData, or_, select
-from sqlalchemy.engine import Connection
+from sqlalchemy.engine import Connection, RowMapping
 
 from app.successor_runtime.language.algebra import OperationSpec
 from app.successor_runtime.language.object_contracts import OperationContract
@@ -38,7 +38,7 @@ from .models import project_tables
 from .runtime_journal import (
     ExactBindingConflict,
     RecordNotFound,
-    _mapping_rows,
+    mapping_rows,
     one_mapping,
     runtime_scope_key,
     runtime_table,
@@ -51,20 +51,63 @@ class CurrentAuthorityGrantUnavailable(AuthorityGrantUnavailable, ExactBindingCo
     """Missing current grant that remains an exact control-repository conflict."""
 
 
-def _digestable(value: Any) -> Any:
+def _is_object_mapping(value: object) -> TypeGuard[Mapping[object, object]]:
+    return isinstance(value, Mapping)
+
+
+def _is_object_sequence(
+    value: object,
+) -> TypeGuard[tuple[object, ...] | list[object]]:
+    return isinstance(value, (tuple, list))
+
+
+def _digestable(value: object) -> object:
     if isinstance(value, datetime):
         return value.isoformat()
-    if isinstance(value, Mapping):
+    if _is_object_mapping(value):
         return {str(key): _digestable(child) for key, child in value.items()}
-    if isinstance(value, (tuple, list)):
+    if _is_object_sequence(value):
         return [_digestable(child) for child in value]
     if isinstance(value, (str, int, float, bool)) or value is None:
         return value
     return str(value)
 
 
-def _row_digest(row: Mapping[str, Any], fields: Sequence[str]) -> str:
+def _row_digest(row: RowMapping, fields: Sequence[str]) -> str:
     return canonical_digest({field: _digestable(row[field]) for field in fields})
+
+
+def _refresh_step_authorization(
+    binding: StepAuthorizationBinding,
+    context: AuthorityContext,
+) -> StepAuthorizationBinding:
+    return StepAuthorizationBinding.from_content(
+        run_id=binding.run_id,
+        step_id=binding.step_id,
+        operation_kind=binding.operation_kind,
+        operation_contract_digest=binding.operation_contract_digest,
+        capability_id=binding.capability_id,
+        claim_owner=binding.claim_owner,
+        claim_authority_epoch=binding.claim_authority_epoch,
+        claim_policy_digest=binding.claim_policy_digest,
+        payload_digest=binding.payload_digest,
+        actor_id=binding.actor_id,
+        project_key=binding.project_key,
+        project_registry_revision=binding.project_registry_revision,
+        project_scope_digest=binding.project_scope_digest,
+        interpreter_binding_digest=binding.interpreter_binding_digest,
+        deployment_catalog_digest=binding.deployment_catalog_digest,
+        authority_source_bindings=context.authority_source_bindings,
+        grants_digest=context.grants_digest,
+        approval_refs=binding.approval_refs,
+        resource_ceiling_digest=context.resource_ceiling_digest,
+        resource_policy_epoch=binding.resource_policy_epoch,
+        queue_eligibility_digest=binding.queue_eligibility_digest,
+        grant_epoch=context.grant_epoch,
+        expires_at=context.expires_at,
+        canonical_base_revision=binding.canonical_base_revision,
+        canonical_incarnation=binding.canonical_incarnation,
+    )
 
 
 class PostgresAuthorityProvider:
@@ -144,7 +187,7 @@ class PostgresAuthorityProvider:
         if policy is None or int(policy["units_ceiling"]) < eligibility.units:
             raise ExactBindingConflict("qualification resource policy is absent or exceeded")
         grants = runtime_table("runtime_authority_grants")
-        rows = _mapping_rows(self.connection.execute(
+        rows = mapping_rows(self.connection.execute(
             select(grants).where(
                 grants.c.project_key == scope_ref.project_key,
                 grants.c.actor_id == self.scope.actor_id,
@@ -273,7 +316,7 @@ class PostgresAuthorityProvider:
             )
 
         grants_table = runtime_table("runtime_authority_grants")
-        grants = _mapping_rows(
+        grants = mapping_rows(
             self.connection.execute(
                 select(grants_table)
                 .where(
@@ -294,7 +337,7 @@ class PostgresAuthorityProvider:
             raise CurrentAuthorityGrantUnavailable("no current authority grant")
 
         approvals_table = runtime_table("runtime_approvals")
-        approvals: list[Mapping[str, Any]] = []
+        approvals: list[RowMapping] = []
         for approval_ref in approval_refs:
             approval = one_mapping(
                 self.connection.execute(
@@ -540,7 +583,7 @@ class PostgresAuthorityProvider:
             )
 
         authorizations = runtime_table("runtime_step_authorizations")
-        rows = _mapping_rows(
+        rows = mapping_rows(
             self.connection.execute(
                 select(authorizations)
                 .where(
@@ -607,7 +650,7 @@ class PostgresAuthorityProvider:
             )
 
         grants = runtime_table("runtime_authority_grants")
-        grant_rows = _mapping_rows(
+        grant_rows = mapping_rows(
             self.connection.execute(
                 select(grants)
                 .where(
@@ -642,16 +685,7 @@ class PostgresAuthorityProvider:
                 "effect grant epoch does not cover the exact operation and scope"
             )
 
-        current = StepAuthorizationBinding.from_content(
-            **{
-                **stored.model_dump(mode="python", exclude={"binding_digest"}),
-                "authority_source_bindings": context.authority_source_bindings,
-                "grants_digest": context.grants_digest,
-                "resource_ceiling_digest": context.resource_ceiling_digest,
-                "grant_epoch": context.grant_epoch,
-                "expires_at": context.expires_at,
-            }
-        )
+        current = _refresh_step_authorization(stored, context)
         try:
             require_current_authority(stored, current, now=observed_at)
         except ValueError as exc:
@@ -746,18 +780,9 @@ class PostgresAuthorityProvider:
             canonical_incarnation=previous.canonical_incarnation,
             now=now,
         )
-        return StepAuthorizationBinding.from_content(
-            **{
-                **previous.model_dump(mode="python", exclude={"binding_digest"}),
-                "authority_source_bindings": context.authority_source_bindings,
-                "grants_digest": context.grants_digest,
-                "resource_ceiling_digest": context.resource_ceiling_digest,
-                "grant_epoch": context.grant_epoch,
-                "expires_at": context.expires_at,
-            }
-        )
+        return _refresh_step_authorization(previous, context)
 
-    def current_approval(self, approval_id: str) -> Mapping[str, Any]:
+    def current_approval(self, approval_id: str) -> RowMapping:
         table = runtime_table("runtime_approvals")
         row = one_mapping(
             self.connection.execute(
@@ -777,7 +802,7 @@ class PostgresAuthorityProvider:
 
     def current_canonical_head(
         self, canonical_owner: str, object_id: str
-    ) -> Mapping[str, Any]:
+    ) -> RowMapping:
         tables = project_tables(MetaData(), self.scope.project_scope.resolved_schema)
         objects = tables.research_objects
         row = one_mapping(

@@ -8,12 +8,16 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 from shutil import which
-from typing import Any, Protocol
+from typing import Any, Protocol, TypeGuard
 
 import httpx
 from functorial_kit import Failure
 
-from .registry import _failure, _raise_contract_failure
+from .registry import crawler_failure as _failure, raise_crawler_contract_failure as _raise_contract_failure
+
+
+def _is_payload_dict(value: object) -> TypeGuard[dict[str, object]]:
+    return isinstance(value, dict)
 
 
 _BOOT_LOCK = threading.Lock()
@@ -127,7 +131,7 @@ def _try_scrapyd_health(base_url: str, timeout: float = 2.0) -> bool | Failure:
             public_exception="RuntimeError",
             cause=exc,
         )
-    if not isinstance(body, dict) or str(body.get("status") or "").strip().lower() != "ok":
+    if not _is_payload_dict(body) or str(body.get("status") or "").strip().lower() != "ok":
         return _failure(
             "scrapyd_response_invalid",
             "scrapyd health check response is not an ok status object",

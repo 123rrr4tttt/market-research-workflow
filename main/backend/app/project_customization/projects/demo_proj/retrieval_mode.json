@@ -3,21 +3,21 @@
   "project_key": "demo_proj",
   "mode_id": "demo-embodied-signals-retrieval",
   "version": "1",
-  "source_revision": "a45be59b488104503d128e15f47b84eb0def24acc75798b6a2e1250e345658da",
+  "source_revision": "dea9d855512fc75d5aea6d2efd869b035f3b22ed7a495dbcea311678eee00d32",
   "source_snapshot": {
     "kind": "checked_in_project_binding",
     "files": {
       "main/backend/app/subprojects/demo_proj/customization.py": {
-        "sha256": "a0beca1207247d612c35c57069adf4a56b93e0c1dbd75457cdedd88b6e3757d5",
-        "bytes": 1622
+        "sha256": "c7bc7221613745509dbde6b5cf2ddeb067bf5c69129d75966ec4d3aeabac707a",
+        "bytes": 1707
       },
       "main/backend/app/subprojects/demo_proj/mappings/workflow.py": {
         "sha256": "6116b7b966a9e59ddd56218974423662804aaa12bf85602b9c785921085d2534",
         "bytes": 983
       },
       "main/backend/app/subprojects/demo_proj/mappings/fields.py": {
-        "sha256": "92c788eb8d80481d3ab9bee8d7979986be6695afd65a01184f73a6abc0afd924",
-        "bytes": 2820
+        "sha256": "bc886383a1458012458264325b432bad0419ace516810d7e3930a7d1cb34ad83",
+        "bytes": 2919
       },
       "main/backend/app/project_customization/projects/demo_proj/__init__.py": {
         "sha256": "4069cd217a72aee83e4ddf3972f574b4fd850176336e2f96f95de569ae4ba12a",
@@ -103,8 +103,8 @@
       "type_id": "source",
       "local_id": "demo-customization"
     },
-    "observed_revision": "a45be59b488104503d128e15f47b84eb0def24acc75798b6a2e1250e345658da",
-    "content_digest": "92c788eb8d80481d3ab9bee8d7979986be6695afd65a01184f73a6abc0afd924"
+    "observed_revision": "dea9d855512fc75d5aea6d2efd869b035f3b22ed7a495dbcea311678eee00d32",
+    "content_digest": "bc886383a1458012458264325b432bad0419ace516810d7e3930a7d1cb34ad83"
   },
   "limits": {
     "max_queries": 3,

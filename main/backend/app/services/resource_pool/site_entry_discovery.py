@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, TypeGuard, cast
 from urllib.parse import parse_qsl, urlencode, urljoin, urlparse, urlunparse
 
 from sqlalchemy import select
@@ -13,13 +13,18 @@ from sqlalchemy import select
 from ...models.base import SessionLocal
 from ...models.entities import ResourcePoolUrl, SharedResourcePoolUrl
 from ..projects import bind_project, bind_schema
+from .auto_classify import classify_site_entries_batch, infer_keyword_capabilities
 from .http_port import HttpFetchError, fetch_html, make_html_parser
-from .auto_classify import classify_site_entry
 from .site_entries import upsert_site_entry
-from .auto_classify import infer_keyword_capabilities, classify_site_entries_batch
-from .url_utils import domain_from_url, normalize_url
+from .url_utils import normalize_url
 
 _log = logging.getLogger(__name__)
+
+
+def _is_string_object_dict(value: object) -> TypeGuard[dict[str, object]]:
+    return isinstance(value, dict) and all(
+        isinstance(key, str) for key in cast(dict[object, object], value)
+    )
 
 
 _DEFAULT_SITEMAP_PATHS: tuple[str, ...] = (
@@ -83,7 +88,7 @@ def _discover_domain_candidates(
         norm = normalize_url(site_url)
         if not norm:
             return
-        item = {
+        item: dict[str, Any] = {
             "site_url": norm,
             "domain": d,
             "entry_type": entry_type,
@@ -382,6 +387,7 @@ def discover_site_entries_from_urls(
     stats = {"domain_root": 0, "sitemap": 0, "rss": 0, "link_alternate": 0, "search_path": 0, "search_form": 0}
     seen_site_urls: set[str] = set()
     max_workers = max(1, min(16, int(domain_probe_concurrency or 6)))
+    iter_results: list[tuple[list[dict[str, Any]], dict[str, int], list[dict[str, str]]]]
     if max_workers == 1 or len(domains) <= 1:
         iter_results = [
             _discover_domain_candidates(
@@ -448,13 +454,19 @@ def discover_site_entries_from_urls(
                 recs = classify_site_entries_batch(batch_rows, use_llm=use_llm, llm_batch_size=20)
                 for rec_row, idx in zip(recs, candidate_indexes):
                     c = candidates[idx]
-                    extra = c.get("extra") or {}
+                    raw_extra = c.get("extra")
+                    extra = dict(raw_extra) if _is_string_object_dict(raw_extra) else {}
                     extra["recommended_channel_key"] = rec_row.get("channel_key")
                     extra["recommend_source"] = rec_row.get("source")
                     if rec_row.get("template"):
                         extra["recommended_template"] = rec_row.get("template")
                     c["extra"] = extra
-                    c["capabilities"] = {**(c.get("capabilities") or {}), **(rec_row.get("capabilities") or {})}
+                    current_capabilities = c.get("capabilities")
+                    recommended_capabilities = rec_row.get("capabilities")
+                    c["capabilities"] = {
+                        **(dict(current_capabilities) if _is_string_object_dict(current_capabilities) else {}),
+                        **(dict(recommended_capabilities) if _is_string_object_dict(recommended_capabilities) else {}),
+                    }
                 # Optionally materialize a search_template candidate when recommendation says so.
                 existing_urls = {str(x.get("site_url") or "") for x in candidates}
                 new_candidates: list[dict[str, Any]] = []
@@ -465,14 +477,15 @@ def discover_site_entries_from_urls(
                     if not tpl or tpl in existing_urls:
                         continue
                     src = candidates[idx]
-                    clone = {
+                    source_extra = src.get("extra")
+                    clone: dict[str, Any] = {
                         **src,
                         "site_url": tpl,
                         "entry_type": "search_template",
                         "template": tpl,
                         "capabilities": rec_row.get("capabilities") or infer_keyword_capabilities("search_template", "generic_web.search_template"),
                         "extra": {
-                            **(src.get("extra") or {}),
+                            **(dict(source_extra) if _is_string_object_dict(source_extra) else {}),
                             "generated_from_domain_root": src.get("site_url"),
                             "recommended_channel_key": "generic_web.search_template",
                             "recommend_source": rec_row.get("source") or "batch",

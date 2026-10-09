@@ -48,8 +48,8 @@ _DEVICE_CODE_RE = re.compile(r"\b[A-Z0-9]{4}-[A-Z0-9]{5}\b")
 _ANSI_RE = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
 _CODEX_RELEASE_BASE_URL = "https://github.com/openai/codex/releases/latest/download"
 _CODEX_LOGIN_LOCK = threading.Lock()
-_CODEX_LOGIN_PROCESS: subprocess.Popen[str] | None = None
-_CODEX_LOGIN_STARTED_AT: float | None = None
+_codex_login_process: subprocess.Popen[str] | None = None
+_codex_login_started_at: float | None = None
 
 
 def _error_json(
@@ -178,8 +178,9 @@ def codex_auth_bootstrap_routes() -> frozenset[tuple[str, str]]:
     """Return the explicit GET bootstrap surface in mounted API form."""
 
     return frozenset(
-        (str(method).upper(), f"/api/v1{route.path}")
+        (str(method).upper(), f"/api/v1{path}")
         for route in bootstrap_router.routes
+        if isinstance((path := getattr(route, "path", None)), str)
         for method in (getattr(route, "methods", None) or ())
     )
 
@@ -383,7 +384,7 @@ def codex_cli_bootstrap() -> dict[str, Any]:
 
 
 def _start_codex_device_auth(codex_bin: str) -> tuple[str | None, str | None]:
-    global _CODEX_LOGIN_PROCESS, _CODEX_LOGIN_STARTED_AT
+    global _codex_login_process, _codex_login_started_at
     _stop_codex_login_process()
     process = subprocess.Popen(
         [codex_bin, "login", "--device-auth"],
@@ -408,8 +409,8 @@ def _start_codex_device_auth(codex_bin: str) -> tuple[str | None, str | None]:
             device_code_match = _DEVICE_CODE_RE.search(clean_output)
             if device_url_match and device_code_match:
                 with _CODEX_LOGIN_LOCK:
-                    _CODEX_LOGIN_PROCESS = process
-                    _CODEX_LOGIN_STARTED_AT = time.monotonic()
+                    _codex_login_process = process
+                    _codex_login_started_at = time.monotonic()
                 return device_url_match.group(0), device_code_match.group(0)
         clean_output = _ANSI_RE.sub("", output)
         device_url_match = _DEVICE_URL_RE.search(clean_output)
@@ -421,7 +422,7 @@ def _start_codex_device_auth(codex_bin: str) -> tuple[str | None, str | None]:
     finally:
         if process.poll() is None:
             with _CODEX_LOGIN_LOCK:
-                keep_waiting = _CODEX_LOGIN_PROCESS is process
+                keep_waiting = _codex_login_process is process
             if not keep_waiting:
                 process.terminate()
                 try:
@@ -432,8 +433,8 @@ def _start_codex_device_auth(codex_bin: str) -> tuple[str | None, str | None]:
 
 def _codex_login_pending() -> bool:
     with _CODEX_LOGIN_LOCK:
-        process = _CODEX_LOGIN_PROCESS
-        started_at = _CODEX_LOGIN_STARTED_AT
+        process = _codex_login_process
+        started_at = _codex_login_started_at
     if process is None or process.poll() is not None:
         return False
     if started_at and time.monotonic() - started_at > 15 * 60:
@@ -443,11 +444,11 @@ def _codex_login_pending() -> bool:
 
 
 def _stop_codex_login_process() -> None:
-    global _CODEX_LOGIN_PROCESS, _CODEX_LOGIN_STARTED_AT
+    global _codex_login_process, _codex_login_started_at
     with _CODEX_LOGIN_LOCK:
-        process = _CODEX_LOGIN_PROCESS
-        _CODEX_LOGIN_PROCESS = None
-        _CODEX_LOGIN_STARTED_AT = None
+        process = _codex_login_process
+        _codex_login_process = None
+        _codex_login_started_at = None
     if process is not None and process.poll() is None:
         process.terminate()
         try:
@@ -560,14 +561,6 @@ def _install_codex_cli_from_release() -> tuple[bool, str]:
     if _codex_bin():
         return True, f"codex cli installed from {url}"
     return False, f"codex binary installed to {binary_path} but is not in PATH"
-
-
-def _subprocess_text(value: str | bytes | None) -> str:
-    if value is None:
-        return ""
-    if isinstance(value, bytes):
-        return value.decode("utf-8", errors="replace")
-    return value
 
 
 def _should_retry_after_npm_partial_install(argv: list[str], completed: subprocess.CompletedProcess[str]) -> bool:

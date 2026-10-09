@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import re
-from typing import Any
+from collections.abc import Mapping
+from typing import Any, Literal, NoReturn, TypeGuard
 
 from fastapi import APIRouter, HTTPException, Query, Request, Response
 from pydantic import AnyHttpUrl, BaseModel, Field, field_validator
@@ -150,6 +151,24 @@ def _normalize_quality_gate_for_export(value: dict[str, Any] | None) -> dict[str
     return gate
 
 
+def _is_object_mapping(value: object) -> TypeGuard[Mapping[object, object]]:
+    return isinstance(value, Mapping)
+
+
+def _object_dict(value: object) -> dict[str, object]:
+    if not _is_object_mapping(value):
+        return {}
+    return {key: item for key, item in value.items() if isinstance(key, str)}
+
+
+def _is_object_list(value: object) -> TypeGuard[list[object]]:
+    return isinstance(value, list)
+
+
+def _object_list(value: object) -> list[object]:
+    return value if _is_object_list(value) else []
+
+
 def _resolve_ui_read_only_context_trace(
     payload: ExportMarkdownRequest,
     *,
@@ -173,10 +192,6 @@ def _resolve_ui_read_only_context_trace(
     if source:
         trace["ui_read_only_context_source"] = source
     return trace
-
-
-def _request_actor_id(request: Request | None) -> str:
-    return resolve_request_actor_context(request).actor_id
 
 
 def _request_actor_context(request: Request | None) -> RequestActorContext:
@@ -424,12 +439,8 @@ def _build_export_response_headers(
     export_format: str,
     export_readiness: dict[str, Any],
 ) -> dict[str, str]:
-    header_snapshot = audit_event.get("header_snapshot") if isinstance(audit_event, dict) else {}
-    if not isinstance(header_snapshot, dict):
-        header_snapshot = {}
-    source_ref = audit_event.get("source_ref") if isinstance(audit_event, dict) else {}
-    if not isinstance(source_ref, dict):
-        source_ref = {}
+    header_snapshot = _object_dict(audit_event.get("header_snapshot")) if audit_event is not None else {}
+    source_ref = _object_dict(audit_event.get("source_ref")) if audit_event is not None else {}
     headers = {
         "Content-Disposition": f"attachment; filename={filename}",
         "X-LLM-Report-Export-Readiness": str(header_snapshot.get("readiness") or export_readiness["readiness"]),
@@ -521,7 +532,7 @@ def _raise_http_error(
     message: str,
     *,
     details: dict[str, Any] | None = None,
-) -> None:
+) -> NoReturn:
     raise HTTPException(
         status_code=status_code,
         detail=error_response(
@@ -555,9 +566,9 @@ def _build_export_readiness(
     export_format: str = "markdown",
 ) -> dict[str, Any]:
     decision = str(gate.get("decision") or "fail").lower()
-    hard_failures = gate.get("hard_failures") if isinstance(gate.get("hard_failures"), list) else []
-    soft_failures = gate.get("soft_failures") if isinstance(gate.get("soft_failures"), list) else []
-    missing_items = gate.get("missing_items") if isinstance(gate.get("missing_items"), list) else []
+    hard_failures = _object_list(gate.get("hard_failures"))
+    soft_failures = _object_list(gate.get("soft_failures"))
+    missing_items = _object_list(gate.get("missing_items"))
     normalized_format = str(export_format or "markdown").strip().lower() or "markdown"
     content_type_by_format = {
         "markdown": "text/markdown; charset=utf-8",
@@ -606,10 +617,9 @@ def generate_llm_report(payload: GenerateReportRequest, request: Request) -> dic
     header_project_key = None
     header_trace_id = None
     actor_context = _request_actor_context(request)
-    if request is not None:
-        header_request_id = (request.headers.get("X-Request-Id") or "").strip() or None
-        header_trace_id = (request.headers.get("X-Trace-Id") or "").strip() or None
-        header_project_key = (request.headers.get("X-Project-Key") or "").strip() or None
+    header_request_id = (request.headers.get("X-Request-Id") or "").strip() or None
+    header_trace_id = (request.headers.get("X-Trace-Id") or "").strip() or None
+    header_project_key = (request.headers.get("X-Project-Key") or "").strip() or None
     identity = resolve_request_identity(
         consumer="llm_report.generate",
         trace_id=header_trace_id,
@@ -990,7 +1000,12 @@ def export_llm_report_markdown(payload: ExportMarkdownRequest, request: Request)
     )
 
 
-def _export_llm_report_binary(payload: ExportMarkdownRequest, *, export_format: str, request: Request) -> Response:
+def _export_llm_report_binary(
+    payload: ExportMarkdownRequest,
+    *,
+    export_format: Literal["pdf", "docx"],
+    request: Request,
+) -> Response:
     gate, gate_mode, gate_mode_raw, gate_mode_fallback, token_payload, integrity = _resolve_export_gate_context(
         payload,
         export_format=export_format,
@@ -1040,7 +1055,7 @@ def _export_llm_report_binary(payload: ExportMarkdownRequest, *, export_format: 
     )
     artifact = render_markdown_export(
         payload.markdown,
-        export_format,  # type: ignore[arg-type]
+        export_format,
         reset_telemetry_boundary_context=payload.reset_telemetry_boundary_context,
     )
     filename = _safe_export_filename(payload.filename, extension=artifact.extension)

@@ -5,8 +5,8 @@ from datetime import datetime, timezone
 from enum import StrEnum
 from types import MappingProxyType
 import os
-from collections.abc import Mapping
-from typing import Annotated, Any
+from collections.abc import Iterable, Iterator, Mapping, Sequence
+from typing import Annotated, Protocol, TypeGuard, TypeVar, runtime_checkable
 
 from sqlalchemy import select
 from sqlalchemy.engine import Engine
@@ -21,6 +21,85 @@ AUTHORITY_READ_SOURCE = (
 )
 DATABASE_SOURCE = "sqlalchemy.engine:select_1+pool_status"
 PROVIDER_SOURCE = "production.provider-runtime:explicit-local-simulation-or-unknown"
+_Type = TypeVar("_Type")
+
+
+def _instance_of(value: object, expected_type: type[_Type]) -> TypeGuard[_Type]:
+    return isinstance(value, expected_type)
+
+
+def _nonnegative_int(value: object) -> TypeGuard[int]:
+    return isinstance(value, int) and not isinstance(value, bool) and value >= 0
+
+
+def _runtime_int(value: object) -> int:
+    if not _nonnegative_int(value):
+        raise TypeError("runtime health count must be a non-negative integer")
+    return value
+
+
+def _config_int(value: object) -> int:
+    if isinstance(value, bool) or isinstance(value, (int, float)):
+        return max(0, int(value))
+    if isinstance(value, str):
+        return max(0, int(value))
+    return 0
+
+
+@runtime_checkable
+class SourceRow(Protocol):
+    def __getitem__(self, key: str) -> object: ...
+
+
+@runtime_checkable
+class _ObjectIterable(Protocol):
+    def __iter__(self) -> Iterator[object]: ...
+
+
+class _RedisQueueClient:
+    def __init__(self, client: object) -> None:
+        self._client = client
+
+    def llen(self, queue_name: str) -> object:
+        method = getattr(self._client, "llen", None)
+        if not callable(method):
+            raise TypeError("Redis queue client does not expose llen")
+        return method(queue_name)
+
+
+def _empty_labels() -> dict[str, str]:
+    return {}
+
+
+def _is_object_mapping(value: object) -> TypeGuard[Mapping[object, object]]:
+    return isinstance(value, Mapping)
+
+
+def _is_object_sequence(value: object) -> TypeGuard[Sequence[object]]:
+    return isinstance(value, Sequence)
+
+
+def _label_items(value: object) -> Iterable[tuple[object, object]]:
+    if value is None:
+        return ()
+    if _is_object_mapping(value):
+        return value.items()
+    if not isinstance(value, _ObjectIterable):
+        raise ObservabilityTypeError(
+            "runtime health labels must be a mapping, item pairs, or null"
+        )
+    items: list[tuple[object, object]] = []
+    for item in value:
+        if (
+            isinstance(item, (str, bytes))
+            or not _is_object_sequence(item)
+            or len(item) != 2
+        ):
+            raise ObservabilityTypeError(
+                "runtime health labels must contain key-value pairs"
+            )
+        items.append((item[0], item[1]))
+    return tuple(items)
 
 
 class QueueReadStatus(StrEnum):
@@ -67,9 +146,9 @@ class QueueRuntimeSignal:
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "source", _required_text(self.source, "queue source"))
-        if not isinstance(self.read_status, QueueReadStatus):
+        if not _instance_of(self.read_status, QueueReadStatus):
             raise ObservabilityTypeError("queue read_status is closed")
-        if not isinstance(self.depth, int) or isinstance(self.depth, bool) or self.depth < 0:
+        if not _nonnegative_int(self.depth):
             raise ObservabilityValueError("queue depth must be a non-negative integer")
 
     def to_dict(self) -> dict[str, str | int]:
@@ -90,7 +169,7 @@ class DatabaseRuntimeSignal:
         object.__setattr__(self, "connection_status", _required_text(self.connection_status, "database connection status"))
         object.__setattr__(self, "pool_status", _required_text(self.pool_status, "database pool status"))
         values = (self.pool_size, self.checked_out, self.pool_limit)
-        if any(not isinstance(value, int) or isinstance(value, bool) or value < 0 for value in values):
+        if any(not _nonnegative_int(value) for value in values):
             raise ObservabilityValueError("database pool counts must be non-negative integers")
         if self.checked_out > self.pool_limit:
             raise ObservabilityValueError("database checked-out count cannot exceed pool limit")
@@ -107,7 +186,7 @@ class ProviderRuntimeSignal:
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "source", _required_text(self.source, "provider source"))
-        if not isinstance(self.status, ProviderRuntimeStatus):
+        if not _instance_of(self.status, ProviderRuntimeStatus):
             raise ObservabilityTypeError("provider status is closed")
         simulated_statuses = {
             ProviderRuntimeStatus.SIMULATED_HEALTHY,
@@ -135,9 +214,9 @@ class RuntimeBindingSignal:
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "source", _required_text(self.source, "runtime binding source"))
-        if not isinstance(self.authority_status, RuntimeBindingStatus):
+        if not _instance_of(self.authority_status, RuntimeBindingStatus):
             raise ObservabilityTypeError("runtime authority status is closed")
-        if not isinstance(self.projection_release_status, ProjectionReleaseStatus):
+        if not _instance_of(self.projection_release_status, ProjectionReleaseStatus):
             raise ObservabilityTypeError("projection release status is closed")
 
     def to_dict(self) -> dict[str, str]:
@@ -168,7 +247,7 @@ class RuntimeAuthorityReadSignal:
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "source", _required_text(self.source, "authority read source"))
-        if not isinstance(self.read_status, RuntimeAuthorityReadStatus):
+        if not _instance_of(self.read_status, RuntimeAuthorityReadStatus):
             raise ObservabilityTypeError("authority read status is closed")
         object.__setattr__(self, "mismatch_fields", tuple(dict.fromkeys(self.mismatch_fields)))
         object.__setattr__(
@@ -192,16 +271,20 @@ class RuntimeHealthSnapshot:
     database: DatabaseRuntimeSignal
     provider: ProviderRuntimeSignal
     runtime_binding: RuntimeBindingSignal
-    labels: Mapping[str, str] = field(default_factory=dict)
+    labels: Mapping[str, str] = field(default_factory=_empty_labels)
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "observed_at", parse_observed_at(self.observed_at))
-        labels = {str(key).strip(): str(value).strip() for key, value in dict(self.labels or {}).items()}
+        raw_labels: object = self.labels
+        labels = {
+            str(key).strip(): str(value).strip()
+            for key, value in _label_items(raw_labels)
+        }
         object.__setattr__(self, "labels", MappingProxyType(labels))
 
     def to_dict(self) -> dict[str, object]:
         return {
-            "observed_at": self.observed_at.isoformat(),
+            "observed_at": parse_observed_at(self.observed_at).isoformat(),
             "queue": self.queue.to_dict(),
             "database": self.database.to_dict(),
             "provider": self.provider.to_dict(),
@@ -210,40 +293,55 @@ class RuntimeHealthSnapshot:
         }
 
 
-def _namespace(mapping: Mapping[str, Any], *fields: str) -> Any:
-    return type("RuntimeSourceRow", (), {field: mapping[field] for field in fields})()
+def _namespace(mapping: SourceRow, *fields: str) -> dict[str, object]:
+    return {field: mapping[field] for field in fields}
+
+
+def _row_value(row: object, field: str) -> object | None:
+    if _is_object_mapping(row):
+        return row.get(field)
+    return getattr(row, field, None)
 
 
 def runtime_authority_read_signal_from_rows(
     *,
-    scope: Any,
-    step: Any,
-    capability: Any,
+    scope: object,
+    step: object,
+    capability: object,
     task_id: str | None,
 ) -> RuntimeAuthorityReadSignal:
-    tenant_id = str(getattr(scope, "project_key", "") or "")
-    expected_scope_digest = str(getattr(scope, "scope_digest", "") or "")
-    expected_registry_revision = getattr(scope, "project_registry_revision", None)
-    capability_id = str(getattr(capability, "capability_id", "") or "")
-    step_id = str(getattr(step, "step_id", "") or "")
-    claim_epoch = getattr(step, "claim_authority_epoch", None)
-    expected_epoch = getattr(capability, "authority_epoch", None)
+    tenant_id = str(_row_value(scope, "project_key") or "")
+    expected_scope_digest = str(_row_value(scope, "scope_digest") or "")
+    raw_registry_revision = _row_value(scope, "project_registry_revision")
+    expected_registry_revision = (
+        _runtime_int(raw_registry_revision)
+        if raw_registry_revision is not None
+        else None
+    )
+    capability_id = str(_row_value(capability, "capability_id") or "")
+    step_id = str(_row_value(step, "step_id") or "")
+    raw_claim_epoch = _row_value(step, "claim_authority_epoch")
+    claim_epoch = _runtime_int(raw_claim_epoch) if raw_claim_epoch is not None else None
+    raw_expected_epoch = _row_value(capability, "authority_epoch")
+    expected_epoch = (
+        _runtime_int(raw_expected_epoch) if raw_expected_epoch is not None else None
+    )
 
     mismatched: list[str] = []
     if not task_id:
         mismatched.append("task")
     if not tenant_id:
         mismatched.append("tenant")
-    if str(getattr(step, "project_key", "") or "") != tenant_id:
+    if str(_row_value(step, "project_key") or "") != tenant_id:
         mismatched.append("tenant")
     if (
-        str(getattr(step, "project_scope_digest", "") or "")
+        str(_row_value(step, "project_scope_digest") or "")
         != expected_scope_digest
-        or getattr(step, "project_registry_revision", None)
+        or _row_value(step, "project_registry_revision")
         != expected_registry_revision
     ):
         mismatched.append("project_scope")
-    if str(getattr(step, "capability_id", "") or "") != capability_id:
+    if str(_row_value(step, "capability_id") or "") != capability_id:
         mismatched.append("capability")
     if not step_id:
         mismatched.append("step")
@@ -375,11 +473,14 @@ def read_runtime_queue_signal(
     try:
         import redis
 
-        depth = int(
-            redis.Redis.from_url(
-                str(getattr(settings_obj, "redis_url", "") or "")
-            ).llen(queue_name)
+        factory: object = redis.Redis
+        from_url = getattr(factory, "from_url", None)
+        if not callable(from_url):
+            raise TypeError("Redis client factory does not expose from_url")
+        queue_client = _RedisQueueClient(
+            from_url(str(getattr(settings_obj, "redis_url", "") or ""))
         )
+        depth = _runtime_int(queue_client.llen(queue_name))
     except Exception:  # noqa: BLE001 - queue reads become typed failures
         return QueueRuntimeSignal(
             source=f"redis.broker.llen:{queue_name}",
@@ -420,7 +521,7 @@ def build_runtime_health_snapshot(
     *,
     database_connection_status: str,
     database_pool_status: str,
-    pool_status: Mapping[str, object],
+    pool_status: Mapping[str, object] | None,
     runtime_status: Mapping[str, object],
     engine: Engine,
     settings_obj: object,
@@ -431,10 +532,16 @@ def build_runtime_health_snapshot(
     RuntimeHealthSnapshot,
     "kit:non-authoritative derived_as=view fact_source=production.runtime-health.live-sources witness=test:test_deep_health_sources_build_typed_runtime_snapshot",
 ]:
-    pool_values = dict(pool_status or {})
-    pool_size = max(0, int(pool_values.get("size", 0) or 0))
-    checked_out = max(0, int(pool_values.get("checkedout", 0) or 0))
-    max_overflow = max(0, int(getattr(settings_obj, "db_pool_max_overflow", 0) or 0))
+    raw_pool_status: object = pool_status
+    if raw_pool_status is None:
+        pool_values: dict[object, object] = {}
+    elif _is_object_mapping(raw_pool_status):
+        pool_values = dict(raw_pool_status)
+    else:
+        raise ObservabilityTypeError("database pool status must be a mapping or null")
+    pool_size = _config_int(pool_values.get("size", 0))
+    checked_out = _config_int(pool_values.get("checkedout", 0))
+    max_overflow = _config_int(getattr(settings_obj, "db_pool_max_overflow", 0))
     authority_read = read_runtime_authority_signal(engine)
     authority_status = (
         RuntimeBindingStatus.MISMATCH

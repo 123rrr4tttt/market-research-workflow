@@ -40,6 +40,17 @@ def _has_en(text: str) -> bool:
     return any(("a" <= ch.lower() <= "z") for ch in str(text or ""))
 
 
+def _response_text(response: object) -> str:
+    if not hasattr(response, "content"):
+        return str(response)
+    content = getattr(response, "content")
+    return content if isinstance(content, str) else ""
+
+
+def _prompt_template_text(value: object) -> str:
+    return value if isinstance(value, str) else ""
+
+
 def _ensure_bilingual_search_keywords(
     keywords: List[str],
     topic: str,
@@ -119,7 +130,7 @@ def generate_social_keywords(
                     )
                     if updated:
                         config["user_prompt_template"] = updated
-                template_to_use = config.get("user_prompt_template", "")
+                template_to_use = _prompt_template_text(config.get("user_prompt_template"))
                 
                 # 使用合并配置生成两种关键词
                 language_str = _social_language_label(language)
@@ -148,7 +159,7 @@ def generate_social_keywords(
                 )
                 
                 response = model.invoke(prompt)
-                text = response.content if hasattr(response, "content") else str(response)
+                text = _response_text(response)
                 
                 logger.debug(f"LLM response text (first 500 chars): {text[:500]}")
                 
@@ -160,7 +171,6 @@ def generate_social_keywords(
                 lines = text.splitlines()
                 
                 for line in lines:
-                    line_original = line
                     line = line.strip()
                     if not line:
                         continue
@@ -309,7 +319,7 @@ def generate_social_keywords(
             language_str = _social_language_label(language)
             platform_str = f"，适合在{platform}平台搜索" if platform else ""
             # format_prompt_template 使用 {变量} 格式，直接传递 platform 参数
-            template = config["user_prompt_template"]
+            template = _prompt_template_text(config["user_prompt_template"])
             # 如果模板中包含 {platform}，直接传递给 format_prompt_template
             if "{platform}" in template:
                 prompt = format_prompt_template(
@@ -352,7 +362,7 @@ def generate_social_keywords(
             model = get_chat_model()
         
         response = model.invoke(prompt)
-        text = response.content if hasattr(response, "content") else str(response)
+        text = _response_text(response)
         keywords: List[str] = []
         for line in text.splitlines():
             line = line.strip("- •*1234567890. ")
@@ -490,7 +500,7 @@ def generate_subreddit_keywords(topic: str, language: str = "en", base_keywords:
             
             # 构建提示词
             prompt = format_prompt_template(
-                config["user_prompt_template"],
+                _prompt_template_text(config["user_prompt_template"]),
                 language=language_str,
                 topic=topic,
                 base_keywords=base_keywords_str
@@ -523,7 +533,7 @@ def generate_subreddit_keywords(topic: str, language: str = "en", base_keywords:
             model = get_chat_model(temperature=0.7)  # 稍高温度以增加多样性
         
         response = model.invoke(prompt)
-        text = response.content if hasattr(response, "content") else str(response)
+        text = _response_text(response)
         keywords: List[str] = []
         
         for line in text.splitlines():
@@ -550,7 +560,7 @@ def generate_subreddit_keywords(topic: str, language: str = "en", base_keywords:
         if keywords:
             logger.info("generate_subreddit_keywords: llm keywords=%s (topic=%s)", keywords, topic)
             return keywords[:15]  # 最多返回15个关键词
-    except Exception as e:
+    except Exception:
         logger.warning("generate_subreddit_keywords: llm failed, fallback to static keywords", exc_info=True)
     
     # Fallback without LLM
@@ -559,7 +569,7 @@ def generate_subreddit_keywords(topic: str, language: str = "en", base_keywords:
 
 def _get_fallback_subreddit_keywords(topic: str, base_keywords: Optional[List[str]] = None) -> List[str]:
     """获取fallback子论坛关键词"""
-    keywords = []
+    keywords: list[str] = []
     
     # 使用基础关键词（如果提供）
     if base_keywords:

@@ -37,7 +37,7 @@ from .object_contracts import (
 if TYPE_CHECKING:
     from .algebra import AlgebraRef
     from .object_contracts import OperationContractResolver
-    from .transforms import DiscriminatorRef, MergeRef, TransformRef
+    from .transforms import DiscriminatorRef, MergeRef, TransformRef, TransformReference
 
 ALLOWED_NODE_KINDS = (
     "identity",
@@ -850,7 +850,7 @@ def try_pure_node(
 def pure_node(
     input_type: ObjectType,
     output_type: ObjectType,
-    literal_value: FrozenJsonValue,
+    literal_value: object,
     literal_codec: str,
 ) -> Pure:
     result = try_pure_node(input_type, output_type, literal_value, literal_codec)
@@ -1090,7 +1090,7 @@ class ProgramSpec:
     output_type: ObjectType
     root: "ProgramNode"
     algebra_refs: "tuple[AlgebraRef, ...]"
-    transform_refs: "tuple[TransformRef, ...]"
+    transform_refs: "tuple[TransformReference, ...]"
     observation_profile: str
     metadata: FrozenJsonObject
     program_digest: str
@@ -1462,7 +1462,7 @@ def program_digest(spec: ProgramSpec) -> str:
 
 def _decode_program_spec_impl(payload: "dict[str, object]") -> ProgramSpec:
     from .algebra import AlgebraRef
-    from .transforms import TransformRef
+    from .transforms import DiscriminatorRef, MergeRef, TransformRef
 
     try:
         declared_digest = _json_text(payload.get("program_digest"), "program_digest must be text")
@@ -1485,17 +1485,40 @@ def _decode_program_spec_impl(payload: "dict[str, object]") -> ProgramSpec:
                     algebra_version=_json_text(fields.get("algebra_version"), "algebra_version must be text"),
                 )
             )
-        transform_refs: "list[TransformRef]" = []
+        transform_refs: "list[TransformReference]" = []
         for item in _decode_array(program.get("transform_refs")):
             fields = _decode_tagged(item, "transform_ref")
-            transform_refs.append(
-                TransformRef(
-                    name=_json_text(fields.get("name"), "transform name must be text"),
-                    version=_json_text(fields.get("version"), "transform version must be text"),
-                    digest=_json_text(fields.get("digest"), "transform digest must be text"),
-                    transform_kind=_json_text(fields.get("transform_kind", "transform"), "transform_kind must be text"),
-                )
+            name = _json_text(fields.get("name"), "transform name must be text")
+            version = _json_text(fields.get("version"), "transform version must be text")
+            digest = _json_text(fields.get("digest"), "transform digest must be text")
+            transform_kind = _json_text(
+                fields.get("transform_kind", "transform"),
+                "transform_kind must be text",
             )
+            if transform_kind == "merge":
+                transform_ref: TransformReference = MergeRef(
+                    name=name,
+                    version=version,
+                    digest=digest,
+                )
+            elif transform_kind == "discriminator":
+                transform_ref = DiscriminatorRef(
+                    name=name,
+                    version=version,
+                    digest=digest,
+                )
+            elif transform_kind == "transform":
+                transform_ref = TransformRef(
+                    name=name,
+                    version=version,
+                    digest=digest,
+                )
+            else:
+                # kit:boundary owner=successor.language.program.codec class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.language.failure witness=test:test_program_codec_rejects_unknown_transform_kind_as_typed_failure_and_legacy_lift
+                raise ProgramCodecError(
+                    f"unsupported transform reference kind {transform_kind!r}"
+                )
+            transform_refs.append(transform_ref)
         observation_profile = _json_text(program.get("observation_profile"), "observation_profile must be text")
         spec = ProgramSpec(
             program_id=_json_text(program.get("program_id"), "program_id must be text"),

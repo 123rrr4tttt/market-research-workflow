@@ -2,10 +2,12 @@
 from __future__ import annotations
 
 import logging
-from typing import Optional
+from datetime import date, datetime
+from typing import TypeGuard
 
 from ....models.entities import Document
 from ..models import NormalizedSocialPost
+from ..mapping import normalize_graph_json_object
 from ...document_views import (
     get_social_identity,
     get_social_entities,
@@ -19,10 +21,32 @@ from ...document_views import (
 logger = logging.getLogger(__name__)
 
 
+def _document_datetime(value: date | None) -> datetime | None:
+    if isinstance(value, datetime):
+        return value
+    if isinstance(value, date):
+        return datetime.combine(value, datetime.min.time())
+    return None
+
+
+def _is_object_list(value: object) -> TypeGuard[list[object]]:
+    return isinstance(value, list)
+
+
+def _string_list(value: object) -> list[str]:
+    if not _is_object_list(value):
+        return []
+    return [item for item in value if isinstance(item, str)]
+
+
+def _optional_string(value: object) -> str | None:
+    return value if isinstance(value, str) else None
+
+
 class RedditAdapter:
     """Reddit平台数据适配器"""
     
-    def to_normalized(self, doc: Document) -> Optional[NormalizedSocialPost]:
+    def to_normalized(self, doc: Document) -> NormalizedSocialPost | None:
         """
         将Reddit文档转换为规范化格式
         
@@ -57,18 +81,18 @@ class RedditAdapter:
 
         # 提取情感信息
         sentiment = get_social_sentiment(doc)
-        sentiment_orientation = sentiment.get("sentiment_orientation")
-        sentiment_tags = sentiment.get("sentiment_tags", [])
-        key_phrases = sentiment.get("key_phrases", [])
-        emotion_words = sentiment.get("emotion_words", [])
-        topic = sentiment.get("topic")
+        sentiment_orientation = _optional_string(sentiment.get("sentiment_orientation"))
+        sentiment_tags = _string_list(sentiment.get("sentiment_tags"))
+        key_phrases = _string_list(sentiment.get("key_phrases"))
+        emotion_words = _string_list(sentiment.get("emotion_words"))
+        topic = _optional_string(sentiment.get("topic"))
 
         # 提取关键词和实体
         keywords = get_social_keywords(doc)
         entities = get_social_entities(doc)
 
         # 处理日期
-        publish_date = doc.publish_date
+        publish_date = _document_datetime(doc.publish_date)
         createdAt = doc.created_at
 
         return NormalizedSocialPost(
@@ -86,6 +110,6 @@ class RedditAdapter:
             key_phrases=key_phrases or [],
             emotion_words=emotion_words or [],
             topic=topic,
-            entities=entities or [],
+            entities=[normalize_graph_json_object(entity) for entity in entities],
             keywords=keywords or [],
         )

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
-from typing import Annotated, Any
+from typing import Annotated
 
 from ...settings.config import settings
 
@@ -26,7 +26,7 @@ class IngestGuardrailRolloutDecision:
     live_canary_validated: bool
     closure_claim: bool
 
-    def to_dict(self) -> dict[str, Any]:
+    def to_dict(self) -> dict[str, object]:
         return asdict(self)
 
 
@@ -51,7 +51,7 @@ class IngestGuardrailRolloutReadiness:
     checks: list[IngestGuardrailRolloutCheck]
     remaining_live_gap: list[str]
 
-    def to_dict(self) -> dict[str, Any]:
+    def to_dict(self) -> dict[str, object]:
         return asdict(self)
 
 

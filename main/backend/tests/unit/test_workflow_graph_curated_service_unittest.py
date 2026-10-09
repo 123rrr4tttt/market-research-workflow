@@ -4,7 +4,6 @@ import unittest
 from unittest.mock import patch
 
 import pytest
-
 from app.services.workflow_graph.curated_service import (
     WorkflowGraphCuratedService,
     WorkflowGraphObjectMissingError,
@@ -224,6 +223,35 @@ class WorkflowGraphCuratedServiceUnitTest(unittest.TestCase):
         ):
             with self.assertRaises(WorkflowGraphObjectMissingError):
                 service.get_graph("missing")
+
+    def test_get_graph_load_state_lifts_malformed_audit_as_type_error(self):
+        service = WorkflowGraphCuratedService()
+        payload = {
+            "base_version": 0,
+            "graphs": {
+                "cg-1": {
+                    "graph_id": "cg-1",
+                    "audits": [{"action": "submit"}, "bad-audit"],
+                }
+            },
+        }
+        with patch(
+            "app.services.workflow_graph.curated_service.current_project_key",
+            return_value="demo_proj",
+        ), patch(
+            "app.services.workflow_graph.curated_service.get_ingest_config",
+            return_value={"payload": payload},
+        ):
+            with self.assertRaisesRegex(
+                TypeError,
+                "curated graph audit record must be a string-keyed mapping",
+            ) as raised:
+                service.get_graph("cg-1")
+
+        failure = getattr(raised.exception, "workflow_failure")
+        self.assertEqual(failure.family, "workflow_graph.failure")
+        self.assertEqual(failure.code, "contract_invalid")
+        self.assertEqual(failure.context["owner"], "workflow_graph.curated_service")
 
 
 if __name__ == "__main__":

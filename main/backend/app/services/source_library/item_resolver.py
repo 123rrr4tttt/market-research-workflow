@@ -15,7 +15,7 @@ SourceMode = Literal["protocol_search", "provider_harvest", "site_search", "url_
 class ExecutionPayload(TypedDict):
     item_key: str
     channel_key: str | None
-    params: dict[str, object]
+    params: dict[object, object]
     result: dict[str, object]
     orchestrator: NotRequired[dict[str, str]]
 
@@ -26,7 +26,7 @@ class ExecutionRequest:
     item_key: str
     item_channel_key: str
     project_key: str | None
-    params: Dict[str, Any]
+    params: dict[object, object]
     protocol: FrontDoorExecutionProtocol
     warnings: list[str] = field(default_factory=list[str])
     taxonomy: Dict[str, Any] = field(default_factory=dict[str, Any])
@@ -37,7 +37,7 @@ class ExecutionRequest:
 
     def complete(
         self, result: Mapping[str, object], *, channel_key: str | None,
-        params: dict[str, object] | None = None,
+        params: dict[object, object] | None = None,
     ) -> ExecutionPayload:
         return self.attach_result({
             "item_key": self.item_key,
@@ -47,7 +47,7 @@ class ExecutionRequest:
         })
 
 
-def terminal_output_params(params: Mapping[str, object]) -> dict[str, object]:
+def terminal_output_params(params: Mapping[object, object]) -> dict[object, object]:
     return {
         **params,
         "_source_library_execution_layer": "terminal_output_only",
@@ -92,12 +92,12 @@ class ItemResolver:
     def resolve(
         *,
         item: Dict[str, Any],
-        params: Dict[str, Any],
+        params: dict[object, object],
         project_key: str | None,
         channel_map: Dict[str, Dict[str, Any]],
         build_frontdoor_protocol: Callable[..., FrontDoorExecutionProtocol],
         is_handler_cluster_item: Callable[[Dict[str, Any] | None], bool],
-        has_site_entries: Callable[[Dict[str, Any] | None], bool],
+        has_site_entries: Callable[[Mapping[object, object] | None], bool],
     ) -> ExecutionRequest:
         item_key = str(item.get("item_key") or "").strip() or "_anonymous"
         item_channel_key = str(item.get("channel_key") or "").strip()
@@ -199,12 +199,12 @@ def _resolve_channel_family(*, item_channel_key: str, provider: str, provider_ty
 def _is_site_search_authoritative(
     *,
     item: Dict[str, Any],
-    params: Dict[str, Any],
+    params: Mapping[object, object],
     item_channel_key: str,
     channel_family: str,
     expected_entry_type: str,
     is_handler_cluster_item: Callable[[Dict[str, Any] | None], bool],
-    has_site_entries: Callable[[Dict[str, Any] | None], bool],
+    has_site_entries: Callable[[Mapping[object, object] | None], bool],
 ) -> bool:
     if channel_family in {"handler_cluster", "generic_web"}:
         return True
@@ -225,12 +225,8 @@ def _is_object_mapping(value: object) -> TypeGuard[Mapping[object, object]]:
     return isinstance(value, Mapping)
 
 
-def _has_parameter_keys(value: Mapping[object, object]) -> TypeGuard[Mapping[str, object]]:
-    return all(isinstance(key, str) for key in value)
-
-
-def channel_default_params(value: object) -> dict[str, object]:
-    if not _is_object_mapping(value) or not _has_parameter_keys(value):
+def channel_default_params(value: object) -> dict[object, object]:
+    if not _is_object_mapping(value):
         # kit:boundary owner=source_library.item_resolver.channel_defaults class=PROGRAMMER_DEFECT failure_family=none witness=test:test_run_item_payload_preserves_opaque_mapping_defaults_and_override
         raise TypeError("source channel default_params must be a mapping with string keys")
     return dict(value)

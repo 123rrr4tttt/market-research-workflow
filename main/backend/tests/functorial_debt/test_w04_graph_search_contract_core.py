@@ -8,22 +8,22 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 import pytest
-from functorial_kit import Failure
-
 from app.services.graph.backfill_graph_nodes import (
     _raise_transaction_failure,
-    run_graph_node_backfill,
     run_graph_node_backfill_or_raise,
     try_run_graph_node_backfill,
 )
 from app.services.graph.models import Graph
 from app.services.search.vector_contracts import (
     build_search_evidence_hits,
+    raise_search_contract_legacy,
+    search_contract_failure,
     serialize_retrieval_run_record,
     try_validate_global_vector_object,
     try_validate_retrieval_run_record,
     try_validate_search_evidence_hit,
 )
+from functorial_kit import Failure
 
 
 class _Result:
@@ -163,6 +163,16 @@ def test_w04_search_abi_lift_preserves_legacy_value_error_message() -> None:
     }
     with pytest.raises(ValueError, match="^search_retrieval_run branch_records do not match evidence hit branches$"):
         serialize_retrieval_run_record(record)
+
+    type_failure = search_contract_failure(
+        "evidence_hit_invalid",
+        "relevance_score is not float-convertible",
+        operation="deep_search_candidates",
+        site="discovery.deep_search.relevance_score",
+        public_exception=TypeError,
+    )
+    with pytest.raises(TypeError, match="^relevance_score is not float-convertible$"):
+        raise_search_contract_legacy(type_failure, exception_type=TypeError)
 
 
 def test_w04_no_throw_variants_have_no_domain_raise() -> None:

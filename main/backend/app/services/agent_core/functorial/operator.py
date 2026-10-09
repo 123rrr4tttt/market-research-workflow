@@ -13,7 +13,11 @@ from __future__ import annotations
 
 import copy
 from dataclasses import dataclass
-from typing import Any
+from typing import TypeGuard
+
+from app.contracts.json import JSONObject, JSONValue
+
+from ..contracts import CoreToolSpec
 
 from app.services.agent_core.project_tools import build_project_core_tool_registry
 
@@ -21,10 +25,10 @@ from .contracts import OPERATOR_RISKS, OperatorRisk, OperatorValidationError
 
 
 def _object_schema(
-    properties: dict[str, dict[str, Any]],
+    properties: dict[str, JSONObject],
     required: tuple[str, ...] = (),
-) -> dict[str, Any]:
-    schema: dict[str, Any] = {"type": "object", "properties": properties}
+) -> JSONObject:
+    schema: JSONObject = {"type": "object", "properties": properties}
     if required:
         schema["required"] = list(required)
     return schema
@@ -66,10 +70,43 @@ _FALLBACK_OUTPUT_SCHEMA = _object_schema({"result": {"type": "object"}})
 _DEFAULT_OUTPUT_SCHEMA = _FALLBACK_OUTPUT_SCHEMA
 
 
-def _normalize_input_schema(schema: Any) -> dict[str, Any]:
-    normalized = copy.deepcopy(schema or {})
+def _is_object_dict(value: object) -> TypeGuard[dict[object, object]]:
+    return isinstance(value, dict)
+
+
+def _is_object_mapping(value: object) -> TypeGuard[dict[str, object]]:
+    return _is_object_dict(value) and all(isinstance(key, str) for key in value)
+
+
+def _is_object_sequence(value: object) -> TypeGuard[list[object]]:
+    return isinstance(value, list)
+
+
+def _json_schema_value(value: object) -> JSONValue:
+    if value is None or isinstance(value, str):
+        return value
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        return value
+    if _is_object_sequence(value):
+        return [_json_schema_value(item) for item in value]
+    if _is_object_mapping(value):
+        return {key: _json_schema_value(item) for key, item in value.items()}
+    raise OperatorValidationError("operator schema is not JSON")
+
+
+def _normalize_open_schema(schema: object, *, default: JSONObject | None = None) -> JSONObject:
+    normalized = _json_schema_value(schema) if _is_object_mapping(schema) and schema else default or {}
     if not isinstance(normalized, dict):
-        normalized = {}
+        raise OperatorValidationError("operator schema root must be an object")
+    return copy.deepcopy(normalized)
+
+
+def _normalize_input_schema(schema: object) -> JSONObject:
+    normalized = _normalize_open_schema(schema)
     properties = normalized.get("properties")
     if not isinstance(properties, dict) or not properties:
         normalized["type"] = "object"
@@ -77,9 +114,10 @@ def _normalize_input_schema(schema: Any) -> dict[str, Any]:
     return normalized
 
 
-def _normalize_output_schema(schema: Any, name: str) -> dict[str, Any]:
-    normalized = copy.deepcopy(schema or {})
-    if not isinstance(normalized, dict) or not normalized:
+def _normalize_output_schema(schema: object, name: str) -> JSONObject:
+    del name
+    normalized = _normalize_open_schema(schema, default=copy.deepcopy(_DEFAULT_OUTPUT_SCHEMA))
+    if not normalized:
         return copy.deepcopy(_DEFAULT_OUTPUT_SCHEMA)
     return normalized
 
@@ -88,12 +126,12 @@ def _normalize_output_schema(schema: Any, name: str) -> dict[str, Any]:
 class OperatorSpec:
     operator_id: str
     name: str
-    input_schema: dict[str, Any]
-    output_schema: dict[str, Any]
+    input_schema: JSONObject
+    output_schema: JSONObject
     impl_ref: str
     risk: OperatorRisk
 
-    def to_dict(self) -> dict[str, Any]:
+    def to_dict(self) -> JSONObject:
         return {
             "operator_id": self.operator_id,
             "name": self.name,
@@ -104,7 +142,7 @@ class OperatorSpec:
         }
 
 
-def _normalize_risk(risk: Any) -> str:
+def _normalize_risk(risk: object) -> OperatorRisk:
     value = str(risk or "").strip().lower()
     if value == "privileged":
         return "write_external"
@@ -116,15 +154,15 @@ def _normalize_risk(risk: Any) -> str:
     )
 
 
-def _operator_from_core_spec(spec: Any) -> OperatorSpec:
-    name = str(getattr(spec, "name", "") or "").strip()
+def _operator_from_core_spec(spec: CoreToolSpec) -> OperatorSpec:
+    name = str(spec.name or "").strip()
     return OperatorSpec(
         operator_id=name,
-        name=str(getattr(spec, "title", None) or name),
-        input_schema=_normalize_input_schema(getattr(spec, "input_schema", None)),
-        output_schema=_normalize_output_schema(getattr(spec, "output_schema", None), name),
+        name=str(spec.title or name),
+        input_schema=_normalize_input_schema(spec.input_schema),
+        output_schema=_normalize_output_schema(spec.output_schema, name),
         impl_ref=f"agent_runtime:{name}",
-        risk=_normalize_risk(getattr(spec, "risk", None)),
+        risk=_normalize_risk(spec.risk),
     )
 
 
@@ -132,7 +170,7 @@ def project_process_operators() -> list[OperatorSpec]:
     """Project the registered Core tool interfaces into OperatorSpecs."""
     projected: dict[str, OperatorSpec] = {}
 
-    core_registry = build_project_core_tool_registry(service=None)  # type: ignore[arg-type]
+    core_registry = build_project_core_tool_registry(service=None)
     for tool in core_registry.list_specs():
         spec = _operator_from_core_spec(tool)
         projected[spec.operator_id] = spec

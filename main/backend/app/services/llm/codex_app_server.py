@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import atexit
 from collections import deque
+from collections.abc import Mapping
 from dataclasses import dataclass
 import hashlib
 import json
@@ -15,14 +16,14 @@ import tempfile
 import threading
 import time
 from pathlib import Path
-from typing import Any, Callable, NoReturn
+from typing import Any, Callable, NoReturn, TypeGuard, overload
 
 import websockets
 from functorial_kit import Failure
 from mrw_functorial_kit.core.application_failure_semantics import codex_invocation_failures
 
 from ...settings.config import settings
-from ..codex_oauth import _is_safe_token_sink_path
+from ..codex_oauth import is_safe_token_sink_path
 from .codex_user_config import (
     load_user_codex_model_config,
     resolve_codex_model,
@@ -50,6 +51,21 @@ _ISOLATED_CODEX_HOME_UNMARKED_JANITOR_AGE_SECONDS = 86400
 _CODEX_FAILURE_CONTEXT_KEYS = frozenset(
     {"owner", "operation", "site", "public_exception", "public_message"}
 )
+
+
+def _is_object_mapping(value: object) -> TypeGuard[Mapping[object, object]]:
+    return isinstance(value, Mapping)
+
+
+def _is_object_list(value: object) -> TypeGuard[list[object]]:
+    return isinstance(value, list)
+
+
+def _object_mapping_field(
+    container: Mapping[object, object], key: str
+) -> Mapping[object, object]:
+    value = container.get(key)
+    return value if _is_object_mapping(value) else {}
 
 
 class _CodexFailureSignal(Exception):
@@ -242,7 +258,7 @@ class CodexAppServerCore:
                 "endpoint": _redact_app_server_endpoint(self._endpoint)
                 if alive
                 else None,
-                "process_id": process.pid if alive else None,
+                "process_id": process.pid if process is not None and alive else None,
                 "active_calls": self._active_calls,
                 "idle_seconds": max(0.0, self.monotonic() - self._last_used_at)
                 if self._last_used_at
@@ -674,7 +690,8 @@ class CodexAppServerCore:
                     params=turn_params,
                     timeout_seconds=timeout,
                 )
-            turn_id = str(((turn_response.get("turn") or {}).get("id")) or "").strip()
+            turn = _object_mapping_field(turn_response, "turn")
+            turn_id = str(turn.get("id") or "").strip()
             result = await self._collect_turn_result(
                 ws,
                 thread_id=thread_id,
@@ -699,17 +716,17 @@ class CodexAppServerCore:
                 await self._dispatch_server_request(ws, data=data)
                 continue
             if data.get("method") == "item/agentMessage/delta":
-                params = data.get("params") if isinstance(data.get("params"), dict) else {}
+                params = _object_mapping_field(data, "params")
                 if not turn_id or params.get("turnId") == turn_id:
                     chunks.append(str(params.get("delta") or ""))
             elif data.get("method") == "item/completed":
-                params = data.get("params") if isinstance(data.get("params"), dict) else {}
-                item = params.get("item") if isinstance(params.get("item"), dict) else {}
+                params = _object_mapping_field(data, "params")
+                item = _object_mapping_field(params, "item")
                 if item.get("type") == "agentMessage":
                     completed_text = str(item.get("text") or completed_text or "")
             elif data.get("method") == "turn/completed":
-                params = data.get("params") if isinstance(data.get("params"), dict) else {}
-                turn = params.get("turn") if isinstance(params.get("turn"), dict) else {}
+                params = _object_mapping_field(data, "params")
+                turn = _object_mapping_field(params, "turn")
                 if not turn_id or turn.get("id") == turn_id:
                     break
             elif data.get("error"):
@@ -740,7 +757,7 @@ class CodexAppServerCore:
         self,
         ws: Any,
         *,
-        data: dict[str, Any],
+        data: Mapping[object, object],
     ) -> bool:
         request_id = data.get("id")
         method = str(data.get("method") or "")
@@ -796,7 +813,8 @@ class CodexAppServerCore:
             params=thread_params,
             timeout_seconds=timeout_seconds,
         )
-        thread_id = str(((thread_response.get("thread") or {}).get("id")) or "").strip()
+        thread = _object_mapping_field(thread_response, "thread")
+        thread_id = str(thread.get("id") or "").strip()
         if not thread_id:
             # kit:boundary owner=codex.invocation.effect class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=codex.invocation.failure witness=test:test_codex_app_server_maps_missing_thread_id
             raise _CodexFailureSignal(
@@ -827,7 +845,7 @@ class CodexAppServerCore:
         method: str,
         params: dict[str, Any],
         timeout_seconds: int,
-    ) -> dict[str, Any]:
+    ) -> Mapping[object, object]:
         await ws.send(
             json.dumps(
                 {
@@ -857,13 +875,13 @@ class CodexAppServerCore:
                     )
                 )
             result = data.get("result")
-            return result if isinstance(result, dict) else {}
+            return result if _is_object_mapping(result) else {}
 
     @staticmethod
-    async def _recv_json(ws: Any, *, timeout_seconds: int) -> dict[str, Any]:
+    async def _recv_json(ws: Any, *, timeout_seconds: int) -> Mapping[object, object]:
         raw = await asyncio.wait_for(ws.recv(), timeout=max(5, timeout_seconds))
-        data = json.loads(str(raw or "{}"))
-        return data if isinstance(data, dict) else {}
+        data: object = json.loads(str(raw or "{}"))
+        return data if _is_object_mapping(data) else {}
 
 
 _persistent_core: CodexAppServerCore | None = None
@@ -988,11 +1006,11 @@ def _isolated_codex_home_stale_reason(
     max_unmarked_age_seconds: int,
 ) -> str | None:
     marker = path / _ISOLATED_CODEX_HOME_OWNER_FILE
-    payload: dict[str, Any] | None = None
+    payload: Mapping[object, object] | None = None
     if marker.exists() and marker.is_file() and not marker.is_symlink():
         try:
-            loaded = json.loads(marker.read_text(encoding="utf-8"))
-            if isinstance(loaded, dict):
+            loaded: object = json.loads(marker.read_text(encoding="utf-8"))
+            if _is_object_mapping(loaded):
                 payload = loaded
         except Exception:  # noqa: BLE001
             payload = None
@@ -1040,10 +1058,10 @@ def _isolated_codex_home_evidence(path: str | None) -> dict[str, Any] | None:
     }
     if marker.exists() and marker.is_file() and not marker.is_symlink():
         try:
-            payload = json.loads(marker.read_text(encoding="utf-8"))
+            payload: object = json.loads(marker.read_text(encoding="utf-8"))
         except Exception:  # noqa: BLE001
             payload = {}
-        if isinstance(payload, dict):
+        if _is_object_mapping(payload):
             owner_pid = _safe_positive_int(payload.get("pid"))
             evidence["owner_marker_present"] = True
             evidence["owner_pid"] = owner_pid
@@ -1066,7 +1084,9 @@ def _process_is_alive(pid: int) -> bool:
     return True
 
 
-def _safe_positive_int(value: Any) -> int | None:
+def _safe_positive_int(value: object) -> int | None:
+    if not isinstance(value, (str, int, float)):
+        return None
     try:
         parsed = int(value)
     except (TypeError, ValueError):
@@ -1112,7 +1132,7 @@ def _prepare_isolated_codex_home() -> CodexAppServerHomePreparation:
         source = Path(str(raw_path or "")).expanduser()
         if not source.is_absolute():
             source = Path.cwd() / source
-        if not _is_safe_token_sink_path(source, for_write=False):
+        if not is_safe_token_sink_path(source, for_write=False):
             auth_events.append(
                 _codex_home_auth_event(source, status="unsafe", reason="path_unsafe")
             )
@@ -1242,6 +1262,14 @@ def _redact_app_server_log_line(line: str) -> str:
     return redacted
 
 
+@overload
+def _redact_app_server_endpoint(endpoint: str) -> str: ...
+
+
+@overload
+def _redact_app_server_endpoint(endpoint: None) -> None: ...
+
+
 def _redact_app_server_endpoint(endpoint: str | None) -> str | None:
     if endpoint is None:
         return None
@@ -1325,9 +1353,9 @@ def _toml_value(value: object) -> str:
         return str(value)
     if isinstance(value, str):
         return f'"{_toml_string(value)}"'
-    if isinstance(value, list):
+    if _is_object_list(value):
         return "[" + ", ".join(_toml_value(item) for item in value) + "]"
-    if isinstance(value, dict):
+    if _is_object_mapping(value):
         return (
             "{ "
             + ", ".join(

@@ -1,9 +1,11 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import TypedDict
 
 
-_RELATION_ONTOLOGY: dict[str, dict[str, Any]] = {
+RelationMeta = TypedDict("RelationMeta", {"class": str, "aliases": list[str]})
+
+_RELATION_ONTOLOGY: dict[str, RelationMeta] = {
     "regulates": {
         "class": "governance",
         "aliases": ["regulate", "监管", "规范", "complies_with", "governs"],
@@ -106,8 +108,8 @@ def canonical_predicate(value: str | None) -> str:
 
 def predicate_class(value: str | None) -> str:
     canonical = canonical_predicate(value)
-    meta = _RELATION_ONTOLOGY.get(canonical, {})
-    return str(meta.get("class") or "other")
+    meta = _RELATION_ONTOLOGY.get(canonical)
+    return meta["class"] if meta is not None else "other"
 
 
 def relation_annotation(value: str | None) -> dict[str, str]:

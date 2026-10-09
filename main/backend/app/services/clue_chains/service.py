@@ -1,17 +1,17 @@
 from __future__ import annotations
 
-from copy import deepcopy
-from datetime import datetime, timezone
 import hashlib
 import json
 import re
-from typing import Any, Callable, Mapping, NoReturn
 import unicodedata
-
-from functorial_kit import Failure
-from mrw_functorial_kit.core.w04_service_semantics import clue_chain_failures
+from copy import deepcopy
+from datetime import datetime, timezone
+from typing import Any, Callable, Mapping, NoReturn, SupportsFloat, SupportsIndex, SupportsInt, TypeGuard
 
 from app.services.projects import current_project_key
+from functorial_kit import Failure
+
+from mrw_functorial_kit.core.w04_service_semantics import clue_chain_failures
 
 from .contracts import (
     CANDIDATE_STATUSES,
@@ -29,7 +29,7 @@ from .contracts import (
     ChainHop,
     model_to_record,
 )
-from .store import ClueChainStore, build_clue_chain_store
+from .store import ClueChainRecord, ClueChainState, ClueChainStore, build_clue_chain_store
 
 ManualExpansionProvider = Callable[[dict[str, Any], Mapping[str, Any]], Mapping[str, Any]]
 
@@ -126,7 +126,8 @@ class ClueChainService:
             return _captured_failure(exc, owner=f"clue_chain.service.{operation}")
 
     def create_chain(self, payload: Mapping[str, Any]) -> dict[str, Any]:
-        if not isinstance(payload, Mapping):
+        payload_value = _runtime_value(payload)
+        if not _is_object_mapping(payload_value):
             raise_clue_chain_legacy(clue_chain_failure("input_invalid", "payload must be a mapping", owner="clue_chain.service.create_chain"))
         project_key = _non_empty(payload.get("project_key")) or self._resolve_project_key()
         seed_node_ids = _normalize_string_list(payload.get("seed_node_ids"))
@@ -184,7 +185,7 @@ class ClueChainService:
             metadata={**_dict(payload.get("metadata")), "seed_nodes": seed_nodes},
         )
 
-        def _mutator(state: dict[str, Any]) -> dict[str, Any]:
+        def _mutator(state: ClueChainState) -> ClueChainState:
             chains = state.setdefault("chains", {})
             if chain_id in chains:
                 return state
@@ -213,7 +214,7 @@ class ClueChainService:
     def list_chains(self, *, status: str | None = None, limit: int = 50) -> dict[str, Any]:
         state = self.store.load_state()
         status_filter = _non_empty(status)
-        items = []
+        items: list[dict[str, object]] = []
         for record in state.get("chains", {}).values():
             chain = deepcopy(record.get("chain") or {})
             if status_filter and chain.get("status") != status_filter:
@@ -232,10 +233,10 @@ class ClueChainService:
 
     def close_chain(self, chain_id: str, payload: Mapping[str, Any] | None = None) -> dict[str, Any]:
         cid = _normalize_id(chain_id, "chain_id")
-        body = payload if isinstance(payload, Mapping) else {}
+        body: Mapping[str, object] = payload if payload is not None else {}
         now = self._now()
 
-        def _mutator(state: dict[str, Any]) -> dict[str, Any]:
+        def _mutator(state: ClueChainState) -> ClueChainState:
             record = self._chain_record_ref(state, cid)
             chain = record["chain"]
             chain["status"] = "closed"
@@ -259,7 +260,8 @@ class ClueChainService:
         body = dict(payload or {})
         if provider is not None:
             provider_output = provider(self.get_chain(chain_id), body)
-            if not isinstance(provider_output, Mapping):
+            provider_value = _runtime_value(provider_output)
+            if not _is_object_mapping(provider_value):
                 raise_clue_chain_legacy(clue_chain_failure("provider_result_invalid", "manual expansion provider must return a mapping", owner="clue_chain.service.expand_chain"))
             merged = dict(body)
             merged.update(dict(provider_output))
@@ -274,7 +276,7 @@ class ClueChainService:
         now = self._now()
         resolved_hop_id = {"value": ""}
 
-        def _mutator(state: dict[str, Any]) -> dict[str, Any]:
+        def _mutator(state: ClueChainState) -> ClueChainState:
             record = self._chain_record_ref(state, cid)
             self._ensure_chain_open(record)
             chain = record["chain"]
@@ -308,9 +310,9 @@ class ClueChainService:
                         tool_name=_non_empty(body.get("tool_name")) or "chain.expand",
                         query_json=query_json,
                         status=status,
-                        started_at=_non_empty(body.get("started_at")) or hop.get("started_at") or now,
-                        provider=_non_empty(body.get("provider")) or hop.get("provider"),
-                        actor=_non_empty(body.get("actor")) or hop.get("actor"),
+                        started_at=_non_empty(body.get("started_at")) or _non_empty(hop.get("started_at")) or now,
+                        provider=_non_empty(body.get("provider")) or _non_empty(hop.get("provider")),
+                        actor=_non_empty(body.get("actor")) or _non_empty(hop.get("actor")),
                         finished_at=_non_empty(body.get("finished_at")) or (now if status in {"completed", "failed"} else None),
                         params=_dict(body.get("params")) or _dict(hop.get("params")),
                         evidence_ids=tuple(_normalize_string_list(hop.get("evidence_ids"))),
@@ -323,19 +325,19 @@ class ClueChainService:
             )
             record["hops"][hop_id] = hop
 
-            evidence_records = []
+            evidence_records: list[dict[str, object]] = []
             for evidence_payload in _mapping_list(body.get("evidence")):
                 evidence = self._add_evidence_record(record, hop_id, evidence_payload, now)
                 evidence_records.append(evidence)
                 _append_unique(hop, "evidence_ids", evidence["evidence_id"])
 
-            candidate_records = []
+            candidate_records: list[dict[str, object]] = []
             for candidate_payload in _mapping_list(body.get("candidates")):
                 candidate = self._add_candidate_record(record, hop_id, candidate_payload, now)
                 candidate_records.append(candidate)
                 _append_unique(hop, "candidate_ids", candidate["candidate_id"])
 
-            edge_records = []
+            edge_records: list[dict[str, object]] = []
             for edge_payload in _mapping_list(body.get("edges")):
                 edge = self._add_edge_record(record, hop_id, edge_payload, now)
                 edge_records.append(edge)
@@ -344,7 +346,7 @@ class ClueChainService:
             chain["updated_at"] = now
             if chain.get("status") == "draft":
                 chain["status"] = "running"
-            _append_event(record, "hop_recorded", now=now, actor=hop.get("actor") or "unknown", hop_id=hop_id)
+            _append_event(record, "hop_recorded", now=now, actor=_non_empty(hop.get("actor")) or "unknown", hop_id=hop_id)
             return state
 
         state = self._mutate(_mutator)
@@ -364,7 +366,7 @@ class ClueChainService:
         hid = _normalize_id(hop_id, "hop_id")
         now = self._now()
 
-        def _mutator(state: dict[str, Any]) -> dict[str, Any]:
+        def _mutator(state: ClueChainState) -> ClueChainState:
             record = self._chain_record_ref(state, cid)
             self._ensure_chain_open(record)
             if hid not in record["hops"]:
@@ -383,7 +385,7 @@ class ClueChainService:
         now = self._now()
         resolved_candidate_id = {"value": ""}
 
-        def _mutator(state: dict[str, Any]) -> dict[str, Any]:
+        def _mutator(state: ClueChainState) -> ClueChainState:
             record = self._chain_record_ref(state, cid)
             self._ensure_chain_open(record)
             if hid not in record["hops"]:
@@ -403,7 +405,7 @@ class ClueChainService:
         body = dict(payload or {})
         now = self._now()
 
-        def _mutator(state: dict[str, Any]) -> dict[str, Any]:
+        def _mutator(state: ClueChainState) -> ClueChainState:
             record = self._chain_record_ref(state, cid)
             self._ensure_chain_open(record)
             candidate = record["candidates"].get(cand_id)
@@ -459,6 +461,8 @@ class ClueChainService:
             elif decision == "reject":
                 candidate["decision_status"] = "rejected"
             elif decision == "merge":
+                if target_candidate_id is None:
+                    raise_clue_chain_legacy(clue_chain_failure("input_invalid", "target_candidate_id is required for merge decisions", owner="clue_chain.service.record_decision"))
                 candidate["decision_status"] = "merged"
                 candidate["merged_into_candidate_id"] = target_candidate_id
                 self._merge_candidate_into(record, source_id=cand_id, target_id=target_candidate_id, now=now)
@@ -498,7 +502,7 @@ class ClueChainService:
         cand_id = _normalize_id(candidate_id, "candidate_id")
         now = self._now()
 
-        def _mutator(state: dict[str, Any]) -> dict[str, Any]:
+        def _mutator(state: ClueChainState) -> ClueChainState:
             record = self._chain_record_ref(state, cid)
             candidate = record["candidates"].get(cand_id)
             if not isinstance(candidate, Mapping):
@@ -520,7 +524,7 @@ class ClueChainService:
 
     def _add_evidence_record(
         self,
-        record: dict[str, Any],
+        record: ClueChainRecord,
         hop_id: str,
         payload: Mapping[str, Any],
         now: str,
@@ -545,24 +549,24 @@ class ClueChainService:
             },
         )
         existing = record["evidence"].get(evidence_id)
-        existing_record = dict(existing) if isinstance(existing, Mapping) else {}
+        existing_record = _dict(existing)
         evidence = model_to_record(
             ChainEvidence(
                 evidence_id=evidence_id,
-                chain_id=record["chain"]["chain_id"],
+                chain_id=_normalize_id(record["chain"].get("chain_id"), "chain_id"),
                 hop_id=hop_id,
                 source_kind=source_kind,
                 source_ref={**_dict(existing_record.get("source_ref")), **source_ref},
-                captured_at=_non_empty(payload.get("captured_at")) or existing_record.get("captured_at") or now,
+                captured_at=_non_empty(payload.get("captured_at")) or _non_empty(existing_record.get("captured_at")) or now,
                 status=status,
-                url=_non_empty(payload.get("url")) or existing_record.get("url"),
-                archive_url=_non_empty(payload.get("archive_url")) or existing_record.get("archive_url"),
+                url=_non_empty(payload.get("url")) or _non_empty(existing_record.get("url")),
+                archive_url=_non_empty(payload.get("archive_url")) or _non_empty(existing_record.get("archive_url")),
                 content_hash=_non_empty(payload.get("hash") or payload.get("content_hash"))
-                or existing_record.get("content_hash"),
-                title=_non_empty(payload.get("title")) or existing_record.get("title"),
-                snippet=_non_empty(payload.get("snippet") or payload.get("text")) or existing_record.get("snippet"),
-                provider=_non_empty(payload.get("provider")) or existing_record.get("provider"),
-                query=_non_empty(payload.get("query")) or existing_record.get("query"),
+                or _non_empty(existing_record.get("content_hash")),
+                title=_non_empty(payload.get("title")) or _non_empty(existing_record.get("title")),
+                snippet=_non_empty(payload.get("snippet") or payload.get("text")) or _non_empty(existing_record.get("snippet")),
+                provider=_non_empty(payload.get("provider")) or _non_empty(existing_record.get("provider")),
+                query=_non_empty(payload.get("query")) or _non_empty(existing_record.get("query")),
                 metadata={
                     **_dict(existing_record.get("metadata")),
                     **_dict(payload.get("metadata")),
@@ -574,7 +578,7 @@ class ClueChainService:
 
     def _add_candidate_record(
         self,
-        record: dict[str, Any],
+        record: ClueChainRecord,
         hop_id: str,
         payload: Mapping[str, Any],
         now: str,
@@ -588,7 +592,7 @@ class ClueChainService:
         if not alias_norms:
             raise_clue_chain_legacy(clue_chain_failure("input_invalid", "candidate aliases must normalize to a non-empty key", owner="clue_chain.service.candidate"))
 
-        alias_index = record.setdefault("alias_index", {})
+        alias_index = record["alias_index"]
         existing_id = next((alias_index[norm] for norm in alias_norms if norm in alias_index), None)
         candidate_id = existing_id or _non_empty(payload.get("candidate_id")) or stable_id(
             "candidate",
@@ -603,21 +607,22 @@ class ClueChainService:
             _append_value(evidence_ids, str(payload.get("evidence_id")))
         edge_ids = _normalize_string_list(payload.get("edge_ids"))
         existing = record["candidates"].get(candidate_id)
-        if isinstance(existing, Mapping):
+        if existing is not None:
             evidence_ids = _merge_unique(existing.get("evidence_ids"), evidence_ids)
             edge_ids = _merge_unique(existing.get("edge_ids"), edge_ids)
             aliases = merge_alias_values(existing.get("aliases"), aliases)
             score = _max_optional_float(existing.get("score"), payload.get("score"))
             properties = {**_dict(existing.get("properties")), **_dict(payload.get("properties"))}
+            existing_metadata = _dict(existing.get("metadata"))
             metadata = {
                 **_dict(existing.get("metadata")),
                 **_dict(payload.get("metadata")),
-                "merged_hop_ids": _merge_unique((existing.get("metadata") or {}).get("merged_hop_ids"), [hop_id]),
+                "merged_hop_ids": _merge_unique(existing_metadata.get("merged_hop_ids"), [hop_id]),
             }
             decision_status = _normalize_choice(
                 payload.get("decision_status"),
                 CANDIDATE_STATUSES,
-                default=str(existing.get("decision_status") or "pending"),
+                default=_non_empty(existing.get("decision_status")) or "pending",
                 field="candidate.decision_status",
             )
             candidate = dict(existing)
@@ -638,7 +643,7 @@ class ClueChainService:
             candidate = model_to_record(
                 ChainCandidate(
                     candidate_id=candidate_id,
-                    chain_id=record["chain"]["chain_id"],
+                    chain_id=_normalize_id(record["chain"].get("chain_id"), "chain_id"),
                     hop_id=hop_id,
                     entity_type=entity_type,
                     value=value,
@@ -665,7 +670,7 @@ class ClueChainService:
 
     def _add_edge_record(
         self,
-        record: dict[str, Any],
+        record: ClueChainRecord,
         hop_id: str,
         payload: Mapping[str, Any],
         now: str,
@@ -693,21 +698,22 @@ class ClueChainService:
             },
         )
         existing = record["edges"].get(edge_id)
+        existing_record = existing or {}
         edge = model_to_record(
             ChainEdge(
                 edge_id=edge_id,
-                chain_id=record["chain"]["chain_id"],
+                chain_id=_normalize_id(record["chain"].get("chain_id"), "chain_id"),
                 hop_id=hop_id,
                 from_ref=from_ref,
                 to_ref=to_ref,
                 relation=relation,
-                evidence_ids=tuple(_merge_unique((existing or {}).get("evidence_ids") if isinstance(existing, Mapping) else None, evidence_ids)),
+                evidence_ids=tuple(_merge_unique(existing_record.get("evidence_ids"), evidence_ids)),
                 status=status,
-                created_at=(existing or {}).get("created_at") if isinstance(existing, Mapping) else now,
+                created_at=_non_empty(existing_record.get("created_at")) or now,
                 updated_at=now,
                 confidence=_optional_float(payload.get("confidence")),
                 metadata={
-                    **_dict((existing or {}).get("metadata") if isinstance(existing, Mapping) else None),
+                    **_dict(existing_record.get("metadata")),
                     **_dict(payload.get("metadata")),
                 },
             )
@@ -715,7 +721,7 @@ class ClueChainService:
         record["edges"][edge_id] = edge
         return edge
 
-    def _merge_candidate_into(self, record: dict[str, Any], *, source_id: str, target_id: str, now: str) -> None:
+    def _merge_candidate_into(self, record: ClueChainRecord, *, source_id: str, target_id: str, now: str) -> None:
         source = dict(record["candidates"].get(source_id) or {})
         target = dict(record["candidates"].get(target_id) or {})
         if not source or not target:
@@ -725,16 +731,16 @@ class ClueChainService:
         target["edge_ids"] = _merge_unique(target.get("edge_ids"), source.get("edge_ids"))
         target["updated_at"] = now
         record["candidates"][target_id] = target
-        for alias in target.get("aliases") or []:
+        for alias in _normalize_string_list(target.get("aliases")):
             norm = normalize_alias(alias)
             if norm:
                 record["alias_index"][norm] = target_id
 
-    def _aggregate_from_state(self, state: Mapping[str, Any], chain_id: str) -> dict[str, Any]:
+    def _aggregate_from_state(self, state: ClueChainState, chain_id: str) -> dict[str, Any]:
         cid = _normalize_id(chain_id, "chain_id")
-        chains = state.get("chains") if isinstance(state.get("chains"), Mapping) else {}
+        chains = state["chains"]
         record = chains.get(cid)
-        if not isinstance(record, Mapping):
+        if record is None:
             raise_clue_chain_legacy(clue_chain_failure("chain_not_found", f"clue chain not found: {cid}", owner="clue_chain.service.aggregate", public_exception=ClueChainNotFoundError), exception_type=ClueChainNotFoundError)
         hops = _sorted_records(record.get("hops"), "started_at")
         evidence = _sorted_records(record.get("evidence"), "captured_at")
@@ -759,22 +765,19 @@ class ClueChainService:
             "edges_by_id": {item["edge_id"]: item for item in edges},
         }
 
-    def _chain_record_ref(self, state: dict[str, Any], chain_id: str) -> dict[str, Any]:
-        chains = state.setdefault("chains", {})
+    def _chain_record_ref(self, state: ClueChainState, chain_id: str) -> ClueChainRecord:
+        chains = state["chains"]
         record = chains.get(chain_id)
-        if not isinstance(record, dict):
+        if record is None:
             raise_clue_chain_legacy(clue_chain_failure("chain_not_found", f"clue chain not found: {chain_id}", owner="clue_chain.service.record", public_exception=ClueChainNotFoundError), exception_type=ClueChainNotFoundError)
-        for key in ("hops", "evidence", "candidates", "decisions", "edges", "alias_index"):
-            record.setdefault(key, {})
-        record.setdefault("events", [])
         return record
 
-    def _ensure_chain_open(self, record: Mapping[str, Any]) -> None:
-        chain = record.get("chain") if isinstance(record.get("chain"), Mapping) else {}
+    def _ensure_chain_open(self, record: ClueChainRecord) -> None:
+        chain = record["chain"]
         if chain.get("status") == "closed":
             raise_clue_chain_legacy(clue_chain_failure("chain_closed", f"clue chain is closed: {chain.get('chain_id')}", owner="clue_chain.service.open_guard", public_exception=ClueChainClosedError), exception_type=ClueChainClosedError)
 
-    def _mutate(self, mutator: Callable[[dict[str, Any]], dict[str, Any]]) -> dict[str, Any]:
+    def _mutate(self, mutator: Callable[[ClueChainState], ClueChainState]) -> ClueChainState:
         state = self.store.load_state()
         current = int(state.get("base_version") or 0)
         updated = mutator(deepcopy(state))
@@ -849,12 +852,12 @@ class ClueChainService:
         return stable_id("candidate", {"chain_id": chain_id, "entity_type": entity_type.casefold(), "alias": alias_norms[0]})
 
 
-def stable_id(prefix: str, payload: Mapping[str, Any] | list[Any] | str) -> str:
+def stable_id(prefix: str, payload: Mapping[str, object] | list[object] | str) -> str:
     encoded = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"), default=str)
     return f"{prefix}_{hashlib.sha256(encoded.encode('utf-8')).hexdigest()[:20]}"
 
 
-def normalize_alias(value: Any) -> str:
+def normalize_alias(value: object) -> str:
     text = unicodedata.normalize("NFKC", str(value or "")).casefold().strip()
     if not text:
         return ""
@@ -863,11 +866,11 @@ def normalize_alias(value: Any) -> str:
     return re.sub(r"\s+", " ", text).strip()
 
 
-def merge_alias_values(*groups: Any) -> list[str]:
+def merge_alias_values(*groups: object) -> list[str]:
     out: list[str] = []
     seen: set[str] = set()
     for group in groups:
-        values = group if isinstance(group, (list, tuple, set)) else [group]
+        values = group if _is_object_collection(group) else [group]
         for value in values:
             item = str(value or "").strip()
             if not item:
@@ -880,29 +883,33 @@ def merge_alias_values(*groups: Any) -> list[str]:
     return out
 
 
-def _normalize_seed_nodes(raw: Any) -> list[dict[str, Any]]:
-    return [dict(item) for item in raw if isinstance(item, Mapping)] if isinstance(raw, list) else []
+def _normalize_seed_nodes(raw: object) -> list[dict[str, object]]:
+    if not _is_object_list(raw):
+        return []
+    return [item for value in raw if (item := _string_object_mapping(value)) is not None]
 
 
-def _mapping_list(raw: Any) -> list[dict[str, Any]]:
-    if isinstance(raw, Mapping):
-        return [dict(raw)]
-    if isinstance(raw, list):
-        return [dict(item) for item in raw if isinstance(item, Mapping)]
+def _mapping_list(raw: object) -> list[dict[str, object]]:
+    mapping = _string_object_mapping(raw)
+    if mapping is not None:
+        return [mapping]
+    if _is_object_list(raw):
+        return [item for value in raw if (item := _string_object_mapping(value)) is not None]
     return []
 
 
-def _dict(raw: Any) -> dict[str, Any]:
-    if isinstance(raw, Mapping):
-        return dict(raw)
+def _dict(raw: object) -> dict[str, object]:
+    mapping = _string_object_mapping(raw)
+    if mapping is not None:
+        return mapping
     if isinstance(raw, str) and raw.strip():
         return {"query": raw.strip()}
     return {}
 
 
-def _normalize_string_list(raw: Any) -> list[str]:
+def _normalize_string_list(raw: object) -> list[str]:
     out: list[str] = []
-    values = raw if isinstance(raw, (list, tuple, set)) else []
+    values = raw if _is_object_collection(raw) else []
     for value in values:
         _append_value(out, str(value or "").strip())
     return out
@@ -914,86 +921,138 @@ def _append_value(out: list[str], value: str) -> None:
         out.append(item)
 
 
-def _append_unique(record: dict[str, Any], field: str, value: str) -> None:
+def _append_unique(record: dict[str, object], field: str, value: str) -> None:
     items = _normalize_string_list(record.get(field))
     _append_value(items, value)
     record[field] = items
 
 
-def _merge_unique(left: Any, right: Any) -> list[str]:
+def _merge_unique(left: object, right: object) -> list[str]:
     out = _normalize_string_list(left)
     for value in _normalize_string_list(right):
         _append_value(out, value)
     return out
 
 
-def _append_event(record: dict[str, Any], event_type: str, *, now: str, actor: str, **payload: Any) -> None:
-    events = record.setdefault("events", [])
+def _append_event(record: ClueChainRecord, event_type: str, *, now: str, actor: str, **payload: object) -> None:
+    events = record["events"]
     events.append({"event_type": event_type, "created_at": now, "actor": actor, **payload})
 
 
-def _sorted_records(raw: Any, timestamp_field: str) -> list[dict[str, Any]]:
-    records = [dict(item) for item in (raw or {}).values()] if isinstance(raw, Mapping) else []
+def _sorted_records(raw: object, timestamp_field: str) -> list[dict[str, object]]:
+    mapping = _string_object_mapping(raw)
+    records: list[dict[str, object]] = []
+    for value in (mapping or {}).values():
+        item = _string_object_mapping(value)
+        if item is None:
+            # kit:boundary owner=clue_chain.service.persisted_record class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w04_owned_core_raise_sites_are_only_lifts
+            raise TypeError("persisted clue chain record must be a string-keyed mapping")
+        records.append(item)
     records.sort(key=lambda item: str(item.get(timestamp_field) or ""))
     return records
 
 
-def _normalize_id(value: Any, field: str) -> str:
+def _normalize_id(value: object, field: str) -> str:
     item = str(value or "").strip()
     if not item:
         raise_clue_chain_legacy(clue_chain_failure("input_invalid", f"{field} is required", owner="clue_chain.service.normalize_id"))
     return item
 
 
-def _non_empty(value: Any) -> str | None:
+def _non_empty(value: object) -> str | None:
     text = str(value or "").strip()
     return text or None
 
 
-def _first(values: Any) -> str | None:
-    if isinstance(values, (list, tuple)) and values:
+def _first(values: object) -> str | None:
+    if _is_object_sequence(values) and values:
         return _non_empty(values[0])
     return None
 
 
-def _normalize_choice(value: Any, allowed: frozenset[str], *, default: str, field: str) -> str:
+def _normalize_choice(value: object, allowed: frozenset[str], *, default: str, field: str) -> str:
     candidate = str(value or "").strip().lower() or default
     if candidate not in allowed:
         raise_clue_chain_legacy(clue_chain_failure("input_invalid", f"unsupported {field}: {candidate}", owner="clue_chain.service.normalize_choice"))
     return candidate
 
 
-def _bounded_int(value: Any, *, default: int, minimum: int = 0, maximum: int = 1_000_000) -> int:
+def _bounded_int(value: object, *, default: int, minimum: int = 0, maximum: int = 1_000_000) -> int:
     if value in (None, ""):
         result = default
     else:
         try:
+            if not _is_int_convertible(value):
+                # kit:boundary owner=clue_chain.service.bounded_int_conversion class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=clue_chain.failure witness=test:test_w04_owned_core_raise_sites_are_only_lifts
+                raise TypeError("integer field is not convertible")
             result = int(value)
         except Exception as exc:  # noqa: BLE001
             raise_clue_chain_legacy(clue_chain_failure("input_invalid", "integer field is invalid", owner="clue_chain.service.bounded_int"), cause=exc)
     return max(minimum, min(maximum, result))
 
 
-def _optional_float(value: Any) -> float | None:
+def _optional_float(value: object) -> float | None:
     if value in (None, ""):
         return None
     try:
+        if not _is_float_convertible(value):
+            # kit:boundary owner=clue_chain.service.optional_float_conversion class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=clue_chain.failure witness=test:test_w04_owned_core_raise_sites_are_only_lifts
+            raise TypeError("float field is not convertible")
         return float(value)
     except Exception as exc:  # noqa: BLE001
         raise_clue_chain_legacy(clue_chain_failure("input_invalid", "float field is invalid", owner="clue_chain.service.optional_float"), cause=exc)
 
 
-def _bounded_float(value: Any, *, default: float, minimum: float, maximum: float) -> float:
+def _bounded_float(value: object, *, default: float, minimum: float, maximum: float) -> float:
     result = default if value in (None, "") else _optional_float(value)
     if result is None:
         result = default
     return max(minimum, min(maximum, float(result)))
 
 
-def _max_optional_float(left: Any, right: Any) -> float | None:
+def _max_optional_float(left: object, right: object) -> float | None:
     values = [value for value in (_optional_float(left), _optional_float(right)) if value is not None]
     return max(values) if values else None
 
 
 def _slug(value: str) -> str:
     return normalize_alias(value).replace(" ", "_") or "entity"
+
+
+def _runtime_value(value: object) -> object:
+    return value
+
+
+def _is_object_mapping(value: object) -> TypeGuard[Mapping[object, object]]:
+    return isinstance(value, Mapping)
+
+
+def _is_object_list(value: object) -> TypeGuard[list[object]]:
+    return isinstance(value, list)
+
+
+def _is_object_sequence(value: object) -> TypeGuard[list[object] | tuple[object, ...]]:
+    return isinstance(value, (list, tuple))
+
+
+def _is_object_collection(value: object) -> TypeGuard[list[object] | tuple[object, ...] | set[object]]:
+    return isinstance(value, (list, tuple, set))
+
+
+def _is_int_convertible(value: object) -> TypeGuard[str | bytes | bytearray | SupportsInt | SupportsIndex]:
+    return isinstance(value, (str, bytes, bytearray, SupportsInt, SupportsIndex))
+
+
+def _is_float_convertible(value: object) -> TypeGuard[str | bytes | bytearray | SupportsFloat | SupportsIndex]:
+    return isinstance(value, (str, bytes, bytearray, SupportsFloat, SupportsIndex))
+
+
+def _string_object_mapping(value: object) -> dict[str, object] | None:
+    if not _is_object_mapping(value):
+        return None
+    result: dict[str, object] = {}
+    for key, item in value.items():
+        if not isinstance(key, str):
+            return None
+        result[key] = item
+    return result

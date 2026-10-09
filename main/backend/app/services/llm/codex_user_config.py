@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import os
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import TypeGuard
 
 import tomllib
 
@@ -12,12 +13,31 @@ from ...settings.config import settings
 _MAX_CONFIG_BYTES = 2 * 1024 * 1024
 
 
+def _is_object_mapping(value: object) -> TypeGuard[Mapping[object, object]]:
+    return isinstance(value, Mapping)
+
+
+def _string_object_dict(value: object) -> dict[str, object] | None:
+    if not _is_object_mapping(value):
+        return None
+    normalized: dict[str, object] = {}
+    for key, item in value.items():
+        if not isinstance(key, str):
+            return None
+        normalized[key] = item
+    return normalized
+
+
+def _is_object_list(value: object) -> TypeGuard[list[object]]:
+    return isinstance(value, list)
+
+
 @dataclass(frozen=True, slots=True)
 class CodexUserModelConfig:
     model: str = ""
     model_provider: str = ""
     model_reasoning_effort: str = ""
-    provider_config: dict[str, Any] | None = None
+    provider_config: dict[str, object] | None = None
     catalog_path: str = ""
 
 
@@ -36,21 +56,22 @@ def load_user_codex_model_config() -> CodexUserModelConfig:
     try:
         if not path.is_file() or path.stat().st_size > _MAX_CONFIG_BYTES:
             return CodexUserModelConfig()
-        parsed = tomllib.loads(path.read_text(encoding="utf-8"))
+        parsed_value: object = tomllib.loads(path.read_text(encoding="utf-8"))
     except (OSError, tomllib.TOMLDecodeError, UnicodeError):
         return CodexUserModelConfig()
-    if not isinstance(parsed, dict):
+    parsed = _string_object_dict(parsed_value)
+    if parsed is None:
         return CodexUserModelConfig()
 
     model = _nonempty_text(parsed.get("model"))
     provider = _nonempty_text(parsed.get("model_provider"))
     reasoning = _nonempty_text(parsed.get("model_reasoning_effort"))
-    provider_config: dict[str, Any] | None = None
+    provider_config: dict[str, object] | None = None
     if provider:
         providers = parsed.get("model_providers")
-        candidate = providers.get(provider) if isinstance(providers, dict) else None
-        if isinstance(candidate, dict):
-            provider_config = dict(candidate)
+        provider_table = _string_object_dict(providers)
+        candidate = provider_table.get(provider) if provider_table is not None else None
+        provider_config = _string_object_dict(candidate)
 
     return CodexUserModelConfig(
         model=model,
@@ -132,12 +153,13 @@ def _normalize_model_alias(
         return ""
     user = user_config or load_user_codex_model_config()
     entries = user.provider_config.get("models") if user.provider_config else None
-    if not isinstance(entries, list):
+    if not _is_object_list(entries):
         return requested
 
     matches: list[tuple[int, str]] = []
-    for entry in entries:
-        if not isinstance(entry, dict):
+    for entry_value in entries:
+        entry = _string_object_dict(entry_value)
+        if entry is None:
             continue
         model_id = _first_nonempty_text(entry, ("model", "slug", "id"))
         if not model_id:
@@ -180,11 +202,12 @@ def _provider_default_model(user_config: CodexUserModelConfig) -> str:
         if user_config.provider_config
         else None
     )
-    if not isinstance(entries, list):
+    if not _is_object_list(entries):
         return ""
     defaults: list[str] = []
-    for entry in entries:
-        if not isinstance(entry, dict):
+    for entry_value in entries:
+        entry = _string_object_dict(entry_value)
+        if entry is None:
             continue
         is_default = entry.get("isDefault", entry.get("is_default", False))
         model_id = _first_nonempty_text(entry, ("model", "slug", "id"))
@@ -202,17 +225,18 @@ __all__ = [
 ]
 
 
-def list_codex_models() -> dict[str, Any]:
+def list_codex_models() -> dict[str, object]:
     """List the model choices exposed by the user's current Codex router."""
 
     user_config = load_user_codex_model_config()
     entries = user_config.provider_config.get("models") if user_config.provider_config else None
-    if not isinstance(entries, list):
+    if not _is_object_list(entries):
         entries = []
 
-    items: list[dict[str, Any]] = []
-    for entry in entries:
-        if not isinstance(entry, dict):
+    items: list[dict[str, object]] = []
+    for entry_value in entries:
+        entry = _string_object_dict(entry_value)
+        if entry is None:
             continue
         if bool(entry.get("hidden", False)):
             continue
@@ -220,18 +244,25 @@ def list_codex_models() -> dict[str, Any]:
         if not model_id:
             continue
         efforts: list[str] = []
-        raw_efforts = (
+        raw_efforts: object = (
             entry.get("supported_reasoning_efforts")
             or entry.get("supportedReasoningEfforts")
             or entry.get("supported_reasoning_levels")
             or entry.get("supportedReasoningLevels")
             or []
         )
-        for raw in raw_efforts if isinstance(raw_efforts, list) else []:
+        for raw in raw_efforts if _is_object_list(raw_efforts) else []:
             if isinstance(raw, str):
                 efforts.append(raw)
-            elif isinstance(raw, dict):
-                effort = _nonempty_text(raw.get("effort") or raw.get("reasoning_effort") or raw.get("reasoningEffort"))
+            else:
+                effort_entry = _string_object_dict(raw)
+                if effort_entry is None:
+                    continue
+                effort = _nonempty_text(
+                    effort_entry.get("effort")
+                    or effort_entry.get("reasoning_effort")
+                    or effort_entry.get("reasoningEffort")
+                )
                 if effort:
                     efforts.append(effort)
         items.append(

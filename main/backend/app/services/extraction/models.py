@@ -1,8 +1,9 @@
 """结构化提取的Pydantic模型"""
 from __future__ import annotations
 
-from typing import List, Optional
 from datetime import date
+from typing import List, Optional
+
 from pydantic import BaseModel, Field
 
 
@@ -48,6 +49,5 @@ class ExtractedRelation(BaseModel):
 
 class ERPayload(BaseModel):
     """实体-关系提取载荷"""
-    entities: List[ExtractedEntity] = Field(max_items=5)
-    relations: List[ExtractedRelation] = Field(max_items=3)
-
+    entities: List[ExtractedEntity] = Field(max_length=5)
+    relations: List[ExtractedRelation] = Field(max_length=3)

@@ -2,10 +2,42 @@ from __future__ import annotations
 
 import re
 from collections.abc import Callable
-from typing import Any
+from typing import Iterable, Protocol, runtime_checkable, TypeGuard
 from urllib.parse import urlparse
 
 from ..resource_pool.http_port import make_html_parser
+
+
+def _is_string_key(value: object) -> bool:
+    return isinstance(value, str)
+
+
+@runtime_checkable
+class _StringKeyInspectable(Protocol):
+    def keys(self) -> Iterable[object]: ...
+
+
+def _has_only_string_keys(value: object) -> bool:
+    if not isinstance(value, _StringKeyInspectable):
+        return False
+    return all(map(_is_string_key, value.keys()))
+
+
+def _is_object_dict(value: object) -> TypeGuard[dict[str, object]]:
+    if not _has_only_string_keys(value):
+        return False
+    return isinstance(value, dict)
+
+
+def _safe_int(value: object, default: int = 0) -> int:
+    try:
+        return int(value) if isinstance(value, (str, bytes, int, float)) else default
+    except (TypeError, ValueError):
+        return default
+
+
+def _is_none(value: object) -> bool:
+    return value is None
 
 
 _SHELL_MARKERS = (
@@ -72,12 +104,12 @@ def analyze_frontdoor_content(
     uri: str | None,
     title: str | None,
     content: str | None,
-) -> dict[str, Any]:
+) -> dict[str, object]:
     raw_title = str(title or "").strip()
     raw_content = str(content or "")
     raw_chars = len(raw_content)
     blocks = _split_blocks(raw_content)
-    main_blocks, best_score, prefix_trimmed = _select_main_blocks(blocks)
+    main_blocks, _best_score, prefix_trimmed = _select_main_blocks(blocks)
     main_text = "\n".join(main_blocks).strip() if main_blocks else raw_content.strip()
     main_chars = len(main_text)
     page_family = _classify_page_family(uri=uri, title=raw_title, blocks=blocks, main_text=main_text)
@@ -130,7 +162,7 @@ def analyze_frontdoor_content(
     }
 
 
-def apply_main_content_extraction(document_candidate: dict[str, Any] | None) -> tuple[dict[str, Any], dict[str, Any]]:
+def apply_main_content_extraction(document_candidate: dict[str, object] | None) -> tuple[dict[str, object], dict[str, object]]:
     candidate = dict(document_candidate or {})
     if is_declared_prepared_text_body(candidate):
         body = str(candidate.get("content") or "").strip()
@@ -147,7 +179,7 @@ def apply_main_content_extraction(document_candidate: dict[str, Any] | None) -> 
                 "extractor_confidence": 100.0,
                 "prefix_trimmed": False,
                 "main_content": body,
-                "main_block_count": int(analysis.get("block_count") or 0),
+                "main_block_count": _safe_int(analysis.get("block_count")),
             }
         )
         return candidate, analysis
@@ -183,11 +215,13 @@ def apply_main_content_extraction(document_candidate: dict[str, Any] | None) -> 
     return candidate, analysis
 
 
-def is_declared_prepared_text_body(candidate: dict[str, Any]) -> bool:
+def is_declared_prepared_text_body(candidate: dict[str, object]) -> bool:
     extracted_data = candidate.get("extracted_data_base")
-    raw_input = extracted_data.get("_raw_input") if isinstance(extracted_data, dict) else None
-    material_input = raw_input.get("material_input") if isinstance(raw_input, dict) else None
-    if not isinstance(material_input, dict):
+    typed_extracted = extracted_data if _is_object_dict(extracted_data) else {}
+    raw_input = typed_extracted.get("_raw_input")
+    typed_raw_input = raw_input if _is_object_dict(raw_input) else {}
+    material_input = typed_raw_input.get("material_input")
+    if not _is_object_dict(material_input):
         return False
     digest = str(material_input.get("raw_content_digest") or "")
     return bool(
@@ -200,12 +234,13 @@ def is_declared_prepared_text_body(candidate: dict[str, Any]) -> bool:
     )
 
 
-def is_extracted_pdf_body(candidate: dict[str, Any]) -> bool:
+def is_extracted_pdf_body(candidate: dict[str, object]) -> bool:
     extracted_data = candidate.get("extracted_data_base")
-    record_meta = extracted_data.get("record_meta") if isinstance(extracted_data, dict) else None
+    typed_extracted = extracted_data if _is_object_dict(extracted_data) else {}
+    record_meta = typed_extracted.get("record_meta")
     content = str(candidate.get("content") or "")
     return bool(
-        isinstance(record_meta, dict)
+        _is_object_dict(record_meta)
         and record_meta.get("content_format") == "pdf"
         and record_meta.get("text_extraction_status") == "succeeded"
         and content.strip()
@@ -228,7 +263,7 @@ def extract_main_text_from_html(html: str) -> str:
 
 
 def locate_main_text_from_html(
-    html: Any,
+    html: str,
     *,
     selectors: tuple[str, ...],
     transform: Callable[[str], str] | None = None,
@@ -236,7 +271,7 @@ def locate_main_text_from_html(
     parser = make_html_parser(html)
     for selector in selectors:
         node = parser.css_first(selector)
-        if node is None:
+        if _is_none(node):
             continue
         text = str(node.text(separator="\n", strip=True) or "").strip()
         if len(text) >= 120:

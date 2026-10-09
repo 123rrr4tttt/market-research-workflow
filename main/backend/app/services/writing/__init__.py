@@ -1,4 +1,3 @@
-from .keyword_card_service import aggregate_cards, get_card_detail, get_card_preview
 from .citation_service import list_citations, rebuild_markdown_with_citations, upsert_citations
 from .document_service import (
     WritingVersionConflictError,
@@ -10,6 +9,7 @@ from .document_service import (
     save_document_with_conflict,
     save_draft_autosave,
 )
+from .keyword_card_service import aggregate_cards, get_card_detail, get_card_preview
 from .search_suggest_service import suggest
 from .template_service import list_templates, validate_template_payload
 
@@ -28,7 +28,6 @@ __all__ = [
     "save_document_with_conflict",
     "save_draft_autosave",
     "suggest",
-    "build_wave_a_baseline_matrix",
     "validate_template_payload",
     "upsert_citations",
     "WritingVersionConflictError",

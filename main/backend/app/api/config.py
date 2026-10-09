@@ -116,7 +116,7 @@ def get_env_settings():
 
 @router.post("/env", response_model=EnvSettingsUpdateEnvelope)
 def update_env(payload: EnvSettingsPayload):
-    payload_dict = {k: v for k, v in payload.dict().items() if v is not None}
+    payload_dict = {k: v for k, v in payload.model_dump().items() if v is not None}
     if not payload_dict:
         _raise_invalid_input("没有需要更新的字段")
 

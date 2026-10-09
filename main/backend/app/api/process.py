@@ -5,12 +5,13 @@ import logging
 import json
 from contextlib import nullcontext
 from dataclasses import dataclass
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, NoReturn, TypeGuard
 from datetime import datetime, timezone
 from inspect import signature as inspect_signature
 from fastapi import APIRouter, HTTPException, Query, Request
 import os
 from collections import deque
+from collections.abc import Mapping
 from functorial_kit import Failure
 from pydantic import BaseModel
 from sqlalchemy import select, func
@@ -52,7 +53,7 @@ class _RuntimeReadbackSource:
     observation: LegacySourceObservation
 
 
-def _raise_invalid_input(message: str) -> None:
+def _raise_invalid_input(message: str) -> NoReturn:
     raise HTTPException(
         status_code=400,
         detail=error_response(
@@ -62,7 +63,7 @@ def _raise_invalid_input(message: str) -> None:
     )
 
 
-def _raise_not_found(message: str) -> None:
+def _raise_not_found(message: str) -> NoReturn:
     raise HTTPException(
         status_code=404,
         detail=error_response(
@@ -72,7 +73,7 @@ def _raise_not_found(message: str) -> None:
     )
 
 
-def _raise_internal_error(message: str, *, details: dict[str, Any] | None = None) -> None:
+def _raise_internal_error(message: str, *, details: dict[str, Any] | None = None) -> NoReturn:
     raise HTTPException(
         status_code=500,
         detail=error_response(
@@ -83,11 +84,31 @@ def _raise_internal_error(message: str, *, details: dict[str, Any] | None = None
     )
 
 
-def _as_dict(value: Any) -> Dict[str, Any]:
-    return value if isinstance(value, dict) else {}
+def _is_object_mapping(value: object) -> TypeGuard[Mapping[object, object]]:
+    return isinstance(value, Mapping)
 
 
-def _coerce_int(value: Any) -> int | None:
+def _is_object_dict(value: object) -> TypeGuard[dict[str, object]]:
+    return _is_object_mapping(value) and isinstance(value, dict) and all(isinstance(key, str) for key in value)
+
+
+def _as_dict(value: object) -> dict[str, Any]:
+    if not _is_object_dict(value):
+        return {}
+    return {key: item for key, item in value.items()}
+
+
+def _is_object_list(value: object) -> TypeGuard[list[object]]:
+    return isinstance(value, list)
+
+
+def _object_list(value: object) -> list[object]:
+    return value if _is_object_list(value) else []
+
+
+def _coerce_int(value: object) -> int | None:
+    if not isinstance(value, (int, float, str)):
+        return None
     try:
         iv = int(value)
     except Exception:
@@ -117,7 +138,7 @@ def _runtime_readback_path(
     return f"/api/v1/process/{endpoint}{suffix}"
 
 
-def _first_runtime_value(*values: Any) -> str | None:
+def _first_runtime_value(*values: object) -> str | None:
     for value in values:
         text = non_empty_text(value)
         if text:
@@ -125,11 +146,11 @@ def _first_runtime_value(*values: Any) -> str | None:
     return None
 
 
-def _projected_runtime_status(status: Any) -> str:
+def _projected_runtime_status(status: object) -> str:
     return normalize_observed_status(non_empty_text(status)).lower()
 
 
-def _typed_runtime_payloads(*payloads: Any) -> tuple[dict[str, Any], ...]:
+def _typed_runtime_payloads(*payloads: object) -> tuple[dict[str, Any], ...]:
     typed: list[dict[str, Any]] = []
     for payload in payloads:
         item = _as_dict(payload)
@@ -146,15 +167,15 @@ def _runtime_value_from_payload(payloads: tuple[dict[str, Any], ...], key: str) 
     return _first_runtime_value(*(payload.get(key) for payload in payloads))
 
 
-def _runtime_run_id_from_payload(*payloads: Any) -> str | None:
+def _runtime_run_id_from_payload(*payloads: object) -> str | None:
     return _runtime_value_from_payload(_typed_runtime_payloads(*payloads), "run_id")
 
 
-def _runtime_trace_id_from_payload(*payloads: Any) -> str | None:
+def _runtime_trace_id_from_payload(*payloads: object) -> str | None:
     return _runtime_value_from_payload(_typed_runtime_payloads(*payloads), "trace_id")
 
 
-def _runtime_queue_from_payload(*payloads: Any, delivery_info: dict[str, Any] | None = None) -> str | None:
+def _runtime_queue_from_payload(*payloads: object, delivery_info: dict[str, Any] | None = None) -> str | None:
     return _first_runtime_value(
         *(
             payload.get("queue")
@@ -164,14 +185,14 @@ def _runtime_queue_from_payload(*payloads: Any, delivery_info: dict[str, Any] | 
     )
 
 
-def _runtime_worker_from_payload(*payloads: Any) -> str | None:
+def _runtime_worker_from_payload(*payloads: object) -> str | None:
     return _runtime_value_from_payload(_typed_runtime_payloads(*payloads), "worker_name")
 
 
-def _runtime_events_from_payload(*payloads: Any) -> list[Any]:
+def _runtime_events_from_payload(*payloads: object) -> list[Any]:
     for payload in _typed_runtime_payloads(*payloads):
         value = payload.get("events")
-        if isinstance(value, list) and value:
+        if _is_object_list(value) and value:
             return list(value)
     return []
 
@@ -193,7 +214,7 @@ def _async_result_snapshot(task_id: str | None) -> dict[str, Any]:
         return {}
 
 
-def _project_async_result_value(value: Any) -> Any:
+def _project_async_result_value(value: object) -> object:
     """Render Celery failure values without changing successful result payloads."""
     if isinstance(value, BaseException):
         return {
@@ -236,7 +257,7 @@ def _runtime_source_observation(
     )
 
 
-def _raise_process_observation_failure(failure: Failure) -> None:
+def _raise_process_observation_failure(failure: Failure) -> NoReturn:
     _raise_internal_error(
         "process observation projection failed",
         details={
@@ -288,19 +309,19 @@ def _line_matches_filter(item_line_key: str | None, requested_line_key: str | No
 
 def _celery_request_payload(task: dict[str, Any], *, scheduled: bool = False) -> dict[str, Any]:
     request_payload = task.get("request") if scheduled else None
-    return request_payload if isinstance(request_payload, dict) else task
+    return _as_dict(request_payload) if request_payload is not None else task
 
 
-def _task_project_key_from_payload(*payloads: Any) -> str | None:
+def _task_project_key_from_payload(*payloads: object) -> str | None:
     for payload in payloads:
-        if not isinstance(payload, dict):
+        if not _is_object_dict(payload):
             continue
         for key in ("project_key",):
             if key in payload:
                 return str(payload.get(key) or "").strip()
         for key in ("runtime_readback",):
-            metadata = payload.get(key)
-            if isinstance(metadata, dict) and "project_key" in metadata:
+            metadata = _as_dict(payload.get(key))
+            if "project_key" in metadata:
                 return str(metadata.get("project_key") or "").strip()
     return None
 
@@ -319,7 +340,7 @@ def _celery_task_project_key(
     task = celery_app.tasks.get(task_name or "")
     if task is None:
         return None
-    positional_args = args if isinstance(args, list) else []
+    positional_args = _object_list(args)
     try:
         parameters = list(inspect_signature(task.run).parameters.values())
     except (TypeError, ValueError):
@@ -349,23 +370,28 @@ def _celery_task_matches_project(
     return bool(task_project) and task_project == str(project_key).strip()
 
 
-def _db_job_public_task_id(job: EtlJobRun) -> str:
-    params = dict(job.params or {})
+def _db_job_public_task_id(job: EtlJobRun) -> str | None:
+    params = _as_dict(job.params)
     runtime_task_id = non_empty_text(params.get("task_id"))
     if runtime_task_id:
         return runtime_task_id
-    if not non_empty_text(job.external_provider) and non_empty_text(job.external_job_id):
-        return non_empty_text(job.external_job_id) or ""
-    if job.id is None:
-        return ""
-    return f"{_DB_JOB_PREFIX}{job.id}"
+    external_provider = job.external_provider
+    external_job_id = job.external_job_id
+    job_id = _coerce_int(job.id)
+    if not non_empty_text(external_provider) and non_empty_text(external_job_id):
+        return non_empty_text(external_job_id) or ""
+    if job_id is None:
+        return None
+    return f"{_DB_JOB_PREFIX}{job_id}"
 
 
 def _db_job_duration_seconds(job: EtlJobRun) -> float | None:
-    if job.started_at and job.finished_at:
-        return (job.finished_at - job.started_at).total_seconds()
-    if job.started_at:
-        return (datetime.now(job.started_at.tzinfo) - job.started_at).total_seconds()
+    started_at = job.started_at
+    finished_at = job.finished_at
+    if started_at and finished_at:
+        return (finished_at - started_at).total_seconds()
+    if started_at:
+        return (datetime.now(started_at.tzinfo) - started_at).total_seconds()
     return None
 
 
@@ -380,14 +406,14 @@ def _celery_task_projection(
     scheduled: bool = False,
 ) -> dict[str, Any] | None:
     request_payload = _celery_request_payload(task, scheduled=scheduled)
-    kwargs = request_payload.get("kwargs") if isinstance(request_payload.get("kwargs"), dict) else {}
-    headers = request_payload.get("headers") if isinstance(request_payload.get("headers"), dict) else {}
-    delivery_info = request_payload.get("delivery_info") if isinstance(request_payload.get("delivery_info"), dict) else {}
+    kwargs = _as_dict(request_payload.get("kwargs"))
+    headers = _as_dict(request_payload.get("headers"))
+    delivery_info = _as_dict(request_payload.get("delivery_info"))
     task_id = _first_runtime_value(request_payload.get("id"), task.get("id"))
     task_name = _first_runtime_value(request_payload.get("task"), request_payload.get("name"), task.get("name"))
     snapshot = _async_result_snapshot(task_id)
-    result_payload = snapshot.get("result") if isinstance(snapshot.get("result"), dict) else {}
-    progress_payload = snapshot.get("progress") if isinstance(snapshot.get("progress"), dict) else {}
+    result_payload = _as_dict(snapshot.get("result"))
+    progress_payload = _as_dict(snapshot.get("progress"))
     runtime_payloads = _typed_runtime_payloads(kwargs, headers, result_payload, progress_payload)
     line_key = _runtime_value_from_payload(runtime_payloads, "line_key")
     if not _line_matches_filter(line_key, requested_line_key):
@@ -404,7 +430,7 @@ def _celery_task_projection(
         source="celery_inspect",
     )
     for event in events:
-        if isinstance(event, dict) and event.get("event") == inspect_event:
+        if _is_object_dict(event) and event.get("event") == inspect_event:
             event.setdefault("timestamp", datetime.now(timezone.utc).isoformat())
     item: dict[str, Any] = {
         "line_key": line_key,
@@ -488,9 +514,9 @@ def _db_job_source(
     limit: int,
     project_key: str | None = None,
 ) -> _RuntimeReadbackSource | None:
-    params = dict(job.params or {})
-    result_payload = params.get("result") if isinstance(params.get("result"), dict) else {}
-    progress_payload = params.get("progress") if isinstance(params.get("progress"), dict) else {}
+    params = _as_dict(job.params)
+    result_payload = _as_dict(params.get("result"))
+    progress_payload = _as_dict(params.get("progress"))
     runtime_payloads = _typed_runtime_payloads(params, result_payload, progress_payload)
     line_key = _runtime_value_from_payload(runtime_payloads, "line_key")
     if not _line_matches_filter(line_key, requested_line_key):
@@ -499,22 +525,27 @@ def _db_job_source(
         job_project = _task_project_key_from_payload(params)
         if job_project is not None and job_project != str(project_key).strip():
             return None
-    status = _projected_runtime_status(job.status)
+    job_status = job.status
+    job_id = _coerce_int(job.id)
+    job_type = job.job_type
+    started_at = job.started_at
+    finished_at = job.finished_at
+    status = _projected_runtime_status(job_status)
     task_id = _first_runtime_value(
         _runtime_value_from_payload(runtime_payloads, "task_id"),
-        f"{_DB_JOB_PREFIX}{job.id}" if job.id is not None else None,
+        f"{_DB_JOB_PREFIX}{job_id}" if job_id is not None else None,
     )
-    readback_task_id = task_id
+    readback_task_id = task_id or f"{_DB_JOB_PREFIX}unpersisted"
     readback_path = _runtime_readback_path(
         readback_task_id,
         project_key=project_key,
     )
     run_id = _first_runtime_value(
         _runtime_run_id_from_payload(params, result_payload, progress_payload),
-        str(job.id) if job.id is not None else None,
+        str(job_id) if job_id is not None else None,
     )
     events = _runtime_events_from_payload(params, result_payload, progress_payload)
-    if job.started_at:
+    if started_at:
         events = append_runtime_event(
             events,
             "etl_job_started",
@@ -522,8 +553,8 @@ def _db_job_source(
             source="etl_job_runs",
         )
         for event in events:
-            if isinstance(event, dict) and event.get("event") == "etl_job_started":
-                event.setdefault("timestamp", job.started_at.isoformat())
+            if _is_object_dict(event) and event.get("event") == "etl_job_started":
+                event.setdefault("timestamp", started_at.isoformat())
     row = {
         "line_key": line_key,
         "task_id": task_id,
@@ -539,27 +570,27 @@ def _db_job_source(
         "readback_path": readback_path,
         "mocked": False,
         "skipped": False,
-        "job_type": job.job_type,
+        "job_type": job_type,
         "task_name": (
             str(params.get("job_type_full") or "").strip()
-            or str(job.job_type or "").strip()
+            or str(job_type or "").strip()
             or "db_job"
         ),
         "args": [],
         "kwargs": params,
-        "started_at": job.started_at.isoformat() if job.started_at else None,
+        "started_at": started_at.isoformat() if started_at else None,
     }
     identity = non_empty_text(task_id) or (
-        f"{_DB_JOB_PREFIX}{job.id}" if job.id is not None else f"{_DB_JOB_PREFIX}unpersisted"
+        f"{_DB_JOB_PREFIX}{job_id}" if job_id is not None else f"{_DB_JOB_PREFIX}unpersisted"
     )
     return _RuntimeReadbackSource(
         row=row,
         observation=_runtime_source_observation(
             source_kind=ObservationSourceKind.ETL_JOB_RUN,
-            source_locator=f"etl-job-run://{job.id if job.id is not None else 'unpersisted'}",
+            source_locator=f"etl-job-run://{job_id if job_id is not None else 'unpersisted'}",
             source_identity=identity,
-            observed_state=non_empty_text(job.status),
-            observed_at=_observed_at(job.finished_at or job.started_at),
+            observed_state=non_empty_text(job_status),
+            observed_at=_observed_at(finished_at or started_at),
             linked_run_id=run_id,
         ),
     )
@@ -611,8 +642,8 @@ def _extract_skip_reason(*payloads: Any) -> str | None:
             reason = non_empty_text(nested.get("reason"))
             if reason:
                 return reason
-        rb = item.get("rejection_breakdown")
-        if isinstance(rb, dict):
+        rb = _as_dict(item.get("rejection_breakdown"))
+        if rb:
             for k, v in rb.items():
                 name = non_empty_text(k)
                 count = _coerce_int(v)
@@ -658,23 +689,24 @@ def _extract_quality_fields(*payloads: Any) -> Dict[str, Any]:
             inserted_valid = _coerce_int(item.get("inserted_valid"))
         if rejected_count is None:
             rejected_count = _coerce_int(item.get("rejected_count"))
-        rb = item.get("rejection_breakdown")
-        if isinstance(rb, dict):
+        rb = _as_dict(item.get("rejection_breakdown"))
+        if rb:
             for k, v in rb.items():
                 key = str(k or "").strip()
                 val = _coerce_int(v)
                 if not key or val is None:
                     continue
                 rejection_breakdown[key] = rejection_breakdown.get(key, 0) + val
-        flags = item.get("degradation_flags")
-        if isinstance(flags, list):
+        flags = _object_list(item.get("degradation_flags"))
+        if flags:
             for flag in flags:
                 name = str(flag or "").strip()
                 if name and name not in degradation_flags:
                     degradation_flags.append(name)
         if quality_score is None:
+            raw_quality_score = item.get("quality_score")
             try:
-                qv = float(item.get("quality_score"))
+                qv = float(raw_quality_score) if isinstance(raw_quality_score, (int, float, str)) else None
             except Exception:
                 qv = None
             if qv is not None and qv >= 0:
@@ -712,7 +744,7 @@ class TaskInfo(BaseModel):
 class TaskListResponse(BaseModel):
     """任务列表响应"""
     tasks: List[TaskInfo]
-    stats: dict
+    stats: dict[str, object]
 
 
 @router.get("/list")
@@ -740,8 +772,8 @@ def list_tasks(
 
         tasks: list[TaskInfo] = []
         for item in current_items[:limit]:
-            task_args = item.get("args") or []
-            task_kwargs = item.get("kwargs") or {}
+            task_args = _object_list(item.get("args"))
+            task_kwargs = _as_dict(item.get("kwargs"))
             task_name = str(item.get("task_name") or "unknown")
             display_meta = (
                 infer_display_meta_from_celery_task(task_name, task_args, task_kwargs)
@@ -753,18 +785,18 @@ def list_tasks(
                     task_id=str(item.get("task_id") or "unknown"),
                     name=task_name,
                     status=str(item.get("status") or "unknown"),
-                    args=task_args,
+                    args=list(task_args),
                     kwargs=task_kwargs,
-                    worker=item.get("worker_name"),
-                    started_at=item.get("started_at"),
+                    worker=non_empty_text(item.get("worker_name")),
+                    started_at=non_empty_text(item.get("started_at")),
                     display_meta=display_meta,
                 )
             )
 
-        registered_tasks = celery_app.control.inspect().registered() or {}
-        registered_task_names = set()
-        for worker_name, task_list in registered_tasks.items():
-            registered_task_names.update(task_list)
+        registered_tasks = _as_dict(celery_app.control.inspect().registered())
+        registered_task_names: set[str] = set()
+        for task_list in registered_tasks.values():
+            registered_task_names.update(item for item in _object_list(task_list) if isinstance(item, str))
         total_tasks = len(current_items)
         active_count = sum(item.get("status") == "active" for item in current_items)
         pending_count = sum(item.get("status") in {"pending", "reserved"} for item in current_items)
@@ -813,10 +845,10 @@ def get_task_stats(project_key: Optional[str] = Query(None)) -> dict[str, Any]:
         scheduled_count = sum(item.get("status") == "pending" for item in current_items)
         reserved_count = sum(item.get("status") == "reserved" for item in current_items)
 
-        registered_tasks = celery_app.control.inspect().registered() or {}
-        registered_task_names = set()
-        for worker_name, task_list in registered_tasks.items():
-            registered_task_names.update(task_list)
+        registered_tasks = _as_dict(celery_app.control.inspect().registered())
+        registered_task_names: set[str] = set()
+        for task_list in registered_tasks.values():
+            registered_task_names.update(item for item in _object_list(task_list) if isinstance(item, str))
         observed_workers = {item.get("worker_name") for item in current_items if item.get("worker_name")}
         workers = list(observed_workers | set(registered_tasks.keys()))
 
@@ -869,14 +901,20 @@ def get_task_history(
                 jobs = session.execute(query).scalars().all()
 
             # 转换为字典格式
-                history = []
+                history: list[dict[str, object]] = []
                 for job in jobs:
                     duration = _db_job_duration_seconds(job)
-                    params = dict(job.params or {})
+                    params = _as_dict(job.params)
+                    job_id = job.id
+                    job_type_value = job.job_type
+                    job_status = job.status
+                    job_error = job.error
+                    started_at = job.started_at
+                    finished_at = job.finished_at
                     task_id = _db_job_public_task_id(job) or None
                     task_name = (
                         str(params.get("job_type_full") or "").strip()
-                        or str(job.job_type or "").strip()
+                        or str(job_type_value or "").strip()
                         or "db_job"
                     )
                     quality_fields = _extract_quality_fields(
@@ -890,23 +928,23 @@ def get_task_history(
                         params,
                         params.get("result"),
                         params.get("progress"),
-                        status=job.status,
-                        error=job.error,
+                        status=job_status,
+                        error=job_error,
                     )
 
                     history.append({
-                        "id": job.id,
+                        "id": job_id,
                         "task_id": task_id,
                         "task_name": task_name,
                         "source": "db",
-                        "job_type": job.job_type,
-                        "status": job.status,
+                        "job_type": job_type_value,
+                        "status": job_status,
                         "params": params,
                         "display_meta": extract_display_meta_from_params(params),
-                        "started_at": job.started_at.isoformat() if job.started_at else None,
-                        "finished_at": job.finished_at.isoformat() if job.finished_at else None,
+                        "started_at": started_at.isoformat() if started_at else None,
+                        "finished_at": finished_at.isoformat() if finished_at else None,
                         "duration_seconds": duration,
-                        "error": job.error,
+                        "error": job_error,
                         "inserted_valid": quality_fields.get("inserted_valid"),
                         "rejected_count": quality_fields.get("rejected_count"),
                         "rejection_breakdown": quality_fields.get("rejection_breakdown") or {},
@@ -926,7 +964,7 @@ def get_task_history(
                 total = session.execute(total_query).scalar() or 0
 
             # 按状态统计
-                status_stats = {}
+                status_stats: dict[str, int] = {}
                 status_query = select(
                     EtlJobRun.status,
                     func.count(EtlJobRun.id).label("count")
@@ -935,7 +973,10 @@ def get_task_history(
                     status_query = status_query.where(EtlJobRun.job_type == job_type)
                 status_query = status_query.group_by(EtlJobRun.status)
                 for row in session.execute(status_query).all():
-                    status_stats[row.status] = row.count
+                    row_status = getattr(row, "status", None)
+                    row_count = getattr(row, "count", None)
+                    if isinstance(row_status, str) and isinstance(row_count, int):
+                        status_stats[row_status] = row_count
 
                 return ok(
                     {
@@ -962,11 +1003,11 @@ def _load_celery_runtime_readback_items(
     project_key: str | None = None,
 ) -> list[_RuntimeReadbackSource]:
     inspect = celery_app.control.inspect()
-    active_tasks = inspect.active() or {}
-    scheduled_tasks = inspect.scheduled() or {}
-    reserved_tasks = inspect.reserved() or {}
+    active_tasks = _as_dict(inspect.active())
+    scheduled_tasks = _as_dict(inspect.scheduled())
+    reserved_tasks = _as_dict(inspect.reserved())
 
-    items: list[dict[str, Any]] = []
+    items: list[_RuntimeReadbackSource] = []
     seen_identities: set[str] = set()
     groups = (
         ("active", active_tasks, False),
@@ -974,13 +1015,10 @@ def _load_celery_runtime_readback_items(
         ("reserved", reserved_tasks, False),
     )
     for status, worker_tasks_by_name, scheduled in groups:
-        if not isinstance(worker_tasks_by_name, dict):
-            continue
         for worker_name, worker_tasks in worker_tasks_by_name.items():
-            if not isinstance(worker_tasks, list):
-                continue
-            for task in worker_tasks:
-                if not isinstance(task, dict):
+            for raw_task in _object_list(worker_tasks):
+                task = _as_dict(raw_task)
+                if not task:
                     continue
                 request_payload = _celery_request_payload(task, scheduled=scheduled)
                 task_name = _first_runtime_value(
@@ -989,8 +1027,8 @@ def _load_celery_runtime_readback_items(
                     task.get("name"),
                 )
                 task_args = request_payload.get("args", [])
-                task_kwargs = request_payload.get("kwargs", {}) if isinstance(request_payload.get("kwargs", {}), dict) else {}
-                task_headers = request_payload.get("headers", {}) if isinstance(request_payload.get("headers", {}), dict) else {}
+                task_kwargs = _as_dict(request_payload.get("kwargs"))
+                task_headers = _as_dict(request_payload.get("headers"))
                 if not _celery_task_matches_project(
                     project_key=project_key,
                     task_name=task_name,
@@ -1185,22 +1223,28 @@ def _resolve_db_job(task_id: str) -> EtlJobRun | None:
 
 
 def _extract_source_library_retry_payload(job: EtlJobRun) -> tuple[str, str | None, dict[str, Any]]:
-    params = dict(job.params or {})
+    params = _as_dict(job.params)
     item_key = str(params.get("item_key") or "").strip()
     if not item_key:
         _raise_invalid_input(f"db job {job.id} missing retry param: item_key")
     project_key = str(params.get("project_key") or "").strip() or None
-    override_params = params.get("override_params")
-    if not isinstance(override_params, dict):
-        override_params = {}
-    return item_key, project_key, dict(override_params)
+    override_params = _as_dict(params.get("override_params"))
+    return item_key, project_key, override_params
 
 
 def _db_job_to_task_info(task_id: str, job: EtlJobRun) -> dict[str, Any]:
-    status_raw = str(job.status or "running").strip().lower()
+    job_status = job.status
+    external_provider = job.external_provider
+    external_job_id = job.external_job_id
+    job_type = job.job_type
+    job_error = job.error
+    started_at = job.started_at
+    finished_at = job.finished_at
+    retry_count = job.retry_count
+    status_raw = str(job_status or "running").strip().lower()
     ready = status_raw in {"completed", "failed", "cancelled", "canceled"}
-    is_external = bool(str(job.external_provider or "").strip())
-    params_payload = dict(job.params or {})
+    is_external = bool(str(external_provider or "").strip())
+    params_payload = _as_dict(job.params)
     result_payload = None
     if ready:
         result_payload = dict(params_payload)
@@ -1213,8 +1257,8 @@ def _db_job_to_task_info(task_id: str, job: EtlJobRun) -> dict[str, Any]:
     if not ready:
         progress_payload = dict(params_payload)
         if is_external:
-            progress_payload.setdefault("external_provider", job.external_provider)
-            progress_payload.setdefault("external_job_id", job.external_job_id)
+            progress_payload.setdefault("external_provider", external_provider)
+            progress_payload.setdefault("external_job_id", external_job_id)
     quality_fields = _extract_quality_fields(params_payload, result_payload, progress_payload)
     handler_used = _extract_handler_used(params_payload, result_payload, progress_payload)
     skip_reason = _extract_skip_reason(params_payload, result_payload, progress_payload)
@@ -1222,26 +1266,26 @@ def _db_job_to_task_info(task_id: str, job: EtlJobRun) -> dict[str, Any]:
         params_payload,
         result_payload,
         progress_payload,
-        status=job.status,
-        error=job.error,
+        status=job_status,
+        error=job_error,
     )
     return {
         "task_id": task_id,
-        "name": str(params_payload.get("job_type_full") or job.job_type or "db_job"),
-        "status": str(job.status or "running").upper(),
+        "name": str(params_payload.get("job_type_full") or job_type or "db_job"),
+        "status": str(job_status or "running").upper(),
         "ready": ready,
         "successful": ready and status_raw == "completed",
         "failed": ready and status_raw == "failed",
         "result": result_payload,
         "progress": progress_payload,
-        "traceback": job.error if status_raw == "failed" else None,
+        "traceback": job_error if status_raw == "failed" else None,
         "worker": "external-provider" if is_external else _runtime_worker_from_payload(params_payload),
-        "started_at": job.started_at.isoformat() if job.started_at else None,
-        "ended_at": job.finished_at.isoformat() if job.finished_at else None,
+        "started_at": started_at.isoformat() if started_at else None,
+        "ended_at": finished_at.isoformat() if finished_at else None,
         "elapsed_seconds": _db_job_duration_seconds(job),
-        "external_provider": job.external_provider,
-        "external_job_id": job.external_job_id,
-        "retry_count": job.retry_count,
+        "external_provider": external_provider,
+        "external_job_id": external_job_id,
+        "retry_count": retry_count,
         "source": "db",
         "inserted_valid": quality_fields.get("inserted_valid"),
         "rejected_count": quality_fields.get("rejected_count"),
@@ -1414,6 +1458,8 @@ def get_task_info(
             return ok(_db_job_to_runtime_task_info(task_id, db_job, project_key=project_key))
 
         result = celery_app.AsyncResult(task_id)
+        result_info: object = getattr(result, "info", None)
+        info_payload = _as_dict(result_info)
 
         projected_status = _projected_runtime_status(result.status)
         async_source = _RuntimeReadbackSource(
@@ -1421,7 +1467,7 @@ def get_task_info(
                 "task_id": task_id,
                 "status": projected_status,
                 "run_id": _runtime_run_id_from_payload(
-                    getattr(result, "info", None) if isinstance(getattr(result, "info", None), dict) else {}
+                    info_payload
                 ),
             },
             observation=_runtime_source_observation(
@@ -1435,15 +1481,18 @@ def get_task_info(
         projected_rows, _ = _project_runtime_readback_sources((async_source,))
         runtime_projection = projected_rows[0] if projected_rows else {}
 
-        task_info = {
+        ready = bool(result.ready())
+        result_value: object = getattr(result, "result", None) if ready else None
+        traceback_value: object = getattr(result, "traceback", None) if bool(result.failed()) else None
+        task_info: dict[str, object] = {
             "task_id": task_id,
             "status": runtime_projection.get("status") or projected_status,
-            "ready": result.ready(),
-            "successful": result.successful() if result.ready() else None,
-            "failed": result.failed() if result.ready() else None,
-            "result": _project_async_result_value(result.result if result.ready() else None),
-            "progress": result.info if not result.ready() and isinstance(getattr(result, "info", None), dict) else None,
-            "traceback": result.traceback if result.failed() else None,
+            "ready": ready,
+            "successful": result.successful() if ready else None,
+            "failed": result.failed() if ready else None,
+            "result": _project_async_result_value(result_value),
+            "progress": info_payload if not ready and info_payload else None,
+            "traceback": traceback_value,
         }
         quality_fields = _extract_quality_fields(task_info.get("result"), task_info.get("progress"))
         handler_used = _extract_handler_used(task_info.get("result"), task_info.get("progress"))
@@ -1469,7 +1518,7 @@ def get_task_info(
 
         # 尝试获取任务名称
         try:
-            task_info["name"] = result.name
+            task_info["name"] = getattr(result, "name", None) or "unknown"
         except:
             task_info["name"] = "unknown"
 
@@ -1527,8 +1576,8 @@ def retry_task(task_id: str) -> dict[str, Any]:
                 "trace_id": f"process.retry.{task_id}",
             },
         )
-        result = invoked.get("result")
-        retry_task_id = str((result or {}).get("task_id") or "").strip() if isinstance(result, dict) else ""
+        result = _as_dict(invoked.get("result"))
+        retry_task_id = str(result.get("task_id") or "").strip()
         if not retry_task_id:
             raise RuntimeError("source library retry dispatch skill returned empty task_id")
         return ok(
@@ -1607,16 +1656,21 @@ def get_task_logs(task_id: str, tail: int = Query(default=200, ge=1, le=5000)) -
     try:
         db_job = _resolve_db_job(task_id)
         if db_job is not None:
-            is_external = bool(str(db_job.external_provider or "").strip())
+            external_provider = db_job.external_provider
+            external_job_id = db_job.external_job_id
+            job_status = db_job.status
+            retry_count = db_job.retry_count
+            job_error = db_job.error
+            is_external = bool(str(external_provider or "").strip())
             summary_lines = [
                 f"task_id={task_id}",
-                f"status={db_job.status or 'running'}",
-                f"external_provider={db_job.external_provider or '-'}",
-                f"external_job_id={db_job.external_job_id or '-'}",
-                f"retry_count={db_job.retry_count if db_job.retry_count is not None else '-'}",
+                f"status={job_status or 'running'}",
+                f"external_provider={external_provider or '-'}",
+                f"external_job_id={external_job_id or '-'}",
+                f"retry_count={retry_count if retry_count is not None else '-'}",
             ]
-            if db_job.error:
-                summary_lines.append(f"error={db_job.error}")
+            if job_error:
+                summary_lines.append(f"error={job_error}")
             if is_external:
                 summary_lines.append(
                     "logs=External provider task is DB-tracked; Celery worker log stream is not available."
@@ -1667,8 +1721,8 @@ def get_task_logs(task_id: str, tail: int = Query(default=200, ge=1, le=5000)) -
             state = str(celery_app.AsyncResult(task_id).status or "").upper()
             if state in {"PENDING", "STARTED", "RETRY"}:
                 merged_lines = (contextual_lines + plain_tail_lines)[-tail:]
-                seen = set()
-                used_lines = []
+                seen: set[str] = set()
+                used_lines: list[str] = []
                 for line in merged_lines:
                     if line in seen:
                         continue

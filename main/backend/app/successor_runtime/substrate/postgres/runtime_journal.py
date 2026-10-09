@@ -16,7 +16,7 @@ import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Any, Literal, TypeGuard
+from typing import Any, Literal, TypeGuard, TypedDict, Unpack
 from typing import TypeVar
 
 from pydantic import Field, model_validator
@@ -73,6 +73,18 @@ class PublicPayloadViolation(ControlRepositoryError):
     pass
 
 
+class ExactQualificationBindingContent(TypedDict):
+    qualification_id: str
+    project_key: str
+    run_id: str
+    plan_id: str
+    plan_digest: Digest
+    authority_context: AuthorityContext
+    authority_context_digest: Digest
+    qualified_plan: QualifiedPlan
+    decision: Literal["QUALIFIED", "REJECTED", "AWAITING_APPROVAL"]
+
+
 class ExactQualificationBinding(FrozenContract):
     """Content-addressed public control fact for one plan qualification."""
 
@@ -116,7 +128,9 @@ class ExactQualificationBinding(FrozenContract):
         return self
 
     @classmethod
-    def from_content(cls, **content: object) -> "ExactQualificationBinding":
+    def from_content(
+        cls, **content: Unpack[ExactQualificationBindingContent]
+    ) -> "ExactQualificationBinding":
         provisional = cls.model_construct(
             **content,
             qualification_binding_digest="0" * 64,
@@ -169,7 +183,7 @@ _OPAQUE_LOCATOR_PATTERN = re.compile(
 )
 
 
-def _require_opaque_locator(value: Any, *, path: str) -> str:
+def require_opaque_locator(value: object, *, path: str) -> str:
     if not isinstance(value, str) or _OPAQUE_LOCATOR_PATTERN.fullmatch(value) is None:
         raise PublicPayloadViolation(
             f"public control reference is not a bounded opaque locator: {path}"
@@ -195,33 +209,40 @@ def runtime_scope_key(scope: RuntimeScope) -> str:
     return project_key
 
 
-def _as_mapping(row: Any) -> Mapping[str, Any] | None:
-    if row is None:
-        return None
-    if isinstance(row, Mapping):
-        return row
-    mapping = getattr(row, "_mapping", None)
-    if mapping is not None:
-        return mapping
-    raise TypeError("database row does not expose a mapping")
-
-
 def one_mapping(result: Result[tuple[object, ...]]) -> RowMapping | None:
     """Return the unique SQLAlchemy mapping row without weakening its type."""
 
     return result.mappings().one_or_none()
 
 
-def _mapping_rows(result: Any) -> tuple[Mapping[str, Any], ...]:
-    mappings = getattr(result, "mappings", None)
-    rows = mappings().all() if callable(mappings) else result.all()
-    return tuple(_as_mapping(row) or {} for row in rows)
+def mapping_rows(result: Result[tuple[object, ...]]) -> tuple[RowMapping, ...]:
+    """Return SQLAlchemy mapping rows while preserving their native key type."""
+
+    return tuple(result.mappings().all())
 
 
-def _assert_no_payload_bytes(value: Any, *, path: str = "control") -> None:
+def _is_object_mapping(value: object) -> TypeGuard[Mapping[object, object]]:
+    return isinstance(value, Mapping)
+
+
+def _is_object_collection(
+    value: object,
+) -> TypeGuard[
+    tuple[object, ...] | list[object] | set[object] | frozenset[object]
+]:
+    return isinstance(value, (tuple, list, set, frozenset))
+
+
+def _is_object_sequence(
+    value: object,
+) -> TypeGuard[tuple[object, ...] | list[object]]:
+    return isinstance(value, (tuple, list))
+
+
+def _assert_no_payload_bytes(value: object, *, path: str = "control") -> None:
     if isinstance(value, (bytes, bytearray, memoryview)):
         raise PublicPayloadViolation(f"public control row contains payload bytes at {path}")
-    if isinstance(value, Mapping):
+    if _is_object_mapping(value):
         for key, child in value.items():
             normalized = str(key).strip().lower()
             if normalized in _FORBIDDEN_CONTROL_KEYS:
@@ -233,7 +254,7 @@ def _assert_no_payload_bytes(value: Any, *, path: str = "control") -> None:
                 continue
             if normalized == "payload_ref":
                 if child is not None:
-                    _require_opaque_locator(child, path=f"{path}.{key}")
+                    require_opaque_locator(child, path=f"{path}.{key}")
                 continue
             if normalized == "claim_binding_json":
                 if child is None:
@@ -293,18 +314,18 @@ def _assert_no_payload_bytes(value: Any, *, path: str = "control") -> None:
                     path=f"{path}.{key}",
                 )
                 continue
-            if isinstance(child, (Mapping, tuple, list, set, frozenset)):
+            if _is_object_mapping(child) or _is_object_collection(child):
                 raise PublicPayloadViolation(
                     f"public control row contains untyped nested value: {path}.{key}"
                 )
             _assert_no_payload_bytes(child, path=f"{path}.{key}")
-    elif isinstance(value, (tuple, list, set, frozenset)):
+    elif _is_object_collection(value):
         for index, child in enumerate(value):
             _assert_no_payload_bytes(child, path=f"{path}[{index}]")
 
 
-def _validate_event_metadata(value: Any, *, path: str) -> None:
-    if not isinstance(value, Mapping):
+def _validate_event_metadata(value: object, *, path: str) -> None:
+    if not _is_object_mapping(value):
         raise PublicPayloadViolation(f"event metadata must be an object: {path}")
     for key, child in value.items():
         normalized = str(key).strip().lower()
@@ -318,7 +339,7 @@ def _validate_event_metadata(value: Any, *, path: str) -> None:
                 raise PublicPayloadViolation(f"invalid bounded lifecycle count/index: {path}.{key}")
             continue
         if normalized in {"child_run_ids", "child_result_digests", "element_digests"}:
-            if not isinstance(child, (tuple, list)) or len(child) > _MAX_CONTROL_SEQUENCE_ITEMS:
+            if not _is_object_sequence(child) or len(child) > _MAX_CONTROL_SEQUENCE_ITEMS:
                 raise PublicPayloadViolation(f"invalid bounded child sequence: {path}.{key}")
             for item in child:
                 valid = (
@@ -356,9 +377,9 @@ def _validate_event_metadata(value: Any, *, path: str) -> None:
 
 
 def _validate_typed_control_json(
-    model: type[FrozenContract], value: Any, *, path: str
+    model: type[FrozenContract], value: object, *, path: str
 ) -> FrozenContract:
-    if not isinstance(value, Mapping):
+    if not _is_object_mapping(value):
         raise PublicPayloadViolation(f"typed control binding must be an object: {path}")
     try:
         return model.model_validate(value)
@@ -368,13 +389,13 @@ def _validate_typed_control_json(
 
 def _parse_exact_binding(
     model: type[_ExactBindingT],
-    raw: Any,
+    raw: object,
     *,
     missing: str,
     invalid: str,
     noncanonical: str,
 ) -> _ExactBindingT:
-    if not isinstance(raw, Mapping):
+    if not _is_object_mapping(raw):
         raise ExactBindingConflict(missing)
     try:
         binding = model.model_validate(raw)
@@ -473,9 +494,9 @@ def validate_runtime_assignment_row(
     if values.get("assignment_digest") != assignment.assignment_digest:
         raise ExactBindingConflict("RuntimeAssignment digest mismatch")
     if assignment.payload_ref is not None:
-        _require_opaque_locator(assignment.payload_ref, path="assignment_binding_json.payload_ref")
+        require_opaque_locator(assignment.payload_ref, path="assignment_binding_json.payload_ref")
     for index, input_ref in enumerate(assignment.input_refs):
-        _require_opaque_locator(input_ref, path=f"assignment_binding_json.input_refs[{index}]")
+        require_opaque_locator(input_ref, path=f"assignment_binding_json.input_refs[{index}]")
 
     expected = assignment_index_values(assignment)
     if assignment.assignment_kind in {
@@ -510,10 +531,6 @@ def validate_runtime_assignment_row(
     if mismatches:
         raise ExactBindingConflict("RuntimeAssignment duplicated-column drift: " + ", ".join(mismatches))
     return assignment
-
-
-def _is_object_mapping(value: object) -> TypeGuard[Mapping[object, object]]:
-    return isinstance(value, Mapping)
 
 
 def validate_qualification_row(
@@ -782,11 +799,11 @@ class RuntimeJournalRepository:
             raise RecordNotFound(f"runtime run not found: {run_id}")
         return row
 
-    def load_events(self, run_id: str, *, after_seq: int = 0) -> tuple[Mapping[str, Any], ...]:
+    def load_events(self, run_id: str, *, after_seq: int = 0) -> tuple[RowMapping, ...]:
         if after_seq < 0:
             raise ValueError("after_seq must be non-negative")
         events = runtime_table("runtime_events")
-        return _mapping_rows(
+        return mapping_rows(
             self.connection.execute(
                 select(events)
                 .where(

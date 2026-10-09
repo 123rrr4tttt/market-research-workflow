@@ -15,6 +15,24 @@ from .candidate_contracts import (
 from .web import search_sources
 
 
+def _text_or_none(value: object) -> str | None:
+    return value if isinstance(value, str) else None
+
+
+def _int_or_none(value: object) -> int | None:
+    if value is None:
+        return None
+    if isinstance(value, (str, int, float, bytes, bytearray)):
+        return int(value)
+    return None
+
+
+def _float_value(value: object) -> float:
+    if isinstance(value, (str, int, float, bytes, bytearray)):
+        return float(value)
+    return 0.0
+
+
 def discover_candidates(request: CandidateSearchRequest) -> CandidateBundle:
     """Perform one search; matrix strategy and ingest belong to their own owners."""
     request_failure = request.validation_failure()
@@ -53,13 +71,15 @@ def discover_candidates(request: CandidateSearchRequest) -> CandidateBundle:
     candidates = tuple(
         Candidate(
             resource_uri=str(row.get("canonical_link") or row.get("link") or ""),
-            title=row.get("title"),
-            snippet=row.get("snippet"),
-            source=row.get("source"),
-            keyword=row.get("keyword"),
-            original_rank=row.get("rank") or rank_by_uri.get(str(row.get("canonical_link") or row.get("link") or "")),
+            title=_text_or_none(row.get("title")),
+            snippet=_text_or_none(row.get("snippet")),
+            source=_text_or_none(row.get("source")),
+            keyword=_text_or_none(row.get("keyword")),
+            original_rank=_int_or_none(
+                row.get("rank") or rank_by_uri.get(str(row.get("canonical_link") or row.get("link") or ""))
+            ),
             result_rank=index,
-            relevance_score=float(row.get("relevance_score") or 0.0),
+            relevance_score=_float_value(row.get("relevance_score") or 0.0),
             raw=dict(row),
         )
         for index, row in enumerate(rows, start=1)

@@ -3,14 +3,49 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from importlib import import_module
+from typing import Protocol, runtime_checkable
 
 from ..ingest.content_extraction import extract_main_text_from_html
 
-try:  # pragma: no cover - optional dependency
-    import trafilatura  # type: ignore
-except Exception:  # pragma: no cover - optional dependency
-    trafilatura = None
+
+@runtime_checkable
+class _TrafilaturaModule(Protocol):
+    def extract(
+        self,
+        html: str,
+        *,
+        url: str | None,
+        include_comments: bool,
+        include_tables: bool,
+        output_format: str,
+        favor_precision: bool,
+    ) -> object: ...
+
+
+def _load_trafilatura() -> _TrafilaturaModule | None:
+    try:  # pragma: no cover - optional dependency
+        module = import_module("trafilatura")
+        return module if isinstance(module, _TrafilaturaModule) else None
+    except Exception:  # pragma: no cover - optional dependency
+        return None
+
+
+trafilatura: _TrafilaturaModule | None = _load_trafilatura()
+
+
+def _extract_with_trafilatura(raw_html: str, url: str | None) -> str:
+    if trafilatura is None:
+        return ""
+    value = trafilatura.extract(
+        raw_html,
+        url=url,
+        include_comments=False,
+        include_tables=False,
+        output_format="txt",
+        favor_precision=True,
+    )
+    return value.strip() if isinstance(value, str) else ""
 
 
 @dataclass(frozen=True)
@@ -19,7 +54,7 @@ class ArticleExtractionResult:
     content: str
     extractor: str
     confidence: str
-    meta: dict[str, Any]
+    meta: dict[str, object]
 
 
 def extract_article_content_from_html(
@@ -32,26 +67,18 @@ def extract_article_content_from_html(
     if not raw_html:
         return ArticleExtractionResult(title=title, content="", extractor="none", confidence="low", meta={})
 
-    if trafilatura is not None:
-        try:
-            extracted = trafilatura.extract(
-                raw_html,
-                url=url,
-                include_comments=False,
-                include_tables=False,
-                output_format="txt",
-                favor_precision=True,
+    try:
+        extracted = _extract_with_trafilatura(raw_html, url)
+        if extracted:
+            return ArticleExtractionResult(
+                title=title,
+                content=extracted,
+                extractor="trafilatura",
+                confidence="high",
+                meta={"url": url},
             )
-            if str(extracted or "").strip():
-                return ArticleExtractionResult(
-                    title=title,
-                    content=str(extracted).strip(),
-                    extractor="trafilatura",
-                    confidence="high",
-                    meta={"url": url},
-                )
-        except Exception:
-            pass
+    except Exception:
+        pass
 
     fallback = extract_main_text_from_html(raw_html)
     return ArticleExtractionResult(

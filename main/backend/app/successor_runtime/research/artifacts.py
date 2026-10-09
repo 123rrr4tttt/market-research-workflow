@@ -5,7 +5,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 
-from .codec import _failure, _raise_failure, finalize_digest, is_sha256_hex
+from .codec import (
+    finalize_digest,
+    is_sha256_hex,
+    raise_research_failure as _raise_failure,
+    research_failure as _failure,
+)
 
 __all__ = [
     "DELIVERY_CHANNEL",

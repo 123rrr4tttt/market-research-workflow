@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
+from datetime import date
 from typing import Any, Protocol
 
 
@@ -58,11 +59,10 @@ def set_ingest_adapter_providers(
     reddit_factory: RedditAdapterFactory,
     google_news_factory: GoogleNewsAdapterFactory,
 ) -> None:
-    global _POLICY_ADAPTER_RESOLVER
-    global _REDDIT_ADAPTER_FACTORY, _GOOGLE_NEWS_ADAPTER_FACTORY
-    _POLICY_ADAPTER_RESOLVER = policy_resolver
-    _REDDIT_ADAPTER_FACTORY = reddit_factory
-    _GOOGLE_NEWS_ADAPTER_FACTORY = google_news_factory
+    module_globals = globals()
+    module_globals["_POLICY_ADAPTER_RESOLVER"] = policy_resolver
+    module_globals["_REDDIT_ADAPTER_FACTORY"] = reddit_factory
+    module_globals["_GOOGLE_NEWS_ADAPTER_FACTORY"] = google_news_factory
 
 
 def get_policy_adapter(state: str, source_hint: str | None = None) -> PolicyAdapterPort:

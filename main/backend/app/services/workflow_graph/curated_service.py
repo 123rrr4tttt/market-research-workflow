@@ -2,18 +2,18 @@ from __future__ import annotations
 
 from copy import deepcopy
 from datetime import datetime, timezone
-from typing import Any, Callable, Mapping
+from typing import Callable, Mapping, NoReturn, SupportsFloat, SupportsIndex, SupportsInt, TypedDict, TypeGuard
 from uuid import uuid4
 
 from app.services.ingest_config.service import get_config as get_ingest_config
 from app.services.ingest_config.service import upsert_config as upsert_ingest_config
 from app.services.projects import current_project_key
+from app.services.workflow_graph.contracts import raise_workflow_graph_legacy, workflow_graph_failure
 from app.services.workflow_graph.edit_contract import parse_graph_edit_draft_contract
 from app.services.workflow_graph.governance_contract import (
     build_graph_edit_audit_record,
     build_graph_rollback_contract,
 )
-from app.services.workflow_graph.contracts import raise_workflow_graph_legacy, workflow_graph_failure
 
 CONFIG_KEY = "workflow_graph_curated_v1"
 CONFIG_TYPE = "workflow_graph_curated"
@@ -22,7 +22,45 @@ HANDOFF_CONTRACT_VERSION = "graph_handoff.v1"
 HANDOFF_PRODUCER = "workflow_graph.backend_bridge"
 
 
-def _raise_curated_failure(code: str, message: str, *, exception_type: type[Exception] = ValueError) -> None:
+class _CuratedGraph(TypedDict):
+    graph_id: str
+    revision: int
+    active_version_id: str | None
+    draft: dict[str, object]
+    current: dict[str, object]
+    versions: dict[str, dict[str, object]]
+    audits: list[dict[str, object]]
+    updated_at: str
+    last_sync_status: str
+
+
+class _CuratedState(TypedDict):
+    base_version: int
+    graphs: dict[str, _CuratedGraph]
+
+
+def _is_object_mapping(value: object) -> TypeGuard[Mapping[object, object]]:
+    return isinstance(value, Mapping)
+
+
+def _is_object_list(value: object) -> TypeGuard[list[object]]:
+    return isinstance(value, list)
+
+
+def _string_object_mapping(value: object) -> dict[str, object] | None:
+    if not _is_object_mapping(value):
+        return None
+    result: dict[str, object] = {}
+    for key, item in value.items():
+        if not isinstance(key, str):
+            return None
+        result[key] = item
+    return result
+
+
+def _raise_curated_failure(
+    code: str, message: str, *, exception_type: type[Exception] = ValueError
+) -> NoReturn:
     failure = workflow_graph_failure(code, message, owner="workflow_graph.curated_service", public_exception=exception_type, public_message=message, field="curated", index=-1)
     raise_workflow_graph_legacy(failure, exception_type=exception_type)
 
@@ -33,7 +71,7 @@ class WorkflowGraphSyncConflictError(ValueError):
         self.expected_revision = int(expected_revision)
         self.actual_revision = int(actual_revision)
 
-    def to_details(self) -> dict[str, Any]:
+    def to_details(self) -> dict[str, object]:
         return {
             "category": "version_conflict",
             "expected_revision": self.expected_revision,
@@ -46,7 +84,7 @@ class WorkflowGraphObjectMissingError(KeyError):
 
 
 class WorkflowGraphCuratedService:
-    def get_graph(self, graph_id: str) -> dict[str, Any]:
+    def get_graph(self, graph_id: str) -> dict[str, object]:
         gid = _normalize_graph_id(graph_id)
         state = self._load_state()
         graph = state["graphs"].get(gid)
@@ -63,10 +101,10 @@ class WorkflowGraphCuratedService:
             "version_semantics": "curated_graph_revision_separate_from_template_versions",
         }
 
-    def save_draft(self, graph_id: str, payload: Mapping[str, Any]) -> dict[str, Any]:
+    def save_draft(self, graph_id: str, payload: Mapping[str, object]) -> dict[str, object]:
         gid = _normalize_graph_id(graph_id)
-        dsl = payload.get("dsl")
-        if not isinstance(dsl, Mapping):
+        dsl = _string_object_mapping(payload.get("dsl"))
+        if dsl is None:
             _raise_curated_failure("contract_invalid", "dsl is required and must be a mapping")
         parse_graph_edit_draft_contract(dsl, object_kind="template_graph")
         base_revision = _read_optional_int(payload, "base_revision")
@@ -74,7 +112,7 @@ class WorkflowGraphCuratedService:
 
         now = _utcnow()
 
-        def _mutator(state: dict[str, Any]) -> dict[str, Any]:
+        def _mutator(state: _CuratedState) -> _CuratedState:
             graph = self._ensure_graph(state, gid)
             current_revision = int(graph.get("revision") or 0)
             if base_revision is not None and base_revision != current_revision:
@@ -82,7 +120,7 @@ class WorkflowGraphCuratedService:
                 failure = workflow_graph_failure("revision_conflict", message, owner="workflow_graph.curated_service", public_exception=WorkflowGraphSyncConflictError, public_message=message, field="base_revision", index=-1, expected_revision=base_revision, actual_revision=current_revision)
                 raise_workflow_graph_legacy(failure, exception_type=WorkflowGraphSyncConflictError, exception_kwargs={"expected_revision": base_revision, "actual_revision": current_revision})
             graph["draft"] = {
-                "dsl": dict(dsl),
+                "dsl": dsl,
                 "updated_at": now,
                 "updated_by": actor_id,
                 "base_revision": current_revision,
@@ -102,7 +140,7 @@ class WorkflowGraphCuratedService:
             "base_version": state["base_version"],
         }
 
-    def submit_draft(self, graph_id: str, payload: Mapping[str, Any]) -> dict[str, Any]:
+    def submit_draft(self, graph_id: str, payload: Mapping[str, object]) -> dict[str, object]:
         gid = _normalize_graph_id(graph_id)
         base_revision = _read_optional_int(payload, "base_revision")
         actor_id = str(payload.get("actor_id") or payload.get("user_id") or "").strip() or "unknown"
@@ -110,7 +148,7 @@ class WorkflowGraphCuratedService:
         explicit_version_id = str(payload.get("version_id") or "").strip() or None
         now = _utcnow()
 
-        def _mutator(state: dict[str, Any]) -> dict[str, Any]:
+        def _mutator(state: _CuratedState) -> _CuratedState:
             graph = state["graphs"].get(gid)
             if graph is None:
                 _raise_curated_failure("object_not_found", f"curated graph not found: {gid}", exception_type=WorkflowGraphObjectMissingError)
@@ -119,11 +157,12 @@ class WorkflowGraphCuratedService:
                 message = f"conflict: revision mismatch expected={base_revision} actual={current_revision}"
                 failure = workflow_graph_failure("revision_conflict", message, owner="workflow_graph.curated_service", public_exception=WorkflowGraphSyncConflictError, public_message=message, field="base_revision", index=-1, expected_revision=base_revision, actual_revision=current_revision)
                 raise_workflow_graph_legacy(failure, exception_type=WorkflowGraphSyncConflictError, exception_kwargs={"expected_revision": base_revision, "actual_revision": current_revision})
-            draft = graph.get("draft")
-            if not isinstance(draft, Mapping) or not isinstance(draft.get("dsl"), Mapping):
+            draft = graph["draft"]
+            draft_dsl = _string_object_mapping(draft.get("dsl"))
+            if draft_dsl is None:
                 _raise_curated_failure("contract_invalid", "draft missing: save draft before submit")
             # Submit path enforces curated-business constraints; temporary ids must be resolved.
-            parse_graph_edit_draft_contract(draft["dsl"], object_kind="curated_business_graph")
+            parse_graph_edit_draft_contract(draft_dsl, object_kind="curated_business_graph")
             new_revision = current_revision + 1
             version_id = explicit_version_id or f"cver_{new_revision}_{uuid4().hex[:8]}"
             if version_id in graph["versions"]:
@@ -147,7 +186,7 @@ class WorkflowGraphCuratedService:
             graph["current"] = {
                 "revision": new_revision,
                 "version_id": version_id,
-                "dsl": deepcopy(draft["dsl"]),
+                "dsl": deepcopy(draft_dsl),
                 "submitted_at": now,
                 "submitted_by": actor_id,
                 "object_scope": object_scope,
@@ -156,7 +195,7 @@ class WorkflowGraphCuratedService:
             graph["versions"][version_id] = {
                 "version_id": version_id,
                 "revision": new_revision,
-                "dsl": deepcopy(draft["dsl"]),
+                "dsl": deepcopy(draft_dsl),
                 "created_at": now,
                 "created_by": actor_id,
                 "action": "submit",
@@ -179,7 +218,7 @@ class WorkflowGraphCuratedService:
             "base_version": state["base_version"],
         }
 
-    def sync_graph(self, graph_id: str, payload: Mapping[str, Any]) -> dict[str, Any]:
+    def sync_graph(self, graph_id: str, payload: Mapping[str, object]) -> dict[str, object]:
         gid = _normalize_graph_id(graph_id)
         since_revision = _read_optional_int(payload, "since_revision")
         state = self._load_state()
@@ -207,7 +246,7 @@ class WorkflowGraphCuratedService:
             "base_version": state["base_version"],
         }
 
-    def rollback(self, graph_id: str, payload: Mapping[str, Any]) -> dict[str, Any]:
+    def rollback(self, graph_id: str, payload: Mapping[str, object]) -> dict[str, object]:
         gid = _normalize_graph_id(graph_id)
         target_version_id = str(payload.get("target_version_id") or "").strip()
         if not target_version_id:
@@ -216,7 +255,7 @@ class WorkflowGraphCuratedService:
         actor_id = str(payload.get("actor_id") or payload.get("user_id") or "").strip() or "unknown"
         now = _utcnow()
 
-        def _mutator(state: dict[str, Any]) -> dict[str, Any]:
+        def _mutator(state: _CuratedState) -> _CuratedState:
             graph = state["graphs"].get(gid)
             if graph is None:
                 _raise_curated_failure("object_not_found", f"curated graph not found: {gid}", exception_type=WorkflowGraphObjectMissingError)
@@ -226,13 +265,13 @@ class WorkflowGraphCuratedService:
                 failure = workflow_graph_failure("revision_conflict", message, owner="workflow_graph.curated_service", public_exception=WorkflowGraphSyncConflictError, public_message=message, field="base_revision", index=-1, expected_revision=base_revision, actual_revision=current_revision)
                 raise_workflow_graph_legacy(failure, exception_type=WorkflowGraphSyncConflictError, exception_kwargs={"expected_revision": base_revision, "actual_revision": current_revision})
             target = graph["versions"].get(target_version_id)
-            if not isinstance(target, Mapping):
+            if target is None:
                 _raise_curated_failure("object_not_found", f"version not found: {target_version_id}", exception_type=WorkflowGraphObjectMissingError)
 
             new_revision = current_revision + 1
             rollback_version_id = f"cver_{new_revision}_{uuid4().hex[:8]}"
             audit_id = f"audit_{uuid4().hex[:12]}"
-            rolled_dsl = deepcopy(target.get("dsl") or {})
+            rolled_dsl = deepcopy(_string_object_mapping(target.get("dsl")) or {})
             project_key = current_project_key()
             rollback_contract = build_graph_rollback_contract(
                 actor_id=actor_id,
@@ -301,7 +340,7 @@ class WorkflowGraphCuratedService:
             "base_version": state["base_version"],
         }
 
-    def list_audits(self, graph_id: str, *, limit: int = 50) -> dict[str, Any]:
+    def list_audits(self, graph_id: str, *, limit: int = 50) -> dict[str, object]:
         gid = _normalize_graph_id(graph_id)
         state = self._load_state()
         graph = state["graphs"].get(gid)
@@ -318,7 +357,7 @@ class WorkflowGraphCuratedService:
             "base_version": state["base_version"],
         }
 
-    def build_evidence_pack(self, graph_id: str, payload: Mapping[str, Any]) -> dict[str, Any]:
+    def build_evidence_pack(self, graph_id: str, payload: Mapping[str, object]) -> dict[str, object]:
         gid = _normalize_graph_id(graph_id)
         version_id = str(payload.get("version_id") or "").strip() or None
         selected_node_ids = _normalize_selected_node_ids(payload.get("selected_node_ids"))
@@ -330,25 +369,26 @@ class WorkflowGraphCuratedService:
         version = None
         if version_id:
             version = graph["versions"].get(version_id)
-            if not isinstance(version, Mapping):
+            if version is None:
                 _raise_curated_failure("object_not_found", f"version not found: {version_id}", exception_type=WorkflowGraphObjectMissingError)
         if version is None:
-            current = graph.get("current")
-            if not isinstance(current, Mapping):
-                _raise_curated_failure("contract_invalid", "current graph snapshot missing: submit draft first")
+            current = graph["current"]
             version = current
             version_id = str(current.get("version_id") or "").strip() or None
 
-        dsl = version.get("dsl")
-        if not isinstance(dsl, Mapping):
+        dsl = _string_object_mapping(version.get("dsl"))
+        if dsl is None:
             _raise_curated_failure("contract_invalid", "graph version dsl missing")
         parse_graph_edit_draft_contract(dsl, object_kind="curated_business_graph")
-        nodes_raw = dsl.get("nodes") if isinstance(dsl.get("nodes"), list) else []
-        edges_raw = dsl.get("edges") if isinstance(dsl.get("edges"), list) else []
+        raw_nodes_value = dsl.get("nodes")
+        raw_edges_value = dsl.get("edges")
+        nodes_raw = raw_nodes_value if _is_object_list(raw_nodes_value) else []
+        edges_raw = raw_edges_value if _is_object_list(raw_edges_value) else []
 
-        node_map: dict[str, dict[str, Any]] = {}
-        for node in nodes_raw:
-            if not isinstance(node, Mapping):
+        node_map: dict[str, dict[str, object]] = {}
+        for node_value in nodes_raw:
+            node = _string_object_mapping(node_value)
+            if node is None:
                 continue
             node_id = str(node.get("node_id") or node.get("id") or node.get("key") or "").strip()
             if not node_id:
@@ -364,9 +404,10 @@ class WorkflowGraphCuratedService:
                 "provenance": _extract_provenance(node),
             }
 
-        relations: list[dict[str, Any]] = []
-        for edge in edges_raw:
-            if not isinstance(edge, Mapping):
+        relations: list[dict[str, object]] = []
+        for edge_value in edges_raw:
+            edge = _string_object_mapping(edge_value)
+            if edge is None:
                 continue
             from_node_id = _edge_node_id(edge, "from")
             to_node_id = _edge_node_id(edge, "to")
@@ -385,7 +426,7 @@ class WorkflowGraphCuratedService:
                 }
             )
 
-        revision = int(version.get("revision") or graph.get("revision") or 0)
+        revision = _safe_int(version.get("revision"), default=graph["revision"])
         audit_id = str(version.get("audit_id") or "").strip() or None
         pack_id = f"gep_{gid}_{revision}_{uuid4().hex[:8]}"
         return {
@@ -405,13 +446,19 @@ class WorkflowGraphCuratedService:
             },
         }
 
-    def build_reporting_handoff(self, graph_id: str, payload: Mapping[str, Any]) -> dict[str, Any]:
+    def build_reporting_handoff(self, graph_id: str, payload: Mapping[str, object]) -> dict[str, object]:
         topic = str(payload.get("topic") or "").strip()
         if not topic:
             _raise_curated_failure("contract_invalid", "topic is required")
         evidence_pack = self.build_evidence_pack(graph_id, payload)
-        sources: list[dict[str, Any]] = []
-        for node in evidence_pack["selected_nodes"]:
+        sources: list[dict[str, object]] = []
+        selected_nodes = evidence_pack.get("selected_nodes")
+        if not _is_object_list(selected_nodes):
+            _raise_curated_failure("contract_invalid", "evidence pack selected_nodes must be an array")
+        for node_value in selected_nodes:
+            node = _string_object_mapping(node_value)
+            if node is None:
+                continue
             url = str(node.get("source_uri") or "").strip()
             if not (url.startswith("http://") or url.startswith("https://")):
                 continue
@@ -446,7 +493,7 @@ class WorkflowGraphCuratedService:
             "evidence_pack": evidence_pack,
         }
 
-    def build_writing_handoff(self, graph_id: str, payload: Mapping[str, Any]) -> dict[str, Any]:
+    def build_writing_handoff(self, graph_id: str, payload: Mapping[str, object]) -> dict[str, object]:
         query = str(payload.get("query") or payload.get("topic") or "").strip()
         if not query:
             _raise_curated_failure("contract_invalid", "query is required")
@@ -473,19 +520,21 @@ class WorkflowGraphCuratedService:
             "graph_context": evidence_pack,
         }
 
-    def _load_state(self) -> dict[str, Any]:
+    def _load_state(self) -> _CuratedState:
         project_key = current_project_key()
         cfg = get_ingest_config(project_key, CONFIG_KEY)
-        payload = cfg.get("payload") if isinstance(cfg, Mapping) else None
+        payload = cfg.get("payload") if cfg is not None else None
         return _normalize_state(payload)
 
-    def _save_state(self, state: dict[str, Any]) -> dict[str, Any]:
+    def _save_state(self, state: _CuratedState) -> _CuratedState:
         project_key = current_project_key()
-        saved = upsert_ingest_config(project_key, CONFIG_KEY, CONFIG_TYPE, payload=deepcopy(state))
-        payload = saved.get("payload") if isinstance(saved, Mapping) else None
+        saved = upsert_ingest_config(project_key, CONFIG_KEY, CONFIG_TYPE, payload=deepcopy(dict(state)))
+        payload = saved.get("payload")
         return _normalize_state(payload)
 
-    def _mutate(self, *, base_version: int | None, mutator: Callable[[dict[str, Any]], dict[str, Any]]) -> dict[str, Any]:
+    def _mutate(
+        self, *, base_version: int | None, mutator: Callable[[_CuratedState], _CuratedState]
+    ) -> _CuratedState:
         state = self._load_state()
         current = int(state["base_version"])
         if base_version is not None and base_version != current:
@@ -495,119 +544,124 @@ class WorkflowGraphCuratedService:
         return self._save_state(updated)
 
     @staticmethod
-    def _ensure_graph(state: dict[str, Any], graph_id: str) -> dict[str, Any]:
-        graphs = state.setdefault("graphs", {})
-        graph = graphs.get(graph_id)
-        if graph is None:
-            graph = {
-                "graph_id": graph_id,
-                "revision": 0,
-                "active_version_id": None,
-                "draft": {},
-                "current": {},
-                "versions": {},
-                "audits": [],
-                "updated_at": _utcnow(),
-                "last_sync_status": "created",
-            }
-            graphs[graph_id] = graph
+    def _ensure_graph(state: _CuratedState, graph_id: str) -> _CuratedGraph:
+        graphs = state["graphs"]
+        existing = graphs.get(graph_id)
+        if existing is not None:
+            return existing
+        graph: _CuratedGraph = {
+            "graph_id": graph_id,
+            "revision": 0,
+            "active_version_id": None,
+            "draft": {},
+            "current": {},
+            "versions": {},
+            "audits": [],
+            "updated_at": _utcnow(),
+            "last_sync_status": "created",
+        }
+        graphs[graph_id] = graph
         return graph
 
 
-def _normalize_state(payload: Any) -> dict[str, Any]:
-    state = payload if isinstance(payload, Mapping) else {}
-    raw_graphs = state.get("graphs")
-    graphs: dict[str, dict[str, Any]] = {}
-    if isinstance(raw_graphs, Mapping):
-        for raw_gid, raw_graph in raw_graphs.items():
-            gid = _normalize_graph_id(raw_gid)
-            if not gid or not isinstance(raw_graph, Mapping):
+def _normalize_state(payload: object) -> _CuratedState:
+    state = _string_object_mapping(payload) or {}
+    raw_graphs = _string_object_mapping(state.get("graphs")) or {}
+    graphs: dict[str, _CuratedGraph] = {}
+    for raw_gid, raw_graph_value in raw_graphs.items():
+        gid = _normalize_graph_id(raw_gid)
+        raw_graph = _string_object_mapping(raw_graph_value)
+        if not gid or raw_graph is None:
+            continue
+        draft = _string_object_mapping(raw_graph.get("draft")) or {}
+        current = _string_object_mapping(raw_graph.get("current")) or {}
+        raw_versions = _string_object_mapping(raw_graph.get("versions")) or {}
+        versions: dict[str, dict[str, object]] = {}
+        for raw_vid, raw_version_value in raw_versions.items():
+            vid = str(raw_vid or "").strip()
+            raw_version = _string_object_mapping(raw_version_value)
+            if not vid or raw_version is None:
                 continue
-            draft = raw_graph.get("draft") if isinstance(raw_graph.get("draft"), Mapping) else {}
-            current = raw_graph.get("current") if isinstance(raw_graph.get("current"), Mapping) else {}
-            raw_versions = raw_graph.get("versions")
-            versions: dict[str, dict[str, Any]] = {}
-            if isinstance(raw_versions, Mapping):
-                for raw_vid, raw_version in raw_versions.items():
-                    vid = str(raw_vid or "").strip()
-                    if not vid or not isinstance(raw_version, Mapping):
-                        continue
-                    versions[vid] = {
-                        "version_id": vid,
-                        "revision": _safe_int(raw_version.get("revision"), default=0),
-                        "dsl": dict(raw_version.get("dsl")) if isinstance(raw_version.get("dsl"), Mapping) else {},
-                        "created_at": str(raw_version.get("created_at") or _utcnow()),
-                        "created_by": str(raw_version.get("created_by") or "").strip() or None,
-                        "action": str(raw_version.get("action") or "submit").strip(),
-                        "audit_id": str(raw_version.get("audit_id") or "").strip() or None,
-                        "rollback_from_version_id": str(raw_version.get("rollback_from_version_id") or "").strip() or None,
-                        "rollback_contract": dict(raw_version.get("rollback_contract"))
-                        if isinstance(raw_version.get("rollback_contract"), Mapping)
-                        else {},
-                    }
-            raw_audits = raw_graph.get("audits")
-            audits = [dict(item) for item in raw_audits] if isinstance(raw_audits, list) else []
-            graphs[gid] = {
-                "graph_id": gid,
-                "revision": _safe_int(raw_graph.get("revision"), default=0),
-                "active_version_id": str(raw_graph.get("active_version_id") or "").strip() or None,
-                "draft": {
-                    "dsl": dict(draft.get("dsl")) if isinstance(draft.get("dsl"), Mapping) else {},
-                    "updated_at": str(draft.get("updated_at") or _utcnow()),
-                    "updated_by": str(draft.get("updated_by") or "").strip() or None,
-                    "base_revision": _safe_int(draft.get("base_revision"), default=0),
-                }
-                if draft
-                else {},
-                "current": {
-                    "revision": _safe_int(current.get("revision"), default=0),
-                    "version_id": str(current.get("version_id") or "").strip() or None,
-                    "dsl": dict(current.get("dsl")) if isinstance(current.get("dsl"), Mapping) else {},
-                    "submitted_at": str(current.get("submitted_at") or _utcnow()),
-                    "submitted_by": str(current.get("submitted_by") or "").strip() or None,
-                    "object_scope": str(current.get("object_scope") or "curated_business_graph").strip(),
-                    "audit_id": str(current.get("audit_id") or "").strip() or None,
-                    "rollback_from_version_id": str(current.get("rollback_from_version_id") or "").strip() or None,
-                    "rollback_contract": dict(current.get("rollback_contract"))
-                    if isinstance(current.get("rollback_contract"), Mapping)
-                    else {},
-                }
-                if current
-                else {},
-                "versions": versions,
-                "audits": audits,
-                "updated_at": str(raw_graph.get("updated_at") or _utcnow()),
-                "last_sync_status": str(raw_graph.get("last_sync_status") or "unknown").strip() or "unknown",
+            versions[vid] = {
+                "version_id": vid,
+                "revision": _safe_int(raw_version.get("revision"), default=0),
+                "dsl": _string_object_mapping(raw_version.get("dsl")) or {},
+                "created_at": str(raw_version.get("created_at") or _utcnow()),
+                "created_by": str(raw_version.get("created_by") or "").strip() or None,
+                "action": str(raw_version.get("action") or "submit").strip(),
+                "audit_id": str(raw_version.get("audit_id") or "").strip() or None,
+                "rollback_from_version_id": str(raw_version.get("rollback_from_version_id") or "").strip() or None,
+                "rollback_contract": _string_object_mapping(raw_version.get("rollback_contract")) or {},
             }
+        raw_audits = raw_graph.get("audits")
+        audits: list[dict[str, object]] = []
+        if _is_object_list(raw_audits):
+            for item in raw_audits:
+                normalized_item = _string_object_mapping(item)
+                if normalized_item is None:
+                    _raise_curated_failure(
+                        "contract_invalid",
+                        "curated graph audit record must be a string-keyed mapping",
+                        exception_type=TypeError,
+                    )
+                audits.append(normalized_item)
+        graphs[gid] = {
+            "graph_id": gid,
+            "revision": _safe_int(raw_graph.get("revision"), default=0),
+            "active_version_id": str(raw_graph.get("active_version_id") or "").strip() or None,
+            "draft": {
+                "dsl": _string_object_mapping(draft.get("dsl")) or {},
+                "updated_at": str(draft.get("updated_at") or _utcnow()),
+                "updated_by": str(draft.get("updated_by") or "").strip() or None,
+                "base_revision": _safe_int(draft.get("base_revision"), default=0),
+            } if draft else {},
+            "current": {
+                "revision": _safe_int(current.get("revision"), default=0),
+                "version_id": str(current.get("version_id") or "").strip() or None,
+                "dsl": _string_object_mapping(current.get("dsl")) or {},
+                "submitted_at": str(current.get("submitted_at") or _utcnow()),
+                "submitted_by": str(current.get("submitted_by") or "").strip() or None,
+                "object_scope": str(current.get("object_scope") or "curated_business_graph").strip(),
+                "audit_id": str(current.get("audit_id") or "").strip() or None,
+                "rollback_from_version_id": str(current.get("rollback_from_version_id") or "").strip() or None,
+                "rollback_contract": _string_object_mapping(current.get("rollback_contract")) or {},
+            } if current else {},
+            "versions": versions,
+            "audits": audits,
+            "updated_at": str(raw_graph.get("updated_at") or _utcnow()),
+            "last_sync_status": str(raw_graph.get("last_sync_status") or "unknown").strip() or "unknown",
+        }
     base_version = _safe_int(state.get("base_version"), default=0)
     if base_version < 0:
         base_version = 0
     return {"base_version": base_version, "graphs": graphs}
 
 
-def _read_base_version(payload: Mapping[str, Any]) -> int | None:
+def _read_base_version(payload: Mapping[str, object]) -> int | None:
     if "base_version" not in payload:
         return None
     return _read_optional_int(payload, "base_version")
 
 
-def _read_optional_int(payload: Mapping[str, Any], field: str) -> int | None:
+def _read_optional_int(payload: Mapping[str, object], field: str) -> int | None:
     if field not in payload:
         return None
     raw = payload.get(field)
     if raw in (None, ""):
         return None
+    if not _is_int_convertible(raw):
+        _raise_curated_failure("contract_invalid", f"{field} must be an integer")
     try:
         value = int(raw)
-    except Exception as exc:  # noqa: BLE001
+    except (TypeError, ValueError):
         _raise_curated_failure("contract_invalid", f"{field} must be an integer")
     if value < 0:
         _raise_curated_failure("contract_invalid", f"{field} must be >= 0")
     return value
 
 
-def _normalize_selected_node_ids(raw: Any) -> set[str]:
-    if not isinstance(raw, list):
+def _normalize_selected_node_ids(raw: object) -> set[str]:
+    if not _is_object_list(raw):
         return set()
     out: set[str] = set()
     for item in raw:
@@ -617,28 +671,29 @@ def _normalize_selected_node_ids(raw: Any) -> set[str]:
     return out
 
 
-def _edge_node_id(edge: Mapping[str, Any], field: str) -> str:
+def _edge_node_id(edge: Mapping[str, object], field: str) -> str:
     endpoint = edge.get(field)
-    if isinstance(endpoint, Mapping):
-        return str(endpoint.get("node_id") or endpoint.get("id") or endpoint.get("key") or "").strip()
+    endpoint_mapping = _string_object_mapping(endpoint)
+    if endpoint_mapping is not None:
+        return str(endpoint_mapping.get("node_id") or endpoint_mapping.get("id") or endpoint_mapping.get("key") or "").strip()
     if isinstance(endpoint, str):
         return endpoint.strip()
     return str(edge.get(f"{field}_node_id") or edge.get(f"{field}_id") or "").strip()
 
 
-def _extract_provenance(item: Mapping[str, Any]) -> dict[str, Any]:
-    provenance = item.get("provenance")
-    if isinstance(provenance, Mapping):
-        return dict(provenance)
+def _extract_provenance(item: Mapping[str, object]) -> dict[str, object]:
+    provenance = _string_object_mapping(item.get("provenance"))
+    if provenance is not None:
+        return provenance
     keys = ("source_id", "document_id", "uri", "url", "source_uri")
-    out: dict[str, Any] = {}
+    out: dict[str, object] = {}
     for key in keys:
         if item.get(key) not in (None, ""):
             out[key] = item.get(key)
     return out
 
 
-def _first_non_empty(item: Mapping[str, Any], keys: tuple[str, ...]) -> str | None:
+def _first_non_empty(item: Mapping[str, object], keys: tuple[str, ...]) -> str | None:
     for key in keys:
         value = str(item.get(key) or "").strip()
         if value:
@@ -646,15 +701,19 @@ def _first_non_empty(item: Mapping[str, Any], keys: tuple[str, ...]) -> str | No
     return None
 
 
-def _safe_int(value: Any, *, default: int) -> int:
+def _safe_int(value: object, *, default: int) -> int:
+    if not _is_int_convertible(value):
+        return default
     try:
         return int(value)
     except Exception:  # noqa: BLE001
         return default
 
 
-def _safe_float(value: Any) -> float | None:
+def _safe_float(value: object) -> float | None:
     if value in (None, ""):
+        return None
+    if not _is_float_convertible(value):
         return None
     try:
         return float(value)
@@ -662,7 +721,7 @@ def _safe_float(value: Any) -> float | None:
         return None
 
 
-def _normalize_graph_id(value: Any) -> str:
+def _normalize_graph_id(value: object) -> str:
     gid = str(value or "").strip()
     if not gid:
         _raise_curated_failure("contract_invalid", "graph_id is required")
@@ -671,3 +730,11 @@ def _normalize_graph_id(value: Any) -> str:
 
 def _utcnow() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def _is_int_convertible(value: object) -> TypeGuard[str | bytes | bytearray | SupportsInt | SupportsIndex]:
+    return isinstance(value, (str, bytes, bytearray, SupportsInt, SupportsIndex))
+
+
+def _is_float_convertible(value: object) -> TypeGuard[str | bytes | bytearray | SupportsFloat | SupportsIndex]:
+    return isinstance(value, (str, bytes, bytearray, SupportsFloat, SupportsIndex))

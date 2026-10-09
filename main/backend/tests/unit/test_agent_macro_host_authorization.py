@@ -134,6 +134,21 @@ def test_allow_tool_executes_without_host_context_and_with_verified_host_context
     assert len(calls) == 2
 
 
+def test_authorize_tool_call_rejects_non_spec_with_original_failure() -> None:
+    service, _registry, _spec_value, _calls = _setup("allow")
+    result = authorize_tool_call(
+        service,
+        _context(_session_id(service)),
+        {"name": "demo.write"},
+        {"target": "a"},
+        originating_call_id="call-1",
+    )
+
+    assert isinstance(result, Failure)
+    assert result.context is not None
+    assert result.context["host_code"] == "tool_spec_invalid"
+
+
 def test_deny_ask_and_forged_spec_never_call_handler() -> None:
     service, registry, spec, calls = _setup("deny")
     session_id = _session_id(service)

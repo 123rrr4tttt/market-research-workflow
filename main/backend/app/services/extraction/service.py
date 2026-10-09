@@ -4,9 +4,9 @@ from __future__ import annotations
 import logging
 from typing import Any, Dict, List, Optional
 
+from ...subprojects import get_extraction_adapter
 from ..llm.config_loader import format_prompt_template, get_llm_config
 from ..llm.provider import get_chat_model
-from ...subprojects import get_extraction_adapter
 from .extract import extract_entities_relations, extract_market_info
 from .json_utils import extract_json_payload
 
@@ -19,8 +19,9 @@ def extract_structured_sentiment(text: str) -> Optional[Dict[str, Any]]:
     try:
         config = get_llm_config("sentiment_extraction")
         text_snippet = text[:2000]
-        if config and config.get("user_prompt_template"):
-            prompt = format_prompt_template(config["user_prompt_template"], text=text_snippet)
+        prompt_template = config.get("user_prompt_template") if config else None
+        if config and prompt_template:
+            prompt = format_prompt_template(prompt_template, text=text_snippet)
             model = get_chat_model(
                 model=config.get("model"),
                 temperature=config.get("temperature"),
@@ -62,8 +63,9 @@ def extract_policy_info(text: str) -> Optional[Dict[str, Any]]:
     try:
         config = get_llm_config("policy_info_extraction")
         text_snippet = text[:2000]
-        if config and config.get("user_prompt_template"):
-            prompt = format_prompt_template(config["user_prompt_template"], text=text_snippet)
+        prompt_template = config.get("user_prompt_template") if config else None
+        if config and prompt_template:
+            prompt = format_prompt_template(prompt_template, text=text_snippet)
             model = get_chat_model(
                 model=config.get("model"),
                 temperature=config.get("temperature"),

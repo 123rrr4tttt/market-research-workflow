@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from decimal import Decimal
-from typing import Any
+from typing import Any, NoReturn
 
 from sqlalchemy import func, select
 from functorial_kit import Failure
@@ -33,7 +33,7 @@ def _keyword_failure(message: str, *, operation: str) -> Failure:
     )
 
 
-def _raise_keyword_failure(failure: Failure) -> None:
+def _raise_keyword_failure(failure: Failure) -> NoReturn:
     context = failure.context or {}
     if not keyword_memory_contract_failures.matches(failure) or _FAILURE_CONTEXT_KEYS - set(context):
         # kit:boundary owner=keyword_memory.failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w01_request_failures
@@ -174,8 +174,8 @@ def list_vectorization_candidates(*, limit: int = 200) -> list[dict[str, Any]]:
             continue
         seen.add(key)
         prior = prior_map.get(key)
-        prior_score = float(prior.prior_score) if prior is not None and prior.prior_score is not None else 0.5
-        confidence = float(prior.confidence) if prior is not None and prior.confidence is not None else 0.5
+        prior_score = float(prior.prior_score) if prior is not None else 0.5
+        confidence = float(prior.confidence) if prior is not None else 0.5
         history_signal = min(1.0, (float(row.search_count or 0) / 20.0))
         score = round(0.6 * prior_score + 0.3 * confidence + 0.1 * history_signal, 4)
         merged.append(
@@ -199,8 +199,8 @@ def list_vectorization_candidates(*, limit: int = 200) -> list[dict[str, Any]]:
         if not key or key in seen:
             continue
         seen.add(key)
-        prior_score = float(row.prior_score) if row.prior_score is not None else 0.5
-        confidence = float(row.confidence) if row.confidence is not None else 0.5
+        prior_score = float(row.prior_score)
+        confidence = float(row.confidence)
         score = round(0.7 * prior_score + 0.3 * confidence, 4)
         merged.append(
             {

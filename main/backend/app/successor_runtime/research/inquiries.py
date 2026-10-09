@@ -6,7 +6,12 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
-from .codec import _failure, _raise_failure, finalize_digest
+from .codec import (
+    finalize_digest,
+    raise_research_failure as _raise_failure,
+    research_failure as _failure,
+    runtime_value,
+)
 
 __all__ = ["Inquiry", "PlanWorkItem", "ResearchIntent", "ResearchPlan"]
 
@@ -24,7 +29,7 @@ class ResearchIntent:
     content_digest: str | None = None
 
     def __post_init__(self) -> None:
-        if not isinstance(self.audience_or_use, str):
+        if not isinstance(runtime_value(self.audience_or_use), str):
             _raise_failure(
                 _failure(
                     "RESEARCH_INTENT_INVALID",
@@ -34,7 +39,7 @@ class ResearchIntent:
                 ),
                 ValueError,
             )
-        if not isinstance(self.constraints, dict):
+        if not isinstance(runtime_value(self.constraints), dict):
             _raise_failure(
                 _failure(
                     "RESEARCH_INTENT_INVALID",
@@ -58,7 +63,7 @@ class Inquiry:
     content_digest: str | None = None
 
     def __post_init__(self) -> None:
-        if not isinstance(self.uncertainty_ceiling, str):
+        if not isinstance(runtime_value(self.uncertainty_ceiling), str):
             _raise_failure(
                 _failure(
                     "INQUIRY_INVALID",
@@ -89,7 +94,7 @@ class ResearchPlan:
     content_digest: str | None = None
 
     def __post_init__(self) -> None:
-        if not isinstance(self.replan_policy, dict):
+        if not isinstance(runtime_value(self.replan_policy), dict):
             _raise_failure(
                 _failure(
                     "RESEARCH_PLAN_INVALID",

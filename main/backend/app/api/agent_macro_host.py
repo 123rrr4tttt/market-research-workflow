@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, NoReturn
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from pydantic import BaseModel, ConfigDict, Field
@@ -137,7 +137,7 @@ def _project_exists(project_key: str) -> bool:
         return row is not None
 
 
-def _raise_host_error(exc: MacroHostError) -> None:
+def _raise_host_error(exc: MacroHostError) -> NoReturn:
     status_code = exc.status_code
     code = ErrorCode.INVALID_INPUT if status_code < 500 else ErrorCode.UPSTREAM_ERROR
     detail = error_response(code, exc.message, details={"category": "agent_macro_host", "reason_code": exc.code})

@@ -8,12 +8,11 @@ on the caller-owned connection and therefore share one ``RuntimeUnitOfWork``.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
 from datetime import datetime, timedelta
-from typing import Any
+from typing import Any, Protocol
 
 from sqlalchemy import insert, select, update
-from sqlalchemy.engine import Connection
+from sqlalchemy.engine import Connection, RowMapping
 
 from app.successor_runtime.runtime.assignments import (
     AssignmentKind,
@@ -42,6 +41,7 @@ from app.successor_runtime.runtime.transitions import (
     StepEvent,
     StepState,
 )
+from app.successor_runtime.runtime.failure_policy import FailurePolicyDecision
 
 from .failure_policy import PostgresFailurePolicyLoader
 from .runtime_journal import (
@@ -61,6 +61,10 @@ class ReconciliationAdoptionError(ExactBindingConflict):
     """Authoritative readback cannot adopt the exact durable target."""
 
 
+class _FailurePolicyPort(Protocol):
+    def load_decision(self, run_id: str, step_id: str) -> FailurePolicyDecision: ...
+
+
 class PostgresReconciliationOwner:
     """Sole atomic owner for one claimed ``RECONCILE`` adoption."""
 
@@ -69,7 +73,7 @@ class PostgresReconciliationOwner:
         connection: Connection,
         *,
         terminal_authority: Any = None,
-        failure_policy: Any = None,
+        failure_policy: _FailurePolicyPort | None = None,
     ) -> None:
         self.connection = connection
         self._terminal_authority = terminal_authority
@@ -206,7 +210,7 @@ class PostgresReconciliationOwner:
     def _require_current_terminal_authority(
         self,
         *,
-        run: Mapping[str, Any],
+        run: RowMapping,
         assignment: RuntimeAssignment,
         authorization_digest: str,
         actor_id: str,
@@ -245,12 +249,12 @@ class PostgresReconciliationOwner:
         *,
         claim: RuntimeClaim,
         binding: RecoveryBinding,
-        current_work: Mapping[str, Any],
-        run: Mapping[str, Any],
-        step: Mapping[str, Any],
-        target_attempt: Mapping[str, Any],
+        current_work: RowMapping,
+        run: RowMapping,
+        step: RowMapping,
+        target_attempt: RowMapping,
         original_claim: ClaimBinding,
-        original_work: Mapping[str, Any],
+        original_work: RowMapping,
         original_assignment: RuntimeAssignment,
     ) -> None:
         assignment = claim.assignment
@@ -315,11 +319,11 @@ class PostgresReconciliationOwner:
         *,
         claim: RuntimeClaim,
         outcome: ReconciliationHandlerOutcome,
-        current_work: Mapping[str, Any],
-        run: Mapping[str, Any],
-        step: Mapping[str, Any],
-        target_attempt: Mapping[str, Any],
-        original_work: Mapping[str, Any],
+        current_work: RowMapping,
+        run: RowMapping,
+        step: RowMapping,
+        target_attempt: RowMapping,
+        original_work: RowMapping,
         observed_at: datetime,
     ) -> None:
         result = outcome.result
@@ -506,21 +510,17 @@ class PostgresReconciliationOwner:
             required_step_failed=(
                 False
                 if failure_policy_decision is None
-                else getattr(
-                    failure_policy_decision,
-                    "emit_required_step_failed",
-                    False,
-                )
+                else failure_policy_decision.emit_required_step_failed
             ),
         )
 
     def _load_failure_policy_decision(
         self,
         *,
-        run: Mapping[str, Any],
+        run: RowMapping,
         step_id: str,
         actor_id: str,
-    ) -> object:
+    ) -> FailurePolicyDecision:
         if self._failure_policy is not None:
             return self._failure_policy.load_decision(str(run["run_id"]), step_id)
         resolver = ServerProjectScopeResolver(connection=self.connection)
@@ -545,10 +545,10 @@ class PostgresReconciliationOwner:
         *,
         claim: RuntimeClaim,
         outcome: ReconciliationHandlerOutcome,
-        current_work: Mapping[str, Any],
-        run: Mapping[str, Any],
-        step: Mapping[str, Any],
-        target_attempt: Mapping[str, Any],
+        current_work: RowMapping,
+        run: RowMapping,
+        step: RowMapping,
+        target_attempt: RowMapping,
         observed_at: datetime,
     ) -> None:
         result = outcome.result
@@ -678,7 +678,7 @@ class PostgresReconciliationOwner:
         self,
         *,
         claim: RuntimeClaim,
-        current_work: Mapping[str, Any],
+        current_work: RowMapping,
         observed_at: datetime,
     ) -> None:
         self._cas(
@@ -710,7 +710,7 @@ class PostgresReconciliationOwner:
         self,
         *,
         claim: RuntimeClaim,
-        run: Mapping[str, Any],
+        run: RowMapping,
         target_run_state: str,
         event_type: str,
         outcome: ReconciliationHandlerOutcome,
@@ -750,7 +750,7 @@ class PostgresReconciliationOwner:
             "authoritative readback run/event CAS failed",
         )
         readback = outcome.result.readback
-        event_metadata = {
+        event_metadata: dict[str, object] = {
             "recovery_work_item_id": claim.assignment.work_item_id,
             "original_work_item_id": original_work_item_id,
             "reconciliation_claim_attempt_id": claim.claim_binding.attempt_id,
@@ -828,7 +828,7 @@ class PostgresReconciliationOwner:
                 )
             )
 
-    def _one_locked(self, table_name: str, **identity: object) -> Mapping[str, Any]:
+    def _one_locked(self, table_name: str, **identity: object) -> RowMapping:
         table = runtime_table(table_name)
         statement = select(table)
         for name, value in identity.items():
@@ -840,7 +840,7 @@ class PostgresReconciliationOwner:
         return row
 
     @staticmethod
-    def _stored_claim(row: Mapping[str, Any]) -> ClaimBinding:
+    def _stored_claim(row: RowMapping) -> ClaimBinding:
         payload = row.get("claim_binding_json")
         if payload is None:
             raise ReconciliationAdoptionError("durable row lacks exact ClaimBinding")

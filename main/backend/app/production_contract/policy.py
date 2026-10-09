@@ -13,7 +13,7 @@ from app.production_contract.types import (
     ProductionPolicyConfig,
     ProductionRequest,
     ProjectBinding,
-    _decision_for_failure,
+    decision_for_failure,
     policy_failure,
 )
 
@@ -313,7 +313,7 @@ def _evaluate_writer(
     config: ProductionPolicyConfig,
     request: ProductionRequest,
     operation: OperationPolicy,
-) -> PolicyDecision | None:
+) -> PolicyDecision:
     if not operation.requires_canonical_writer:
         return PolicyDecision(outcome=PolicyOutcome.PASS)
     owner = request.canonical_writer_owner
@@ -377,11 +377,11 @@ def _rejection(
     stage: str,
     details: Mapping[str, object] | None = None,
 ) -> PolicyDecision:
-    return _decision_for_failure(policy_failure(code, message, stage=stage, details=details))
+    return decision_for_failure(policy_failure(code, message, stage=stage, details=details))
 
 
 def _runtime(code: str, message: str, exception: BaseException) -> PolicyDecision:
-    return _decision_for_failure(
+    return decision_for_failure(
         policy_failure(
             code,
             message,
@@ -392,7 +392,7 @@ def _runtime(code: str, message: str, exception: BaseException) -> PolicyDecisio
 
 
 def _unclassified(exception: BaseException) -> PolicyDecision:
-    return _decision_for_failure(
+    return decision_for_failure(
         policy_failure(
             "unclassified_defect",
             "exception is outside the production policy runtime family",
@@ -403,6 +403,6 @@ def _unclassified(exception: BaseException) -> PolicyDecision:
 
 
 def _contract_invalid(message: str) -> PolicyDecision:
-    return _decision_for_failure(
+    return decision_for_failure(
         policy_failure("policy_contract_invalid", message, stage="contract")
     )

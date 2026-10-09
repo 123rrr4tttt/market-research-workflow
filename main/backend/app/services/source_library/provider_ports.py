@@ -81,7 +81,7 @@ class CrawlerProviderResolver(Protocol):
         provider_type: str,
         *,
         channel: Mapping[str, object],
-        params: Mapping[str, object],
+        params: Mapping[object, object],
     ) -> CrawlerProvider: ...
 
 
@@ -151,7 +151,7 @@ def resolve_crawler_provider(
     provider_type: str,
     *,
     channel: Mapping[str, object],
-    params: Mapping[str, object],
+    params: Mapping[object, object],
 ) -> CrawlerProvider:
     normalized_provider_type = normalize_crawler_provider_type(provider_type)
     resolver = _CRAWLER_PROVIDER_RESOLVER

@@ -19,7 +19,7 @@ from typing import Any, Literal, Protocol, TypeGuard
 from functorial_kit import Failure
 
 from sqlalchemy import MetaData, insert, select, update
-from sqlalchemy.engine import Connection
+from sqlalchemy.engine import Connection, RowMapping
 
 from app.successor_runtime.language.algebra import ValueRef
 from app.successor_runtime.language.catalog import OperationContractCatalogSnapshot, OperationContractRegistry
@@ -105,6 +105,8 @@ from .runtime_lifecycle import (
 from .qualification_store import QualificationStoreRepository
 from .runtime_values import RuntimeValueBinding, RuntimeValueRepository
 from .values import ValueRepository, derive_value_write_intent_digest
+
+RuntimeRow = Mapping[str, object] | RowMapping
 
 
 class FirstSpecimenActivationError(RuntimeError):
@@ -557,7 +559,7 @@ def materialize_active_children(
     _require_run_scope(parent, scope)
     _require_traversal_request(connection, parent, descriptor)
 
-    relation_rows = _active_child_rows(
+    relation_rows = active_child_rows(
         connection,
         project_key=scope.project_scope.project_key,
         parent_run_id=parent_run_id,
@@ -723,7 +725,7 @@ def settle_active_children(
     if parent is None:
         raise RecordNotFound(f"runtime run not found: {parent_run_id}")
     _require_run_scope(parent, scope)
-    relations = _active_child_rows(
+    relations = active_child_rows(
         connection,
         project_key=project_key,
         parent_run_id=parent_run_id,
@@ -746,8 +748,8 @@ def settle_active_children(
             expected_digest=str(parent["program_digest"]),
         )
         plan = PlanRepository(connection, tables).get(scope, str(parent["plan_digest"]))
-        _require_program_plan_run(program, plan, parent)
-        step = _traversal_plan_step(plan, source_step_id)
+        require_program_plan_run(program, plan, parent)
+        step = traversal_plan_step(plan, source_step_id)
         result = load_bound_runtime_output(
             connection,
             scope,
@@ -776,7 +778,7 @@ def settle_active_children(
             "non-empty active-child settlement cannot carry an empty result"
         )
 
-    child_rows: list[Mapping[str, Any]] = []
+    child_rows: list[RowMapping] = []
     for child_id in child_ids:
         child = one_mapping(
             connection.execute(
@@ -833,7 +835,7 @@ def settle_active_children(
     parent_plan = PlanRepository(connection, tables).get(
         scope, str(parent["plan_digest"])
     )
-    _require_program_plan_run(parent_program, parent_plan, parent)
+    require_program_plan_run(parent_program, parent_plan, parent)
     if parent_activation_catalog_factory is not None:
         bindings = _load_qualified_plan(connection, parent).step_bindings
         if not bindings or len({binding.actor_id for binding in bindings}) != 1:
@@ -846,7 +848,7 @@ def settle_active_children(
                 observed_at=trigger.observed_at or utc_now(),
             )
         activation_catalog = parent_activation_catalog_factory(connection, scope, parent_program)
-    traversal_step = _traversal_plan_step(parent_plan, source_step_id)
+    traversal_step = traversal_plan_step(parent_plan, source_step_id)
     observations: list[ActiveChildTerminalObservation] = []
     value_reader = PostgresRuntimeActivationBindingAdapter()
     for relation, child in zip(metadata, child_rows, strict=True):
@@ -883,7 +885,7 @@ def settle_active_children(
         child_plan = PlanRepository(connection, tables).get(
             scope, str(child["plan_digest"])
         )
-        _require_program_plan_run(child_program, child_plan, child)
+        require_program_plan_run(child_program, child_plan, child)
         if child_plan.control_root.semantic_return_step_ids != (relation["result_step_id"],):
             raise ExactBindingConflict("active child semantic return binding drift")
         result_step = next(step for step in child_plan.ordered_steps
@@ -1457,7 +1459,7 @@ def activate_run(
         scope, str(run["program_id"]), expected_digest=str(run["program_digest"])
     )
     plan = PlanRepository(connection, tables).get(scope, str(run["plan_digest"]))
-    _require_program_plan_run(program, plan, run)
+    require_program_plan_run(program, plan, run)
     qualified = _load_qualified_plan(connection, run)
 
     completed_outputs, activated_step_ids = load_runtime_observations(
@@ -1644,7 +1646,7 @@ def activate_run(
         awaiting_external_gate_step_ids=tuple(awaiting_external_gate),
         result=result,
     )
-def _require_run_scope(run: Mapping[str, object], scope: RuntimeScope) -> None:
+def _require_run_scope(run: RuntimeRow, scope: RuntimeScope) -> None:
     expected = scope.project_scope
     if (
         run["project_key"] != expected.project_key
@@ -1656,8 +1658,8 @@ def _require_run_scope(run: Mapping[str, object], scope: RuntimeScope) -> None:
         raise ExactBindingConflict("activation run project scope drift")
 
 
-def _require_program_plan_run(
-    program: ProgramSpec, plan: ExecutionPlan, run: Mapping[str, object]
+def require_program_plan_run(
+    program: ProgramSpec, plan: ExecutionPlan, run: RuntimeRow
 ) -> None:
     if (
         program.program_id != run["program_id"]
@@ -1671,7 +1673,7 @@ def _require_program_plan_run(
 
 
 def _load_qualified_plan(
-    connection: Connection, run: Mapping[str, object]
+    connection: Connection, run: RuntimeRow
 ) -> QualifiedPlan:
     table = PUBLIC_TABLES["runtime_qualifications"]
     rows = connection.execute(
@@ -1698,7 +1700,7 @@ def load_runtime_observations(
     connection: Connection,
     scope: RuntimeScope,
     tables: ProjectTables,
-    run: Mapping[str, object],
+    run: RuntimeRow,
     plan: ExecutionPlan,
     *, lock: bool = True,
 ) -> tuple[tuple[BoundStepValue, ...], frozenset[str]]:
@@ -1792,7 +1794,7 @@ def load_runtime_observations(
                 request, "materialization_digest"
             ),
         )
-        relations = _active_child_rows(connection, project_key=str(run["project_key"]),
+        relations = active_child_rows(connection, project_key=str(run["project_key"]),
                                       parent_run_id=str(run["run_id"]), source_step_id=step_id)
         children = tuple(_event_metadata(row) for row in relations)
         raw_digests = metadata.get("child_result_digests")
@@ -1860,7 +1862,7 @@ def _traversal_request_event(
 
 def _require_traversal_request(
     connection: Connection,
-    parent: Mapping[str, object],
+    parent: RuntimeRow,
     descriptor: TraversalMaterialization,
 ) -> None:
     if not _traversal_request_event(
@@ -1874,7 +1876,7 @@ def _require_traversal_request(
 
 def _require_empty_traversal_request(
     connection: Connection,
-    parent: Mapping[str, object],
+    parent: RuntimeRow,
     *,
     source_step_id: str,
 ) -> None:
@@ -2069,7 +2071,7 @@ def read_linked_runtime_frontier(
     )
 
 
-def _active_child_rows(
+def active_child_rows(
     connection: Connection,
     *,
     project_key: str,
@@ -2116,7 +2118,7 @@ def ordered_active_child_lineage(
     source_step_id, index = relation.get("source_step_id"), relation.get("element_index")
     if not isinstance(source_step_id, str) or not source_step_id or type(index) is not int or index < 0:
         raise ExactBindingConflict("ordered child lineage identity is invalid")
-    rows = _active_child_rows(connection, project_key=project_key,
+    rows = active_child_rows(connection, project_key=project_key,
                              parent_run_id=str(matches[0]["run_id"]), source_step_id=source_step_id)
     metadata = tuple(_event_metadata(row) for row in rows)
     if (index >= len(metadata) or metadata[index] != relation
@@ -2155,7 +2157,7 @@ def read_ordered_prior_effect_outputs(
         program = ProgramRepository(connection, tables).get(scope, str(child["program_id"]),
                                                             expected_digest=str(child["program_digest"]))
         plan = PlanRepository(connection, tables).get(scope, str(child["plan_digest"]))
-        _require_program_plan_run(program, plan, child)
+        require_program_plan_run(program, plan, child)
         refs = {ref for atom in program_atoms(program.root) for ref in atom.operation.input_refs
                 if ref.storage_ref == relation["input_ref"] and ref.content_digest == relation["input_digest"]}
         if len(refs) != 1 or program.program_digest != relation["child_program_digest"]:
@@ -2350,7 +2352,7 @@ def _read_project_value(
     tables: ProjectTables,
     locator: str,
     object_type: ObjectType,
-) -> tuple[ValueRef, bytes, Mapping[str, Any]]:
+) -> tuple[ValueRef, bytes, RowMapping]:
     if not locator.startswith("project-value:"):
         raise ExactBindingConflict("activation dynamic input is not project-value owned")
     value_id = locator.removeprefix("project-value:")
@@ -2612,7 +2614,7 @@ def _value_write_intent(
 
 def _authorization_for(
     connection: Connection,
-    run: Mapping[str, object],
+    run: RuntimeRow,
     qualified: QualifiedPlan,
     step: CompiledStep,
     descriptor: ReadyActivation,
@@ -2675,7 +2677,7 @@ def _authorization_for(
 
 def _assignment(
     *,
-    run: Mapping[str, object],
+    run: RuntimeRow,
     plan: ExecutionPlan,
     step: CompiledStep,
     descriptor: ReadyActivation,
@@ -2790,7 +2792,7 @@ def _envelope(
 
 
 def _step_values(
-    run: Mapping[str, object],
+    run: RuntimeRow,
     step: CompiledStep,
     descriptor: ReadyActivation,
     authorization: StepAuthorizationBinding,
@@ -2826,7 +2828,7 @@ def _step_values(
 
 
 def _require_exact_existing(
-    existing: Mapping[str, object], expected: Mapping[str, object], label: str
+    existing: RuntimeRow, expected: Mapping[str, object], label: str
 ) -> None:
     immutable = tuple(
         key
@@ -2841,7 +2843,7 @@ def _require_exact_existing(
 def _activate_pending_step(
     connection: Connection,
     table: Any,
-    existing: Mapping[str, object],
+    existing: RuntimeRow,
     ready: Mapping[str, object],
 ) -> None:
     if (
@@ -2898,7 +2900,7 @@ def _plan_step(plan: ExecutionPlan, step_id: str) -> CompiledStep:
     return matches[0]
 
 
-def _traversal_plan_step(plan: ExecutionPlan, step_id: str) -> CompiledStep:
+def traversal_plan_step(plan: ExecutionPlan, step_id: str) -> CompiledStep:
     matches = tuple(step for step in plan.ordered_steps if step.step_id == step_id)
     if (
         len(matches) != 1

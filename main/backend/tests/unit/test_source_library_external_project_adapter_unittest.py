@@ -13,6 +13,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 pytestmark = pytest.mark.unit
 
 from app.services.source_library.adapters.external_project import handle_external_project_manifest
+from app.services.source_library.external_project import normalize_bounded_int
 
 
 def _build_manifest(*, execution_mode: str = "rss_feed") -> dict[str, object]:
@@ -124,6 +125,28 @@ def _build_manifest(*, execution_mode: str = "rss_feed") -> dict[str, object]:
 
 
 class ExternalProjectAdapterUnitTestCase(unittest.TestCase):
+    def test_bounded_integer_normalization_preserves_defaults_and_clamps(self) -> None:
+        cases = (
+            (False, 1),
+            (0, 1),
+            (-5, 1),
+            (101, 100),
+            ("invalid", 4),
+            (object(), 4),
+            (None, 4),
+        )
+        for value, expected in cases:
+            with self.subTest(value=value):
+                self.assertEqual(
+                    normalize_bounded_int(
+                        value,
+                        default=4,
+                        min_value=1,
+                        max_value=100,
+                    ),
+                    expected,
+                )
+
     def test_rss_feed_manifest_returns_materialized_records(self) -> None:
         params = {
             "_source_library_item": {

@@ -1,16 +1,35 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Any
+from typing import TypedDict
 
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from ....contracts.json import JSONObject, JSONValue
+from ....models.base import require_model_table
 from ....models.entities import GraphEdgeRecord, GraphNodeAliasRecord, GraphNodeRecord
 from ..mapping import normalize_canonical_node_id, normalize_node_properties, normalize_node_type
 from ..models import Graph
 from .graph_node_alias_resolver import GraphNodeAliasResolver
+
+
+_GRAPH_NODE_TABLE = require_model_table(GraphNodeRecord.__table__)
+_GRAPH_NODE_ALIAS_TABLE = require_model_table(GraphNodeAliasRecord.__table__)
+_GRAPH_EDGE_TABLE = require_model_table(GraphEdgeRecord.__table__)
+
+
+class GraphNodeWritePayload(TypedDict):
+    node_type: str
+    canonical_id: str
+    display_name: str | None
+    properties: JSONObject
+    source_doc_id: int | None
+    node_schema_version: str
+    quality_flags: JSONObject
+    id: str
 
 
 @dataclass
@@ -29,7 +48,7 @@ class GraphNodeWriter:
         self.alias_resolver = GraphNodeAliasResolver()
 
     @staticmethod
-    def _display_name(properties: dict[str, Any]) -> str | None:
+    def _display_name(properties: Mapping[str, JSONValue]) -> str | None:
         for key in ("label", "name", "text", "canonical_name", "title"):
             value = str(properties.get(key) or "").strip()
             if value:
@@ -44,8 +63,8 @@ class GraphNodeWriter:
             return None
         return int(node_id)
 
-    def _upsert_node(self, payload: dict[str, Any]) -> int | None:
-        stmt = pg_insert(GraphNodeRecord.__table__).values(
+    def _upsert_node(self, payload: GraphNodeWritePayload) -> int | None:
+        stmt = pg_insert(_GRAPH_NODE_TABLE).values(
             node_type=payload["node_type"],
             canonical_id=payload["canonical_id"],
             display_name=payload.get("display_name"),
@@ -63,19 +82,19 @@ class GraphNodeWriter:
                 "node_schema_version": stmt.excluded.node_schema_version,
                 "quality_flags": stmt.excluded.quality_flags,
             },
-        ).returning(GraphNodeRecord.__table__.c.id)
+        ).returning(_GRAPH_NODE_TABLE.c.id)
 
         row = self.session.execute(stmt).fetchone()
         return int(row[0]) if row and row[0] is not None else None
 
-    def _upsert_aliases(self, node_id: int, node_payload: dict[str, Any]) -> int:
+    def _upsert_aliases(self, node_id: int, node_payload: Mapping[str, object]) -> int:
         count = 0
         aliases = sorted(
             self.alias_resolver.resolve(node_payload),
             key=lambda item: (item.alias_type, item.alias_norm),
         )
         for alias in aliases:
-            stmt = pg_insert(GraphNodeAliasRecord.__table__).values(
+            stmt = pg_insert(_GRAPH_NODE_ALIAS_TABLE).values(
                 node_id=node_id,
                 alias_text=alias.alias_text,
                 alias_norm=alias.alias_norm,
@@ -88,7 +107,7 @@ class GraphNodeWriter:
         return count
 
     @staticmethod
-    def _normalize_edge_type(edge_type: Any) -> str:
+    def _normalize_edge_type(edge_type: object) -> str:
         text = str(edge_type or "").strip()
         return text or "RELATED_TO"
 
@@ -105,7 +124,7 @@ class GraphNodeWriter:
 
     def _upsert_edges(self, graph: Graph, node_id_map: dict[str, int]) -> int:
         count = 0
-        edge_rows: list[tuple[str, int, int, dict[str, Any]]] = []
+        edge_rows: list[tuple[str, int, int, JSONObject]] = []
         for edge in graph.edges:
             from_type = normalize_node_type(edge.from_node.type)
             from_id = normalize_canonical_node_id(edge.from_node.id)
@@ -124,13 +143,13 @@ class GraphNodeWriter:
                     self._normalize_edge_type(edge.type),
                     int(from_node_id),
                     int(to_node_id),
-                    normalize_node_properties(edge.properties if isinstance(edge.properties, dict) else {}),
+                    normalize_node_properties(edge.properties),
                 )
             )
 
         edge_rows = sorted(edge_rows, key=lambda item: (item[0], item[1], item[2]))
         for edge_type, from_node_id, to_node_id, properties in edge_rows:
-            stmt = pg_insert(GraphEdgeRecord.__table__).values(
+            stmt = pg_insert(_GRAPH_EDGE_TABLE).values(
                 edge_type=edge_type,
                 from_node_id=from_node_id,
                 to_node_id=to_node_id,
@@ -159,7 +178,7 @@ class GraphNodeWriter:
                 summary.skipped += 1
                 continue
             props = normalize_node_properties(node.properties)
-            payload = {
+            payload: GraphNodeWritePayload = {
                 "node_type": node_type,
                 "canonical_id": canonical_id,
                 "display_name": self._display_name(props),

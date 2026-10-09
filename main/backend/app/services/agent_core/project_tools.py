@@ -15,6 +15,7 @@ from app.services.agent_runtime.external_tool_status import (
     mark_mcp_tool_mounted,
 )
 from app.services.agent_runtime.read_only_tools import read_only_project_tool_sources
+from app.services.agent_sessions.store import InMemoryAgentSessionStore
 from app.services.agent_sessions.service import AgentSessionService
 from app.services.skill_runtime import invoke_skill, list_registered_skills
 
@@ -108,7 +109,7 @@ def clear_agent_core_mcp_tools() -> None:
 
 def build_project_core_tool_registry(
     *,
-    service: AgentSessionService,
+    service: AgentSessionService | None,
     source_library_lister: SourceLibraryLister | None = None,
     structured_data_searcher: StructuredDataSearcher | None = None,
 ) -> Annotated[
@@ -122,14 +123,15 @@ def build_project_core_tool_registry(
     registry without another name dispatcher or capability-call envelope.
     """
 
+    projection_service = service if service is not None else AgentSessionService(store=InMemoryAgentSessionStore())
     registry = CoreToolRegistry()
     contribution_failure = register_project_tool_contributions(
         registry,
         (*read_only_project_tool_sources(
-            service=service,
+            service=projection_service,
             source_library_lister=source_library_lister,
             structured_data_searcher=structured_data_searcher,
-        ), *control_project_tool_sources(service=service)),
+        ), *control_project_tool_sources(service=projection_service)),
     )
     if isinstance(contribution_failure, Failure):
         # kit:boundary owner=project_tools.py class=PROGRAMMER_DEFECT failure_family=none witness=test:test_project_read_control_catalog_preserves_original_tools
@@ -137,18 +139,18 @@ def build_project_core_tool_registry(
 
     _register_deepening_tools(
         registry=registry,
-        service=service,
+        service=projection_service,
         source_library_lister=source_library_lister,
         structured_data_searcher=structured_data_searcher,
     )
-    _register_agent_macro_facilities(registry, service)
+    _register_agent_macro_facilities(registry, projection_service)
 
     registered = {tool.name for tool in registry.list_specs()}
     for capability in list_interactive_agent_capabilities():
         capability_id = str(capability.get("capability_id") or "").strip()
         if not capability_id or capability_id in registered or capability_id == "agent_session.stream":
             continue
-        authored_sources = authoring_capability_sources(service, (capability,))
+        authored_sources = authoring_capability_sources(projection_service, (capability,))
         if authored_sources:
             contribution_failure = register_project_tool_contributions(registry, authored_sources)
             if isinstance(contribution_failure, Failure):
@@ -170,7 +172,7 @@ def build_project_core_tool_registry(
                     binding_id=f"facility.{capability_id}",
                     version="1",
                     tool_spec=_source_library_run_spec(capability),
-                    handler=_source_library_run_handler_factory(service=service),
+                    handler=_source_library_run_handler_factory(service=projection_service),
                     executor_ref=capability_id,
                     scope_source="AgentCoreRequest.project_key and requested source-library items",
                     permission_source="CoreToolSpec.permission plus source-library dispatch skill boundary",
@@ -202,9 +204,9 @@ def build_project_core_tool_registry(
             emit: Callable[[CoreEvent], None],
             skill_meta: JSONObject = json_object(skill),
         ) -> CoreToolResult:
-            if session_abort_requested(service=service, session_id=request.session_id):
+            if session_abort_requested(service=projection_service, session_id=request.session_id):
                 return abort_requested_result(
-                    service=service,
+                    service=projection_service,
                     request=request,
                     tool_call=tool_call,
                     emit=emit,

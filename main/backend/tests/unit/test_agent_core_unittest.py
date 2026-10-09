@@ -4,7 +4,7 @@ import unittest
 import json
 from contextlib import nullcontext
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -876,6 +876,478 @@ class SharedCoreToolProjectionUnitTest(unittest.TestCase):
         assert result.structured_content["work_item_ids"] == ["work:url-single-agent-runtime-1:1"]
         submit_runtime.assert_called_once()
         assert submit_runtime.call_args.kwargs["actor_id"] == "host-actor-17"
+
+    def _url_pool_status_source(self, service: AgentSessionService, session_id: str):
+        from app.services.agent_core.authoring_tools import (
+            AuthoringToolContext,
+            authoring_ingest_writing_batch_sources,
+        )
+
+        context = AuthoringToolContext(
+            service=service,
+            structured_data_searcher=lambda **_kwargs: {"items": [{"document_id": 999}]},
+        )
+        return next(
+            item
+            for item in authoring_ingest_writing_batch_sources(context)
+            if item.tool_spec.name == "ingest.url_pool.status"
+        )
+
+    def _write_url_pool_submission(self, service: AgentSessionService, session_id: str) -> None:
+        service.store.upsert_artifact({
+            "session_id": session_id,
+            "artifact_type": "url_pool_ingest_submission_state",
+            "name": "ingest.url_pool_submissions.json",
+            "content_json": {
+                "submissions": [{
+                    "idempotency_key": "url-key",
+                    "project_key": "demo_proj",
+                    "url": "https://example.gov/report",
+                    "task_id": "",
+                    "runtime_run_ref": "runtime-run:url-runtime-1",
+                    "async_mode": True,
+                    "dispatch_result": {"runtime_run_ref": "runtime-run:url-runtime-1"},
+                }]
+            },
+        })
+        service.store.upsert_artifact({
+            "session_id": session_id,
+            "artifact_type": "json",
+            "name": "ingest.url_pool_task_events.json",
+            "content_json": {"events": [{"task_id": "", "status": "completed", "url": "https://example.gov/report"}]},
+        })
+
+    def test_url_pool_status_canonical_failed_is_not_pending_from_weak_evidence(self):
+        from app.services.agent_core.contracts import AgentCoreRequest, CoreToolCall
+        from app.services.agent_core.host_authorization import (
+            TrustedHostContext,
+            VerifiedHostAuthorization,
+            verified_host_authorization_channel,
+        )
+        from app.services.request_identity import authenticated_actor_context
+
+        service = AgentSessionService(store=InMemoryAgentSessionStore())
+        session_id = service.create_session(
+            source="user", entrypoint_type="agent_core", goal="Read failed URL runtime",
+            project_key="demo_proj",
+        )["session"]["session_id"]
+        self._write_url_pool_submission(service, session_id)
+        source = self._url_pool_status_source(service, session_id)
+        actor = authenticated_actor_context(actor_id="status-actor", source="test-host", auth_mode="test-auth")
+        authorization = VerifiedHostAuthorization(
+            context=TrustedHostContext("demo_proj", session_id, "host", "turn", "message", actor_context=actor),
+            tool_name="ingest.url_pool.status",
+            arguments_sha256="0" * 64,
+            package_digest=None,
+            permission="allow",
+            approval_id=None,
+            origin_call_id="status-call",
+            origin_turn_id="turn",
+            origin_user_message_id="message",
+        )
+
+        with (
+            patch("app.services.job_logger.list_jobs", return_value=[]),
+            patch(
+                "app.services.agent_core.authoring_tools._url_pool_capability_grant_is_current",
+                return_value=True,
+            ),
+            patch(
+                "app.composition.production.read_installed_program",
+                return_value=({"run_id": "url-runtime-1", "project_key": "demo_proj", "state": "FAILED"}, (), ()),
+            ) as read_runtime,
+            patch(
+                "app.services.agent_core.authoring_tools._read_url_pool_runtime_url",
+                return_value="https://example.gov/report",
+            ),
+            patch(
+                "app.composition.production.read_installed_program_failures",
+                return_value=((1, SimpleNamespace(
+                    domain_failure=None,
+                    failure_code="URL_POOL_EXECUTION_FAILED",
+                    failure_digest="a" * 64,
+                    attempt_id="attempt-1",
+                )),),
+            ) as read_failures,
+            patch("app.composition.production.read_installed_program_outputs") as read_outputs,
+        ):
+            with verified_host_authorization_channel(authorization):
+                result = source.handler(
+                    CoreToolCall(tool_name="ingest.url_pool.status", call_id="status-call", arguments={}),
+                    source.tool_spec,
+                    AgentCoreRequest(message="status", session_id=session_id, project_key="demo_proj"),
+                    lambda _event: None,
+                )
+
+        assert result.status == "completed"
+        assert result.structured_content["verified"] is False
+        assert result.structured_content["pending"] is False
+        assert result.structured_content["next_gate"] == "url_pool_canonical_runtime_failed"
+        assert result.structured_content["runtime_readback"]["state"] == "FAILED"
+        assert result.structured_content["runtime_failures"][0]["failure_code"] == "URL_POOL_EXECUTION_FAILED"
+        assert result.structured_content["runtime_failures"][0]["reason"] == "URL_POOL_EXECUTION_FAILED"
+        read_runtime.assert_called_once()
+        read_failures.assert_called_once()
+        read_outputs.assert_not_called()
+
+    def test_url_pool_status_completed_requires_runtime_output_and_document_readback(self):
+        import json as json_module
+
+        from app.services.agent_core.contracts import AgentCoreRequest, CoreToolCall
+        from app.services.agent_core.host_authorization import (
+            TrustedHostContext,
+            VerifiedHostAuthorization,
+            verified_host_authorization_channel,
+        )
+        from app.services.request_identity import authenticated_actor_context
+        from app.successor_runtime.capabilities.acquisition_url import (
+            UrlSingleUrlOutcome,
+            build_url_single_url_contract,
+            build_url_single_url_outcome_codec,
+        )
+
+        service = AgentSessionService(store=InMemoryAgentSessionStore())
+        session_id = service.create_session(
+            source="user", entrypoint_type="agent_core", goal="Read completed URL runtime",
+            project_key="demo_proj",
+        )["session"]["session_id"]
+        self._write_url_pool_submission(service, session_id)
+        source = self._url_pool_status_source(service, session_id)
+        actor = authenticated_actor_context(actor_id="status-actor", source="test-host", auth_mode="test-auth")
+        authorization = VerifiedHostAuthorization(
+            context=TrustedHostContext("demo_proj", session_id, "host", "turn", "message", actor_context=actor),
+            tool_name="ingest.url_pool.status",
+            arguments_sha256="0" * 64,
+            package_digest=None,
+            permission="allow",
+            approval_id=None,
+            origin_call_id="status-call",
+            origin_turn_id="turn",
+            origin_user_message_id="message",
+        )
+        contract = build_url_single_url_contract()
+        outcome_payload = build_url_single_url_outcome_codec(contract.ref).encode_payload(
+            UrlSingleUrlOutcome(status="completed", inserted=1, updated=0, skipped=0, document_id=42)
+        )
+        exact = json_module.dumps(outcome_payload).encode("utf-8")
+
+        with (
+            patch("app.services.job_logger.list_jobs", return_value=[]),
+            patch(
+                "app.services.agent_core.authoring_tools._url_pool_capability_grant_is_current",
+                return_value=True,
+            ),
+            patch(
+                "app.composition.production.read_installed_program",
+                return_value=(
+                    {"run_id": "url-runtime-1", "project_key": "demo_proj", "state": "COMPLETED"},
+                    ({"step_id": "url-step", "operation_kind": "acquisition.url.single_url.v1"},),
+                    (),
+                ),
+            ),
+            patch(
+                "app.services.agent_core.authoring_tools._read_url_pool_runtime_url",
+                return_value="https://example.gov/report",
+            ),
+            patch(
+                "app.composition.production.read_installed_program_outputs",
+                return_value=(("url-step", object(), exact),),
+            ),
+            patch(
+                "app.services.agent_core.authoring_tools._read_url_pool_document",
+                return_value={
+                    "project_key": "demo_proj",
+                    "document_id": 42,
+                    "matched_url": "https://example.gov/report",
+                },
+            ) as read_document,
+        ):
+            with verified_host_authorization_channel(authorization):
+                result = source.handler(
+                    CoreToolCall(tool_name="ingest.url_pool.status", call_id="status-call", arguments={}),
+                    source.tool_spec,
+                    AgentCoreRequest(message="status", session_id=session_id, project_key="demo_proj"),
+                    lambda _event: None,
+                )
+
+        assert result.status == "completed"
+        assert result.structured_content["runtime_error"] is None, result.structured_content["runtime_error"]
+        assert result.structured_content["verified"] is True
+        assert result.structured_content["pending"] is False
+        assert result.structured_content["runtime_output"]["document_id"] == 42
+        assert result.structured_content["document_readback"]["document_id"] == 42
+        assert result.structured_content["document_readback"]["project_key"] == "demo_proj"
+        assert result.structured_content["causal_evidence"]["document"]["matched_url"] == "https://example.gov/report"
+        read_document.assert_called_once_with("demo_proj", 42, "https://example.gov/report")
+
+    def test_url_pool_document_rejects_same_domain_root_and_accepts_persisted_redirect(self):
+        from app.services.agent_core.authoring_tools import _read_url_pool_document
+
+        session = MagicMock()
+        session.execute.return_value.first.side_effect = (
+            SimpleNamespace(
+                id=42,
+                uri="https://example.gov/article/42",
+                extracted_data={"source_ref": {"url": "https://example.gov/requested"}},
+                base_url="https://example.gov",
+            ),
+            SimpleNamespace(
+                id=42,
+                uri="https://example.gov/article/42",
+                extracted_data={"source_ref": {"url": "https://example.gov/requested"}},
+                base_url="https://example.gov",
+            ),
+        )
+        session_context = MagicMock()
+        session_context.__enter__.return_value = session
+        with (
+            patch(
+                "app.services.agent_core.authoring_tools.bind_project",
+                return_value=nullcontext(),
+            ),
+            patch(
+                "app.services.agent_core.authoring_tools.SessionLocal",
+                return_value=session_context,
+            ),
+        ):
+            root_match = _read_url_pool_document(
+                "demo_proj", 42, "https://example.gov"
+            )
+            redirect_match = _read_url_pool_document(
+                "demo_proj", 42, "https://example.gov/requested"
+            )
+
+        assert root_match is None
+        assert redirect_match is not None
+        assert redirect_match["uri"] == "https://example.gov/article/42"
+        assert redirect_match["matched_url"] == "https://example.gov/requested"
+        assert redirect_match["match_kind"] == "persisted_source_ref"
+
+    def test_url_pool_status_explicit_url_without_submission_does_not_reuse_other_run(self):
+        from app.services.agent_core.contracts import AgentCoreRequest, CoreToolCall
+
+        service = AgentSessionService(store=InMemoryAgentSessionStore())
+        session_id = service.create_session(
+            source="user",
+            entrypoint_type="agent_core",
+            goal="Read exact URL runtime",
+            project_key="demo_proj",
+        )["session"]["session_id"]
+        self._write_url_pool_submission(service, session_id)
+        source = self._url_pool_status_source(service, session_id)
+
+        with (
+            patch("app.services.job_logger.list_jobs", return_value=[]),
+            patch("app.composition.production.read_installed_program") as read_runtime,
+        ):
+            result = source.handler(
+                CoreToolCall(
+                    tool_name="ingest.url_pool.status",
+                    call_id="status-call",
+                    arguments={"url": "https://example.gov/missing"},
+                ),
+                source.tool_spec,
+                AgentCoreRequest(
+                    message="status",
+                    session_id=session_id,
+                    project_key="demo_proj",
+                ),
+                lambda _event: None,
+            )
+
+        assert result.structured_content["verified"] is False
+        assert result.structured_content["pending"] is False
+        assert result.structured_content["submission"] == {}
+        assert (
+            result.structured_content["runtime_error"]["code"]
+            == "url_pool_submission_not_found"
+        )
+        read_runtime.assert_not_called()
+
+    def test_url_pool_status_async_readback_fails_closed_without_verified_actor(self):
+        from app.services.agent_core.contracts import AgentCoreRequest, CoreToolCall
+
+        service = AgentSessionService(store=InMemoryAgentSessionStore())
+        session_id = service.create_session(
+            source="user", entrypoint_type="agent_core", goal="Read URL runtime without actor",
+            project_key="demo_proj",
+        )["session"]["session_id"]
+        self._write_url_pool_submission(service, session_id)
+        source = self._url_pool_status_source(service, session_id)
+
+        with patch("app.services.job_logger.list_jobs", return_value=[]):
+            result = source.handler(
+                CoreToolCall(tool_name="ingest.url_pool.status", call_id="status-call", arguments={}),
+                source.tool_spec,
+                AgentCoreRequest(message="status", session_id=session_id, project_key="demo_proj"),
+                lambda _event: None,
+            )
+
+        assert result.status == "completed"
+        assert result.structured_content["verified"] is False
+        assert result.structured_content["pending"] is False
+        assert result.structured_content["runtime_error"]["code"] == "url_pool_runtime_actor_required"
+
+    def test_url_pool_status_trusted_actor_does_not_replace_capability_grant(self):
+        from app.services.agent_core.contracts import AgentCoreRequest, CoreToolCall
+        from app.services.agent_core.host_authorization import (
+            TrustedHostContext,
+            VerifiedHostAuthorization,
+            verified_host_authorization_channel,
+        )
+        from app.services.request_identity import authenticated_actor_context
+
+        service = AgentSessionService(store=InMemoryAgentSessionStore())
+        session_id = service.create_session(
+            source="user", entrypoint_type="agent_core", goal="Read URL runtime without grant",
+            project_key="demo_proj",
+        )["session"]["session_id"]
+        self._write_url_pool_submission(service, session_id)
+        source = self._url_pool_status_source(service, session_id)
+        actor = authenticated_actor_context(
+            actor_id="status-actor", source="test-host", auth_mode="test-auth"
+        )
+        authorization = VerifiedHostAuthorization(
+            context=TrustedHostContext(
+                "demo_proj", session_id, "host", "turn", "message", actor_context=actor
+            ),
+            tool_name="ingest.url_pool.status",
+            arguments_sha256="0" * 64,
+            package_digest=None,
+            permission="allow",
+            approval_id=None,
+            origin_call_id="status-call",
+            origin_turn_id="turn",
+            origin_user_message_id="message",
+        )
+
+        with (
+            patch("app.services.job_logger.list_jobs", return_value=[]),
+            patch(
+                "app.services.agent_core.authoring_tools._url_pool_capability_grant_is_current",
+                return_value=False,
+            ) as grant_check,
+            patch("app.composition.production.read_installed_program") as read_runtime,
+        ):
+            with verified_host_authorization_channel(authorization):
+                result = source.handler(
+                    CoreToolCall(
+                        tool_name="ingest.url_pool.status",
+                        call_id="status-call",
+                        arguments={},
+                    ),
+                    source.tool_spec,
+                    AgentCoreRequest(
+                        message="status", session_id=session_id, project_key="demo_proj"
+                    ),
+                    lambda _event: None,
+                )
+
+        assert result.status == "completed"
+        assert result.structured_content["verified"] is False
+        assert result.structured_content["pending"] is False
+        assert (
+            result.structured_content["runtime_error"]["code"]
+            == "url_pool_runtime_capability_grant_required"
+        )
+        grant_check.assert_called_once()
+        read_runtime.assert_not_called()
+
+    def test_url_pool_status_preserves_cancelled_and_superseded_runtime_states(self):
+        from app.services.agent_core.contracts import AgentCoreRequest, CoreToolCall
+        from app.services.agent_core.host_authorization import (
+            TrustedHostContext,
+            VerifiedHostAuthorization,
+            verified_host_authorization_channel,
+        )
+        from app.services.request_identity import authenticated_actor_context
+
+        service = AgentSessionService(store=InMemoryAgentSessionStore())
+        session_id = service.create_session(
+            source="user", entrypoint_type="agent_core", goal="Read terminal URL runtime",
+            project_key="demo_proj",
+        )["session"]["session_id"]
+        self._write_url_pool_submission(service, session_id)
+        source = self._url_pool_status_source(service, session_id)
+        actor = authenticated_actor_context(
+            actor_id="status-actor", source="test-host", auth_mode="test-auth"
+        )
+        authorization = VerifiedHostAuthorization(
+            context=TrustedHostContext(
+                "demo_proj", session_id, "host", "turn", "message", actor_context=actor
+            ),
+            tool_name="ingest.url_pool.status",
+            arguments_sha256="0" * 64,
+            package_digest=None,
+            permission="allow",
+            approval_id=None,
+            origin_call_id="status-call",
+            origin_turn_id="turn",
+            origin_user_message_id="message",
+        )
+
+        for state, expected_code, expected_gate in (
+            (
+                "CANCELLED",
+                "url_pool_runtime_cancelled",
+                "url_pool_canonical_runtime_cancelled",
+            ),
+            (
+                "SUPERSEDED",
+                "url_pool_runtime_superseded",
+                "url_pool_canonical_runtime_superseded",
+            ),
+        ):
+            with self.subTest(state=state):
+                with (
+                    patch("app.services.job_logger.list_jobs", return_value=[]),
+                    patch(
+                        "app.services.agent_core.authoring_tools._url_pool_capability_grant_is_current",
+                        return_value=True,
+                    ),
+                    patch(
+                        "app.composition.production.read_installed_program",
+                        return_value=(
+                            {
+                                "run_id": "url-runtime-1",
+                                "project_key": "demo_proj",
+                                "state": state,
+                            },
+                            (),
+                            (),
+                        ),
+                    ),
+                    patch(
+                        "app.services.agent_core.authoring_tools._read_url_pool_runtime_url",
+                        return_value="https://example.gov/report",
+                    ),
+                    patch(
+                        "app.composition.production.read_installed_program_failures",
+                        return_value=(),
+                    ),
+                    patch("app.composition.production.read_installed_program_outputs") as outputs,
+                ):
+                    with verified_host_authorization_channel(authorization):
+                        result = source.handler(
+                            CoreToolCall(
+                                tool_name="ingest.url_pool.status",
+                                call_id="status-call",
+                                arguments={},
+                            ),
+                            source.tool_spec,
+                            AgentCoreRequest(
+                                message="status",
+                                session_id=session_id,
+                                project_key="demo_proj",
+                            ),
+                            lambda _event: None,
+                        )
+
+                assert result.structured_content["verified"] is False
+                assert result.structured_content["pending"] is False
+                assert result.structured_content["runtime_error"]["code"] == expected_code
+                assert result.structured_content["next_gate"] == expected_gate
+                outputs.assert_not_called()
 
     def test_canceled_url_pool_status_recommends_runtime_observation(self):
         from app.services.agent_core.authoring_tools import (

@@ -9,8 +9,16 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from hashlib import sha256
-from typing import Callable, Literal
+from typing import Callable, Literal, TypeGuard
 from urllib.parse import urlsplit
+
+
+def _is_bytes(value: object) -> TypeGuard[bytes]:
+    return isinstance(value, bytes)
+
+
+def _is_resource_ref(value: object) -> TypeGuard[ResourceRef]:
+    return isinstance(value, ResourceRef)
 
 from ...successor_runtime.capabilities.checksum import (
     content_digest,
@@ -59,7 +67,7 @@ class RawSnapshot:
         source_locator = _required_text(
             self.source_locator, "RawSnapshot.source_locator"
         )
-        if not isinstance(self.raw_bytes, bytes):
+        if not _is_bytes(self.raw_bytes):
             # kit:boundary owner=ingest.material_input.raw_snapshot_invariant class=PROGRAMMER_DEFECT failure_family=none witness=test:test_raw_snapshot_constructor_rejects_invalid_fields_with_public_exception_types
             raise TypeError("RawSnapshot.raw_bytes must be bytes")
         try:
@@ -165,7 +173,7 @@ _TEXT_MIME_TYPES = frozenset({"text/plain", "text/markdown"})
 
 
 def _prepare_bytes(
-    raw_bytes: bytes,
+    raw_bytes: object,
     *,
     mime_type: str,
     input_kind: Literal["given", "resource", "snapshot"],
@@ -173,7 +181,7 @@ def _prepare_bytes(
     snapshot_ref: str | None = None,
     snapshot_identity_digest: str | None = None,
 ) -> PreparedMaterial | _MaterialRejection:
-    if not isinstance(raw_bytes, bytes):
+    if not _is_bytes(raw_bytes):
         return _MaterialRejection("material bytes are required")
     normalized_mime = str(mime_type or "").split(";", 1)[0].strip().lower()
     if normalized_mime not in _TEXT_MIME_TYPES:
@@ -199,7 +207,7 @@ def _prepare_bytes(
 def _try_prepare_material(
     material: GivenContent | ResourceRef | RawSnapshot,
     *,
-    fetch_resource: Callable[[str], FetchedResource] | None = None,
+    fetch_resource: Callable[[str], object] | None = None,
 ) -> PreparedMaterial | _MaterialRejection:
 
     if isinstance(material, GivenContent):
@@ -223,7 +231,7 @@ def _try_prepare_material(
         if prepared.raw_content_digest != material.raw_content_digest:
             return _MaterialRejection("snapshot digest does not match its bytes")
         return prepared
-    if isinstance(material, ResourceRef):
+    if _is_resource_ref(material):
         url = str(material.url).strip()
         try:
             parts = urlsplit(url)
@@ -246,9 +254,9 @@ def _try_prepare_material(
 
 
 def prepare_material(
-    material: GivenContent | ResourceRef | RawSnapshot,
+    material: object,
     *,
-    fetch_resource: Callable[[str], FetchedResource] | None = None,
+    fetch_resource: Callable[[str], object] | None = None,
 ) -> PreparedMaterial:
     """Prepare supported text; preserve the public exception contract."""
 

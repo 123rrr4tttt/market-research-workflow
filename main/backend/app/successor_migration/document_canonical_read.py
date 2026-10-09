@@ -10,7 +10,7 @@ transaction and never locks, commits, rolls back, or writes.
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from typing import Any
+from typing import TypeGuard, TypeVar
 
 from sqlalchemy import text
 from sqlalchemy.engine import Connection
@@ -43,6 +43,29 @@ class LegacyDocumentInvalidObservation(LegacyDocumentCanonicalReadError):
     """A Document row cannot form a complete canonical observation."""
 
 
+_Type = TypeVar("_Type")
+
+
+def _instance_of(value: object, expected_type: type[_Type]) -> TypeGuard[_Type]:
+    return isinstance(value, expected_type)
+
+
+def _positive_int(value: object) -> TypeGuard[int]:
+    return isinstance(value, int) and not isinstance(value, bool) and value > 0
+
+
+def _copy_exact_bytes(value: object) -> bytes:
+    if isinstance(value, bytes):
+        return value
+    if isinstance(value, bytearray):
+        return bytes(value)
+    if isinstance(value, memoryview):
+        return value.tobytes()
+    raise LegacyDocumentInvalidObservation(
+        "Document content readback did not return bytes"
+    )
+
+
 class PostgresLegacyDocumentCanonicalReadAdapter:
     """Implement ``DocumentCanonicalReadPort`` over an enlisted connection.
 
@@ -55,7 +78,7 @@ class PostgresLegacyDocumentCanonicalReadAdapter:
         self._connection = connection
 
     def _require_current_scope(self, scope: RuntimeScope) -> ProjectScopeRef:
-        if not isinstance(scope, RuntimeScope) or not isinstance(
+        if not _instance_of(scope, RuntimeScope) or not _instance_of(
             scope.project_scope, ProjectScopeRef
         ):
             raise LegacyDocumentScopeMismatch(
@@ -74,11 +97,7 @@ class PostgresLegacyDocumentCanonicalReadAdapter:
     def read_document(
         self, scope: RuntimeScope, document_id: int
     ) -> CanonicalDocumentRead:
-        if (
-            not isinstance(document_id, int)
-            or isinstance(document_id, bool)
-            or document_id <= 0
-        ):
+        if not _positive_int(document_id):
             raise ValueError("document_id must be a positive non-boolean integer")
 
         current = self._require_current_scope(scope)
@@ -136,11 +155,11 @@ class PostgresLegacyDocumentCanonicalReadAdapter:
             )
 
         try:
-            validated_scope_digest: Any = row["validated_scope_digest"]
-            observed_id: Any = row["id"]
-            text_hash: Any = row["text_hash"]
-            updated_at: Any = row["updated_at"]
-            exact_bytes: Any = row["exact_bytes"]
+            validated_scope_digest: object = row["validated_scope_digest"]
+            observed_id: object = row["id"]
+            text_hash: object = row["text_hash"]
+            updated_at: object = row["updated_at"]
+            exact_bytes: object = row["exact_bytes"]
         except (KeyError, TypeError) as exc:
             raise LegacyDocumentInvalidObservation(
                 "Document row is missing canonical observation fields"
@@ -155,11 +174,7 @@ class PostgresLegacyDocumentCanonicalReadAdapter:
                 f"Document {document_id} was not found in the validated project scope"
             )
 
-        if (
-            not isinstance(observed_id, int)
-            or isinstance(observed_id, bool)
-            or observed_id != document_id
-        ):
+        if not _positive_int(observed_id) or observed_id != document_id:
             raise LegacyDocumentInvalidObservation(
                 "Document row identity does not match the requested positive integer"
             )
@@ -185,14 +200,11 @@ class PostgresLegacyDocumentCanonicalReadAdapter:
             raise LegacyDocumentInvalidObservation(
                 "Document content is null and cannot be captured"
             )
-        if not isinstance(exact_bytes, (bytes, bytearray, memoryview)):
-            raise LegacyDocumentInvalidObservation(
-                "Document content readback did not return bytes"
-            )
+        copied_exact_bytes = _copy_exact_bytes(exact_bytes)
 
         return CanonicalDocumentRead(
             document_id=observed_id,
             text_hash=text_hash,
             updated_at=updated_at.astimezone(UTC),
-            exact_bytes=bytes(exact_bytes),
+            exact_bytes=copied_exact_bytes,
         )

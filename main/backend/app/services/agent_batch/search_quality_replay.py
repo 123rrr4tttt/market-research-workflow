@@ -3,9 +3,10 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+from collections.abc import Mapping, Sequence
 from copy import deepcopy
 from statistics import mean
-from typing import Any
+from typing import Any, Protocol, TypeGuard, runtime_checkable
 from urllib.parse import urlparse
 
 from ..derived import NonAuthoritativeDict
@@ -59,6 +60,38 @@ _AXIS_HINTS = {
     "policy": ("policy", "regulation", "standard", "compliance", "监管", "政策", "标准"),
     "pricing": ("pricing", "price", "cost", "报价", "价格"),
 }
+
+
+@runtime_checkable
+class _SupportsFloat(Protocol):
+    def __float__(self) -> float: ...
+
+
+def _is_object_dict(value: object) -> TypeGuard[dict[str, object]]:
+    return isinstance(value, dict)
+
+
+def _is_object_list(value: object) -> TypeGuard[list[object]]:
+    return isinstance(value, list)
+
+
+def _object_dict_or_empty(value: object) -> dict[str, object]:
+    return dict(value) if _is_object_dict(value) else {}
+
+
+def _object_list_or_empty(value: object) -> list[object]:
+    return list(value) if _is_object_list(value) else []
+
+
+def _float_or_none(value: object) -> float | None:
+    if value is None:
+        return None
+    try:
+        if isinstance(value, (str, bytes, bytearray, _SupportsFloat)):
+            return float(value)
+    except Exception:
+        return None
+    return None
 
 
 def build_live_provider_gap_state(
@@ -772,9 +805,10 @@ def _build_unsupported_live_provider_claims(
     fixture_quality: dict[str, Any],
     provider_readiness: dict[str, Any],
 ) -> list[dict[str, str]]:
+    provider_rows = _object_dict_or_empty(provider_readiness.get("providers"))
     provider_statuses = {
-        name: row.get("live_probe_status")
-        for name, row in (provider_readiness.get("providers") or {}).items()
+        name: _object_dict_or_empty(row).get("live_probe_status")
+        for name, row in provider_rows.items()
     }
     claims = [
         {
@@ -805,7 +839,10 @@ def _build_unsupported_live_provider_claims(
             "required_next_evidence": "Live baseline-vs-retry replay across provider-backed cases with false-positive retry tracking.",
         },
     ]
-    if any(row.get("input_quality_claim_allowed") for row in (provider_readiness.get("providers") or {}).values()):
+    if any(
+        _object_dict_or_empty(row).get("input_quality_claim_allowed")
+        for row in provider_rows.values()
+    ):
         claims.append(
             {
                 "code": "input_provider_quality_claim_rejected",
@@ -823,7 +860,9 @@ def _build_remaining_live_gaps(
     provider_readiness: dict[str, Any],
 ) -> list[dict[str, str]]:
     gaps: list[dict[str, str]] = []
-    for provider, row in (provider_readiness.get("providers") or {}).items():
+    provider_rows = _object_dict_or_empty(provider_readiness.get("providers"))
+    for provider, row_value in provider_rows.items():
+        row = _object_dict_or_empty(row_value)
         gap = str(row.get("remaining_gap") or "live_provider_quality_not_verified")
         gaps.append(
             {
@@ -1052,13 +1091,17 @@ def _summarize_critic_score_readback(
     evaluator: dict[str, Any],
 ) -> dict[str, Any]:
     critic = _case_search_critic(payload=payload)
-    traces = list((evaluator.get("critic_bounded_retry_trace") or {}).get("traces") or [])
-    first_boundary = dict((traces[0] or {}).get("boundary") or {}) if traces else {}
+    trace = _object_dict_or_empty(evaluator.get("critic_bounded_retry_trace"))
+    traces = _object_list_or_empty(trace.get("traces"))
+    first_trace = _object_dict_or_empty(traces[0]) if traces else {}
+    first_boundary = _object_dict_or_empty(first_trace.get("boundary"))
     defaults = get_search_policy_defaults()
     return {
         "case_id": str(payload.get("case_id") or ""),
         "score": round(float(critic.get("score") or 0.0), 2),
-        "score_threshold": float(first_boundary.get("score_threshold") or defaults.get("retry_score_threshold") or 0.72),
+        "score_threshold": _float_or_none(first_boundary.get("score_threshold"))
+        or _float_or_none(defaults.get("retry_score_threshold"))
+        or 0.72,
         "next_action": str(critic.get("next_action") or "stop"),
         "reason_codes": _normalize_string_list(critic.get("reason_codes")),
         "diagnosis": str(critic.get("diagnosis") or ""),
@@ -1067,38 +1110,39 @@ def _summarize_critic_score_readback(
 
 
 def _summarize_bounded_retry_readback(*, evaluator: dict[str, Any]) -> dict[str, Any]:
-    trace = dict(evaluator.get("critic_bounded_retry_trace") or {})
-    traces = [dict(item or {}) for item in list(trace.get("traces") or [])]
+    trace = _object_dict_or_empty(evaluator.get("critic_bounded_retry_trace"))
+    traces = [_object_dict_or_empty(item) for item in _object_list_or_empty(trace.get("traces"))]
+    boundaries = [_object_dict_or_empty(item.get("boundary")) for item in traces]
     defaults = get_search_policy_defaults()
     return {
         "enabled": True,
         "retry_budget": int(defaults.get("retry_budget") or 0),
         "max_retry_rounds": int(defaults.get("max_retry_rounds") or 0),
-        "retry_allowed_count": int(trace.get("retry_allowed_count") or 0),
-        "retry_blocked_count": int(trace.get("retry_blocked_count") or 0),
-        "trace_count": int(trace.get("trace_count") or len(traces)),
+        "retry_allowed_count": _optional_int(trace.get("retry_allowed_count")) or 0,
+        "retry_blocked_count": _optional_int(trace.get("retry_blocked_count")) or 0,
+        "trace_count": _optional_int(trace.get("trace_count")) or len(traces),
         "decisions": [
             {
                 "case_id": str(item.get("case_id") or ""),
                 "expected_decision": str(item.get("expected_decision") or ""),
-                "decision": str((item.get("boundary") or {}).get("decision") or ""),
-                "critic_score": float((item.get("boundary") or {}).get("critic_score") or 0.0),
+                "decision": str(boundary.get("decision") or ""),
+                "critic_score": _float_or_none(boundary.get("critic_score")) or 0.0,
                 "replay_score_is_observational": bool(
-                    (item.get("boundary") or {}).get("replay_score_is_observational")
+                    boundary.get("replay_score_is_observational")
                 )
                 is True,
             }
-            for item in traces
+            for item, boundary in zip(traces, boundaries, strict=True)
         ],
         "replay_score_is_observational": all(
-            bool((item.get("boundary") or {}).get("replay_score_is_observational")) is True
-            for item in traces
+            bool(boundary.get("replay_score_is_observational")) is True
+            for boundary in boundaries
         )
         if traces
         else False,
         "live_provider_quality_claim_allowed": any(
-            bool((item.get("boundary") or {}).get("live_provider_quality_claim_allowed")) is True
-            for item in traces
+            bool(boundary.get("live_provider_quality_claim_allowed")) is True
+            for boundary in boundaries
         ),
     }
 
@@ -1248,7 +1292,8 @@ def _build_provider_independent_boundary(
     evaluator: dict[str, Any],
     promotion_decision: dict[str, Any],
 ) -> dict[str, Any]:
-    provider_readiness = dict((evaluator.get("provider_readiness") or {}).get("provider_readiness") or {})
+    readiness = _object_dict_or_empty(evaluator.get("provider_readiness"))
+    provider_readiness = _object_dict_or_empty(readiness.get("provider_readiness"))
     live_threshold = dict(evaluator.get("live_quality_threshold") or {})
     replay = dict(live_threshold.get("replay_evaluation") or {})
     live_closed = bool(evaluator.get("live_provider_quality_closed_by_evaluator")) is True
@@ -1567,16 +1612,14 @@ def _build_live_threshold_remaining_gaps(
 def _metric_float(*, payload: dict[str, Any], samples: list[dict[str, Any]], key: str) -> float | None:
     metrics = dict(payload.get("metrics") or {})
     value = payload.get(key, metrics.get(key))
-    try:
-        return float(value)
-    except Exception:
-        pass
+    parsed = _float_or_none(value)
+    if parsed is not None:
+        return parsed
     sample_values: list[float] = []
     for sample in samples:
-        try:
-            sample_values.append(float(sample.get(key)))
-        except Exception:
-            continue
+        sample_value = _float_or_none(sample.get(key))
+        if sample_value is not None:
+            sample_values.append(sample_value)
     return round(mean(sample_values), 2) if sample_values else None
 
 
@@ -1601,10 +1644,9 @@ def _sample_duplicate_rate(samples: list[dict[str, Any]]) -> float:
 def _sample_p95_latency(samples: list[dict[str, Any]]) -> float | None:
     values: list[float] = []
     for sample in samples:
-        try:
-            values.append(float(sample.get("latency_ms")))
-        except Exception:
-            continue
+        latency = _float_or_none(sample.get("latency_ms"))
+        if latency is not None:
+            values.append(latency)
     if not values:
         return None
     ordered = sorted(values)
@@ -1689,23 +1731,22 @@ def _unique_entities(records: list[dict[str, Any]]) -> list[str]:
     return out
 
 
-def _mean_signal(signals: list[dict[str, Any]], key: str) -> float:
+def _mean_signal(signals: Sequence[Mapping[str, Any]], key: str) -> float:
     return _mean_value(signals, key)
 
 
-def _mean_axis_alignment(*, signals: list[dict[str, Any]], axis_count: int) -> float:
+def _mean_axis_alignment(*, signals: Sequence[Mapping[str, Any]], axis_count: int) -> float:
     if not signals:
         return 0.0
     return round(mean(_ratio(int(signal.get("axis_hit_count") or 0), axis_count) for signal in signals), 2)
 
 
-def _mean_value(items: list[dict[str, Any]], key: str) -> float:
+def _mean_value(items: Sequence[Mapping[str, Any]], key: str) -> float:
     values: list[float] = []
     for item in items:
-        try:
-            values.append(float(item.get(key)))
-        except Exception:
-            continue
+        value = _float_or_none(item.get(key))
+        if value is not None:
+            values.append(value)
     return round(mean(values), 2) if values else 0.0
 
 
@@ -1723,7 +1764,7 @@ def _optional_int(value: Any) -> int | None:
 
 
 def _normalize_string_list(value: Any) -> list[str]:
-    raw = value if isinstance(value, list) else [] if value is None else [value]
+    raw: list[object] = value if _is_object_list(value) else [] if value is None else [value]
     out: list[str] = []
     for item in raw:
         text = str(item or "").strip()

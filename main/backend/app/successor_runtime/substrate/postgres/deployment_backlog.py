@@ -9,13 +9,13 @@ assignment, handler binding, plan, and payload references are never rewritten.
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Protocol, Self
+from typing import Protocol, Self
 
 from sqlalchemy import and_, or_, select, update
-from sqlalchemy.engine import Connection
+from sqlalchemy.engine import Connection, RowMapping
 
 from app.successor_runtime.runtime.assignments import (
     AssignmentKind,
@@ -38,7 +38,7 @@ from app.successor_runtime.runtime.ports import (
 
 from .runtime_journal import (
     ExactBindingConflict,
-    _mapping_rows,
+    mapping_rows,
     runtime_table,
     validate_runtime_assignment_row,
 )
@@ -167,7 +167,7 @@ class DeploymentInstallationSnapshot:
 
     def supports(
         self,
-        row: Mapping[str, Any],
+        row: RowMapping,
         assignment: RuntimeAssignment,
     ) -> bool:
         """Check exact frozen compatibility without compiling or rebinding."""
@@ -215,7 +215,7 @@ class DeploymentInstallationSet:
 
     def supports(
         self,
-        row: Mapping[str, Any],
+        row: RowMapping,
         assignment: RuntimeAssignment,
     ) -> bool:
         return any(item.supports(row, assignment) for item in self.snapshots)
@@ -249,7 +249,7 @@ class DeploymentBacklogRepository:
         observed_at: datetime,
     ) -> DeploymentBacklogReport:
         work = runtime_table("runtime_work_items")
-        rows = _mapping_rows(
+        rows = mapping_rows(
             self.connection.execute(
                 select(work).where(
                     or_(
@@ -305,7 +305,7 @@ class DeploymentBacklogRepository:
 
     def _transition(
         self,
-        row: Mapping[str, Any],
+        row: RowMapping,
         *,
         from_state: str,
         from_wait_reason: str | None,
@@ -379,7 +379,8 @@ class _ClaimPort(Protocol):
 
 
 class _UnitOfWork(Protocol):
-    connection: Connection
+    @property
+    def connection(self) -> Connection: ...
 
     def __enter__(self) -> Self: ...
 

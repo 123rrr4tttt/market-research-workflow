@@ -26,7 +26,10 @@ from app.successor_runtime.research.codec import canonical_bytes, sha256_hex
 from app.successor_runtime.research.identities import ResearchObjectRef
 from app.successor_runtime.research.object_types import DELIVERY_INTENT_TYPE, ObjectType
 
-from .first_specimen import _capability_failure, _raise_capability_failure
+from .failure import (
+    capability_failure as _capability_failure,
+    raise_capability_failure as _raise_capability_failure,
+)
 
 
 DELIVERY_TEMPLATE_TYPE = ObjectType("DeliveryIntentTemplate.v1")
@@ -467,7 +470,7 @@ class DeliveryGate:
                 _raise_capability_failure(_capability_failure("DELIVERY_AUTHORITY_OR_APPROVAL_INVALID", "human approval exact binding drift"), DeliveryGateRejected)
 
             exact = canonical_bytes(intent)
-            provenance = {
+            provenance: dict[str, object] = {
                 "artifact_ref": _artifact_locator(current_artifact),
                 "artifact_content_digest": current_artifact.content_digest,
                 "artifact_revision": current_artifact.revision,

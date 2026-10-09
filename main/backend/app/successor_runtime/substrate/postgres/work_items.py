@@ -9,7 +9,6 @@ transaction and this repository never commits or rolls back.
 from __future__ import annotations
 
 import secrets
-from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import timedelta
 from typing import Any
@@ -27,7 +26,7 @@ from sqlalchemy import (
     select,
     update,
 )
-from sqlalchemy.engine import Connection
+from sqlalchemy.engine import Connection, RowMapping
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.sql import Select
 from sqlalchemy.sql.elements import ColumnElement
@@ -35,6 +34,8 @@ from sqlalchemy.types import Integer
 
 from app.successor_runtime.runtime.assignments import (
     AssignmentKind,
+    HandlerBindingKind,
+    InterpreterBinding,
     RecoveryBinding,
     RuntimeAssignment,
     canonical_digest,
@@ -67,7 +68,7 @@ from .runtime_journal import (
     ExactBindingConflict,
     RecordNotFound,
     StaleRevisionError,
-    _mapping_rows,
+    mapping_rows,
     one_mapping,
     runtime_table,
     utc_now,
@@ -440,7 +441,7 @@ class WorkItemClaimRepository:
         if effective_cursor < 0:
             raise ValueError("fairness cursor must be non-negative")
         self._require_active_node(context)
-        rows = _mapping_rows(
+        rows = mapping_rows(
             self.connection.execute(
                 due_claim_statement(
                     context,
@@ -486,7 +487,7 @@ class WorkItemClaimRepository:
 
     def _claim_locked(
         self,
-        work: Mapping[str, Any],
+        work: RowMapping,
         *,
         control_scope: ControlPlaneScope,
         context: NodeClaimContext,
@@ -553,7 +554,7 @@ class WorkItemClaimRepository:
             handler_realization_digest=assignment.handler_binding_digest,
         )
         eligibility: QueueEligibility | None = None
-        policy_row: Mapping[str, Any] | None = None
+        policy_row: RowMapping | None = None
         if assignment_requires_reservation(kind):
             if step is None or authorization is None or work["step_id"] is None:
                 raise ClaimBindingMismatch("effect claim lacks step authorization")
@@ -655,17 +656,17 @@ class WorkItemClaimRepository:
 
     def _require_exact_bindings(
         self,
-        work: Mapping[str, Any],
+        work: RowMapping,
         *,
         assignment: RuntimeAssignment,
         control_scope: ControlPlaneScope,
         context: NodeClaimContext,
         now: Any,
     ) -> tuple[
-        Mapping[str, Any],
-        Mapping[str, Any] | None,
-        Mapping[str, Any] | None,
-        Mapping[str, Any],
+        RowMapping,
+        RowMapping | None,
+        RowMapping | None,
+        RowMapping,
     ]:
         runs = runtime_table("runtime_runs")
         run = one_mapping(
@@ -847,10 +848,10 @@ class WorkItemClaimRepository:
 
     def _require_exact_qualified_plan(
         self,
-        work: Mapping[str, Any],
+        work: RowMapping,
         *,
         assignment: RuntimeAssignment,
-        run: Mapping[str, Any],
+        run: RowMapping,
         resolved_schema: str,
         now: Any,
     ) -> QualifiedPlan | None:
@@ -1010,7 +1011,7 @@ class WorkItemClaimRepository:
 
     @staticmethod
     def _require_run_execution_binding(
-        work: Mapping[str, Any], run: Mapping[str, Any]
+        work: RowMapping, run: RowMapping
     ) -> None:
         """Reject executable work detached from an admitted immutable plan."""
 
@@ -1079,7 +1080,7 @@ class WorkItemClaimRepository:
 
     def _fair_capacity_available(
         self,
-        work: Mapping[str, Any],
+        work: RowMapping,
         *,
         fairness: FairSharePolicy,
     ) -> bool:
@@ -1150,6 +1151,12 @@ class WorkItemClaimRepository:
         lease_expires_at: Any,
         reservation: ExecutionReservation | None,
     ) -> ClaimBinding:
+        handler = assignment.handler_binding
+        interpreter_profile_digest = (
+            handler.interpreter_profile_digest
+            if isinstance(handler, (InterpreterBinding, RecoveryBinding))
+            else None
+        )
         claim = ClaimBinding.bind(
             assignment,
             authorization_digest=authorization_digest,
@@ -1157,11 +1164,7 @@ class WorkItemClaimRepository:
             lease_expires_at=lease_expires_at,
             node_id=context.node_id,
             node_profile_digest=context.node_profile_digest,
-            interpreter_profile_digest=(
-                assignment.handler_binding.interpreter_profile_digest
-                if hasattr(assignment.handler_binding, "interpreter_profile_digest")
-                else None
-            ),
+            interpreter_profile_digest=interpreter_profile_digest,
             authority_digest=authorization_digest,
             execution_reservation_ref=(
                 None if reservation is None else reservation.reservation_id
@@ -1176,10 +1179,10 @@ class WorkItemClaimRepository:
 
     def _insert_attempt(
         self,
-        work: Mapping[str, Any],
-        run: Mapping[str, Any],
-        step: Mapping[str, Any],
-        authorization: Mapping[str, Any],
+        work: RowMapping,
+        run: RowMapping,
+        step: RowMapping,
+        authorization: RowMapping,
         claim_binding: ClaimBinding,
         now: Any,
     ) -> None:
@@ -1211,8 +1214,8 @@ class WorkItemClaimRepository:
             raise ClaimConflict("duplicate effect attempt claim") from exc
 
     def _eligibility(
-        self, work: Mapping[str, Any], step: Mapping[str, Any]
-    ) -> tuple[QueueEligibility, Mapping[str, Any]]:
+        self, work: RowMapping, step: RowMapping
+    ) -> tuple[QueueEligibility, RowMapping]:
         units_value = work["resource_units"]
         if units_value is None or int(units_value) != units_value:
             raise ClaimBindingMismatch("queue eligibility units must be an integer")
@@ -1259,7 +1262,7 @@ class WorkItemClaimRepository:
             raise ClaimBindingMismatch("exact resource policy is stale")
         return eligibility, policy
 
-    def _record_resource_wait(self, work: Mapping[str, Any], now: Any) -> None:
+    def _record_resource_wait(self, work: RowMapping, now: Any) -> None:
         table = runtime_table("runtime_work_items")
         # The frozen schema represents an observation through WAITING, then a
         # bounded external retry transition returns it to READY.  No lease or
@@ -1292,7 +1295,7 @@ class WorkItemClaimRepository:
 
     def _claim_work_cas(
         self,
-        work: Mapping[str, Any],
+        work: RowMapping,
         context: NodeClaimContext,
         claim_binding: ClaimBinding,
         lease_token: str,
@@ -1336,10 +1339,10 @@ class WorkItemClaimRepository:
 
     def _insert_lease_expiry_reconcile(
         self,
-        work: Mapping[str, Any],
+        work: RowMapping,
         *,
         assignment: RuntimeAssignment,
-        step: Mapping[str, Any],
+        step: RowMapping,
         attempt_id: str,
         lease_expires_at: Any,
         now: Any,
@@ -1374,7 +1377,7 @@ class WorkItemClaimRepository:
             operation_contract_ref=assignment.operation_contract_ref,
             operation_contract_digest=assignment.operation_contract_digest,
             return_contract_binding=assignment.return_contract_binding,
-            handler_binding_kind="RECOVERY",
+            handler_binding_kind=HandlerBindingKind.RECOVERY,
             handler_binding_ref=recovery_ref,
             handler_binding_digest=recovery.binding_digest,
             handler_binding=recovery,
@@ -1459,7 +1462,7 @@ class WorkItemClaimRepository:
         *,
         expected_revision: int,
         new_expiry: Any,
-    ) -> Mapping[str, Any]:
+    ) -> RowMapping:
         """Extend a live claim only for the exact token and revision."""
 
         control_scope.require_permission(RUNTIME_CROSS_PROJECT_CLAIM_PERMISSION)
@@ -1601,7 +1604,7 @@ class WorkItemClaimRepository:
         expected_revision: int,
         terminal_state: str,
         now: Any | None = None,
-    ) -> Mapping[str, Any]:
+    ) -> RowMapping:
         """Release a claim; stale or duplicate releases fail closed."""
 
         if terminal_state not in {"READY", "COMPLETED", "FAILED", "CANCELLED"}:
@@ -1729,7 +1732,7 @@ class WorkItemClaimRepository:
         if limit <= 0:
             return ()
         table = runtime_table("runtime_work_items")
-        locked = _mapping_rows(
+        locked = mapping_rows(
             self.connection.execute(
                 select(table)
                 .where(table.c.state == "CLAIMED", table.c.lease_expires_at <= now)
@@ -1748,7 +1751,7 @@ class WorkItemClaimRepository:
             reaped.append(str(row["work_item_id"]))
         return tuple(reaped)
 
-    def _reap_effect_claim(self, work: Mapping[str, Any], *, now: Any) -> None:
+    def _reap_effect_claim(self, work: RowMapping, *, now: Any) -> None:
         attempt_id = work["claim_attempt_id"]
         if not attempt_id or not work["lease_token"] or work["step_id"] is None:
             raise ClaimBindingMismatch(
@@ -1934,7 +1937,7 @@ class WorkItemClaimRepository:
 
     def _supersede_reconcile_trigger(
         self,
-        trigger: Mapping[str, Any],
+        trigger: RowMapping,
         *,
         next_step_revision: int,
         now: Any,
@@ -2024,9 +2027,9 @@ class WorkItemClaimRepository:
         )
         return successor_work_item_id
 
-    def _requeue_non_effect_claim(self, work: Mapping[str, Any], *, now: Any) -> None:
+    def _requeue_non_effect_claim(self, work: RowMapping, *, now: Any) -> None:
         table = runtime_table("runtime_work_items")
-        step: Mapping[str, Any] | None = None
+        step: RowMapping | None = None
         next_step_revision: int | None = None
         if work["step_id"] is not None:
             steps = runtime_table("runtime_steps")
@@ -2106,9 +2109,9 @@ class WorkItemClaimRepository:
 
     def _supersede_expired_reconcile_claim(
         self,
-        work: Mapping[str, Any],
+        work: RowMapping,
         *,
-        step: Mapping[str, Any],
+        step: RowMapping,
         next_step_revision: int,
         now: Any,
     ) -> None:
@@ -2206,7 +2209,7 @@ class WorkItemClaimRepository:
 
     def _append_lease_expired_event(
         self,
-        work: Mapping[str, Any],
+        work: RowMapping,
         *,
         attempt_id: str,
         reconcile_work_item_id: str,
@@ -2277,9 +2280,9 @@ class WorkItemClaimRepository:
 
     def _claim_step_and_append_event(
         self,
-        work: Mapping[str, Any],
-        step: Mapping[str, Any],
-        run: Mapping[str, Any],
+        work: RowMapping,
+        step: RowMapping,
+        run: RowMapping,
         *,
         context: NodeClaimContext,
         attempt_id: str | None,

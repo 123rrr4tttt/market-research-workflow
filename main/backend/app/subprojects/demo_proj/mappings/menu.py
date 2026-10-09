@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+from ....project_customization.interfaces import CustomizationJsonObject
 
-MENU_CONFIG = {
+
+MENU_CONFIG: CustomizationJsonObject = {
     "items": [
         {"key": "dashboard", "label": "具身智能看板", "path": "/dashboard", "order": 10, "visible": True},
         {"key": "ingest", "label": "信号采集", "path": "/app", "order": 20, "visible": True},

@@ -1,30 +1,41 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from typing import Annotated, Any, Dict, List
+from typing import Annotated, TypeGuard
 
 from .external_project import build_external_project_summary, get_external_project_manifest
 from ..crawlers.base import is_crawler_dispatch_acknowledged
+from .types import (
+    SourceMode,
+    TerminalCollectResult,
+    TerminalErrorView,
+    TerminalOutputDto,
+    TerminalRecordView,
+    TerminalStatsView,
+    TerminalStatus,
+    TerminalTimeWindowView,
+    TerminalPagingView,
+    TerminalLimitsView,
+)
 
 CONTRACT_VERSION = "source_library.terminal_output.v1"
 PROVIDER_HANDOFF_CONTRACT_VERSION = "source_library.provider_handoff.v1"
-_ALLOWED_SOURCE_MODES = {"protocol_search", "provider_harvest", "site_search", "url_execution"}
-
-
-def to_terminal_output_dto(result_payload: Dict[str, Any] | None) -> Dict[str, Any]:
-    payload = result_payload if isinstance(result_payload, dict) else {}
-    result = payload.get("result") if isinstance(payload.get("result"), dict) else {}
-    execution_request = result.get("execution_request") if isinstance(result.get("execution_request"), dict) else {}
+def to_terminal_output_dto(result_payload: dict[str, object] | None) -> TerminalOutputDto:
+    payload = dict(result_payload) if isinstance(result_payload, dict) else {}
+    result = _object(payload.get("result"))
+    execution_request = _object(result.get("execution_request"))
 
     source_mode = _resolve_source_mode(payload=payload, result=result, execution_request=execution_request)
-    params = execution_request.get("params") if isinstance(execution_request.get("params"), dict) else payload.get("params")
-    normalized_params = params if isinstance(params, dict) else {}
+    params = _optional_object(execution_request.get("params"))
+    if params is None:
+        params = _optional_object(payload.get("params")) or {}
+    normalized_params = params
 
     errors = _collect_errors(result)
     records = _build_clean_records(payload=payload, result=result)
     stats = _build_stats(source_mode=source_mode, result=result, params=normalized_params, errors=errors, records=records)
     readback = _extract_terminal_readback(payload=payload, result=result)
-    status = _resolve_status(
+    status: TerminalStatus = _resolve_status(
         stats,
         payload=payload,
         result=result,
@@ -85,7 +96,7 @@ def to_terminal_output_dto(result_payload: Dict[str, Any] | None) -> Dict[str, A
             "provider": _nullable_str(result.get("provider") or payload.get("provider")),
             "provider_job_id": _nullable_str(result.get("provider_job_id") or payload.get("provider_job_id")),
             "trace_id": _nullable_str(result.get("trace_id") or payload.get("trace_id")),
-            "warnings": list(execution_request.get("warnings") or []),
+            "warnings": _string_list(execution_request.get("warnings")),
             "provider_handoff": provider_handoff,
             "frontdoor_route_profile": frontdoor_route_profile,
             "frontdoor_router_contract": frontdoor_router_contract,
@@ -97,8 +108,8 @@ def to_terminal_output_dto(result_payload: Dict[str, Any] | None) -> Dict[str, A
     }
 
 
-def build_terminal_output_dto(result_payload: Dict[str, Any] | None) -> Annotated[
-    Dict[str, Any],
+def build_terminal_output_dto(result_payload: dict[str, object] | None) -> Annotated[
+    TerminalOutputDto,
     "kit:non-authoritative derived_as=view fact_source=source_library.raw_result witness=test:test_w01_meta",
 ]:
     return to_terminal_output_dto(result_payload)
@@ -106,40 +117,47 @@ def build_terminal_output_dto(result_payload: Dict[str, Any] | None) -> Annotate
 
 def build_source_library_terminal_output(
     *,
-    result_payload: Dict[str, Any] | None,
-    collect_result: Any,
+    result_payload: dict[str, object] | None,
+    collect_result: TerminalCollectResult,
 ) -> Annotated[
-    Dict[str, Any],
+    TerminalOutputDto,
     "kit:non-authoritative derived_as=view fact_source=source_library.raw_result witness=test:test_w01_meta",
 ]:
     dto = to_terminal_output_dto(result_payload)
     # Preserve an explicit collect-runtime ACK when the legacy payload omitted
     # its status.  The typed result remains the source of truth for terminality.
-    collect_status = str(getattr(collect_result, "status", "") or "").strip().lower()
+    collect_status = str(collect_result.status or "").strip().lower()
     payload = result_payload if isinstance(result_payload, dict) else {}
-    if collect_status in {"accepted", "cancelled", "failed"} and not any(
+    known_collect_status = _terminal_status(collect_status)
+    if known_collect_status in {"accepted", "cancelled", "failed"} and not any(
         key in payload for key in ("status", "terminal_readback")
     ):
-        dto["status"] = collect_status
+        dto["status"] = known_collect_status
     return dto
 
 
-def _resolve_source_mode(*, payload: Dict[str, Any], result: Dict[str, Any], execution_request: Dict[str, Any]) -> str:
+def _resolve_source_mode(
+    *,
+    payload: dict[str, object],
+    result: dict[str, object],
+    execution_request: dict[str, object],
+) -> SourceMode:
     source_mode = str(execution_request.get("source_mode") or "").strip().lower()
-    if source_mode in _ALLOWED_SOURCE_MODES:
-        return source_mode
+    known_source_mode = _source_mode(source_mode)
+    if known_source_mode is not None:
+        return known_source_mode
 
     channel_key = str(payload.get("channel_key") or "").strip().lower()
     if isinstance(result.get("by_url"), list):
         return "url_execution"
-    if channel_key == "handler.cluster" or isinstance(result.get("routing_result"), dict):
+    if channel_key == "handler.cluster" or _optional_object(result.get("routing_result")) is not None:
         return "site_search"
     if channel_key.startswith("crawler."):
         return "provider_harvest"
     return "protocol_search"
 
 
-def _normalize_query_terms(params: Dict[str, Any]) -> List[str]:
+def _normalize_query_terms(params: dict[str, object]) -> list[str]:
     raw = params.get("query_terms")
     if raw is None:
         raw = params.get("keywords")
@@ -148,8 +166,9 @@ def _normalize_query_terms(params: Dict[str, Any]) -> List[str]:
     if raw is None:
         raw = params.get("q")
 
-    if isinstance(raw, list):
-        return [str(x).strip() for x in raw if str(x).strip()]
+    raw_values = _object_list(raw)
+    if raw_values:
+        return [str(item).strip() for item in raw_values if str(item).strip()]
     if isinstance(raw, str) and raw.strip():
         if "," in raw:
             return [segment.strip() for segment in raw.split(",") if segment.strip()]
@@ -157,7 +176,61 @@ def _normalize_query_terms(params: Dict[str, Any]) -> List[str]:
     return []
 
 
-def _normalize_time_window(params: Dict[str, Any]) -> Dict[str, Any]:
+def _is_object(value: object) -> TypeGuard[dict[str, object]]:
+    return isinstance(value, dict)
+
+
+def _optional_object(value: object) -> dict[str, object] | None:
+    return dict(value) if _is_object(value) else None
+
+
+def _object(value: object) -> dict[str, object]:
+    return dict(value) if _is_object(value) else {}
+
+
+def _object_list(value: object) -> list[object]:
+    return list(value) if _is_object_list(value) else []
+
+
+def _is_object_list(value: object) -> TypeGuard[list[object]]:
+    return isinstance(value, list)
+
+
+def _source_mode(value: str) -> SourceMode | None:
+    if value == "protocol_search":
+        return "protocol_search"
+    if value == "provider_harvest":
+        return "provider_harvest"
+    if value == "site_search":
+        return "site_search"
+    if value == "url_execution":
+        return "url_execution"
+    return None
+
+
+def _terminal_status(value: str) -> TerminalStatus | None:
+    if value == "ok":
+        return "ok"
+    if value == "partial":
+        return "partial"
+    if value == "error":
+        return "error"
+    if value == "accepted":
+        return "accepted"
+    if value == "completed":
+        return "completed"
+    if value == "failed":
+        return "failed"
+    if value == "cancelled":
+        return "cancelled"
+    return None
+
+
+def _string_list(value: object) -> list[str]:
+    return [item for item in _object_list(value) if isinstance(item, str)]
+
+
+def _normalize_time_window(params: dict[str, object]) -> TerminalTimeWindowView:
     return {
         "days_back": _to_optional_int(params.get("days_back")),
         "start_time": _nullable_str(params.get("start_time") or params.get("start_at") or params.get("start_date") or params.get("since")),
@@ -165,7 +238,7 @@ def _normalize_time_window(params: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-def _normalize_paging(params: Dict[str, Any]) -> Dict[str, Any]:
+def _normalize_paging(params: dict[str, object]) -> TerminalPagingView:
     return {
         "page": _to_optional_int(params.get("page")),
         "start_offset": _to_optional_int(params.get("start_offset") or params.get("offset")),
@@ -173,7 +246,7 @@ def _normalize_paging(params: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-def _normalize_limits(params: Dict[str, Any]) -> Dict[str, Any]:
+def _normalize_limits(params: dict[str, object]) -> TerminalLimitsView:
     return {
         "limit": _to_optional_int(params.get("limit")),
         "max_items": _to_optional_int(params.get("max_items")),
@@ -183,17 +256,16 @@ def _normalize_limits(params: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-def _collect_errors(result: Dict[str, Any]) -> List[Dict[str, Any]]:
-    out: List[Dict[str, Any]] = []
+def _collect_errors(result: dict[str, object]) -> list[TerminalErrorView]:
+    out: list[TerminalErrorView] = []
 
-    for message in result.get("errors") or []:
+    for message in _object_list(result.get("errors")):
         text = str(message).strip()
         if text:
             out.append({"source": "result.errors", "message": text})
 
-    for row in result.get("by_url") or []:
-        if not isinstance(row, dict):
-            continue
+    for raw_row in _object_list(result.get("by_url")):
+        row = _object(raw_row)
         text = str(row.get("error") or "").strip()
         if text:
             out.append(
@@ -205,9 +277,8 @@ def _collect_errors(result: Dict[str, Any]) -> List[Dict[str, Any]]:
                 }
             )
 
-    for detail in result.get("error_details") or []:
-        if not isinstance(detail, dict):
-            continue
+    for raw_detail in _object_list(result.get("error_details")):
+        detail = _object(raw_detail)
         text = str(detail.get("error") or "").strip()
         if text:
             out.append(
@@ -225,15 +296,15 @@ def _collect_errors(result: Dict[str, Any]) -> List[Dict[str, Any]]:
 def _build_stats(
     *,
     source_mode: str,
-    result: Dict[str, Any],
-    params: Dict[str, Any],
-    errors: List[Dict[str, Any]],
-    records: List[Dict[str, Any]],
-) -> Dict[str, int]:
+    result: dict[str, object],
+    params: dict[str, object],
+    errors: list[TerminalErrorView],
+    records: list[TerminalRecordView],
+) -> TerminalStatsView:
     normalized = len(records)
     fetched = 0
-    by_url = result.get("by_url") if isinstance(result.get("by_url"), list) else []
-    candidates = result.get("candidates") if isinstance(result.get("candidates"), list) else []
+    by_url = _object_list(result.get("by_url"))
+    candidates = _object_list(result.get("candidates"))
 
     if source_mode == "url_execution":
         fetched = len(by_url)
@@ -242,7 +313,7 @@ def _build_stats(
     elif normalized > 0:
         fetched = normalized
     if fetched <= 0:
-        maybe_urls = params.get("urls") if isinstance(params.get("urls"), list) else []
+        maybe_urls = _object_list(params.get("urls"))
         fetched = len(maybe_urls)
     if fetched <= 0 and normalized > 0:
         fetched = normalized
@@ -257,17 +328,19 @@ def _build_stats(
 
 
 def _resolve_status(
-    stats: Dict[str, int],
+    stats: TerminalStatsView,
     *,
-    payload: Dict[str, Any],
-    result: Dict[str, Any],
-    readback: Dict[str, Any] | None,
-) -> str:
+    payload: dict[str, object],
+    result: dict[str, object],
+    readback: dict[str, object] | None,
+) -> TerminalStatus:
     # A typed provider readback is authoritative for crawler terminality.
-    if isinstance(readback, dict):
+    if readback is not None:
         kind = str(readback.get("kind") or "").strip().lower()
         if kind == "terminal":
-            terminal_status = str((readback.get("readback") or {}).get("terminal_status") or "").strip().lower()
+            terminal_status = _terminal_status(
+                str(_object(readback.get("readback")).get("terminal_status") or "").strip().lower()
+            )
             if terminal_status in {"completed", "failed", "cancelled"}:
                 return terminal_status
         if kind in {"waiting", "unavailable"}:
@@ -281,8 +354,9 @@ def _resolve_status(
             # A provider's dispatch label is an acknowledgement until C2.3
             # supplies a terminal readback.
             continue
-        if candidate in {"failed", "cancelled", "completed"}:
-            return candidate
+        known_status = _terminal_status(candidate)
+        if known_status in {"failed", "cancelled", "completed"}:
+            return known_status
     if "accepted" in explicit:
         return "accepted"
     # Provider status ``completed`` is only an acknowledgement without a
@@ -305,8 +379,8 @@ def _resolve_status(
     return "ok"
 
 
-def _explicit_statuses(*, payload: Dict[str, Any], result: Dict[str, Any]) -> List[str]:
-    values: List[str] = []
+def _explicit_statuses(*, payload: dict[str, object], result: dict[str, object]) -> list[str]:
+    values: list[str] = []
     for value in (payload.get("status"), result.get("status")):
         normalized = str(value or "").strip().lower()
         if normalized in {"completed", "failed", "cancelled", "accepted"}:
@@ -316,7 +390,7 @@ def _explicit_statuses(*, payload: Dict[str, Any], result: Dict[str, Any]) -> Li
         if normalized in {"failed", "cancelled"}:
             values.append(normalized)
     for row in _iter_by_url_rows(result):
-        nested = row.get("result") if isinstance(row.get("result"), dict) else {}
+        nested = _object(row.get("result"))
         normalized = str(nested.get("status") or row.get("status") or "").strip().lower()
         if normalized in {"completed", "failed", "cancelled", "accepted"}:
             values.append(normalized)
@@ -326,14 +400,14 @@ def _explicit_statuses(*, payload: Dict[str, Any], result: Dict[str, Any]) -> Li
     return values
 
 
-def _has_acknowledgement(*, payload: Dict[str, Any], result: Dict[str, Any]) -> bool:
+def _has_acknowledgement(*, payload: dict[str, object], result: dict[str, object]) -> bool:
     provider_signal = _has_provider_signal(payload=payload, result=result)
     for value in (payload.get("status"), result.get("status"), payload.get("provider_status"), result.get("provider_status")):
         normalized = str(value or "").strip().lower()
         if normalized == "accepted" or (provider_signal and is_crawler_dispatch_acknowledged(normalized)):
             return True
     for row in _iter_by_url_rows(result):
-        nested = row.get("result") if isinstance(row.get("result"), dict) else {}
+        nested = _object(row.get("result"))
         for value in (row.get("status"), nested.get("status"), row.get("provider_status"), nested.get("provider_status")):
             normalized = str(value or "").strip().lower()
             if normalized == "accepted" or (provider_signal and is_crawler_dispatch_acknowledged(normalized)):
@@ -341,14 +415,14 @@ def _has_acknowledgement(*, payload: Dict[str, Any], result: Dict[str, Any]) -> 
     return False
 
 
-def _has_provider_signal(*, payload: Dict[str, Any], result: Dict[str, Any]) -> bool:
+def _has_provider_signal(*, payload: dict[str, object], result: dict[str, object]) -> bool:
     keys = ("provider_status", "provider_job_id", "provider_type", "provider_handoff", "terminal_readback")
     if any(payload.get(key) not in (None, "", {}, []) for key in keys):
         return True
     if any(result.get(key) not in (None, "", {}, []) for key in keys):
         return True
     for row in _iter_by_url_rows(result):
-        nested = row.get("result") if isinstance(row.get("result"), dict) else {}
+        nested = _object(row.get("result"))
         if any(row.get(key) not in (None, "", {}, []) for key in keys):
             return True
         if any(nested.get(key) not in (None, "", {}, []) for key in keys):
@@ -356,16 +430,20 @@ def _has_provider_signal(*, payload: Dict[str, Any], result: Dict[str, Any]) -> 
     return False
 
 
-def _extract_terminal_readback(*, payload: Dict[str, Any], result: Dict[str, Any]) -> Dict[str, Any] | None:
-    candidates: List[Any] = [payload.get("terminal_readback"), result.get("terminal_readback"), result.get("readback")]
+def _extract_terminal_readback(*, payload: dict[str, object], result: dict[str, object]) -> dict[str, object] | None:
+    candidates: list[object] = [payload.get("terminal_readback"), result.get("terminal_readback"), result.get("readback")]
     for row in _iter_by_url_rows(result):
         candidates.extend([row.get("terminal_readback"), row.get("readback")])
-        nested = row.get("result") if isinstance(row.get("result"), dict) else {}
+        nested = _object(row.get("result"))
         candidates.extend([nested.get("terminal_readback"), nested.get("readback")])
-    return next((dict(candidate) for candidate in candidates if isinstance(candidate, dict) and candidate.get("kind")), None)
+    for candidate in candidates:
+        normalized = _optional_object(candidate)
+        if normalized is not None and normalized.get("kind"):
+            return normalized
+    return None
 
 
-def _build_outcome_unknown(readback: Dict[str, Any] | None) -> Dict[str, Any] | None:
+def _build_outcome_unknown(readback: dict[str, object] | None) -> dict[str, object] | None:
     if not isinstance(readback, dict) or str(readback.get("kind") or "").strip().lower() not in {"waiting", "unavailable"}:
         return None
     attempt_ref = str(readback.get("attempt_ref") or "attempt:unknown")
@@ -373,18 +451,19 @@ def _build_outcome_unknown(readback: Dict[str, Any] | None) -> Dict[str, Any] | 
     try:
         from ...successor_runtime.capabilities.source_contracts import OutcomeUnknownProviderEffect
 
-        return OutcomeUnknownProviderEffect(attempt_ref=attempt_ref, reason=reason).to_plain()
+        plain = OutcomeUnknownProviderEffect(attempt_ref=attempt_ref, reason=reason).to_plain()
+        return dict(plain)
     except Exception:  # pragma: no cover - optional successor runtime dependency
         return {"kind": "outcome_unknown", "attempt_ref": attempt_ref, "reason": reason}
 
 
 def _resolve_reason_code(
     *,
-    stats: Dict[str, int],
-    errors: List[Dict[str, Any]],
-    records: List[Dict[str, Any]],
+    stats: TerminalStatsView,
+    errors: list[TerminalErrorView],
+    records: list[TerminalRecordView],
     status: str | None = None,
-    outcome_unknown: Dict[str, Any] | None = None,
+    outcome_unknown: dict[str, object] | None = None,
 ) -> str:
     if outcome_unknown is not None:
         return "outcome_unknown"
@@ -401,15 +480,16 @@ def _resolve_reason_code(
     return "ok"
 
 
-def _build_clean_records(*, payload: Dict[str, Any], result: Dict[str, Any]) -> List[Dict[str, Any]]:
-    direct = result.get("records")
-    if isinstance(direct, list):
-        normalized = [_normalize_record(row) for row in direct if isinstance(row, dict)]
+def _build_clean_records(*, payload: dict[str, object], result: dict[str, object]) -> list[TerminalRecordView]:
+    direct_value = result.get("records")
+    direct = _object_list(direct_value)
+    if isinstance(direct_value, list):
+        normalized = [_normalize_record(_object(row)) for row in direct]
         return [row for row in normalized if row]
 
-    records: List[Dict[str, Any]] = []
+    records: list[TerminalRecordView] = []
     seen_keys: set[str] = set()
-    by_url = result.get("by_url") if isinstance(result.get("by_url"), list) else []
+    by_url = _object_list(result.get("by_url"))
     for index, row in enumerate(by_url):
         normalized = _record_from_by_url_row(row=row, fallback_item_key=str(payload.get("item_key") or ""), index=index)
         if not normalized:
@@ -420,7 +500,7 @@ def _build_clean_records(*, payload: Dict[str, Any], result: Dict[str, Any]) -> 
         seen_keys.add(dedupe_key)
         records.append(normalized)
 
-    candidates = result.get("candidates") if isinstance(result.get("candidates"), list) else []
+    candidates = _object_list(result.get("candidates"))
     for index, candidate in enumerate(candidates):
         url = str(candidate or "").strip()
         if not url:
@@ -446,11 +526,11 @@ def _build_clean_records(*, payload: Dict[str, Any], result: Dict[str, Any]) -> 
     return records
 
 
-def _record_from_by_url_row(*, row: Any, fallback_item_key: str, index: int) -> Dict[str, Any] | None:
-    if not isinstance(row, dict):
+def _record_from_by_url_row(*, row: object, fallback_item_key: str, index: int) -> TerminalRecordView | None:
+    if not _is_object(row):
         return None
     url = _nullable_str(row.get("url"))
-    result = row.get("result") if isinstance(row.get("result"), dict) else {}
+    result = _object(row.get("result"))
     if row.get("error") and not result:
         return None
     return _normalize_record(
@@ -471,19 +551,15 @@ def _record_from_by_url_row(*, row: Any, fallback_item_key: str, index: int) -> 
                 "execution_layer": result.get("execution_layer"),
                 "fallback_from_channel_key": _nullable_str(row.get("fallback_from_channel_key")),
                 "fallback_reason": _nullable_str(row.get("fallback_reason")),
-                "provider_handoff": dict(row.get("provider_handoff") or {})
-                if isinstance(row.get("provider_handoff"), dict)
-                else None,
-                "frontdoor_route_profile": dict(row.get("frontdoor_route_profile") or {})
-                if isinstance(row.get("frontdoor_route_profile"), dict)
-                else None,
+                "provider_handoff": _optional_object(row.get("provider_handoff")),
+                "frontdoor_route_profile": _optional_object(row.get("frontdoor_route_profile")),
             },
             "raw_ref": {"source": "result.by_url", "url": url},
         }
     )
 
 
-def _normalize_record(row: Dict[str, Any]) -> Dict[str, Any] | None:
+def _normalize_record(row: dict[str, object]) -> TerminalRecordView | None:
     url = _nullable_str(row.get("url"))
     title = _nullable_str(row.get("title"))
     content_text = _nullable_str(row.get("content_text"))
@@ -501,29 +577,25 @@ def _normalize_record(row: Dict[str, Any]) -> Dict[str, Any] | None:
         "language": _nullable_str(row.get("language")),
         "source_label": _nullable_str(row.get("source_label")),
         "record_meta": _as_dict(row.get("record_meta")),
-        "raw_ref": row.get("raw_ref") if isinstance(row.get("raw_ref"), dict) else {},
+        "raw_ref": _as_dict(row.get("raw_ref")),
     }
 
 
-def _resolve_provider_handoff(*, payload: Dict[str, Any], result: Dict[str, Any]) -> Dict[str, Any] | None:
-    direct = result.get("provider_handoff")
-    if isinstance(direct, dict):
+def _resolve_provider_handoff(*, payload: dict[str, object], result: dict[str, object]) -> dict[str, object] | None:
+    direct = _optional_object(result.get("provider_handoff"))
+    if direct is not None:
         return _clean_provider_handoff(direct)
 
     for row in _iter_by_url_rows(result):
-        candidate = row.get("provider_handoff")
-        if isinstance(candidate, dict):
+        candidate = _optional_object(row.get("provider_handoff"))
+        if candidate is not None:
             return _clean_provider_handoff(candidate)
 
     provider_type = _nullable_str(result.get("provider_type") or payload.get("provider_type"))
     provider_job_id = _nullable_str(result.get("provider_job_id") or payload.get("provider_job_id"))
     provider_status = _nullable_str(result.get("provider_status") or payload.get("provider_status"))
-    runtime_channel = result.get("runtime_channel") if isinstance(result.get("runtime_channel"), dict) else {}
-    layer_boundary = (
-        runtime_channel.get("layer_boundary")
-        if isinstance(runtime_channel.get("layer_boundary"), dict)
-        else {}
-    )
+    runtime_channel = _object(result.get("runtime_channel"))
+    layer_boundary = _object(runtime_channel.get("layer_boundary"))
     if not (provider_type or provider_job_id or provider_status or runtime_channel):
         return None
     return _clean_provider_handoff(
@@ -542,17 +614,15 @@ def _resolve_provider_handoff(*, payload: Dict[str, Any], result: Dict[str, Any]
     )
 
 
-def _iter_by_url_rows(result: Dict[str, Any]) -> List[Dict[str, Any]]:
-    rows: List[Dict[str, Any]] = []
-    direct_rows = result.get("by_url") if isinstance(result.get("by_url"), list) else []
-    rows.extend(row for row in direct_rows if isinstance(row, dict))
-    routing_result = result.get("routing_result") if isinstance(result.get("routing_result"), dict) else {}
-    nested_rows = routing_result.get("by_url") if isinstance(routing_result.get("by_url"), list) else []
-    rows.extend(row for row in nested_rows if isinstance(row, dict))
+def _iter_by_url_rows(result: dict[str, object]) -> list[dict[str, object]]:
+    rows: list[dict[str, object]] = []
+    rows.extend(_object(row) for row in _object_list(result.get("by_url")) if _is_object(row))
+    routing_result = _object(result.get("routing_result"))
+    rows.extend(_object(row) for row in _object_list(routing_result.get("by_url")) if _is_object(row))
     return rows
 
 
-def _clean_provider_handoff(value: Dict[str, Any]) -> Dict[str, Any]:
+def _clean_provider_handoff(value: dict[str, object]) -> dict[str, object]:
     out = dict(value or {})
     out.setdefault("contract_version", PROVIDER_HANDOFF_CONTRACT_VERSION)
     return {str(key): raw for key, raw in out.items() if raw not in (None, "", [], {})}
@@ -560,25 +630,25 @@ def _clean_provider_handoff(value: Dict[str, Any]) -> Dict[str, Any]:
 
 def _resolve_frontdoor_route_profile(
     *,
-    params: Dict[str, Any],
-    provider_handoff: Dict[str, Any] | None,
-) -> Dict[str, Any] | None:
+    params: dict[str, object],
+    provider_handoff: dict[str, object] | None,
+) -> dict[str, object] | None:
     handoff_profile = (
-        provider_handoff.get("frontdoor_route_profile")
-        if isinstance(provider_handoff, dict) and isinstance(provider_handoff.get("frontdoor_route_profile"), dict)
+        _optional_object(provider_handoff.get("frontdoor_route_profile"))
+        if provider_handoff is not None
         else None
     )
-    if isinstance(handoff_profile, dict):
-        return dict(handoff_profile)
-    params_profile = params.get("frontdoor_route_profile")
-    if isinstance(params_profile, dict):
-        return dict(params_profile)
+    if handoff_profile is not None:
+        return handoff_profile
+    params_profile = _optional_object(params.get("frontdoor_route_profile"))
+    if params_profile is not None:
+        return params_profile
     route_hint = _nullable_str(params.get("frontdoor_route_hint"))
     fetch_strategy = _nullable_str(params.get("frontdoor_fetch_strategy"))
     render_required = params.get("frontdoor_render_required")
     if not (route_hint or fetch_strategy or render_required is not None):
         return None
-    out: Dict[str, Any] = {
+    out: dict[str, object] = {
         "route_hint": route_hint,
         "fetch_strategy": fetch_strategy,
         "render_required": bool(render_required),
@@ -588,55 +658,53 @@ def _resolve_frontdoor_route_profile(
 
 def _resolve_frontdoor_router_contract(
     *,
-    params: Dict[str, Any],
-    provider_handoff: Dict[str, Any] | None,
-    route_profile: Dict[str, Any] | None,
-) -> Dict[str, Any] | None:
-    if isinstance(route_profile, dict) and isinstance(route_profile.get("router_contract"), dict):
-        return dict(route_profile.get("router_contract") or {})
-    if isinstance(provider_handoff, dict) and isinstance(provider_handoff.get("router_contract"), dict):
-        return dict(provider_handoff.get("router_contract") or {})
-    params_contract = params.get("frontdoor_router_contract")
-    if isinstance(params_contract, dict):
-        return dict(params_contract)
+    params: dict[str, object],
+    provider_handoff: dict[str, object] | None,
+    route_profile: dict[str, object] | None,
+) -> dict[str, object] | None:
+    if route_profile is not None:
+        route_contract = _optional_object(route_profile.get("router_contract"))
+        if route_contract is not None:
+            return route_contract
+    if provider_handoff is not None:
+        handoff_contract = _optional_object(provider_handoff.get("router_contract"))
+        if handoff_contract is not None:
+            return handoff_contract
+    params_contract = _optional_object(params.get("frontdoor_router_contract"))
+    if params_contract is not None:
+        return params_contract
     return None
 
 
-def _nullable_str(value: Any) -> str | None:
+def _nullable_str(value: object) -> str | None:
     text = str(value).strip() if value is not None else ""
     return text or None
 
 
-def _as_dict(value: Any) -> Dict[str, Any]:
-    if isinstance(value, dict):
-        return dict(value)
-    return {}
+def _as_dict(value: object) -> dict[str, object]:
+    return _object(value)
 
 
-def _to_optional_int(value: Any) -> int | None:
+def _to_optional_int(value: object) -> int | None:
     try:
         if value is None or value == "":
+            return None
+        if not isinstance(value, int | float | str):
             return None
         return int(value)
     except Exception:
         return None
 
 
-def _to_non_negative_int(value: Any) -> int:
-    number = _to_optional_int(value)
-    if number is None:
-        return 0
-    return max(number, 0)
-
-
-def _resolve_external_manifest_summary(payload: Dict[str, Any]) -> Dict[str, Any] | None:
+def _resolve_external_manifest_summary(payload: dict[str, object]) -> dict[str, object] | None:
     extra = _as_dict(payload.get("extra"))
     manifest = get_external_project_manifest(
         extra,
         item_key=_nullable_str(payload.get("item_key")),
         display_name=_nullable_str(payload.get("name")),
     )
-    return build_external_project_summary(manifest)
+    summary = build_external_project_summary(manifest)
+    return {str(key): value for key, value in summary.items()} if summary is not None else None
 
 
 __all__ = [

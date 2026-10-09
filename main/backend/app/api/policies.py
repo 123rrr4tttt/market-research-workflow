@@ -17,7 +17,6 @@ from ..contracts.schemas.policies import (
     PoliciesListData,
     PolicyStateDetail,
     PolicyStats,
-    PolicySummary,
 )
 from ..models.base import SessionLocal
 from ..models.entities import Document
@@ -230,9 +229,11 @@ def get_policy_stats(
 
             state_counts: dict[str, int] = {}
             for doc in docs:
-                state_value = doc.state
+                raw_state = getattr(doc, "state", None)
+                state_value = raw_state if isinstance(raw_state, str) else None
                 if not state_value:
-                    state_value = get_policy_data(doc).get("state")
+                    candidate_state = get_policy_data(doc).get("state")
+                    state_value = candidate_state if isinstance(candidate_state, str) else None
                 if state_value:
                     key = state_value.upper()
                     state_counts[key] = state_counts.get(key, 0) + 1

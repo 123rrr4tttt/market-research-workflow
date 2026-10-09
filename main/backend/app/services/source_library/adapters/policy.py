@@ -2,12 +2,44 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict
+from collections.abc import Mapping
+from importlib import import_module
+from typing import Protocol, TypeGuard, runtime_checkable
 
 
-def _optional_bound(value: Any) -> int | None:
+@runtime_checkable
+class _CancelCheck(Protocol):
+    def __call__(self, progress: int) -> bool: ...
+
+
+@runtime_checkable
+class _PolicyIngestPort(Protocol):
+    def __call__(
+        self,
+        state: str,
+        source_hint: str | None = None,
+        *,
+        enable_extraction: bool = False,
+        max_documents: int | None = None,
+        cancel_check: _CancelCheck | None = None,
+        request_id: str | None = None,
+        idempotency_key: str | None = None,
+    ) -> dict[str, object]: ...
+
+
+def _is_object(value: object) -> TypeGuard[dict[str, object]]:
+    return isinstance(value, dict)
+
+
+def _object(value: object) -> dict[str, object]:
+    return dict(value) if _is_object(value) else {}
+
+
+def _optional_bound(value: object) -> int | None:
     """Normalize a caller-provided document bound without inventing one."""
     if value is None or isinstance(value, bool):
+        return None
+    if not isinstance(value, int | float | str):
         return None
     try:
         return max(0, int(value))
@@ -15,13 +47,14 @@ def _optional_bound(value: Any) -> int | None:
         return None
 
 
-def _extraction_requested(params: Dict[str, Any]) -> bool:
+def _extraction_requested(params: Mapping[object, object]) -> bool:
     """Read explicit extraction intent while keeping the historical default off."""
     extraction = params.get("extraction")
-    if isinstance(extraction, dict):
+    extraction_payload = _object(extraction)
+    if extraction_payload:
         for key in ("requested", "enabled", "enable_extraction", "intent"):
-            if key in extraction:
-                return bool(extraction[key])
+            if key in extraction_payload:
+                return bool(extraction_payload[key])
     for key in (
         "enable_extraction",
         "structured_extraction",
@@ -33,48 +66,60 @@ def _extraction_requested(params: Dict[str, Any]) -> bool:
     return False
 
 
-def _request_identity(params: Dict[str, Any], key: str) -> str | None:
+def _request_identity(params: Mapping[object, object], key: str) -> str | None:
     value = params.get(key)
-    if value is None and isinstance(params.get("request_identity"), dict):
-        value = params["request_identity"].get(key)
+    identity = _object(params.get("request_identity"))
+    if value is None and identity:
+        value = identity.get(key)
     if value is None:
         return None
     value = str(value).strip()
     return value or None
 
 
-def _cancel_check(params: Dict[str, Any]):
+def _cancel_check(params: Mapping[object, object]) -> _CancelCheck | None:
     """Project only callable cancellation hooks; JSON flags cannot be a hook."""
     for key in ("cancel_check", "cancel_safe"):
         candidate = params.get(key)
-        if callable(candidate):
+        if isinstance(candidate, _CancelCheck):
             return candidate
-        if isinstance(candidate, dict):
+        candidate_payload = _object(candidate)
+        if candidate_payload:
             for check_key in ("check", "cancel_check"):
-                if callable(candidate.get(check_key)):
-                    return candidate[check_key]
-    cancellation = params.get("cancellation")
-    if isinstance(cancellation, dict):
+                nested = candidate_payload.get(check_key)
+                if isinstance(nested, _CancelCheck):
+                    return nested
+    cancellation_payload = _object(params.get("cancellation"))
+    if cancellation_payload:
         for check_key in ("check", "cancel_check"):
-            if callable(cancellation.get(check_key)):
-                return cancellation[check_key]
+            nested = cancellation_payload.get(check_key)
+            if isinstance(nested, _CancelCheck):
+                return nested
     return None
 
 
-def handle_policy(params: Dict[str, Any], _project_key: str | None) -> Dict[str, Any]:
-    """Ingest policy documents by state."""
-    from ...ingest.policy import ingest_policy_documents
+def _resolve_policy_ingest() -> _PolicyIngestPort:
+    module = import_module("app.services.ingest.policy")
+    candidate = getattr(module, "ingest_policy_documents", None)
+    if not isinstance(candidate, _PolicyIngestPort):
+        raise RuntimeError("ingest.policy adapter is unavailable")
+    return candidate
 
+
+def handle_policy(params: Mapping[object, object], _project_key: str | None) -> dict[str, object]:
+    """Ingest policy documents by state."""
     state = str(params.get("state") or "")
-    source_hint = params.get("source_hint")
+    source_hint_value = params.get("source_hint")
+    source_hint = str(source_hint_value).strip() or None if source_hint_value is not None else None
     extraction = params.get("extraction")
+    extraction_payload = _object(extraction)
     extraction_bound = (
-        extraction.get("max_documents", extraction.get("bound"))
-        if isinstance(extraction, dict)
+        extraction_payload.get("max_documents", extraction_payload.get("bound"))
+        if extraction_payload
         else None
     )
     bound = params.get("max_documents", params.get("bound", extraction_bound))
-    return ingest_policy_documents(
+    result = _resolve_policy_ingest()(
         state=state,
         source_hint=source_hint,
         enable_extraction=_extraction_requested(params),
@@ -83,3 +128,4 @@ def handle_policy(params: Dict[str, Any], _project_key: str | None) -> Dict[str,
         request_id=_request_identity(params, "request_id"),
         idempotency_key=_request_identity(params, "idempotency_key"),
     )
+    return _object(result)

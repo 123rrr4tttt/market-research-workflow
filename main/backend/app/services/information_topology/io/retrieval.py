@@ -6,31 +6,34 @@ explicit port so callers must use the PostgreSQL repository in production.
 """
 from __future__ import annotations
 
+import json
+import re
 from dataclasses import dataclass, replace
 from hashlib import sha256
-import json
 from pathlib import Path, PurePosixPath
-import re
-from typing import Annotated, Any, Callable, Mapping, Protocol, Sequence
+from typing import Annotated, Callable, Mapping, Protocol, TypeGuard
 
 from functorial_kit import Failure
 from sqlalchemy.orm import Session
 
-from ..contracts import BoundRef, Element, ElementRef, Endpoint, TopologyState, topology_failures, topology_state_codec
 from ..bindings import ProjectSemanticBinding, resolve_project_semantics
+from ..contracts import BoundRef, Element, ElementRef, Endpoint, TopologyState, topology_failures, topology_state_codec
 from ..modules.retrieval import (
-    DomainVocabulary, domain_vocabulary_element, make_retrieval_profile,
-    profile_from_state_payload, validate_evidence_v2,
+    DomainVocabulary,
+    domain_vocabulary_element,
+    make_retrieval_profile,
+    profile_from_state_payload,
+    validate_evidence_v2,
 )
 from ..profiles import ProfileSpec, decode_state, validate_state
 from ..repository import InformationTopologyRepository, StateWrite
 
 
-def _canonical(value: Any) -> bytes:
+def _canonical(value: object) -> bytes:
     return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False).encode()
 
 
-def _digest(value: Any) -> str:
+def _digest(value: object) -> str:
     return sha256(_canonical(value)).hexdigest()
 
 
@@ -47,7 +50,7 @@ def _state_digest(state: TopologyState) -> str:
     })
 
 
-def _source_ref_wire_for_element(ref: BoundRef) -> dict[str, Any]:
+def _source_ref_wire_for_element(ref: BoundRef) -> dict[str, object]:
     return {"ref": {"project_key": ref.ref.project_key, "module_id": ref.ref.module_id,
         "namespace": ref.ref.namespace, "type_id": ref.ref.type_id, "local_id": ref.ref.local_id},
         "observed_revision": ref.observed_revision, "content_digest": ref.content_digest}
@@ -60,7 +63,7 @@ class ImportPreview:
     state_key: tuple[str, str, str, str]
     source_digest: str
     source_revision: str
-    provenance: Mapping[str, Any]
+    provenance: Mapping[str, object]
     loss: tuple[str, ...]
     warnings: tuple[str, ...]
 
@@ -68,8 +71,10 @@ class ImportPreview:
 class RetrievalTopologyStore(Protocol):
     """Explicit persistence boundary; implementations must be DB-backed."""
 
-    def read(self, session: Session, key: tuple[str, str, str, str]) -> Mapping[str, Any] | None: ...
-    def write(self, session: Session, preview: ImportPreview, *, expected_revision: int | None) -> Any: ...
+    def read(self, session: Session, key: tuple[str, str, str, str]) -> Mapping[str, object] | Failure | None: ...
+    def write(
+        self, session: Session, preview: ImportPreview, *, expected_revision: int | None
+    ) -> tuple[dict[str, int], ...] | Failure: ...
 
 
 class RepositoryRetrievalStore:
@@ -78,16 +83,18 @@ class RepositoryRetrievalStore:
     def __init__(self, repository: InformationTopologyRepository):
         self.repository = repository
 
-    def read(self, session: Session, key: tuple[str, str, str, str]) -> Mapping[str, Any] | None:
+    def read(self, session: Session, key: tuple[str, str, str, str]) -> Mapping[str, object] | Failure | None:
         return self.repository.read_state(session, key)
 
-    def write(self, session: Session, preview: ImportPreview, *, expected_revision: int | None) -> Any:
+    def write(
+        self, session: Session, preview: ImportPreview, *, expected_revision: int | None
+    ) -> tuple[dict[str, int], ...] | Failure:
         return self.repository.apply_batch(session, states=(StateWrite(
             preview.state_key, preview.state, expected_revision, preview.provenance,
         ),))
 
 
-def _source_ref_wire(vocabulary: DomainVocabulary) -> dict[str, Any]:
+def _source_ref_wire(vocabulary: DomainVocabulary) -> dict[str, object]:
     ref = vocabulary.source_ref
     return {
         "project_key": ref.ref.project_key, "module_id": ref.ref.module_id,
@@ -97,7 +104,63 @@ def _source_ref_wire(vocabulary: DomainVocabulary) -> dict[str, Any]:
     }
 
 
-def resolve_domain_vocabulary(project_key: str, source: Mapping[str, Any]) -> DomainVocabulary | Failure:
+def _runtime_value(value: object) -> object:
+    return value
+
+
+def _is_object_mapping(value: object) -> TypeGuard[Mapping[object, object]]:
+    return isinstance(value, Mapping)
+
+
+def _is_object_list(value: object) -> TypeGuard[list[object]]:
+    return isinstance(value, list)
+
+
+def _is_object_sequence(value: object) -> TypeGuard[list[object] | tuple[object, ...]]:
+    return isinstance(value, (list, tuple))
+
+
+def _string_object_mapping(value: object) -> dict[str, object] | None:
+    if not _is_object_mapping(value):
+        return None
+    result: dict[str, object] = {}
+    for key, item in value.items():
+        if not isinstance(key, str):
+            return None
+        result[key] = item
+    return result
+
+
+def _original_file_texts(value: object) -> dict[str, str] | Failure:
+    mapping = _string_object_mapping(value)
+    if mapping is None:
+        return topology_failures.fail(
+            "INVALID_WIRE_FORMAT",
+            "original_files must map source paths to exact text",
+        )
+    result: dict[str, str] = {}
+    for relative, body in mapping.items():
+        if not isinstance(body, str):
+            return topology_failures.fail(
+                "INVALID_WIRE_FORMAT",
+                "original_files must map source paths to exact text",
+            )
+        result[relative] = body
+    return result
+
+
+def _string_list(value: object) -> tuple[str, ...] | None:
+    if not _is_object_list(value) or not value:
+        return None
+    result: list[str] = []
+    for item in value:
+        if not isinstance(item, str) or not item.strip():
+            return None
+        result.append(item)
+    return tuple(result)
+
+
+def resolve_domain_vocabulary(project_key: str, source: Mapping[str, object]) -> DomainVocabulary | Failure:
     """Read the explicit seven-field domain declaration and its bound source.
 
     The request contract uses ``domain_vocabulary`` with the exact seven keys
@@ -106,43 +169,69 @@ def resolve_domain_vocabulary(project_key: str, source: Mapping[str, Any]) -> Do
     observed_revision,content_digest}``. No fixed survey root or global profile
     registry participates in resolving it.
     """
-    raw = source.get("domain_vocabulary")
-    bound = source.get("domain_source_ref")
+    raw = _string_object_mapping(source.get("domain_vocabulary"))
+    bound = _string_object_mapping(source.get("domain_source_ref"))
     fields = {"域名", "节点类型", "边类型", "问题意识视角", "大纲节", "池", "档"}
     identity_fields = {"project_key", "module_id", "namespace", "type_id", "local_id"}
-    if not isinstance(raw, Mapping) or set(raw) != fields:
+    if raw is None or set(raw) != fields:
         return topology_failures.fail("INVALID_STRUCTURE", "domain_vocabulary must contain exactly the seven declared source fields")
-    if not isinstance(bound, Mapping) or set(bound) != {"ref", "observed_revision", "content_digest"}:
+    if bound is None or set(bound) != {"ref", "observed_revision", "content_digest"}:
         return topology_failures.fail("INVALID_STRUCTURE", "domain_source_ref must be an explicit bound source reference")
-    identity = bound["ref"]
-    if not isinstance(identity, Mapping) or set(identity) != identity_fields:
+    identity = _string_object_mapping(bound["ref"])
+    if identity is None or set(identity) != identity_fields:
         return topology_failures.fail("INVALID_STRUCTURE", "domain_source_ref.ref identity is incomplete")
     if identity.get("project_key") != project_key:
         return topology_failures.fail("SOURCE_CHANGED", "domain vocabulary source belongs to another project")
     revision, digest = bound["observed_revision"], bound["content_digest"]
     if not isinstance(revision, str) or not revision or (digest is not None and not isinstance(digest, str)):
         return topology_failures.fail("INVALID_STRUCTURE", "domain source needs observed_revision and optional content_digest")
+    name = raw["域名"]
     arrays = ("节点类型", "边类型", "问题意识视角", "大纲节", "池", "档")
-    if not isinstance(raw["域名"], str) or any(
-        not isinstance(raw[key], list) or not raw[key]
-        or any(not isinstance(value, str) or not value.strip() for value in raw[key]) for key in arrays
-    ):
+    array_values = {key: _string_list(raw[key]) for key in arrays}
+    if not isinstance(name, str) or any(value is None for value in array_values.values()):
         return topology_failures.fail("INVALID_STRUCTURE", "domain vocabulary values must be nonempty strings and arrays")
+    node_types = array_values["节点类型"]
+    edge_types = array_values["边类型"]
+    perspectives = array_values["问题意识视角"]
+    outline_sections = array_values["大纲节"]
+    pools = array_values["池"]
+    grades = array_values["档"]
+    if (
+        node_types is None or edge_types is None or perspectives is None
+        or outline_sections is None or pools is None or grades is None
+    ):
+        return topology_failures.fail("INVALID_STRUCTURE", "domain vocabulary values must be nonempty string arrays")
+    project_ref = identity["project_key"]
+    module_ref = identity["module_id"]
+    namespace_ref = identity["namespace"]
+    type_ref = identity["type_id"]
+    local_ref = identity["local_id"]
+    if (
+        not isinstance(project_ref, str) or not isinstance(module_ref, str)
+        or not isinstance(namespace_ref, str) or not isinstance(type_ref, str)
+        or not isinstance(local_ref, str)
+    ):
+        return topology_failures.fail("INVALID_STRUCTURE", "domain_source_ref.ref identity is incomplete")
     return DomainVocabulary(
-        raw["域名"], tuple(raw["节点类型"]), tuple(raw["边类型"]), tuple(raw["问题意识视角"]),
-        tuple(raw["大纲节"]), tuple(raw["池"]), tuple(raw["档"]),
-        BoundRef(ElementRef(**dict(identity)), revision, digest),
+        name, node_types, edge_types, perspectives, outline_sections, pools, grades,
+        BoundRef(ElementRef(project_ref, module_ref, namespace_ref, type_ref, local_ref), revision, digest),
     )
 
 
-def _require_list(source: Mapping[str, Any], key: str) -> list[Mapping[str, Any]] | Failure:
-    value = source.get(key, [])
-    if not isinstance(value, list) or any(not isinstance(item, Mapping) for item in value):
+def _require_list(source: Mapping[str, object], key: str) -> list[dict[str, object]] | Failure:
+    value = _runtime_value(source.get(key, []))
+    if not _is_object_list(value):
         return topology_failures.fail("INVALID_WIRE_FORMAT", f"{key} must be an array of objects")
-    return list(value)
+    records: list[dict[str, object]] = []
+    for item in value:
+        record = _string_object_mapping(item)
+        if record is None:
+            return topology_failures.fail("INVALID_WIRE_FORMAT", f"{key} must be an array of objects")
+        records.append(record)
+    return records
 
 
-def _source_yes_no(value: Any, field: str) -> bool | Failure:
+def _source_yes_no(value: object, field: str) -> bool | Failure:
     """Decode Rapid's declared 是/否 booleans without Python truthiness."""
     if isinstance(value, bool):
         return value
@@ -157,22 +246,28 @@ def _source_yes_no(value: Any, field: str) -> bool | Failure:
     return topology_failures.fail("INVALID_WIRE_FORMAT", f"{field} must be a boolean or Rapid 是/否 value")
 
 
-def _source_multi(value: Any) -> list[str] | Failure:
+def _source_multi(value: object) -> list[str] | Failure:
     """Normalize Rapid multi-value columns using the native reader separators."""
     if value is None or value == "":
         return []
     if isinstance(value, str):
         return [part.strip() for part in re.split(r"[；;、|]", value) if part.strip()]
-    if isinstance(value, (list, tuple)):
+    if _is_object_sequence(value):
         return [item.strip() for item in value if isinstance(item, str) and item.strip()]
     return topology_failures.fail("INVALID_WIRE_FORMAT", "multi-value source field must be text or a string array")
 
 
+def _source_array(value: object, field: str) -> list[object] | Failure:
+    if not _is_object_list(value):
+        return topology_failures.fail("INVALID_WIRE_FORMAT", f"{field} must be an array")
+    return list(value)
+
+
 def build_import_preview(
     *, project_key: str, module_id: str, namespace: str,
-    source: Mapping[str, Any], vocabulary: DomainVocabulary,
+    source: Mapping[str, object], vocabulary: DomainVocabulary,
     semantic_binding: ProjectSemanticBinding[DomainVocabulary] | None = None,
-    report_body: str | None = None, report_ref: Mapping[str, Any] | None = None,
+    report_body: str | None = None, report_ref: Mapping[str, object] | None = None,
 ) -> Annotated[ImportPreview | Failure, "kit:non-authoritative derived_as=view fact_source=source.graph+materials+domain_vocabulary witness=test:test_source_records_map_to_profile_and_export_keeps_order_report_and_extensions"]:
     """Map source-owned graph records into one validated topology state.
 
@@ -188,22 +283,25 @@ def build_import_preview(
         semantic_binding.project_key != project_key or semantic_binding.semantics != vocabulary
     ):
         return topology_failures.fail("SOURCE_CHANGED", "semantic binding does not match the import project and vocabulary")
-    graph = source.get("graph")
-    if not isinstance(graph, Mapping):
+    graph = _string_object_mapping(source.get("graph"))
+    if graph is None:
         return topology_failures.fail("INVALID_WIRE_FORMAT", "source.graph must contain the original graph object")
     if graph.get("证据口径") != 2:
         return topology_failures.fail("INVALID_WIRE_FORMAT", "only original graph format 2 is importable as formal evidence")
     required = ("线索ID", "轮次", "现场", "生成日", "节点", "边", "证据", "线索")
     if any(key not in graph for key in required):
         return topology_failures.fail("INVALID_WIRE_FORMAT", "formal source graph is missing required fields")
-    lists = {
-        "nodes": _require_list(graph, "节点"),
-        "edges": _require_list(graph, "边"),
-        "evidence": _require_list(graph, "证据"),
-        "clues": _require_list(graph, "线索"),
-        "dependencies": _require_list(graph, "依赖"),
-        "materials": _require_list(source, "materials"),
-    }
+    record_sources = (
+        ("nodes", graph, "节点"), ("edges", graph, "边"),
+        ("evidence", graph, "证据"), ("clues", graph, "线索"),
+        ("dependencies", graph, "依赖"), ("materials", source, "materials"),
+    )
+    lists: dict[str, list[dict[str, object]]] = {}
+    for target_key, record_source, source_key in record_sources:
+        records_value = _require_list(record_source, source_key)
+        if isinstance(records_value, Failure):
+            return records_value
+        lists[target_key] = records_value
     companion_categories = (
         ("source_routes", "route_id", "source_route"),
         ("keyword_plans", "plan_id", "keyword_plan"),
@@ -212,15 +310,17 @@ def build_import_preview(
         ("candidates", "candidate_id", "candidate"),
         ("gaps", "gap_id", "gap"),
     )
-    companion_lists = {key: _require_list(source, key) for key, _, _ in companion_categories}
-    failure = next((value for value in (*lists.values(), *companion_lists.values()) if isinstance(value, Failure)), None)
-    if failure is not None:
-        return failure
+    companion_lists: dict[str, list[dict[str, object]]] = {}
+    for key, _, _ in companion_categories:
+        companion_value = _require_list(source, key)
+        if isinstance(companion_value, Failure):
+            return companion_value
+        companion_lists[key] = companion_value
     nodes, edges, evidence, clues, dependencies, materials = (lists[key] for key in ("nodes", "edges", "evidence", "clues", "dependencies", "materials"))
     companions = [(item, id_field, category) for key, id_field, category in companion_categories
                   for item in companion_lists[key]]
 
-    records: dict[str, tuple[str, Mapping[str, Any]]] = {}
+    records: dict[str, tuple[str, Mapping[str, object]]] = {}
     for record, id_field, category in [
         *((item, "节点ID", "node") for item in nodes),
         *((item, "边ID", "judgment") for item in edges),
@@ -268,9 +368,10 @@ def build_import_preview(
         return BoundRef(ElementRef(project_key, module_id, namespace, type_id, identity), revision_by_id[identity])
 
     elements: list[Element] = []
-    extension: dict[str, Any] = {}
+    extension: dict[str, object] = {}
+    discontinuities: list[dict[str, object]] = []
     for identity, (category, raw) in records.items():
-        attrs: dict[str, Any] = {}
+        attrs: dict[str, object] = {}
         endpoints: list[Endpoint] = []
         if category == "node":
             attrs = {"source_type": raw["类型"], "name": raw["名称"]}
@@ -278,13 +379,22 @@ def build_import_preview(
                 if key in raw:
                     attrs[target] = raw[key]
         elif category == "judgment":
+            judgment_pools = _source_array(raw.get("池", []), "池")
+            relation_classes = _source_array(raw["关系类"], "关系类")
+            evidence_ids = _source_array(raw["证据ID"], "证据ID")
+            if isinstance(judgment_pools, Failure):
+                return judgment_pools
+            if isinstance(relation_classes, Failure):
+                return relation_classes
+            if isinstance(evidence_ids, Failure):
+                return evidence_ids
             attrs = {"edge_type": raw["边类型"], "judgment": raw["判断"], "scope": raw["范围"],
                      "judgment_version": raw["判断版本"], "outline_section": str(raw["大纲节"]),
-                     "pools": list(raw.get("池", [])), "relation_classes": list(raw["关系类"]),
-                     "evidence_ids": list(raw["证据ID"]), "from_id": raw["从"], "to_id": raw["到"]}
+                     "pools": judgment_pools, "relation_classes": relation_classes,
+                     "evidence_ids": evidence_ids, "from_id": raw["从"], "to_id": raw["到"]}
             for role, source_key in (("from", "从"), ("to", "到")):
                 target_id = raw[source_key]
-                if target_id not in records:
+                if not isinstance(target_id, str) or target_id not in records:
                     return topology_failures.fail("UNRESOLVABLE_REFERENCE", "edge endpoint is absent", {"id": target_id})
                 endpoints.append(Endpoint(role, bound(target_id)))
             for key, target in (("中介状态", "mediation_status"), ("注册", "registration"), ("修订自", "semantic_successor_of")):
@@ -300,15 +410,15 @@ def build_import_preview(
                      "upstream_material_ids": [raw["上游材料ID"]] if raw.get("上游材料ID") else [],
                      "conflicting_evidence_ids": [raw["冲突证据ID"]] if raw.get("冲突证据ID") else []}
             for role, target_id in (("judgment", raw["边ID"]), ("material", raw["材料ID"])):
-                if target_id not in records:
+                if not isinstance(target_id, str) or target_id not in records:
                     return topology_failures.fail("UNRESOLVABLE_REFERENCE", "evidence reference is absent", {"id": target_id})
                 endpoints.append(Endpoint(role, bound(target_id)))
             failure = validate_evidence_v2(attrs)
             if failure:
                 return failure
         elif category == "clue":
-            order = raw["顺序"]
-            if not isinstance(order, list):
+            order = _runtime_value(raw["顺序"])
+            if not _is_object_list(order):
                 return topology_failures.fail("INVALID_WIRE_FORMAT", "clue 顺序 must be an ordered array")
             invalidated = _source_yes_no(raw.get("作废", False), "作废")
             gate_skipped = _source_yes_no(raw.get("门禁跳过", False), "门禁跳过")
@@ -325,10 +435,10 @@ def build_import_preview(
                      "gate_skipped": gate_skipped, "skip_reason": raw.get("跳过理由", ""),
                      "closing_note": raw.get("收束说明", ""), "scene_label": raw["现场"]}
             for position, target_id in enumerate(order):
-                if target_id not in records:
+                if not isinstance(target_id, str) or target_id not in records:
                     # Discontinuities are source structure, not unresolved element refs.
                     if isinstance(target_id, str) and target_id.startswith("断口:"):
-                        extension.setdefault("discontinuities", []).append({"clue_id": identity, "position": position, "id": target_id})
+                        discontinuities.append({"clue_id": identity, "position": position, "id": target_id})
                         continue
                     return topology_failures.fail("UNRESOLVABLE_REFERENCE", "clue order reference is absent", {"id": target_id})
                 endpoints.append(Endpoint("item", bound(target_id), position))
@@ -336,7 +446,7 @@ def build_import_preview(
             attrs = {"dependency_id": identity, "broken": raw["断否"] == "是"}
             for role, source_key in (("before", "先"), ("after", "后")):
                 target_id = raw[source_key]
-                if target_id not in records:
+                if not isinstance(target_id, str) or target_id not in records:
                     return topology_failures.fail("UNRESOLVABLE_REFERENCE", "dependency reference is absent", {"id": target_id})
                 endpoints.append(Endpoint(role, bound(target_id)))
         elif category == "material":
@@ -385,22 +495,34 @@ def build_import_preview(
         elif category == "attempt":
             result = {"命中": "hit", "未命中": "miss", "访问失败": "access_failed",
                       "偏题": "off_topic"}.get(str(raw["result"]), str(raw["result"]))
+            source_ids = _source_array(raw.get("source_ids", []), "source_ids")
+            material_ids = _source_array(raw.get("material_ids", []), "material_ids")
+            if isinstance(source_ids, Failure):
+                return source_ids
+            if isinstance(material_ids, Failure):
+                return material_ids
             attrs = {"attempt_id": raw["attempt_id"], "query_id": str(raw["query_id"]),
                      "round_id": str(raw["round_id"]), "clue_key": str(raw["clue_key"]),
                      "executed_at": str(raw["executed_at"]), "tool": str(raw["tool"]),
                      "actual_query": str(raw["actual_query"]), "result": result,
-                     "source_ids": list(raw.get("source_ids", [])), "material_ids": list(raw.get("material_ids", [])),
+                     "source_ids": source_ids, "material_ids": material_ids,
                      "next_step": str(raw.get("next_step", "")), "result_note": str(raw.get("result_note", "")),
                      "raw_return_location": str(raw.get("raw_return_location", ""))}
         elif category == "candidate":
+            warnings = _source_array(raw.get("warnings", []), "warnings")
+            conflict_records = _source_array(raw.get("conflict_records", []), "conflict_records")
+            if isinstance(warnings, Failure):
+                return warnings
+            if isinstance(conflict_records, Failure):
+                return conflict_records
             attrs = {"candidate_kind": str(raw["candidate_kind"]), "status": str(raw.get("status", "candidate")),
                      "source_note": str(raw.get("source_note", "")), "authority": str(raw.get("authority", "discovery")),
-                     "warnings": list(raw.get("warnings", [])), "conflict_records": list(raw.get("conflict_records", []))}
-            targets = raw.get("refers_to", [])
-            if not isinstance(targets, list):
+                     "warnings": warnings, "conflict_records": conflict_records}
+            targets = _runtime_value(raw.get("refers_to", []))
+            if not _is_object_list(targets):
                 return topology_failures.fail("INVALID_WIRE_FORMAT", "candidate refers_to must be an array")
             for target_id in targets:
-                if target_id not in records:
+                if not isinstance(target_id, str) or target_id not in records:
                     return topology_failures.fail("UNRESOLVABLE_REFERENCE", "candidate target is absent", {"id": target_id})
                 endpoints.append(Endpoint("refers_to", bound(target_id)))
         elif category == "gap":
@@ -410,12 +532,11 @@ def build_import_preview(
         elements.append(Element(bound(identity), attrs, tuple(endpoints)))
 
     # Keep exact owner records and companion documents outside the constrained profile.
+    if discontinuities:
+        extension["discontinuities"] = discontinuities
     extension["source_graph"] = dict(graph)
     extension["materials"] = materials
-    extension["source_companions"] = {
-        key: _require_list(source, key)
-        for key in ("source_routes", "keyword_plans", "source_registry", "attempts", "candidates", "gaps")
-    }
+    extension["source_companions"] = dict(companion_lists)
     extension["unresolved_material_refs"] = [
         {"material_id": material_id, "evidence_ids": evidence_ids, "status": "unresolved_reference"}
         for material_id, evidence_ids in sorted(unresolved_material_refs.items())
@@ -424,13 +545,12 @@ def build_import_preview(
         extension["report_ref"] = dict(report_ref)
     if report_body is not None:
         extension["report_body"] = report_body
-    original_files = source.get("original_files", {})
-    if not isinstance(original_files, Mapping) or any(
-        not isinstance(path, str) or not isinstance(body, str) for path, body in original_files.items()
-    ):
+    original_files = _string_object_mapping(source.get("original_files", {}))
+    if original_files is None or any(not isinstance(body, str) for body in original_files.values()):
         return topology_failures.fail("INVALID_WIRE_FORMAT", "original_files must map source paths to exact text")
-    extension["original_files"] = dict(original_files)
-    extension["source_extensions"] = dict(source.get("extensions", {})) if isinstance(source.get("extensions", {}), Mapping) else {}
+    extension["original_files"] = original_files
+    source_extensions = _string_object_mapping(source.get("extensions", {}))
+    extension["source_extensions"] = source_extensions if source_extensions is not None else {}
     elements.append(domain_vocabulary_element(vocabulary))
     if report_body is not None and report_ref is not None:
         report_path = report_ref.get("path")
@@ -460,71 +580,103 @@ def build_import_preview(
 
 
 def export_retrieval_bundle(
-    *, state: TopologyState, provenance: Mapping[str, Any],
-) -> dict[str, Any] | Failure:
+    *, state: TopologyState, provenance: Mapping[str, object],
+) -> dict[str, object] | Failure:
     """Export preserved originals plus current DB state and explicit extensions.
 
     Unknown MRW fields live in ``mrw-extension.json``. The original source graph
     remains unmodified as an owner artifact; edits are represented in the
     canonical topology payload until the source owner applies them.
     """
-    original = provenance.get("original")
-    if not isinstance(original, Mapping) or not isinstance(original.get("source_graph"), Mapping):
+    original = _string_object_mapping(provenance.get("original"))
+    if original is None:
         return topology_failures.fail("INVALID_WIRE_FORMAT", "stored source provenance is absent")
-    graph = json.loads(json.dumps(original["source_graph"], ensure_ascii=False))
+    source_graph = _string_object_mapping(original.get("source_graph"))
+    if source_graph is None:
+        return topology_failures.fail("INVALID_WIRE_FORMAT", "stored source provenance is absent")
+    graph = _string_object_mapping(json.loads(json.dumps(source_graph, ensure_ascii=False)))
+    if graph is None:
+        return topology_failures.fail("INVALID_WIRE_FORMAT", "stored source graph is malformed")
     unchanged = provenance.get("initial_state_digest") == _state_digest(state)
     vocabulary_record = next((element for element in state.elements
         if element.ref.ref.type_id == "domain_vocabulary"), None)
-    vocabulary_attributes = vocabulary_record.attributes if vocabulary_record is not None else {}
+    vocabulary_attributes = (
+        _string_object_mapping(_runtime_value(vocabulary_record.attributes))
+        if vocabulary_record is not None else {}
+    )
+    if vocabulary_attributes is None:
+        return topology_failures.fail("INVALID_WIRE_FORMAT", "stored domain vocabulary is malformed")
     exported_vocabulary = {
         "域名": vocabulary_attributes.get("name"), "节点类型": vocabulary_attributes.get("node_types"),
         "边类型": vocabulary_attributes.get("edge_types"), "问题意识视角": vocabulary_attributes.get("perspectives"),
         "大纲节": vocabulary_attributes.get("outline_sections"), "池": vocabulary_attributes.get("pools"),
         "档": vocabulary_attributes.get("grades"),
     } if vocabulary_record is not None else None
-    stored_source_ref = vocabulary_attributes.get("source_ref", {})
+    stored_source_ref = _string_object_mapping(vocabulary_attributes.get("source_ref", {}))
+    if vocabulary_record is not None and (
+        stored_source_ref is None
+        or any(key not in stored_source_ref for key in (
+            "project_key", "module_id", "namespace", "type_id", "local_id"
+        ))
+    ):
+        return topology_failures.fail("INVALID_WIRE_FORMAT", "stored domain source reference is malformed")
     exported_domain_source_ref = {
         "ref": {key: stored_source_ref[key] for key in
             ("project_key", "module_id", "namespace", "type_id", "local_id")},
         "observed_revision": stored_source_ref.get("observed_revision"),
         "content_digest": stored_source_ref.get("content_digest"),
-    } if vocabulary_record is not None else None
+    } if vocabulary_record is not None and stored_source_ref is not None else None
     if not unchanged:
         if vocabulary_record is not None:
-            value = vocabulary_record.attributes
             domain_source_ref = exported_domain_source_ref
-            companions = original.get("source_companions", {})
+            companions = _string_object_mapping(original.get("source_companions", {}))
+            if companions is None:
+                return topology_failures.fail("INVALID_WIRE_FORMAT", "stored source companions are malformed")
             first_ref = state.elements[0].ref.ref
-            source = {
+            source: dict[str, object] = {
                 "namespace": first_ref.namespace,
                 "storage_state_id": "provenance-check",
                 "source_revision": provenance.get("source_revision", "unknown"),
                 "domain_vocabulary": exported_vocabulary,
                 "domain_source_ref": domain_source_ref,
-                "graph": original["source_graph"], "materials": original.get("materials", []),
+                "graph": source_graph, "materials": original.get("materials", []),
                 "original_files": original.get("original_files", {}),
                 "extensions": original.get("source_extensions", {}),
                 **{key: companions.get(key, []) for key in
                     ("source_routes", "keyword_plans", "source_registry", "attempts", "candidates", "gaps")},
             }
-            if original.get("report_body") is not None:
-                source["report_body"] = original["report_body"]
-            if original.get("report_ref") is not None:
-                source["report_ref"] = original["report_ref"]
+            report_body_value = original.get("report_body")
+            if report_body_value is not None:
+                if not isinstance(report_body_value, str):
+                    return topology_failures.fail("INVALID_WIRE_FORMAT", "stored report body must be text")
+                source["report_body"] = report_body_value
+            report_ref_value = original.get("report_ref")
+            report_ref_mapping = _string_object_mapping(report_ref_value) if report_ref_value is not None else None
+            if report_ref_value is not None and report_ref_mapping is None:
+                return topology_failures.fail("INVALID_WIRE_FORMAT", "stored report reference is malformed")
+            if report_ref_mapping is not None:
+                source["report_ref"] = report_ref_mapping
             vocabulary = resolve_domain_vocabulary(first_ref.project_key, source)
             if not isinstance(vocabulary, Failure):
                 expected = build_import_preview(project_key=first_ref.project_key,
                     module_id=first_ref.module_id, namespace=first_ref.namespace,
-                    source=source, vocabulary=vocabulary, report_body=source.get("report_body"),
-                    report_ref=source.get("report_ref"))
+                    source=source, vocabulary=vocabulary, report_body=report_body_value,
+                    report_ref=report_ref_mapping)
                 unchanged = not isinstance(expected, Failure) and _state_digest(expected.state) == _state_digest(state)
     elements = {element.ref.ref.local_id: element for element in state.elements}
     graph_rows = (("节点", "node:"), ("边", "judgment"), ("证据", "evidence"), ("线索", "clue"),
                   ("依赖", "logical_dependency"))
-    for collection, type_prefix in (() if unchanged else graph_rows):
-        for row in graph.get(collection, []):
+    discontinuities = _require_list(original, "discontinuities")
+    if isinstance(discontinuities, Failure):
+        return discontinuities
+    for collection, _type_prefix in (() if unchanged else graph_rows):
+        rows = _require_list(graph, collection)
+        if isinstance(rows, Failure):
+            return rows
+        for row in rows:
             identity_key = {"节点": "节点ID", "边": "边ID", "证据": "证据ID", "线索": "线索ID", "依赖": "依赖ID"}[collection]
-            current = elements.get(row.get(identity_key))
+            row_identity = row.get(identity_key)
+            current = elements.get(row_identity) if isinstance(row_identity, str) else None
             if current is None:
                 continue
             attrs = current.attributes
@@ -558,23 +710,43 @@ def export_retrieval_bundle(
                     endpoint.position: endpoint.target.ref.local_id
                     for endpoint in current.endpoints if endpoint.role == "item" and endpoint.position is not None
                 }
-                for gap in original.get("discontinuities", []):
+                for gap in discontinuities:
                     if gap.get("clue_id") == row.get(identity_key):
-                        order[int(gap["position"])] = str(gap["id"])
+                        position_value = gap.get("position")
+                        if not isinstance(position_value, (int, str)):
+                            return topology_failures.fail("INVALID_WIRE_FORMAT", "stored discontinuity position is malformed")
+                        order[int(position_value)] = str(gap["id"])
                 row["顺序"] = [order[position] for position in sorted(order)]
             elif collection == "依赖":
                 row["断否"] = "是" if attrs.get("broken") else "否"
+        graph[collection] = rows
+    materials = _source_array(original.get("materials", []), "stored materials")
+    unresolved_material_refs = _source_array(
+        original.get("unresolved_material_refs", []), "stored unresolved_material_refs"
+    )
+    source_companions = _string_object_mapping(original.get("source_companions", {}))
+    original_files = _string_object_mapping(original.get("original_files", {}))
+    source_extensions = _string_object_mapping(original.get("source_extensions", {}))
+    loss = _source_array(provenance.get("loss", []), "stored loss")
+    if isinstance(materials, Failure):
+        return materials
+    if isinstance(unresolved_material_refs, Failure):
+        return unresolved_material_refs
+    if source_companions is None or original_files is None or source_extensions is None:
+        return topology_failures.fail("INVALID_WIRE_FORMAT", "stored source mappings are malformed")
+    if isinstance(loss, Failure):
+        return loss
     return {
         "format": "retrieval-source-bundle.v1",
         "domain_vocabulary": exported_vocabulary,
         "domain_source_ref": exported_domain_source_ref,
         "source_graph": graph,
-        "materials": list(original.get("materials", [])),
-        "source_companions": dict(original.get("source_companions", {})),
-        "unresolved_material_refs": list(original.get("unresolved_material_refs", [])),
+        "materials": materials,
+        "source_companions": source_companions,
+        "unresolved_material_refs": unresolved_material_refs,
         "report_body": original.get("report_body"),
         "report_ref": original.get("report_ref"),
-        "original_files": dict(original.get("original_files", {})),
+        "original_files": original_files,
         "topology": {
             "profile_id": state.profile_id, "profile_version": state.profile_version,
             "elements": [{"ref": {"ref": {
@@ -590,13 +762,13 @@ def export_retrieval_bundle(
                         "content_digest": ep.target.content_digest}} for ep in item.endpoints]}
                 for item in state.elements],
         },
-        "mrw-extension.json": {"source_extensions": dict(original.get("source_extensions", {})),
-                                "loss": list(provenance.get("loss", [])),
+        "mrw-extension.json": {"source_extensions": source_extensions,
+                                "loss": loss,
                                 "topology_edits_require_source_owner_apply": True},
     }
 
 
-def export_retrieval_directory(destination: str | Path, bundle: Mapping[str, Any]) -> Path:
+def export_retrieval_directory(destination: str | Path, bundle: Mapping[str, object]) -> Path:
     """Write a new export directory without ever replacing source-owned files."""
     root = Path(destination)
     root.mkdir(parents=True, exist_ok=False)
@@ -618,7 +790,13 @@ def export_retrieval_directory(destination: str | Path, bundle: Mapping[str, Any
         if report_ref is not None:
             (root / "报告来源绑定.json").write_text(
                 json.dumps(report_ref, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-        for relative, body in bundle.get("original_files", {}).items():
+        original_files = _original_file_texts(bundle.get("original_files", {}))
+        if isinstance(original_files, Failure):
+            error = ValueError(original_files.message)
+            setattr(error, "topology_failure", original_files)
+            # kit:boundary owner=information_topology.io.retrieval.export_retrieval_directory.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=information_topology witness=test:test_export_retrieval_directory_rejects_invalid_original_paths
+            raise error
+        for relative, body in original_files.items():
             path = PurePosixPath(relative)
             if path.is_absolute() or not path.parts or any(part in {"", ".", ".."} for part in path.parts):
                 # kit:boundary owner=information_topology.io.retrieval.export_retrieval_directory.invalid_source_path class=PROGRAMMER_DEFECT failure_family=none witness=test:test_export_retrieval_directory_rejects_invalid_original_paths
@@ -641,9 +819,9 @@ def export_retrieval_directory(destination: str | Path, bundle: Mapping[str, Any
 class RetrievalStructureIO:
     """P06-compatible port implementation; caller injects its DB session factory."""
 
-    def __init__(self, *, vocabulary_resolver: Callable[[str, Mapping[str, Any]], DomainVocabulary | Failure] | None = None,
+    def __init__(self, *, vocabulary_resolver: Callable[[str, Mapping[str, object]], DomainVocabulary | Failure] | None = None,
                  store: RetrievalTopologyStore,
-                 session_factory, profiles: Mapping[tuple[str, str], ProfileSpec] | None = None,
+                 session_factory: Callable[[], Session], profiles: Mapping[tuple[str, str], ProfileSpec] | None = None,
                  material_binder: Callable[[Session, TopologyState], TopologyState | Failure] | None = None):
         self.vocabulary_resolver = vocabulary_resolver or resolve_domain_vocabulary
         self.store = store
@@ -651,7 +829,9 @@ class RetrievalStructureIO:
         self.profiles = profiles
         self.material_binder = material_binder
 
-    def import_structure(self, *, project_key: str, module_id: str, source: Mapping[str, Any]) -> Any:
+    def import_structure(
+        self, *, project_key: str, module_id: str, source: Mapping[str, object]
+    ) -> dict[str, object] | Failure:
         vocabulary = self.vocabulary_resolver(project_key, source)
         if isinstance(vocabulary, Failure):
             return vocabulary
@@ -670,10 +850,17 @@ class RetrievalStructureIO:
         )
         if isinstance(binding, Failure):
             return binding
+        report_body_value = source.get("report_body")
+        if report_body_value is not None and not isinstance(report_body_value, str):
+            return topology_failures.fail("INVALID_WIRE_FORMAT", "report_body must be text")
+        report_ref_value = source.get("report_ref")
+        report_ref = _string_object_mapping(report_ref_value) if report_ref_value is not None else None
+        if report_ref_value is not None and report_ref is None:
+            return topology_failures.fail("INVALID_WIRE_FORMAT", "report_ref must be an object")
         preview = build_import_preview(project_key=project_key, module_id=module_id,
             namespace=str(source.get("namespace", "retrieval")), source=source,
             vocabulary=binding.semantics, semantic_binding=binding,
-            report_body=source.get("report_body"), report_ref=source.get("report_ref"))
+            report_body=report_body_value, report_ref=report_ref)
         if isinstance(preview, Failure):
             return preview
         with self.session_factory() as session:
@@ -682,7 +869,8 @@ class RetrievalStructureIO:
                 if isinstance(existing, Failure):
                     return existing
                 if existing is not None:
-                    prior_digest = (existing.get("provenance") or {}).get("source_digest")
+                    existing_provenance = _string_object_mapping(existing.get("provenance"))
+                    prior_digest = existing_provenance.get("source_digest") if existing_provenance is not None else None
                     if prior_digest != preview.source_digest:
                         return topology_failures.fail("SOURCE_CHANGED", "source identity already exists with changed content")
                     return {"accepted": True, "idempotent": True, "revision": existing["revision"],
@@ -706,20 +894,32 @@ class RetrievalStructureIO:
                 return {"accepted": True, "idempotent": False, "revision": result[0]["revision"],
                         "state_id": preview.state_key[3], "loss": list(preview.loss)}
 
-    def export_structure(self, *, project_key: str, target: Mapping[str, Any], format: str) -> Any:
+    def export_structure(
+        self, *, project_key: str, target: Mapping[str, object], format: str
+    ) -> dict[str, object] | Failure:
         if format != "retrieval-source-bundle.v1":
             return topology_failures.fail("INVALID_STRUCTURE", "unsupported retrieval export format")
         key = (project_key, str(target["module_id"]), str(target["namespace"]), str(target["state_id"]))
         with self.session_factory() as session:
             row = self.store.read(session, key)
+        if isinstance(row, Failure):
+            return row
         if row is None or row.get("deleted"):
             return topology_failures.fail("NOT_FOUND", "retrieval topology state was not found")
-        profile = (self.profiles or {}).get((row["profile_id"], row["profile_version"]))
+        profile_id = row["profile_id"]
+        profile_version = row["profile_version"]
+        if not isinstance(profile_id, str) or not isinstance(profile_version, str):
+            return topology_failures.fail("INVALID_WIRE_FORMAT", "stored topology profile identity is malformed")
+        payload = row["payload"]
+        profile = (self.profiles or {}).get((profile_id, profile_version))
         if profile is None:
-            profile = profile_from_state_payload(project_key, row["profile_id"], row["profile_version"], row["payload"])
+            profile = profile_from_state_payload(project_key, profile_id, profile_version, payload)
             if isinstance(profile, Failure):
                 return profile
-        state = decode_state(profile, row["payload"])
+        state = decode_state(profile, payload)
         if isinstance(state, Failure):
             return state
-        return export_retrieval_bundle(state=state, provenance=row.get("provenance") or {})
+        provenance = _string_object_mapping(row.get("provenance"))
+        if provenance is None:
+            provenance = {}
+        return export_retrieval_bundle(state=state, provenance=provenance)

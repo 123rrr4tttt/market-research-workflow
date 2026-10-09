@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, NoReturn
+from typing import NoReturn, TypeGuard
 
 from functorial_kit import Failure
 from mrw_functorial_kit.core.application_failure_semantics import source_library_contract_failures
@@ -50,6 +50,14 @@ _PROVIDER_BINDINGS: dict[str, dict[str, str]] = {
 _FAILURE_WITNESS = "test:test_w01_source_export_failures"
 
 
+def _is_object(value: object) -> TypeGuard[dict[str, object]]:
+    return isinstance(value, dict)
+
+
+def _object(value: object) -> dict[str, object]:
+    return dict(value) if _is_object(value) else {}
+
+
 def _provider_failure(code: str, message: str, *, site: str) -> Failure:
     return source_library_contract_failures.fail(
         code,
@@ -95,7 +103,7 @@ def list_external_project_provider_bindings() -> list[dict[str, str]]:
     ]
 
 
-def resolve_external_project_provider_binding(manifest: dict[str, Any] | None) -> dict[str, Any]:
+def resolve_external_project_provider_binding(manifest: dict[str, object] | None) -> dict[str, object]:
     payload = dict(manifest or {})
     execution_mode = str(payload.get("execution_mode") or "").strip().lower()
     binding = _PROVIDER_BINDINGS.get(execution_mode)
@@ -108,10 +116,10 @@ def resolve_external_project_provider_binding(manifest: dict[str, Any] | None) -
             )
         )
 
-    capabilities = payload.get("capabilities") if isinstance(payload.get("capabilities"), dict) else {}
-    accepted_inputs = payload.get("accepted_inputs") if isinstance(payload.get("accepted_inputs"), dict) else {}
-    normalization = payload.get("normalization") if isinstance(payload.get("normalization"), dict) else {}
-    runtime_config = payload.get("runtime_config") if isinstance(payload.get("runtime_config"), dict) else {}
+    capabilities = _object(payload.get("capabilities"))
+    accepted_inputs = _object(payload.get("accepted_inputs"))
+    normalization = _object(payload.get("normalization"))
+    runtime_config = _object(payload.get("runtime_config"))
     return {
         "registry_version": EXTERNAL_PROJECT_PROVIDER_REGISTRY_VERSION,
         "execution_mode": execution_mode,

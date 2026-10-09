@@ -8,7 +8,7 @@ redispatch the original effect or manufacture success from lease expiry.
 from __future__ import annotations
 
 from enum import StrEnum
-from typing import Protocol
+from typing import NoReturn, Protocol
 
 from functorial_kit import Failure
 
@@ -30,6 +30,10 @@ class ReconciliationError(RuntimeError):
     """An exact recovery binding or authoritative observation is invalid."""
 
 
+def _runtime_value(value: object) -> object:
+    return value
+
+
 def _reconciliation_failure(
     code: str,
     message: object,
@@ -49,7 +53,7 @@ def _raise_reconciliation_failure(
     *,
     site: str,
     cause: BaseException | None = None,
-) -> None:
+) -> NoReturn:
     """Lift typed reconciliation evidence to the existing exception ABI."""
 
     raise_runtime_failure(
@@ -245,7 +249,7 @@ class EffectReconciler:
     ) -> ReconciliationResult:
         self._require_exact_recovery_binding(assignment, attempt, interpreter)
         readback = interpreter.readback(attempt)
-        if not isinstance(readback, AuthoritativeEffectReadback):
+        if not isinstance(_runtime_value(readback), AuthoritativeEffectReadback):
             _raise_reconciliation_failure(
                 "RECONCILIATION_READBACK_INVALID",
                 "interpreter readback did not return authoritative typed evidence",
@@ -303,7 +307,7 @@ class EffectReconciler:
             return _reconciliation_failure(
                 "RECONCILIATION_READBACK_INVALID",
                 str(exc),
-                type(exc) if isinstance(exc, Exception) else RuntimeError,
+                type(exc),
                 site="runtime.reconciliation.reconcile.readback",
             )
 
@@ -411,7 +415,7 @@ class EffectReconciler:
             return _reconciliation_failure(
                 "NON_START_PROOF_INVALID",
                 str(exc),
-                type(exc) if isinstance(exc, Exception) else RuntimeError,
+                type(exc),
                 site="runtime.reconciliation.prove_non_start.proof",
             )
 

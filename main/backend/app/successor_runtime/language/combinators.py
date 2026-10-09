@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Annotated, Any
+from typing import Annotated, Any, NoReturn
 
 from functorial_kit import Failure
 
@@ -37,8 +38,8 @@ from .algebra import (
     freeze_json_object,
 )
 from .object_contracts import (
-    _failure as language_failure,
-    _raise_failure as raise_language_failure,
+    language_failure,
+    raise_language_failure,
 )
 from .program import (
     DecisionBranch,
@@ -59,6 +60,7 @@ from .transforms import (
     DiscriminatorRef,
     MergeRef,
     TransformRef,
+    TransformReference,
     TransformRegistry,
 )
 
@@ -73,35 +75,32 @@ class Registries:
     discriminators: TransformRegistry
 
 
-def _material_ref_merge(
-    left: Any,
-    right: Any,
-) -> dict:
+def _material_ref_merge(left: object, right: object) -> dict[str, object]:
     return {"materials": [left, right]}
 
 
-def _material_to_qualification_input(material: Any) -> dict:
+def _material_to_qualification_input(material: object) -> dict[str, object]:
     return {
         "material_ref": material,
         "inquiry_ref": "inquiry:first-specimen",
     }
 
 
-def _qualification_pair_merge(left: Any, right: Any) -> dict:
+def _qualification_pair_merge(left: object, right: object) -> dict[str, object]:
     return {"evidence_qualifications": [left, right]}
 
 
-def _claim_outcome_transform(outcome: Any) -> dict:
+def _claim_outcome_transform(outcome: Mapping[str, object]) -> dict[str, object]:
     return dict(outcome)
 
 
-def _outcome_discriminator(outcome: Any) -> str:
+def _outcome_discriminator(outcome: Mapping[str, object]) -> str:
     if outcome.get("kind") == "claim":
         return "claim"
     return "gap"
 
 
-def _artifact_to_delivery_intent(artifact: Any) -> dict:
+def _artifact_to_delivery_intent(artifact: object) -> dict[str, object]:
     return {
         "delivery_intent_id": "delivery-intent:first-specimen",
         "artifact_ref": artifact,
@@ -142,7 +141,7 @@ def register_first_specimen_transforms(
     evidence_bundle_type: ObjectType,
     outcome_type: ObjectType,
     program_output_type: ObjectType,
-) -> "tuple[TransformRef, ...]":
+) -> "tuple[TransformReference, ...]":
     merge_ref = registries.merges.register_merge(
         name="mrw.first_specimen.material_merge",
         version="1",
@@ -184,7 +183,7 @@ def _spec(
     project_registry_revision: int,
     metadata: FrozenJsonObject,
     algebra_refs: "tuple[AlgebraRef, ...]",
-    transform_refs: "tuple[TransformRef, ...]",
+    transform_refs: "tuple[TransformReference, ...]",
 ) -> ProgramSpec:
     return ProgramSpec(
         program_id=program_id,
@@ -215,7 +214,7 @@ def _common(
     contract_version: str,
     project_registry_revision: int,
     metadata: "dict[str, Any] | None",
-    transform_refs: "tuple[TransformRef, ...]",
+    transform_refs: "tuple[TransformReference, ...]",
 ) -> ProgramSpec:
     return _spec(
         root=root,
@@ -773,7 +772,7 @@ def _failure_argument(error: Exception) -> object:
     return error.args[0] if len(error.args) == 1 else str(error)
 
 
-def _lift_combinator_failure(failure: Failure) -> None:
+def _lift_combinator_failure(failure: Failure) -> NoReturn:
     exception_name = str((failure.context or {}).get("public_exception") or "")
     exception_type = {"ValueError": ValueError, "TypeError": TypeError}.get(
         exception_name
@@ -920,6 +919,10 @@ FIRST_SPECIMEN_GAP_MATERIALIZER_ID = "mrw.first_specimen.gap-successor"
 FIRST_SPECIMEN_GAP_MATERIALIZER_VERSION = "1.0.0"
 
 
+def _runtime_value(value: object) -> object:
+    return value
+
+
 def _materialize_first_specimen_gap_successor(
     *,
     predecessor_program: ProgramSpec,
@@ -940,7 +943,7 @@ def _materialize_first_specimen_gap_successor(
     ProgramSpec.
     """
 
-    if not isinstance(gap, Gap):
+    if not isinstance(_runtime_value(gap), Gap):
         # kit:boundary owner=successor.language.combinators.domain class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_language_a
         raise TypeError("first-specimen successor materializer requires a typed Gap")
     if not successor_intent_ref:
@@ -968,64 +971,68 @@ def _materialize_first_specimen_gap_successor(
     )
     materialization_id = f"successor-materialization:sha256:{materialization_digest}"
     gap_id = gap.gap_id
-    inquiry_content = {
-        "inquiry_id": f"inquiry:successor:sha256:{materialization_digest}",
+    inquiry_id = f"inquiry:successor:sha256:{materialization_digest}"
+    question_or_hypothesis = gap.reason or "resolve the predecessor evidence gap"
+    acceptance_conditions = (gap.closure_condition,)
+    stop_conditions = ("claim or an exact successor Gap is admitted",)
+    inquiry_content: dict[str, object] = {
+        "inquiry_id": inquiry_id,
         # A Gap is the source of an ``opens`` relation.  It is not a
         # ResearchIntent and must never be smuggled into ``intent_ref``.
         "intent_ref": successor_intent_ref,
-        "question_or_hypothesis": gap.reason or "resolve the predecessor evidence gap",
-        "acceptance_conditions": [gap.closure_condition],
-        "stop_conditions": [
-            "claim or an exact successor Gap is admitted",
-        ],
+        "question_or_hypothesis": question_or_hypothesis,
+        "acceptance_conditions": acceptance_conditions,
+        "stop_conditions": stop_conditions,
         "uncertainty_ceiling": "explicit",
     }
-    inquiry_payload = {
+    inquiry_digest = research_sha256_hex(inquiry_content)
+    inquiry_payload: dict[str, object] = {
         **inquiry_content,
-        "content_digest": research_sha256_hex(inquiry_content),
+        "content_digest": inquiry_digest,
     }
     inquiry = Inquiry(
-        inquiry_id=inquiry_payload["inquiry_id"],
-        intent_ref=inquiry_payload["intent_ref"],
-        question_or_hypothesis=inquiry_payload["question_or_hypothesis"],
-        acceptance_conditions=tuple(inquiry_payload["acceptance_conditions"]),
-        stop_conditions=tuple(inquiry_payload["stop_conditions"]),
-        uncertainty_ceiling=inquiry_payload["uncertainty_ceiling"],
-        content_digest=inquiry_payload["content_digest"],
+        inquiry_id=inquiry_id,
+        intent_ref=successor_intent_ref,
+        question_or_hypothesis=question_or_hypothesis,
+        acceptance_conditions=acceptance_conditions,
+        stop_conditions=stop_conditions,
+        uncertainty_ceiling="explicit",
+        content_digest=inquiry_digest,
     )
     work_item = PlanWorkItem(
         work_id=f"work:resolve-gap:sha256:{materialization_digest}",
         operator="resolve_or_narrow_gap",
     )
-    plan_content = {
-        "plan_id": f"research-plan:successor:sha256:{materialization_digest}",
+    plan_id = f"research-plan:successor:sha256:{materialization_digest}"
+    budget = {"successor_programs": 1}
+    replan_policy = {"mode": "open_gap", "source_gap_ref": gap_id}
+    plan_content: dict[str, object] = {
+        "plan_id": plan_id,
         "inquiry_ref": inquiry.inquiry_id,
         "work_items": [
             {
                 "work_id": work_item.work_id,
                 "operator": work_item.operator,
-                "depends_on": [],
+                "depends_on": (),
             }
         ],
-        "budget": {"successor_programs": 1},
+        "budget": budget,
         "deadline": None,
-        "replan_policy": {
-            "mode": "open_gap",
-            "source_gap_ref": gap_id,
-        },
+        "replan_policy": replan_policy,
     }
-    plan_payload = {
+    plan_digest = research_sha256_hex(plan_content)
+    plan_payload: dict[str, object] = {
         **plan_content,
-        "content_digest": research_sha256_hex(plan_content),
+        "content_digest": plan_digest,
     }
     research_plan = ResearchPlan(
-        plan_id=plan_payload["plan_id"],
-        inquiry_ref=plan_payload["inquiry_ref"],
+        plan_id=plan_id,
+        inquiry_ref=inquiry.inquiry_id,
         work_items=(work_item,),
-        budget=dict(plan_payload["budget"]),
+        budget=budget,
         deadline=None,
-        replan_policy=dict(plan_payload["replan_policy"]),
-        content_digest=plan_payload["content_digest"],
+        replan_policy=replan_policy,
+        content_digest=plan_digest,
     )
     root = then_node(
         pure_node(

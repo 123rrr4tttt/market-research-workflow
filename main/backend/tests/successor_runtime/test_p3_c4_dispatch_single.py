@@ -6,19 +6,21 @@ from dataclasses import dataclass
 
 import pytest
 
-from app.successor_runtime.capabilities import batch_task as c4
+from app.successor_runtime.capabilities import batch_business, batch_task as c4
 from app.successor_runtime.capabilities.batch_task_interpreters import (
     DispatchSingleBindingMismatch,
     build_successor_agent_batch_c4_dispatch_binding,
     require_exact_dispatch_single_binding,
 )
 from app.successor_runtime.capabilities.batch_task_program import (
+    build_batch_business_program,
     build_batch_task_single_dispatch_program,
     compile_batch_task_program,
 )
+from app.successor_runtime.capabilities.catalog import build_operation_catalog
 from app.successor_runtime.language.catalog import OperationContractCatalogSnapshot
 from app.successor_runtime.language.plan import ExecutionPlan
-from app.successor_runtime.language.program import ProgramSpec
+from app.successor_runtime.language.program import ProgramSpec, program_atoms
 
 from .p3_c4_fixture import (
     ordered_dispatch_program,
@@ -140,6 +142,63 @@ def test_ordered_dispatch_program_compiles_to_distinct_effect_steps() -> None:
     }
     metadata = dict(program.metadata)
     assert metadata["ordered_element_count"] == 2
+
+
+def test_batch_business_program_preserves_payload_order_and_last_item_metadata() -> None:
+    payload_a = _dispatch_payload()
+    payload_b = _dispatch_payload(dispatch_id="dispatch:batch-task:002")
+    contracts = (
+        c4.build_batch_task_single_dispatch_contract(),
+        batch_business.build_batch_business_wait_contract(),
+    )
+    catalog = build_operation_catalog(
+        contracts,
+        catalog_id="batch.business-ordered.v2",
+        catalog_version="2",
+    )
+
+    program = build_batch_business_program(
+        payloads=(payload_a, payload_b),
+        catalog=catalog,
+        program_id=PROGRAM_ID,
+        project_key=PROJECT_KEY,
+        project_registry_revision=REGISTRY_REVISION,
+        project_scope_digest=SCOPE_DIGEST,
+    )
+
+    operation_ids = tuple(
+        atom.operation.operation_id for atom in program_atoms(program.root)
+    )
+    assert operation_ids == (
+        f"{c4.DISPATCH_SINGLE_OPERATION_ID}:{payload_a.dispatch_id}",
+        f"{batch_business.BUSINESS_WAIT_KIND}:{payload_a.dispatch_id}",
+        f"{c4.DISPATCH_SINGLE_OPERATION_ID}:{payload_b.dispatch_id}",
+        f"{batch_business.BUSINESS_WAIT_KIND}:{payload_b.dispatch_id}",
+    )
+    assert program.program_id == PROGRAM_ID
+    assert dict(program.metadata)["ordered_element_count"] == 2
+
+
+def test_batch_business_program_rejects_empty_payloads_through_contract_lift() -> None:
+    contracts = (
+        c4.build_batch_task_single_dispatch_contract(),
+        batch_business.build_batch_business_wait_contract(),
+    )
+    catalog = build_operation_catalog(
+        contracts,
+        catalog_id="batch.business-ordered.v2",
+        catalog_version="2",
+    )
+
+    with pytest.raises(ValueError, match="business program requires at least one payload"):
+        build_batch_business_program(
+            payloads=(),
+            catalog=catalog,
+            program_id=PROGRAM_ID,
+            project_key=PROJECT_KEY,
+            project_registry_revision=REGISTRY_REVISION,
+            project_scope_digest=SCOPE_DIGEST,
+        )
 
 
 def test_dispatch_single_payload_codec_roundtrip_restores_item() -> None:

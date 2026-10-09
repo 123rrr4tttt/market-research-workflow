@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, NoReturn
 
 from fastapi import APIRouter, Query
 from pydantic import BaseModel, Field
@@ -19,7 +19,7 @@ from fastapi import HTTPException
 router = APIRouter(prefix="/keywords", tags=["keywords"])
 
 
-def _raise_mapped_error(exc: Exception) -> None:
+def _raise_mapped_error(exc: Exception) -> NoReturn:
     code, message, details = map_exception_to_error(exc)
     status_code = 400 if code == ErrorCode.INVALID_INPUT else 404 if code == ErrorCode.NOT_FOUND else 429 if code == ErrorCode.RATE_LIMITED else 502 if code in {ErrorCode.UPSTREAM_ERROR, ErrorCode.PARSE_ERROR} else 500
     raise HTTPException(
@@ -144,22 +144,22 @@ def get_keyword_history(
     except Exception as exc:  # noqa: BLE001
         _raise_mapped_error(exc)
     out = [
-        {
-            "id": int(r.id),
-            "keyword": r.keyword,
-            "normalized_keyword": r.normalized_keyword,
-            "search_count": int(r.search_count or 0),
-            "hit_count": int(r.hit_count or 0),
-            "inserted_count": int(r.inserted_count or 0),
-            "rejected_count": int(r.rejected_count or 0),
-            "last_status": r.last_status,
-            "last_source": r.last_source,
-            "last_source_domain": r.last_source_domain,
-            "last_filter_decision": r.last_filter_decision,
-            "first_seen_at": r.first_seen_at.isoformat() if r.first_seen_at else None,
-            "last_seen_at": r.last_seen_at.isoformat() if r.last_seen_at else None,
-            "extra": r.extra or {},
-        }
+        KeywordHistoryItem(
+            id=r.id,
+            keyword=r.keyword,
+            normalized_keyword=r.normalized_keyword,
+            search_count=r.search_count,
+            hit_count=r.hit_count,
+            inserted_count=r.inserted_count,
+            rejected_count=r.rejected_count,
+            last_status=r.last_status,
+            last_source=r.last_source,
+            last_source_domain=r.last_source_domain,
+            last_filter_decision=r.last_filter_decision,
+            first_seen_at=r.first_seen_at.isoformat() if r.first_seen_at else None,
+            last_seen_at=r.last_seen_at.isoformat() if r.last_seen_at else None,
+            extra=r.extra or {},
+        ).model_dump()
         for r in rows
     ]
     return success_response({"items": out, "total": len(out)})
@@ -175,19 +175,19 @@ def get_keyword_priors(
     except Exception as exc:  # noqa: BLE001
         _raise_mapped_error(exc)
     out = [
-        {
-            "id": int(r.id),
-            "keyword": r.keyword,
-            "normalized_keyword": r.normalized_keyword,
-            "prior_score": float(r.prior_score or 0),
-            "confidence": float(r.confidence or 0),
-            "source": r.source,
-            "enabled": bool(r.enabled),
-            "tags": list(r.tags or []),
-            "notes": r.notes,
-            "extra": r.extra or {},
-            "updated_at": r.updated_at.isoformat() if r.updated_at else None,
-        }
+        KeywordPriorItem(
+            id=r.id,
+            keyword=r.keyword,
+            normalized_keyword=r.normalized_keyword,
+            prior_score=float(r.prior_score),
+            confidence=float(r.confidence),
+            source=r.source,
+            enabled=r.enabled,
+            tags=r.tags or [],
+            notes=r.notes,
+            extra=r.extra or {},
+            updated_at=r.updated_at.isoformat() if r.updated_at else None,
+        ).model_dump()
         for r in rows
     ]
     return success_response({"items": out, "total": len(out)})
@@ -208,19 +208,18 @@ def post_keyword_prior_upsert(payload: KeywordPriorUpsertPayload):
         )
     except Exception as exc:  # noqa: BLE001
         _raise_mapped_error(exc)
-    return success_response(
-        {
-            "id": int(row.id),
-            "keyword": row.keyword,
-            "prior_score": float(row.prior_score or 0),
-            "confidence": float(row.confidence or 0),
-            "source": row.source,
-            "enabled": bool(row.enabled),
-            "tags": list(row.tags or []),
-            "notes": row.notes,
-            "updated_at": row.updated_at.isoformat() if row.updated_at else None,
-        }
+    result = KeywordPriorUpsertData(
+        id=row.id,
+        keyword=row.keyword,
+        prior_score=float(row.prior_score),
+        confidence=float(row.confidence),
+        source=row.source,
+        enabled=row.enabled,
+        tags=row.tags or [],
+        notes=row.notes,
+        updated_at=row.updated_at.isoformat() if row.updated_at else None,
     )
+    return success_response(result.model_dump())
 
 
 @router.get("/vectorization/candidates", response_model=KeywordVectorizationCandidatesEnvelope)

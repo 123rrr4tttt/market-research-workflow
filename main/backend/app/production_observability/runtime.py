@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 import math
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable
 
 # ruff: noqa: TRY003
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from threading import RLock
-from typing import Any, Literal
+from typing import Literal, TypeGuard
 
 from .config import (
     LOCAL_RUNTIME_ALERT_THRESHOLD_PROVENANCE,
@@ -45,6 +45,26 @@ RUNTIME_STATE_KEY = "production_observability_r7"
 RUNTIME_PROJECTION_CONTRACT_VERSION = "production.observability.runtime_projection.v1"
 
 
+def _empty_alert_states() -> dict[str, AlertState]:
+    return {}
+
+
+def _instance_of(value: object, expected_type: type[ProductionObservabilityConfig]) -> TypeGuard[ProductionObservabilityConfig]:
+    return isinstance(value, expected_type)
+
+
+def _is_runtime_health_snapshot(value: object) -> TypeGuard[RuntimeHealthSnapshot]:
+    return isinstance(value, RuntimeHealthSnapshot)
+
+
+def _is_http_status(value: object) -> TypeGuard[int]:
+    return isinstance(value, int) and not isinstance(value, bool)
+
+
+def _is_latency(value: object) -> TypeGuard[int | float]:
+    return not isinstance(value, bool) and isinstance(value, (int, float))
+
+
 @dataclass(frozen=True, slots=True)
 class CanaryRouteAdvice:
     canary_route_enabled: bool
@@ -59,7 +79,7 @@ class CanaryRouteAdvice:
         if self.derived_as != "advice":
             raise ObservabilityValueError("canary route derived_as must remain advice")
 
-    def to_dict(self) -> dict[str, Any]:
+    def to_dict(self) -> dict[str, object]:
         return asdict(self)
 
 
@@ -92,7 +112,7 @@ class RuntimeEvaluation:
         if self.canary_route.promotion_allowed is not self.decision.promotion_allowed:
             raise ObservabilityValueError("canary route advice must match promotion_allowed")
 
-    def to_dict(self) -> dict[str, Any]:
+    def to_dict(self) -> dict[str, object]:
         return {
             "projection_contract_version": self.projection_contract_version,
             "decision_contract_version": self.decision_contract_version,
@@ -109,7 +129,7 @@ class ProductionObservabilityController:
     config: ProductionObservabilityConfig
     _lock: RLock = field(default_factory=RLock, repr=False, compare=False)
     _alert_states: dict[str, AlertState] = field(
-        default_factory=dict,
+        default_factory=_empty_alert_states,
         repr=False,
         compare=False,
     )
@@ -118,7 +138,7 @@ class ProductionObservabilityController:
     _last_evaluation: RuntimeEvaluation | None = field(default=None, repr=False, compare=False)
 
     def __post_init__(self) -> None:
-        if not isinstance(self.config, ProductionObservabilityConfig):
+        if not _instance_of(self.config, ProductionObservabilityConfig):
             raise ObservabilityTypeError("controller requires parsed production observability config")
 
     def request_stop(
@@ -264,11 +284,10 @@ class ProductionObservabilityController:
         inferred from response bytes.
         """
 
-        if not isinstance(status_code, int) or isinstance(status_code, bool):
+        if not _is_http_status(status_code):
             raise ObservabilityTypeError("HTTP status_code must be an integer")
         if latency_seconds is not None and (
-            isinstance(latency_seconds, bool)
-            or not isinstance(latency_seconds, (int, float))
+            not _is_latency(latency_seconds)
             or not math.isfinite(float(latency_seconds))
             or latency_seconds < 0
         ):
@@ -288,7 +307,7 @@ class ProductionObservabilityController:
                 reason="SSE iterator failed",
                 observed_at=timestamp,
             )
-        values = (
+        request_values: list[tuple[MetricFamily, float, dict[str, str]]] = [
             (
                 MetricFamily.DOMAIN_REJECTION_RATE,
                 1.0 if status_code == 403 else 0.0,
@@ -310,10 +329,9 @@ class ProductionObservabilityController:
                 else 0.0,
                 {},
             ),
-        )
+        ]
         if latency_seconds is not None:
-            values = (
-                *values,
+            request_values.append(
                 (
                     MetricFamily.REQUEST_LATENCY_BREACH_RATE,
                     1.0 if latency_seconds >= LOCAL_RUNTIME_LATENCY_BREACH_SECONDS else 0.0,
@@ -324,6 +342,7 @@ class ProductionObservabilityController:
                     },
                 ),
             )
+        values = tuple(request_values)
         observations = tuple(
             make_observation(
                 observation_id=f"{observation_id}:{family.value}",
@@ -359,7 +378,7 @@ class ProductionObservabilityController:
         declared local runtime validation thresholds.
         """
 
-        if not isinstance(snapshot, RuntimeHealthSnapshot):
+        if not _is_runtime_health_snapshot(snapshot):
             raise ObservabilityTypeError("runtime health snapshot is closed")
         timestamp = snapshot.observed_at
         database = snapshot.database
@@ -524,8 +543,8 @@ class ProductionObservabilityController:
 
 
 def install_production_observability(
-    target: Any,
-    config: ProductionObservabilityConfig | Mapping[str, Any],
+    target: object,
+    config: ProductionObservabilityConfig | object,
 ) -> ProductionObservabilityController:
     parsed = (
         config

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Annotated, Any, Dict
+from typing import Annotated, TypeGuard
 from urllib.parse import unquote
 
 from .external_project import build_external_project_summary, get_external_project_manifest, is_external_project_item
@@ -53,31 +53,30 @@ _DERIVED_ITEM_EXTRA_FIELDS = {
 }
 
 
-def _as_list(value: Any) -> list[Any]:
-    if isinstance(value, list):
-        return value
-    if value is None:
-        return []
-    return [value]
+def _is_object(value: object) -> TypeGuard[dict[str, object]]:
+    return isinstance(value, dict)
 
 
-def _as_dict(value: Any) -> dict[str, Any]:
-    if isinstance(value, dict):
-        return dict(value)
-    return {}
+def _is_object_list(value: object) -> TypeGuard[list[object]]:
+    return isinstance(value, list)
 
 
-def _normalize_site_entry_urls(value: Any) -> list[str]:
+def _as_dict(value: object) -> dict[str, object]:
+    return dict(value) if _is_object(value) else {}
+
+
+def _normalize_site_entry_urls(value: object) -> list[str]:
     urls: list[str] = []
     if isinstance(value, str):
-        raw_entries: list[Any] = [value]
-    elif isinstance(value, list):
-        raw_entries = value
+        raw_entries: list[object] = [value]
+    elif _is_object_list(value):
+        raw_entries = list(value)
     else:
         raw_entries = []
     for entry in raw_entries:
-        if isinstance(entry, dict):
-            site_url = str(entry.get("site_url") or entry.get("url") or "").strip()
+        entry_payload = _as_dict(entry)
+        if entry_payload:
+            site_url = str(entry_payload.get("site_url") or entry_payload.get("url") or "").strip()
         else:
             site_url = str(entry or "").strip()
         normalized = site_url
@@ -86,7 +85,7 @@ def _normalize_site_entry_urls(value: Any) -> list[str]:
     return urls
 
 
-def _search_template_has_query_placeholder(site_url: Any) -> bool:
+def _search_template_has_query_placeholder(site_url: object) -> bool:
     raw = str(site_url or "").strip()
     if not raw:
         return False
@@ -111,7 +110,7 @@ def _dedupe_urls(*groups: list[str]) -> list[str]:
     return urls
 
 
-def _is_handler_cluster_search_template_item(item: dict[str, Any]) -> bool:
+def _is_handler_cluster_search_template_item(item: dict[str, object]) -> bool:
     extra = _as_dict(item.get("extra"))
     params = _as_dict(item.get("params"))
     expected_entry_type = str(params.get("expected_entry_type") or extra.get("expected_entry_type") or "").strip().lower()
@@ -122,8 +121,8 @@ def _is_handler_cluster_search_template_item(item: dict[str, Any]) -> bool:
     )
 
 
-def build_item_execution_plan(item: dict[str, Any] | None) -> Annotated[
-    dict[str, Any],
+def build_item_execution_plan(item: dict[str, object] | None) -> Annotated[
+    dict[str, object],
     "kit:prepared-command effect_boundary=source_library.item_execution witness=test:test_w01_meta",
 ]:
     from ..resource_pool.site_search_policy import resolve_site_search_policy
@@ -131,7 +130,7 @@ def build_item_execution_plan(item: dict[str, Any] | None) -> Annotated[
     source_item = dict(item or {})
     if is_external_project_item(source_item):
         manifest = get_external_project_manifest(
-            source_item.get("extra") if isinstance(source_item.get("extra"), dict) else {},
+            _as_dict(source_item.get("extra")),
             item_key=str(source_item.get("item_key") or "").strip() or None,
             display_name=str(source_item.get("name") or "").strip() or None,
         )
@@ -152,8 +151,8 @@ def build_item_execution_plan(item: dict[str, Any] | None) -> Annotated[
             "plan_meta": {
                 "execution_family": "external_project",
                 "external_project": build_external_project_summary(manifest) or {},
-                "capabilities": dict((manifest or {}).get("capabilities") or {}),
-                "accepted_inputs": dict((manifest or {}).get("accepted_inputs") or {}),
+                "capabilities": _as_dict((manifest or {}).get("capabilities")),
+                "accepted_inputs": _as_dict((manifest or {}).get("accepted_inputs")),
             },
         }
 
@@ -165,7 +164,7 @@ def build_item_execution_plan(item: dict[str, Any] | None) -> Annotated[
         "site_entries": _normalize_site_entry_urls(params.get("site_entries") or params.get("site_entry_urls")),
         "official_access_site_entries": _normalize_site_entry_urls(params.get("official_access_site_entries")),
     }
-    plan_meta: dict[str, Any] = {}
+    plan_meta: dict[str, object] = {}
 
     if _is_handler_cluster_search_template_item(source_item):
         site_entries = list(route_buckets["site_entries"])
@@ -229,11 +228,11 @@ def build_item_execution_plan(item: dict[str, Any] | None) -> Annotated[
 
 
 def build_item_definition_view(
-    item: dict[str, Any] | None,
+    item: dict[str, object] | None,
     *,
     include_execution_plan: bool = False,
 ) -> Annotated[
-    dict[str, Any],
+    dict[str, object],
     "kit:non-authoritative derived_as=view fact_source=source_library.item_definition witness=test:test_w01_meta",
 ]:
     definition = dict(item or {})

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from contextlib import contextmanager
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import APIRouter, HTTPException, Query, Request, Response
 from pydantic import BaseModel, Field
@@ -391,7 +391,7 @@ def get_writing_card_detail(
 def get_writing_suggest(
     request: Request,
     query: str = Query(..., min_length=1, max_length=200),
-    mode: str = Query(default="keyword"),
+    mode: Literal["keyword", "template", "material", "command"] = Query(default="keyword"),
     project_key: str | None = Query(default=None),
     limit: int = Query(default=20, ge=1, le=50),
 ):

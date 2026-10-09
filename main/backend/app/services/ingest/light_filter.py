@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Annotated, Any
+from typing import Annotated
 from urllib.parse import urlparse
 
 _STATIC_ASSET_SUFFIXES = (
@@ -34,7 +34,11 @@ _SEARCH_NOISE_DOMAINS = {
     "policies.google.com",
 }
 
-def _as_bool(value: Any, default: bool) -> bool:
+
+def _is_runtime_dict(value: object) -> bool:
+    return isinstance(value, dict)
+
+def _as_bool(value: object, default: bool) -> bool:
     if isinstance(value, bool):
         return value
     if isinstance(value, str):
@@ -46,15 +50,15 @@ def _as_bool(value: Any, default: bool) -> bool:
     return bool(default)
 
 
-def _clamp_int(value: Any, default: int, *, min_value: int, max_value: int) -> int:
+def _clamp_int(value: object, default: int, *, min_value: int, max_value: int) -> int:
     try:
-        parsed = int(value)
+        parsed = int(value) if isinstance(value, (str, bytes, int, float)) else int(default)
     except Exception:
         parsed = int(default)
     return max(min_value, min(max_value, parsed))
 
 
-def normalize_light_filter_options(raw: dict[str, Any] | None) -> dict[str, Any]:
+def normalize_light_filter_options(raw: dict[str, object] | None) -> dict[str, object]:
     payload = dict(raw or {})
     return {
         "light_filter_enabled": _as_bool(payload.get("light_filter_enabled"), True),
@@ -65,7 +69,7 @@ def normalize_light_filter_options(raw: dict[str, Any] | None) -> dict[str, Any]
 
 
 def build_light_filter_not_run(reason: str = "not_evaluated") -> Annotated[
-    dict[str, Any],
+    dict[str, object],
     "kit:non-authoritative derived_as=view fact_source=filter_reason_input+light_filter_defaults witness=test:test_w03_ingest_ports_authority_metadata",
 ]:
     return {
@@ -77,14 +81,14 @@ def build_light_filter_not_run(reason: str = "not_evaluated") -> Annotated[
     }
 
 
-def apply_light_filter_fields(result: dict[str, Any], light_filter: dict[str, Any] | None) -> dict[str, Any]:
+def apply_light_filter_fields(result: dict[str, object], light_filter: dict[str, object] | None) -> dict[str, object]:
     payload = dict(light_filter or build_light_filter_not_run())
-    if not isinstance(result, dict):
+    if not _is_runtime_dict(result):
         return result
     result["light_filter"] = payload
     result["filter_decision"] = str(payload.get("filter_decision") or "not_run")
     result["filter_reason_code"] = str(payload.get("filter_reason_code") or "unknown")
-    result["filter_score"] = int(payload.get("filter_score") or 0)
+    result["filter_score"] = _clamp_int(payload.get("filter_score"), 0, min_value=0, max_value=100)
     result["keep_for_vectorization"] = bool(payload.get("keep_for_vectorization"))
     return result
 
@@ -97,10 +101,10 @@ def evaluate_light_filter(
     source_domain: str,
     http_status: int,
     entry_type: str,
-    options: dict[str, Any],
+    options: dict[str, object],
     search_noise_domains: set[str] | None = None,
     search_noise_host_markers: tuple[str, ...] | None = None,
-) -> dict[str, Any]:
+) -> dict[str, object]:
     if not bool(options.get("light_filter_enabled", True)):
         return {
             "filter_decision": "allow",
@@ -146,7 +150,7 @@ def evaluate_light_filter(
         reasons.append("sparse_preview_text")
 
     score = max(0, min(100, int(score)))
-    min_score = int(options.get("light_filter_min_score") or 30)
+    min_score = _clamp_int(options.get("light_filter_min_score"), 30, min_value=0, max_value=100)
     decision = "reject" if score < min_score else "allow"
     reason = reasons[0] if reasons else "ok"
     return {

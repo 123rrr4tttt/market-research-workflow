@@ -5,8 +5,6 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from functorial_kit import Failure
-
 from app.services.agent_core.contracts import CoreToolCall, CoreToolResult, CoreToolSpec
 from app.services.agent_core.host_authorization import (
     TrustedHostContext,
@@ -32,7 +30,7 @@ from app.services.agent_core.project_tools import get_agent_macro_facility_catal
 from app.services.agent_core.registry import CoreToolRegistry
 from app.services.projects.context import bind_project
 from app.services.request_identity import RequestActorContext
-
+from functorial_kit import Failure
 
 pytestmark = pytest.mark.unit
 
@@ -495,6 +493,28 @@ def test_invalid_explicit_package_does_not_fall_back_to_base() -> None:
         service, "trusted_project", ("missing.macro",), ("1",),
         (Path(__file__).resolve().parents[2] / "skills",), registry, _catalog(service),
     )
+    assert isinstance(result, Failure)
+    assert result.context["macro_environment_code"] == "macro_environment_invalid"
+
+
+def test_environment_rejects_activated_package_with_nested_non_json_readback() -> None:
+    service = Service()
+    registry = _registry()
+    package = _package()
+    _activate(service, package)
+    artifact = next(iter(service.store.project_items.values()))
+    artifact["content_json"]["cell"]["metadata"] = {"nested": object()}
+
+    result = resolve_macro_environment(
+        service,
+        "trusted_project",
+        (package["package_id"],),
+        (package["package_version"],),
+        (Path(__file__).resolve().parents[2] / "skills",),
+        registry,
+        _catalog(service),
+    )
+
     assert isinstance(result, Failure)
     assert result.context["macro_environment_code"] == "macro_environment_invalid"
 

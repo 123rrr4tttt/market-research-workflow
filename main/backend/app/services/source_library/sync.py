@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict
+from typing import TypeGuard
 
 from sqlalchemy import select
 
@@ -10,21 +10,29 @@ from ..projects import bind_schema
 from .loader import load_global_library_files
 
 
-def _as_list(value: Any) -> list:
-    if isinstance(value, list):
-        return value
+def _is_object_mapping(value: object) -> TypeGuard[dict[str, object]]:
+    return isinstance(value, dict)
+
+
+def _is_object_list(value: object) -> TypeGuard[list[object]]:
+    return isinstance(value, list)
+
+
+def _as_list(value: object) -> list[object]:
+    if _is_object_list(value):
+        return list(value)
     if value is None:
         return []
     return [value]
 
 
-def _as_dict(value: Any) -> dict:
-    if isinstance(value, dict):
-        return value
+def _as_dict(value: object) -> dict[str, object]:
+    if _is_object_mapping(value):
+        return dict(value)
     return {}
 
 
-def _normalize_item_taxonomy(payload: dict[str, Any]) -> tuple[str, str, dict[str, Any]]:
+def _normalize_item_taxonomy(payload: dict[str, object]) -> tuple[str, str, dict[str, object]]:
     extra = _as_dict(payload.get("extra"))
     item_type = str(payload.get("item_type") or extra.get("item_type") or "service_aggregated").strip().lower()
     if item_type not in {"user_defined", "service_aggregated"}:
@@ -37,7 +45,13 @@ def _normalize_item_taxonomy(payload: dict[str, Any]) -> tuple[str, str, dict[st
     return item_type, managed_by, extra
 
 
-def sync_shared_library_from_files() -> Dict[str, Any]:
+def _set_model_value(row: object, name: str, value: object) -> None:
+    """Assign a validated file value to a legacy SQLAlchemy declarative row."""
+
+    setattr(row, name, value)
+
+
+def sync_shared_library_from_files() -> dict[str, int]:
     data = load_global_library_files()
     channels_data = data.get("channels", [])
     items_data = data.get("items", [])
@@ -55,25 +69,26 @@ def sync_shared_library_from_files() -> Dict[str, Any]:
                     select(SharedIngestChannel).where(SharedIngestChannel.channel_key == channel_key)
                 ).scalar_one_or_none()
                 if row is None:
-                    row = SharedIngestChannel(channel_key=channel_key)
+                    row = SharedIngestChannel()
+                    _set_model_value(row, "channel_key", channel_key)
                     session.add(row)
 
-                row.name = str(payload.get("name") or channel_key)
-                row.kind = str(payload.get("kind") or "unknown")
-                row.provider = str(payload.get("provider") or "unknown")
+                _set_model_value(row, "name", str(payload.get("name") or channel_key))
+                _set_model_value(row, "kind", str(payload.get("kind") or "unknown"))
+                _set_model_value(row, "provider", str(payload.get("provider") or "unknown"))
                 if hasattr(row, "provider_type"):
-                    row.provider_type = str(payload.get("provider_type") or "native")
+                    _set_model_value(row, "provider_type", str(payload.get("provider_type") or "native"))
                 if hasattr(row, "provider_config"):
-                    row.provider_config = _as_dict(payload.get("provider_config"))
+                    _set_model_value(row, "provider_config", _as_dict(payload.get("provider_config")))
                 if hasattr(row, "execution_policy"):
-                    row.execution_policy = _as_dict(payload.get("execution_policy"))
-                row.description = payload.get("description")
-                row.credential_refs = _as_list(payload.get("credential_refs"))
-                row.default_params = _as_dict(payload.get("default_params"))
-                row.param_schema = _as_dict(payload.get("param_schema"))
-                row.extends_channel_key = payload.get("extends_channel_key")
-                row.enabled = bool(payload.get("enabled", True))
-                row.extra = _as_dict(payload.get("extra"))
+                    _set_model_value(row, "execution_policy", _as_dict(payload.get("execution_policy")))
+                _set_model_value(row, "description", payload.get("description"))
+                _set_model_value(row, "credential_refs", _as_list(payload.get("credential_refs")))
+                _set_model_value(row, "default_params", _as_dict(payload.get("default_params")))
+                _set_model_value(row, "param_schema", _as_dict(payload.get("param_schema")))
+                _set_model_value(row, "extends_channel_key", payload.get("extends_channel_key"))
+                _set_model_value(row, "enabled", bool(payload.get("enabled", True)))
+                _set_model_value(row, "extra", _as_dict(payload.get("extra")))
                 upserted_channels += 1
 
             for payload in items_data:
@@ -85,23 +100,24 @@ def sync_shared_library_from_files() -> Dict[str, Any]:
                     select(SharedSourceLibraryItem).where(SharedSourceLibraryItem.item_key == item_key)
                 ).scalar_one_or_none()
                 if row is None:
-                    row = SharedSourceLibraryItem(item_key=item_key)
+                    row = SharedSourceLibraryItem()
+                    _set_model_value(row, "item_key", item_key)
                     session.add(row)
 
-                row.name = str(payload.get("name") or item_key)
-                row.channel_key = channel_key
-                row.description = payload.get("description")
-                row.params = _as_dict(payload.get("params"))
-                row.tags = _as_list(payload.get("tags"))
-                row.schedule = payload.get("schedule")
-                row.extends_item_key = payload.get("extends_item_key")
-                row.enabled = bool(payload.get("enabled", True))
+                _set_model_value(row, "name", str(payload.get("name") or item_key))
+                _set_model_value(row, "channel_key", channel_key)
+                _set_model_value(row, "description", payload.get("description"))
+                _set_model_value(row, "params", _as_dict(payload.get("params")))
+                _set_model_value(row, "tags", _as_list(payload.get("tags")))
+                _set_model_value(row, "schedule", payload.get("schedule"))
+                _set_model_value(row, "extends_item_key", payload.get("extends_item_key"))
+                _set_model_value(row, "enabled", bool(payload.get("enabled", True)))
                 item_type, managed_by, normalized_extra = _normalize_item_taxonomy(payload)
                 if hasattr(row, "item_type"):
-                    row.item_type = item_type
+                    _set_model_value(row, "item_type", item_type)
                 if hasattr(row, "managed_by"):
-                    row.managed_by = managed_by
-                row.extra = normalized_extra
+                    _set_model_value(row, "managed_by", managed_by)
+                _set_model_value(row, "extra", normalized_extra)
                 upserted_items += 1
 
             session.commit()

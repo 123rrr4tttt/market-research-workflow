@@ -7,10 +7,10 @@ analysis brief); it is not a global MRW enum and this module cannot edit it.
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, replace
 from hashlib import sha256
-import json
-from typing import Any, Mapping
+from typing import Any, Mapping, TypeGuard
 
 from functorial_kit import Failure
 
@@ -39,9 +39,29 @@ class DomainVocabulary:
 
 
 def _nonempty_strings(value: object) -> bool:
-    return isinstance(value, (tuple, list)) and bool(value) and all(
-        isinstance(item, str) and item.strip() for item in value
-    )
+    if not _is_object_sequence(value) or not value:
+        return False
+    return all(isinstance(item, str) and bool(item.strip()) for item in value)
+
+
+def _runtime_value(value: object) -> object:
+    return value
+
+
+def _is_object_mapping(value: object) -> TypeGuard[Mapping[object, object]]:
+    return isinstance(value, Mapping)
+
+
+def _is_object_sequence(value: object) -> TypeGuard[tuple[object, ...] | list[object]]:
+    return isinstance(value, (tuple, list))
+
+
+def _is_object_list(value: object) -> TypeGuard[list[object]]:
+    return isinstance(value, list)
+
+
+def _canonical_json(value: object) -> str:
+    return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
 
 
 def _domain_constraint(vocabulary: DomainVocabulary):
@@ -71,13 +91,14 @@ def _domain_constraint(vocabulary: DomainVocabulary):
             if kind == "judgment":
                 if attrs.get("edge_type") not in allowed_edges or attrs.get("outline_section") not in allowed_sections:
                     return topology_failures.fail("INVALID_STRUCTURE", "judgment classification is outside domain vocabulary")
-                if attrs.get("relation_classes") is not None and (
-                    not isinstance(attrs["relation_classes"], list)
-                    or any(value not in {"线索链", "逻辑依赖", "证据网"} for value in attrs["relation_classes"])
+                relation_classes: object = attrs.get("relation_classes")
+                if relation_classes is not None and (
+                    not _is_object_list(relation_classes)
+                    or any(value not in {"线索链", "逻辑依赖", "证据网"} for value in relation_classes)
                 ):
                     return topology_failures.fail("INVALID_STRUCTURE", "judgment relation classes are invalid")
-                pools = attrs.get("pools", [])
-                if not isinstance(pools, list) or any(value not in allowed_pools for value in pools):
+                pools = _runtime_value(attrs.get("pools", []))
+                if not _is_object_list(pools) or any(value not in allowed_pools for value in pools):
                     return topology_failures.fail("INVALID_STRUCTURE", "judgment pool is outside domain vocabulary")
                 if attrs.get("semantic_successor_of") == element.ref.ref.local_id:
                     return topology_failures.fail("INVALID_STRUCTURE", "judgment cannot succeed itself")
@@ -123,17 +144,19 @@ def make_retrieval_profile(vocabulary: DomainVocabulary) -> ProfileSpec:
         "namespace": source.ref.namespace, "type_id": source.ref.type_id,
         "local_id": source.ref.local_id,
     }
-    if any(not isinstance(value, str) or not value.strip() for value in source_identity.values()):
+    source_identity_values = tuple(_runtime_value(value) for value in source_identity.values())
+    if any(not isinstance(value, str) or not value.strip() for value in source_identity_values):
         # kit:boundary owner=information_topology.modules.retrieval.make_retrieval_profile.source_identity class=PROGRAMMER_DEFECT failure_family=none witness=test:test_make_retrieval_profile_rejects_invalid_call_inputs
         raise ValueError("domain vocabulary source reference identity must be complete")
-    if not isinstance(source.observed_revision, str) or not source.observed_revision.strip():
+    observed_revision = _runtime_value(source.observed_revision)
+    if not isinstance(observed_revision, str) or not observed_revision.strip():
         # kit:boundary owner=information_topology.modules.retrieval.make_retrieval_profile.observed_revision class=PROGRAMMER_DEFECT failure_family=none witness=test:test_make_retrieval_profile_rejects_invalid_call_inputs
         raise ValueError("domain vocabulary source reference must include its observed revision")
-    if source.content_digest is not None and not isinstance(source.content_digest, str):
+    content_digest = _runtime_value(source.content_digest)
+    if content_digest is not None and not isinstance(content_digest, str):
         # kit:boundary owner=information_topology.modules.retrieval.make_retrieval_profile.content_digest class=PROGRAMMER_DEFECT failure_family=none witness=test:test_make_retrieval_profile_rejects_invalid_call_inputs
         raise ValueError("domain vocabulary source content digest must be a string when present")
-    canonical = lambda value: json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
-    profile_id = PROFILE_ID_PREFIX + sha256(canonical(source_identity).encode("utf-8")).hexdigest()
+    profile_id = PROFILE_ID_PREFIX + sha256(_canonical_json(source_identity).encode("utf-8")).hexdigest()
     observed_source = {
         "observed_revision": source.observed_revision,
         "content_digest": source.content_digest,
@@ -144,7 +167,7 @@ def make_retrieval_profile(vocabulary: DomainVocabulary) -> ProfileSpec:
             "grades": vocabulary.grades,
         },
     }
-    profile_version = PROFILE_VERSION_PREFIX + sha256(canonical(observed_source).encode("utf-8")).hexdigest()
+    profile_version = PROFILE_VERSION_PREFIX + sha256(_canonical_json(observed_source).encode("utf-8")).hexdigest()
 
     node_ids = {f"node:{value}" for value in vocabulary.node_types}
     # The schema has relation categories; domain edge names remain data values.
@@ -367,18 +390,20 @@ def make_document_retrieval_profile(vocabulary: DomainVocabulary) -> ProfileSpec
             if element.ref.ref.type_id != "material":
                 continue
             attrs = element.attributes
-            ref = attrs.get("document_ref")
+            ref_value: object = attrs.get("document_ref")
             if attrs.get("reference_status") == "unresolved_reference":
-                if ref is not None:
+                if ref_value is not None:
                     return topology_failures.fail("INVALID_STRUCTURE", "unresolved material cannot claim a Document")
                 continue
-            if (not isinstance(ref, Mapping) or set(ref) != {
+            if (not _is_object_mapping(ref_value) or set(ref_value) != {
                 "project_key", "module_id", "namespace", "type_id", "local_id"
-            } or ref.get("project_key") != element.ref.ref.project_key
-                or (ref.get("module_id"), ref.get("namespace"), ref.get("type_id")) !=
+            } or ref_value.get("project_key") != element.ref.ref.project_key
+                or (ref_value.get("module_id"), ref_value.get("namespace"), ref_value.get("type_id")) !=
                 ("documents", "documents", "document")
-                or not isinstance(ref.get("local_id"), str)
-                or not ref["local_id"].isdigit() or int(ref["local_id"]) <= 0):
+                or not isinstance(ref_value.get("local_id"), str)):
+                return topology_failures.fail("INVALID_STRUCTURE", "material requires a canonical project Document reference")
+            local_id = ref_value["local_id"]
+            if not isinstance(local_id, str) or not local_id.isdigit() or int(local_id) <= 0:
                 return topology_failures.fail("INVALID_STRUCTURE", "material requires a canonical project Document reference")
         return None
 
@@ -402,14 +427,21 @@ def make_material_retrieval_profile(vocabulary: DomainVocabulary) -> ProfileSpec
         for element in state.elements:
             if element.ref.ref.type_id != "material":
                 continue
-            ref = element.attributes.get("material_ref")
+            ref_value: object = element.attributes.get("material_ref")
             if element.attributes.get("reference_status") == "unresolved_reference":
-                if ref is not None:
+                if ref_value is not None:
                     return topology_failures.fail("INVALID_STRUCTURE", "unresolved material cannot claim a body owner")
                 continue
-            if (not isinstance(ref, Mapping)
-                or canonical_material_identity(element.ref.ref.project_key, ref) != dict(ref)
-                or ref.get("module_id") != "materials"):
+            if not _is_object_mapping(ref_value) or set(ref_value) != {
+                "project_key", "module_id", "namespace", "type_id", "local_id"
+            }:
+                return topology_failures.fail("INVALID_STRUCTURE", "material requires a canonical project material reference")
+            material_ref = {
+                key: ref_value.get(key)
+                for key in ("project_key", "module_id", "namespace", "type_id", "local_id")
+            }
+            if (canonical_material_identity(element.ref.ref.project_key, material_ref) != material_ref
+                or material_ref.get("module_id") != "materials"):
                 return topology_failures.fail("INVALID_STRUCTURE", "material requires a canonical project material reference")
         return None
 
@@ -457,30 +489,48 @@ def profile_from_state_payload(
     }
     if set(attributes) != expected_keys:
         return topology_failures.fail("INVALID_STRUCTURE", "persisted domain vocabulary fields are incomplete or unknown")
-    raw_ref = attributes["source_ref"]
+    raw_ref_value: object = attributes["source_ref"]
     ref_keys = {"project_key", "module_id", "namespace", "type_id", "local_id", "observed_revision", "content_digest"}
-    if not isinstance(raw_ref, Mapping) or set(raw_ref) != ref_keys:
+    if not _is_object_mapping(raw_ref_value) or set(raw_ref_value) != ref_keys:
         return topology_failures.fail("INVALID_STRUCTURE", "persisted domain vocabulary source reference is malformed")
-    if raw_ref["project_key"] != project_key or not isinstance(raw_ref["content_digest"], (str, type(None))):
+    raw_ref = raw_ref_value
+    content_digest_value = raw_ref["content_digest"]
+    if raw_ref["project_key"] != project_key or not isinstance(content_digest_value, (str, type(None))):
         return topology_failures.fail("INVALID_STRUCTURE", "persisted domain vocabulary source project or digest is invalid")
-    source_identity = ("project_key", "module_id", "namespace", "type_id", "local_id", "observed_revision")
-    if any(not isinstance(raw_ref[key], str) or not raw_ref[key].strip() for key in source_identity):
+    project_ref = raw_ref["project_key"]
+    module_ref = raw_ref["module_id"]
+    namespace_ref = raw_ref["namespace"]
+    type_ref = raw_ref["type_id"]
+    local_ref = raw_ref["local_id"]
+    observed_ref = raw_ref["observed_revision"]
+    if (
+        not isinstance(project_ref, str) or not project_ref.strip()
+        or not isinstance(module_ref, str) or not module_ref.strip()
+        or not isinstance(namespace_ref, str) or not namespace_ref.strip()
+        or not isinstance(type_ref, str) or not type_ref.strip()
+        or not isinstance(local_ref, str) or not local_ref.strip()
+        or not isinstance(observed_ref, str) or not observed_ref.strip()
+    ):
         return topology_failures.fail("INVALID_STRUCTURE", "persisted domain vocabulary source identity is incomplete")
     list_fields = ("node_types", "edge_types", "perspectives", "outline_sections", "pools", "grades")
-    if any(not isinstance(attributes[key], list) for key in list_fields):
-        return topology_failures.fail("INVALID_STRUCTURE", "persisted domain vocabulary fields must be arrays")
-    if not isinstance(attributes["name"], str):
+    field_values: dict[str, tuple[str, ...]] = {}
+    for key in list_fields:
+        value = _runtime_value(attributes[key])
+        if not _is_object_list(value) or any(not isinstance(item, str) for item in value):
+            return topology_failures.fail("INVALID_STRUCTURE", "persisted domain vocabulary fields must be string arrays")
+        field_values[key] = tuple(item for item in value if isinstance(item, str))
+    name_value = _runtime_value(attributes["name"])
+    if not isinstance(name_value, str):
         return topology_failures.fail("INVALID_STRUCTURE", "persisted domain vocabulary name must be a string")
     try:
         vocabulary = DomainVocabulary(
-            name=attributes["name"],
-            node_types=tuple(attributes["node_types"]), edge_types=tuple(attributes["edge_types"]),
-            perspectives=tuple(attributes["perspectives"]), outline_sections=tuple(attributes["outline_sections"]),
-            pools=tuple(attributes["pools"]), grades=tuple(attributes["grades"]),
+            name=name_value,
+            node_types=field_values["node_types"], edge_types=field_values["edge_types"],
+            perspectives=field_values["perspectives"], outline_sections=field_values["outline_sections"],
+            pools=field_values["pools"], grades=field_values["grades"],
             source_ref=BoundRef(
-                ElementRef(raw_ref["project_key"], raw_ref["module_id"], raw_ref["namespace"],
-                           raw_ref["type_id"], raw_ref["local_id"]),
-                raw_ref["observed_revision"], raw_ref["content_digest"],
+                ElementRef(project_ref, module_ref, namespace_ref, type_ref, local_ref),
+                observed_ref, content_digest_value,
             ),
         )
         profile = (

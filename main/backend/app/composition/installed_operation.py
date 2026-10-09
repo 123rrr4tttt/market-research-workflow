@@ -579,14 +579,28 @@ leaf_installed_operations = (*(_work_leaf_install(kind) for kind in leaf.WORK_LE
                              *(_control_leaf_install(kind) for kind in leaf.CONTROL_LEAF_KINDS))
 
 
-url_contract = url.build_url_single_url_contract()
+url_contracts = url.build_url_single_url_contracts()
+url_installed_operations = tuple(
+    _install(
+        contract,
+        contract,
+        (
+            url.build_url_single_url_legacy_profiles()
+            if contract.ref.contract_version
+            == url.URL_SINGLE_URL_LEGACY_CONTRACT_VERSION
+            else url.build_url_single_url_profiles()
+        ),
+        url.build_url_single_url_request_codec(contract.ref),
+        url.build_url_single_url_outcome_codec(contract.ref),
+        _url,
+    )
+    for contract in url_contracts
+)
 wait_contract = wait.build_batch_business_wait_contract()
 dispatch_contract = dispatch.build_batch_task_single_dispatch_contract()
 nonworkflow_installed_operations: tuple[InstalledOperation, ...] = (
     candidate_installed_operation, *leaf_installed_operations,
-    _install(url_contract, url_contract, url.build_url_single_url_profiles(),
-             url.build_url_single_url_request_codec(url_contract.ref),
-             url.build_url_single_url_outcome_codec(url_contract.ref), _url),
+    *url_installed_operations,
     _install(wait_contract, wait_contract, wait.build_batch_business_wait_profiles(),
              wait.build_batch_business_wait_input_codec(wait_contract.ref),
              wait.build_batch_business_wait_result_codec(wait_contract.ref), _wait),
@@ -603,9 +617,12 @@ installed_operation_contribution_catalog = tuple(item.projection for item in ins
 def installed_operation_for_ref(
     entries: Sequence[InstalledOperation], ref: OperationContractRef,
 ) -> InstalledOperation | None:
+    same_kind = False
     for item in entries:
-        if item.definition.contract.ref.kind == ref.kind:
-            if item.definition.contract.ref != ref:
-                raise ValueError("installed operation ref drift")
+        installed_ref = item.definition.contract.ref
+        if installed_ref == ref:
             return item
+        same_kind = same_kind or installed_ref.kind == ref.kind
+    if same_kind:
+        raise ValueError("installed operation ref drift")
     return None

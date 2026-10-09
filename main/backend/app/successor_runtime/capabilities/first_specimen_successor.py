@@ -8,14 +8,16 @@ Inquiry's admitted ResearchIntent binding.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 
-from typing import Annotated
+from typing import Annotated, TypeGuard
 
 from app.successor_runtime.language.algebra import (
     OperationContractCatalogSnapshot,
     ValueRef,
     canonical_digest,
+    thaw_json_value,
 )
 from app.successor_runtime.language.combinators import (
     materialize_first_specimen_gap_successor,
@@ -43,10 +45,14 @@ from app.successor_runtime.research.object_types import (
     INQUIRY_TYPE,
     RESEARCH_INTENT_TYPE,
     RESEARCH_PLAN_TYPE,
+    ObjectType,
 )
 from app.successor_runtime.research.relations import ResearchRelation
 
-from .first_specimen import _capability_failure, _raise_capability_failure
+from .failure import (
+    capability_failure as _capability_failure,
+    raise_capability_failure as _raise_capability_failure,
+)
 
 GAP_SUCCESSOR_CAPABILITY_ID = "mrw.first-specimen.gap-successor"
 GAP_SUCCESSOR_VALUE_CODEC = CANONICAL_CODEC_ID
@@ -323,42 +329,102 @@ def _decode_materialized_literals(
         or not isinstance(root.second, Pure)
     ):
         _raise_capability_failure(_capability_failure("GAP_SUCCESSOR_REJECTED", "successor Program is not the frozen Inquiry/Plan shape"), GapSuccessorRejected)
-    inquiry_raw = dict(root.first.literal_value)
-    plan_raw = dict(root.second.literal_value)
+    inquiry_raw = _require_object_mapping(thaw_json_value(root.first.literal_value))
+    plan_raw = _require_object_mapping(thaw_json_value(root.second.literal_value))
     inquiry = Inquiry(
-        inquiry_id=inquiry_raw["inquiry_id"],
-        intent_ref=inquiry_raw["intent_ref"],
-        question_or_hypothesis=inquiry_raw["question_or_hypothesis"],
-        acceptance_conditions=tuple(inquiry_raw["acceptance_conditions"]),
-        stop_conditions=tuple(inquiry_raw["stop_conditions"]),
-        uncertainty_ceiling=inquiry_raw["uncertainty_ceiling"],
-        content_digest=inquiry_raw["content_digest"],
+        inquiry_id=_require_text(inquiry_raw, "inquiry_id"),
+        intent_ref=_require_text(inquiry_raw, "intent_ref"),
+        question_or_hypothesis=_require_text(inquiry_raw, "question_or_hypothesis"),
+        acceptance_conditions=_require_text_tuple(inquiry_raw, "acceptance_conditions"),
+        stop_conditions=_require_text_tuple(inquiry_raw, "stop_conditions"),
+        uncertainty_ceiling=_require_text(inquiry_raw, "uncertainty_ceiling"),
+        content_digest=_require_text(inquiry_raw, "content_digest"),
     )
     work_items = tuple(
         PlanWorkItem(
-            work_id=dict(item)["work_id"],
-            operator=dict(item)["operator"],
-            depends_on=tuple(dict(item).get("depends_on", ())),
+            work_id=_require_text(item, "work_id"),
+            operator=_require_text(item, "operator"),
+            depends_on=_require_text_tuple(item, "depends_on"),
         )
-        for item in plan_raw["work_items"]
+        for item in _require_mapping_tuple(plan_raw, "work_items")
     )
     research_plan = ResearchPlan(
-        plan_id=plan_raw["plan_id"],
-        inquiry_ref=plan_raw["inquiry_ref"],
+        plan_id=_require_text(plan_raw, "plan_id"),
+        inquiry_ref=_require_text(plan_raw, "inquiry_ref"),
         work_items=work_items,
-        budget=dict(plan_raw["budget"]),
+        budget=_require_object_mapping(plan_raw.get("budget")),
         deadline=None,
-        replan_policy=dict(plan_raw["replan_policy"]),
-        content_digest=plan_raw["content_digest"],
+        replan_policy=_require_object_mapping(plan_raw.get("replan_policy")),
+        content_digest=_require_text(plan_raw, "content_digest"),
     )
     return inquiry, research_plan
+
+
+def _require_object_mapping(value: object) -> dict[str, object]:
+    if not _is_object_mapping(value) or not all(
+        isinstance(key, str) for key in value
+    ):
+        _raise_capability_failure(
+            _capability_failure(
+                "GAP_SUCCESSOR_REJECTED",
+                "successor literal must be a string-keyed object",
+            ),
+            GapSuccessorRejected,
+        )
+    return {key: item for key, item in value.items() if isinstance(key, str)}
+
+
+def _is_object_mapping(value: object) -> TypeGuard[Mapping[object, object]]:
+    return isinstance(value, Mapping)
+
+
+def _is_object_sequence(
+    value: object,
+) -> TypeGuard[tuple[object, ...] | list[object]]:
+    return isinstance(value, (tuple, list))
+
+
+def _require_text(mapping: dict[str, object], key: str) -> str:
+    value = mapping.get(key)
+    if not isinstance(value, str):
+        _raise_capability_failure(
+            _capability_failure("GAP_SUCCESSOR_REJECTED", f"{key} must be text"),
+            GapSuccessorRejected,
+        )
+    return value
+
+
+def _require_text_tuple(mapping: dict[str, object], key: str) -> tuple[str, ...]:
+    value = mapping.get(key)
+    if not _is_object_sequence(value) or not all(
+        isinstance(item, str) for item in value
+    ):
+        _raise_capability_failure(
+            _capability_failure(
+                "GAP_SUCCESSOR_REJECTED", f"{key} must contain only text"
+            ),
+            GapSuccessorRejected,
+        )
+    return tuple(item for item in value if isinstance(item, str))
+
+
+def _require_mapping_tuple(
+    mapping: dict[str, object], key: str
+) -> tuple[dict[str, object], ...]:
+    value = mapping.get(key)
+    if not _is_object_sequence(value):
+        _raise_capability_failure(
+            _capability_failure("GAP_SUCCESSOR_REJECTED", f"{key} must be a sequence"),
+            GapSuccessorRejected,
+        )
+    return tuple(_require_object_mapping(item) for item in value)
 
 
 def _value_ref(
     *,
     project_key: str,
     value_id: str,
-    object_type: object,
+    object_type: ObjectType,
     content: object,
     provenance_digest: str,
 ) -> ValueRef:

@@ -27,8 +27,6 @@ const requiredKeys = [
   'dashboardPage.kpi.documentsRecent',
   'dashboardPage.kpi.sources',
   'dashboardPage.kpi.sourcesTotal',
-  'dashboardPage.kpi.marketStats',
-  'dashboardPage.kpi.marketStates',
   'dashboardPage.kpi.runningTasks',
   'dashboardPage.kpi.tasksFailed',
   'dashboardPage.kpi.llmReportQualityTotal',

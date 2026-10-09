@@ -13,6 +13,7 @@ from typing import Annotated, Any, Callable, Literal, Mapping, TypedDict
 from ..search.candidate_contracts import Candidate, CandidateBundle, CandidateSearchRequest
 from ..search.candidate_search import discover_candidates
 from ..search.facets import SearchFacet, instantiate_facet_query
+from ..source_library.types import SourceMode
 from .material_ingress import MaterialSourceContext, MaterialTargetSpec, build_material_frontdoor_payload
 from .material_input import GivenContent, prepare_material
 
@@ -29,7 +30,7 @@ class SearchMaterialWritePayload(TypedDict):
     collection_payload: dict[str, object]
     raw_snapshot: dict[str, object]
     entrypoint: str
-    source_mode: str
+    source_mode: SourceMode
 
 
 @dataclass(frozen=True, slots=True)
@@ -47,7 +48,7 @@ class SearchIngestSource:
     kind: str
     base_url: str
     entrypoint: str
-    source_mode: str = "protocol_search"
+    source_mode: SourceMode = "protocol_search"
 
 
 @dataclass(frozen=True, slots=True)

@@ -8,7 +8,7 @@ from sqlalchemy import text
 from sqlalchemy.engine import Connection
 from sqlalchemy.sql.schema import Table
 
-from .models.base import Base, engine
+from .models.base import Base, engine, require_model_table
 from .models.information_topology_entities import InformationTopologyLink, InformationTopologyState
 from .models.project_retrieval import project_retrieval_tables
 from .settings.config import settings
@@ -181,33 +181,36 @@ def register_startup_hooks(app: FastAPI) -> None:
 
     def _ensure_all_project_schemas_ready() -> None:
         tenant_tables: list[Table] = [
-            Source.__table__,
-            Document.__table__,
-            MarketStat.__table__,
-            ConfigState.__table__,
-            Embedding.__table__,
-            EtlJobRun.__table__,
-            SearchHistory.__table__,
-            KeywordHistory.__table__,
-            KeywordPrior.__table__,
-            LlmServiceConfig.__table__,
-            Topic.__table__,
-            IngestChannel.__table__,
-            SourceLibraryItem.__table__,
-            MarketMetricPoint.__table__,
-            Product.__table__,
-            PriceObservation.__table__,
-            ResourcePoolUrl.__table__,
-            ResourcePoolSiteEntry.__table__,
-            LlmReportQualityTrend.__table__,
-            LlmReportExportAuditEvent.__table__,
-            LlmReportExportTokenState.__table__,
-            WritingDocument.__table__,
-            WritingDocumentDraft.__table__,
-            WritingDocumentCitation.__table__,
-            InformationTopologyState.__table__,
-            InformationTopologyLink.__table__,
-            *project_retrieval_tables(),
+            require_model_table(table)
+            for table in (
+                Source.__table__,
+                Document.__table__,
+                MarketStat.__table__,
+                ConfigState.__table__,
+                Embedding.__table__,
+                EtlJobRun.__table__,
+                SearchHistory.__table__,
+                KeywordHistory.__table__,
+                KeywordPrior.__table__,
+                LlmServiceConfig.__table__,
+                Topic.__table__,
+                IngestChannel.__table__,
+                SourceLibraryItem.__table__,
+                MarketMetricPoint.__table__,
+                Product.__table__,
+                PriceObservation.__table__,
+                ResourcePoolUrl.__table__,
+                ResourcePoolSiteEntry.__table__,
+                LlmReportQualityTrend.__table__,
+                LlmReportExportAuditEvent.__table__,
+                LlmReportExportTokenState.__table__,
+                WritingDocument.__table__,
+                WritingDocumentDraft.__table__,
+                WritingDocumentCitation.__table__,
+                InformationTopologyState.__table__,
+                InformationTopologyLink.__table__,
+                *project_retrieval_tables(),
+            )
         ]
         try:
             with engine.begin() as conn:
@@ -238,19 +241,22 @@ def register_startup_hooks(app: FastAPI) -> None:
 
     def _ensure_shared_library_tables_ready() -> None:
         shared_tables: list[Table] = [
-            AgentSession.__table__,
-            AgentTask.__table__,
-            AgentMessage.__table__,
-            AgentArtifact.__table__,
-            AgentEvent.__table__,
-            AgentApproval.__table__,
-            SharedIngestChannel.__table__,
-            SharedSourceLibraryItem.__table__,
-            SharedResourcePoolUrl.__table__,
-            SharedResourcePoolSiteEntry.__table__,
-            ResourcePoolCaptureConfig.__table__,
-            WorkflowGraphRun.__table__,
-            WorkflowGraphEvent.__table__,
+            require_model_table(table)
+            for table in (
+                AgentSession.__table__,
+                AgentTask.__table__,
+                AgentMessage.__table__,
+                AgentArtifact.__table__,
+                AgentEvent.__table__,
+                AgentApproval.__table__,
+                SharedIngestChannel.__table__,
+                SharedSourceLibraryItem.__table__,
+                SharedResourcePoolUrl.__table__,
+                SharedResourcePoolSiteEntry.__table__,
+                ResourcePoolCaptureConfig.__table__,
+                WorkflowGraphRun.__table__,
+                WorkflowGraphEvent.__table__,
+            )
         ]
         try:
             def _create_shared_tables(conn: Connection) -> None:

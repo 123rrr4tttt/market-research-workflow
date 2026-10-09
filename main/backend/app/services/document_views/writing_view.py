@@ -2,13 +2,15 @@ from __future__ import annotations
 
 from typing import Annotated, Any
 
+from .common_view import is_payload_dict
+
 
 def _iso_or_none(value: Any) -> str | None:
     if value is None:
         return None
     isoformat = getattr(value, "isoformat", None)
     if callable(isoformat):
-        return isoformat()
+        return str(isoformat())
     return str(value)
 
 
@@ -37,7 +39,7 @@ def serialize_writing_document_draft(row: Any) -> dict[str, Any]:
         "doc_id": int(getattr(row, "doc_id")),
         "project_key": getattr(row, "project_key", None),
         "draft_body_md": getattr(row, "draft_body_md", "") or "",
-        "selection_snapshot": dict(selection_snapshot or {}) if isinstance(selection_snapshot, dict) else selection_snapshot,
+        "selection_snapshot": dict(selection_snapshot) if is_payload_dict(selection_snapshot) else selection_snapshot,
         "base_version": int(getattr(row, "base_version", 1) or 1),
         "autosave_token": getattr(row, "autosave_token", None),
         "request_id": getattr(row, "request_id", None),
@@ -58,7 +60,7 @@ def serialize_writing_citation(row: Any) -> dict[str, Any]:
         "quote_text": getattr(row, "quote_text", None),
         "position_anchor": getattr(row, "position_anchor", None),
         "card_id": getattr(row, "card_id", None),
-        "metadata_json": dict(metadata_json or {}) if isinstance(metadata_json, dict) else metadata_json,
+        "metadata_json": dict(metadata_json) if is_payload_dict(metadata_json) else metadata_json,
         "created_at": _iso_or_none(getattr(row, "created_at", None)),
         "updated_at": _iso_or_none(getattr(row, "updated_at", None)),
     }

@@ -54,7 +54,8 @@ class SourceLibraryOfficialAccessPort:
         params: dict[str, object],
         project_key: str | None,
     ) -> dict[str, object]:
-        return official_access.handle_official_access_api(params, project_key)
+        open_params: dict[object, object] = {key: value for key, value in params.items()}
+        return official_access.handle_official_access_api(open_params, project_key)
 
 
 class RequestHtmlSearchRequestPort:

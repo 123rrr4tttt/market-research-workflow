@@ -1,12 +1,16 @@
 from __future__ import annotations
 
 import json
-from typing import Any
+from typing import Any, TypeGuard
 from urllib.parse import urlencode
 
 import httpx
 
-from .registry import _failure, _raise_contract_failure
+from .registry import crawler_failure as _failure, raise_crawler_contract_failure as _raise_contract_failure
+
+
+def _is_payload_dict(value: object) -> TypeGuard[dict[str, object]]:
+    return isinstance(value, dict)
 
 
 class ScrapydClient:
@@ -23,24 +27,26 @@ class ScrapydClient:
         self.base_url = base.rstrip("/")
         self.timeout = float(timeout)
 
-    def _post(self, path: str, data: Any) -> dict[str, Any]:
-        payload = data
-        headers: dict[str, str] | None = None
+    def _post(self, path: str, data: dict[str, Any] | list[tuple[str, str]]) -> dict[str, Any]:
+        request_url = f"{self.base_url}{path}"
         if isinstance(data, list):
-            payload = urlencode(data, doseq=True)
+            encoded = urlencode(data, doseq=True)
             headers = {"Content-Type": "application/x-www-form-urlencoded"}
-        with httpx.Client(timeout=self.timeout) as client:
-            resp = client.post(f"{self.base_url}{path}", data=payload, headers=headers)
-            resp.raise_for_status()
-            body = resp.json()
-            return body if isinstance(body, dict) else {"status": "error", "body": body}
+            with httpx.Client(timeout=self.timeout) as client:
+                resp = client.post(request_url, content=encoded, headers=headers)
+        else:
+            with httpx.Client(timeout=self.timeout) as client:
+                resp = client.post(request_url, data=data)
+        resp.raise_for_status()
+        body = resp.json()
+        return body if _is_payload_dict(body) else {"status": "error", "body": body}
 
     def _get(self, path: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
         with httpx.Client(timeout=self.timeout) as client:
             resp = client.get(f"{self.base_url}{path}", params=params or {})
             resp.raise_for_status()
             body = resp.json()
-            return body if isinstance(body, dict) else {"status": "error", "body": body}
+            return body if _is_payload_dict(body) else {"status": "error", "body": body}
 
     def schedule_spider(
         self,
@@ -101,7 +107,7 @@ class ScrapydClient:
             )
             resp.raise_for_status()
             body = resp.json()
-            return body if isinstance(body, dict) else {"status": "error", "body": body}
+            return body if _is_payload_dict(body) else {"status": "error", "body": body}
 
 
 __all__ = ["ScrapydClient"]

@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import math
 import sys
 import unittest
+from datetime import UTC, datetime, tzinfo
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
@@ -10,12 +13,32 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 pytestmark = pytest.mark.unit
 
+from app.services.graph.builder import _apply_time_decay
 from app.services.graph.doc_types import resolve_graph_node_combo, resolve_graph_node_ensemble
 from app.services.graph.models import Graph, GraphEdge, GraphNode
 from app.services.graph.projection import project_graph_by_node_types
 
 
 class GraphProjectionUnitTestCase(unittest.TestCase):
+    def test_time_decay_default_reference_uses_naive_utc(self):
+        observed_timezones: list[tzinfo] = []
+
+        class _Clock:
+            @classmethod
+            def now(cls, timezone: tzinfo) -> datetime:
+                observed_timezones.append(timezone)
+                return datetime(2026, 1, 2, tzinfo=timezone)
+
+        with patch("app.services.graph.builder.datetime", _Clock):
+            result = _apply_time_decay(
+                1.0,
+                datetime(2026, 1, 1),
+                tau_days=1.0,
+            )
+
+        self.assertEqual(observed_timezones, [UTC])
+        self.assertAlmostEqual(result, math.exp(-1.0))
+
     def test_project_graph_by_node_types_filters_nodes_and_edges(self):
         post = GraphNode(type="Post", id="1", properties={})
         keyword = GraphNode(type="Keyword", id="k1", properties={})
@@ -55,4 +78,3 @@ class GraphProjectionUnitTestCase(unittest.TestCase):
         self.assertTrue(set(social_combo).issubset(ensemble))
         self.assertTrue(set(market_combo).issubset(ensemble))
         self.assertTrue(set(policy_combo).issubset(ensemble))
-

@@ -79,6 +79,7 @@ __all__ = [
     "build_batch_task_single_dispatch_registry",
     "derive_dispatch_task_id",
     "derive_dispatch_run_id",
+    "agent_batch_hex64_failure",
     "raise_agent_batch_contract_failure",
 ]
 
@@ -182,6 +183,9 @@ def _hex64_failure(value: str, field_name: str) -> Failure | None:
             site=f"digest/{field_name}",
         )
     return None
+
+
+agent_batch_hex64_failure = _hex64_failure
 
 
 DISPATCH_SINGLE_KIND = "batch.task.dispatch_single.v2"

@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass
 from datetime import datetime
-from typing import Annotated, Any, Mapping
+from collections.abc import Mapping
+from typing import Annotated, Iterable, Protocol, runtime_checkable, TypeGuard
 
 from .canary_handoff import LIVE_CANARY_EVIDENCE_CONTRACT_VERSION
 
@@ -35,9 +36,9 @@ class Boundary:
     validated: bool
     detail: str
     blockers: list[str]
-    evidence: dict[str, Any]
+    evidence: dict[str, object]
 
-    def to_dict(self) -> dict[str, Any]:
+    def to_dict(self) -> dict[str, object]:
         return asdict(self)
 
 
@@ -61,22 +62,47 @@ class StrictPromotionReadiness:
     boundaries: list[Boundary]
     remaining_external_blockers: list[dict[str, str]]
 
-    def to_dict(self) -> dict[str, Any]:
+    def to_dict(self) -> dict[str, object]:
         return asdict(self)
 
 
-def _mapping(value: Any) -> Mapping[str, Any]:
-    return value if isinstance(value, Mapping) else {}
+def _is_string_key(value: object) -> bool:
+    return isinstance(value, str)
 
 
-def _number(value: Any) -> float | None:
+@runtime_checkable
+class _StringKeyInspectable(Protocol):
+    def keys(self) -> Iterable[object]: ...
+
+
+def _has_only_string_keys(value: object) -> bool:
+    if not isinstance(value, _StringKeyInspectable):
+        return False
+    return all(map(_is_string_key, value.keys()))
+
+
+def _is_object_mapping(value: object) -> TypeGuard[Mapping[str, object]]:
+    if not _has_only_string_keys(value):
+        return False
+    return isinstance(value, Mapping)
+
+
+def _is_object_list(value: object) -> TypeGuard[list[object]]:
+    return isinstance(value, list)
+
+
+def _mapping(value: object) -> Mapping[str, object]:
+    return value if _is_object_mapping(value) else {}
+
+
+def _number(value: object) -> float | None:
     try:
-        return float(value)
+        return float(value) if isinstance(value, (str, bytes, int, float)) else None
     except (TypeError, ValueError):
         return None
 
 
-def _integer(value: Any) -> int | None:
+def _integer(value: object) -> int | None:
     if isinstance(value, bool):
         return None
     if isinstance(value, int):
@@ -84,11 +110,20 @@ def _integer(value: Any) -> int | None:
     return None
 
 
-def _string_present(value: Any) -> bool:
+def _coerce_int(value: object) -> int:
+    if not isinstance(value, (str, bytes, int, float)):
+        return 0
+    try:
+        return int(value)
+    except (OverflowError, TypeError, ValueError):
+        return 0
+
+
+def _string_present(value: object) -> bool:
     return bool(str(value or "").strip())
 
 
-def _timestamp_present(value: Any) -> bool:
+def _timestamp_present(value: object) -> bool:
     text = str(value or "").strip()
     if "T" not in text:
         return False
@@ -99,11 +134,11 @@ def _timestamp_present(value: Any) -> bool:
     return parsed.tzinfo is not None
 
 
-def _rate_matches(actual: Any, numerator: Any, denominator: Any) -> bool:
+def _rate_matches(actual: object, numerator: object, denominator: object) -> bool:
     actual_rate = _number(actual)
     try:
-        num = int(numerator)
-        den = int(denominator)
+        num = int(numerator) if isinstance(numerator, (str, bytes, int, float)) else 0
+        den = int(denominator) if isinstance(denominator, (str, bytes, int, float)) else 0
     except (TypeError, ValueError):
         return False
     if actual_rate is None or den <= 0:
@@ -111,7 +146,7 @@ def _rate_matches(actual: Any, numerator: Any, denominator: Any) -> bool:
     return round(num / den, 6) == round(actual_rate, 6)
 
 
-def _metric_count_checks(metrics: Mapping[str, Any], guardrail: Mapping[str, Any]) -> dict[str, bool]:
+def _metric_count_checks(metrics: Mapping[str, object], guardrail: Mapping[str, object]) -> dict[str, bool]:
     total_attempts = _integer(metrics.get("total_attempts"))
     rejected = _integer(metrics.get("rejected_count"))
     inserted_total = _integer(metrics.get("inserted_total_count"))
@@ -124,17 +159,21 @@ def _metric_count_checks(metrics: Mapping[str, Any], guardrail: Mapping[str, Any
         "metric_counts_present": counts_present,
         "metric_counts_non_negative": counts_non_negative,
         "metric_total_attempts_positive": total_attempts is not None and total_attempts > 0,
-        "metric_rejected_inserted_total_consistent": counts_present
-        and rejected + inserted_total == total_attempts,
-        "metric_inserted_valid_invalid_consistent": counts_present
-        and inserted_valid + inserted_invalid == inserted_total,
+        "metric_rejected_inserted_total_consistent": (
+            rejected is not None and inserted_total is not None and total_attempts is not None
+            and rejected + inserted_total == total_attempts
+        ),
+        "metric_inserted_valid_invalid_consistent": (
+            inserted_valid is not None and inserted_invalid is not None and inserted_total is not None
+            and inserted_valid + inserted_invalid == inserted_total
+        ),
         "guardrail_rollout_counts_match_total_attempts": total_attempts is not None
         and _integer(guardrail.get("strict_enabled_samples")) == total_attempts
         and _integer(guardrail.get("canary_matched_samples")) == total_attempts,
     }
 
 
-def _live_canary_boundary(live_canary_evidence: Mapping[str, Any] | None) -> Boundary:
+def _live_canary_boundary(live_canary_evidence: Mapping[str, object] | None) -> Boundary:
     evidence = _mapping(live_canary_evidence)
     validation_checks = _mapping(evidence.get("validation_checks"))
     required_checks = (
@@ -178,9 +217,9 @@ def _live_canary_boundary(live_canary_evidence: Mapping[str, Any] | None) -> Bou
 
 
 def _metric_24h_shape_boundary(
-    metrics_artifact: Mapping[str, Any] | None,
+    metrics_artifact: Mapping[str, object] | None,
     *,
-    production_metrics_artifact: Mapping[str, Any] | None = None,
+    production_metrics_artifact: Mapping[str, object] | None = None,
     production_metrics_artifact_attached: bool = False,
 ) -> Boundary:
     artifact = _mapping(metrics_artifact)
@@ -199,7 +238,7 @@ def _metric_24h_shape_boundary(
             "ingest.canary_24h_metrics_artifact.v1",
             PRODUCTION_24H_METRICS_CONTRACT_VERSION,
         },
-        "window_hours_at_least_24": int(window.get("window_hours") or 0) >= 24,
+        "window_hours_at_least_24": _coerce_int(window.get("window_hours")) >= 24,
         "rejection_rate_reviewed": _rate_matches(metrics.get("rejection_rate"), rejected, total_attempts),
         "inserted_valid_ratio_reviewed": _rate_matches(
             metrics.get("inserted_valid_ratio"),
@@ -239,7 +278,7 @@ def _metric_24h_shape_boundary(
             "ingest.canary_24h_metrics_artifact.v1",
             PRODUCTION_24H_METRICS_CONTRACT_VERSION,
         },
-        "window_hours_at_least_24": int(production_window.get("window_hours") or 0) >= 24,
+        "window_hours_at_least_24": _coerce_int(production_window.get("window_hours")) >= 24,
         "rejection_rate_reviewed": _rate_matches(
             production_metrics.get("rejection_rate"),
             production_rejected,
@@ -339,7 +378,7 @@ def _metric_24h_shape_boundary(
     )
 
 
-def _ops_promotion_boundary(ops_promotion_evidence: Mapping[str, Any] | None) -> Boundary:
+def _ops_promotion_boundary(ops_promotion_evidence: Mapping[str, object] | None) -> Boundary:
     evidence = _mapping(ops_promotion_evidence)
     checks = {
         "contract_version": evidence.get("contract_version") == OPS_STRICT_GATE_PROMOTION_CONTRACT_VERSION,
@@ -358,7 +397,7 @@ def _ops_promotion_boundary(ops_promotion_evidence: Mapping[str, Any] | None) ->
     }
     failed = [name for name, passed in checks.items() if not passed]
     passed = bool(evidence) and not failed
-    blockers = [] if passed else ([OPS_PROMOTION_EVIDENCE_INVALID_BLOCKER] if evidence else list(OPS_PROMOTION_BLOCKERS))
+    blockers: list[str] = [] if passed else ([OPS_PROMOTION_EVIDENCE_INVALID_BLOCKER] if evidence else list(OPS_PROMOTION_BLOCKERS))
     return Boundary(
         name="ops_strict_gate_promotion",
         status="validated" if passed else ("failed_evidence" if evidence else "missing_evidence"),
@@ -385,11 +424,11 @@ def _ops_promotion_boundary(ops_promotion_evidence: Mapping[str, Any] | None) ->
 def build_strict_promotion_readiness(
     *,
     project_key: str = "demo_proj",
-    live_canary_evidence: Mapping[str, Any] | None,
-    metrics_artifact: Mapping[str, Any] | None,
-    production_metrics_artifact: Mapping[str, Any] | None = None,
+    live_canary_evidence: Mapping[str, object] | None,
+    metrics_artifact: Mapping[str, object] | None,
+    production_metrics_artifact: Mapping[str, object] | None = None,
     production_metrics_artifact_attached: bool = False,
-    ops_promotion_evidence: Mapping[str, Any] | None = None,
+    ops_promotion_evidence: Mapping[str, object] | None = None,
     ops_promotion_artifact_attached: bool = False,
     closure_claim: bool = False,
 ) -> Annotated[
@@ -406,7 +445,7 @@ def build_strict_promotion_readiness(
     boundaries = [live_boundary, metric_boundary, ops_boundary]
 
     repo_local_preflight_passed = live_boundary.passed and metric_boundary.passed
-    remaining_ids = []
+    remaining_ids: list[str] = []
     if not live_boundary.passed:
         remaining_ids.extend(live_boundary.blockers)
     if not metric_boundary.validated:
@@ -469,18 +508,20 @@ def build_strict_promotion_readiness(
     )
 
 
-def validate_strict_promotion_readiness(report: Mapping[str, Any]) -> list[str]:
+def validate_strict_promotion_readiness(report: Mapping[str, object]) -> list[str]:
     errors: list[str] = []
     if report.get("contract_version") != CONTRACT_VERSION:
         errors.append("contract_version mismatch")
     if not isinstance(report.get("closure_requested"), bool):
         errors.append("closure_requested must be boolean")
     remaining = report.get("remaining_external_blockers")
-    remaining_ids = {
-        item.get("id")
-        for item in remaining
-        if isinstance(item, Mapping)
-    } if isinstance(remaining, list) else set()
+    remaining_items = remaining if _is_object_list(remaining) else []
+    remaining_ids: set[str] = {
+        str(identifier)
+        for item in remaining_items
+        if _is_object_mapping(item)
+        if (identifier := item.get("id")) is not None
+    }
     status = report.get("status")
     if report.get("closure_claim") is not False and report.get("status") != "closed":
         errors.append("closure_claim can only be true when status is closed")
@@ -529,11 +570,13 @@ def validate_strict_promotion_readiness(report: Mapping[str, Any]) -> list[str]:
     ops_artifact_status = report.get("ops_promotion_artifact_status")
     if ops_artifact_status not in {"not_attached", "attached_invalid", "attached_validated"}:
         errors.append("ops_promotion_artifact_status invalid")
+    raw_boundaries = report.get("boundaries")
+    boundary_items = raw_boundaries if _is_object_list(raw_boundaries) else []
     if ops_artifact_status == "attached_validated" and not any(
-        isinstance(boundary, Mapping)
+        _is_object_mapping(boundary)
         and boundary.get("name") == "ops_strict_gate_promotion"
         and boundary.get("validated") is True
-        for boundary in report.get("boundaries", []) or []
+        for boundary in boundary_items
     ):
         errors.append("attached_validated ops artifact status requires validated ops boundary")
     if report.get("strict_gate_promotion_satisfied") is True and report.get("production_24h_metrics_satisfied") is not True:
@@ -545,7 +588,7 @@ def validate_strict_promotion_readiness(report: Mapping[str, Any]) -> list[str]:
     if report.get("strict_gate_promotion_satisfied") is True and ops_blocker_ids.intersection(remaining_ids):
         errors.append("satisfied strict-gate promotion must not keep ops blockers")
     boundaries = report.get("boundaries")
-    if not isinstance(boundaries, list) or len(boundaries) != 3:
+    if not _is_object_list(boundaries) or len(boundaries) != 3:
         errors.append("report must include three boundaries")
     return errors
 

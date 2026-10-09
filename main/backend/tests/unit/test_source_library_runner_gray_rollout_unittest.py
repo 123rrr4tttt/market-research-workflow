@@ -105,7 +105,7 @@ class SourceLibraryRunnerGrayRolloutUnitTestCase(unittest.TestCase):
             provider_ports.set_crawler_provider_resolver(original_resolver)
 
     def test_json_boundaries_share_recursive_legacy_semantics(self):
-        from app.services.source_library.runner import _json_object
+        from app.services.source_library.runner import _json_object, _mapping
 
         source = {
             1: "integer-key",
@@ -113,7 +113,7 @@ class SourceLibraryRunnerGrayRolloutUnitTestCase(unittest.TestCase):
             "frozenset": frozenset({"y", "x"}),
             "tuple": (1, 2),
             "error": ValueError("invalid option"),
-            "nested": {"ok": True},
+            "nested": {"ok": True, 2: "nested-integer-key"},
         }
 
         crawler = _json_object(source)
@@ -123,7 +123,9 @@ class SourceLibraryRunnerGrayRolloutUnitTestCase(unittest.TestCase):
         self.assertEqual(set(crawler["frozenset"]), {"x", "y"})
         self.assertEqual(crawler["tuple"], [1, 2])
         self.assertEqual(crawler["error"], "invalid option")
-        self.assertEqual(crawler["nested"], {"ok": True})
+        self.assertEqual(crawler["nested"], {"ok": True, "2": "nested-integer-key"})
+        self.assertEqual(_mapping({"keyword": "ai", "nested": {7: "invalid-runner-key"}}), {})
+        self.assertEqual(_mapping({"download_delay": 1, 8: "invalid-setting-key"}), {})
 
     def test_registered_scrapy_output_ingest_is_the_terminal_material_writer(self):
         from app.services.source_library.provider_ports import CrawlerOutputIngestResult

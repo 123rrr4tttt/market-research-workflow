@@ -1,15 +1,11 @@
 from __future__ import annotations
 
-from typing import Any
-
-from functorial_kit.core.failure import Failure
-
 from app.services.search.candidate_search import discover_candidates
 from app.successor_runtime.capabilities.retrieval_candidate_native import (
+    DEFAULT_CANDIDATE_NATIVE_SOURCE,
     CandidateAssemblyContext,
     CandidateNativeSource,
     CandidateSearchBinding,
-    DEFAULT_CANDIDATE_NATIVE_SOURCE,
     compile_candidate_native_contribution,
 )
 from app.successor_runtime.capabilities.retrieval_common import (
@@ -18,10 +14,13 @@ from app.successor_runtime.capabilities.retrieval_common import (
     FlowOperationBinding,
 )
 from app.successor_runtime.capabilities.retrieval_native_catalog import retrieval_candidate_native
+from functorial_kit.core.failure import Failure
 
 from ..search.candidate_contracts import CandidateBundle, CandidateSearchRequest
 from ..search.smart import smart_search
+from ..search.web import SearchResult
 from .deep_search import deep_search
+from .ports import DiscoveryDeepResult, DiscoveryStoreResult
 from .store import store_results
 
 
@@ -59,28 +58,65 @@ class DefaultDiscoveryAdapter:
     def search_candidates(self, request: CandidateSearchRequest) -> CandidateBundle:
         return self._candidate_binding.discover(request)
 
-    def search(self, **kwargs) -> list[dict[str, Any]]:
-        return self.search_candidates(CandidateSearchRequest.from_legacy(**kwargs)).legacy_list()
-
-    def smart_search(self, **kwargs) -> list[dict[str, Any]]:
-        return smart_search(**kwargs)
-
-    def deep_search(self, **kwargs) -> dict[str, Any]:
-        return deep_search(
-            kwargs["topic"],
-            kwargs.get("language", "en"),
-            kwargs.get("iterations", 2),
-            kwargs.get("breadth", 2),
-            kwargs.get("max_results", 20),
+    def search(
+        self,
+        *,
+        topic: str,
+        language: str = "en",
+        max_results: int = 10,
+        provider: str = "auto",
+        days_back: int | None = None,
+        exclude_existing: bool = True,
+        start_offset: int | None = None,
+        keywords: tuple[str, ...] | None = None,
+        project_ref: str | None = None,
+        source_ref: str | None = None,
+        facet_ref: str | None = None,
+    ) -> list[SearchResult]:
+        request = CandidateSearchRequest(
+            topic=topic,
+            language=language,
+            max_results=max_results,
+            provider=provider,
+            days_back=days_back,
+            exclude_existing=exclude_existing,
+            start_offset=start_offset,
+            keywords=keywords,
+            project_ref=project_ref,
+            source_ref=source_ref,
+            facet_ref=facet_ref,
         )
+        return [dict(row) for row in self.search_candidates(request).legacy_list()]
+
+    def smart_search(
+        self,
+        *,
+        topic: str,
+        days_back: int = 30,
+        max_results: int = 10,
+        language: str = "en",
+        provider: str = "auto",
+    ) -> list[SearchResult]:
+        return smart_search(topic, days_back, max_results, language, provider)
+
+    def deep_search(
+        self,
+        *,
+        topic: str,
+        language: str = "en",
+        iterations: int = 2,
+        breadth: int = 2,
+        max_results: int = 20,
+    ) -> DiscoveryDeepResult:
+        return deep_search(topic, language, iterations, breadth, max_results)
 
     def store(
         self,
-        results: list[dict[str, Any]],
+        results: list[SearchResult],
         *,
         project_key: str | None = None,
         job_type: str | None = None,
-    ) -> dict[str, Any]:
+    ) -> DiscoveryStoreResult:
         return store_results(
             results,
             project_key=project_key,

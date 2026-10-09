@@ -29,10 +29,9 @@ from app.successor_runtime.capabilities.first_specimen_interpreters import (
 from app.successor_runtime.language.algebra import ValueRef
 from app.successor_runtime.language.program import (
     Atom,
-    ProgramNode,
     program_atoms,
 )
-from app.successor_runtime.research.codec import canonical_bytes, sha256_hex
+from app.successor_runtime.research.codec import canonical_bytes, runtime_value, sha256_hex
 from app.successor_runtime.research.materials import (
     CapturedMaterialSnapshot,
     MaterialRef,
@@ -293,21 +292,27 @@ class PostgresCapturedValueReplayAdapter:
                 for step in plan.ordered_steps
                 if step.step_id == assignment.step_id
             )
-            if len(steps) != 1 or steps[0].operation_id is None:
+            if len(steps) != 1:
                 raise CapturedValueReplayError(
                     "plan does not contain the exact claimed step"
                 )
             step = steps[0]
+            operation_id = step.operation_id
+            operation_contract = step.operation_contract_ref
+            if operation_id is None or operation_contract is None:
+                raise CapturedValueReplayError(
+                    "claimed step lacks an exact operation binding"
+                )
             if (
-                step.operation_contract_ref != assignment.operation_contract_ref
-                or step.operation_contract_ref.contract_digest
+                operation_contract != assignment.operation_contract_ref
+                or operation_contract.contract_digest
                 != assignment.operation_contract_digest
             ):
                 raise CapturedValueReplayError(
                     "plan/assignment operation contract drift"
                 )
 
-            atom = _exact_atom(program, step.operation_id)
+            atom = _exact_atom(program, operation_id)
             if atom.operation.contract_ref != assignment.operation_contract_ref:
                 raise CapturedValueReplayError(
                     "Program/assignment operation contract drift"
@@ -404,7 +409,7 @@ class PostgresCapturedValueReplayAdapter:
                     "material read typed payload is malformed"
                 ) from exc
             if (
-                not isinstance(payload, CanonicalReadInput)
+                not isinstance(runtime_value(payload), CanonicalReadInput)
                 or canonical_bytes(codec.encode_payload(payload)) != payload_exact
                 or payload != canonical_read_payload_from_source(source)
             ):

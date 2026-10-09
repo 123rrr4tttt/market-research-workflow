@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
 from dataclasses import dataclass
 
 from sqlalchemy import delete, insert, select, update
-from sqlalchemy.engine import Connection
+from sqlalchemy.engine import Connection, RowMapping
 
 from app.successor_runtime.language.checksum import is_sha256_hex
 from app.successor_runtime.runtime.ports import RuntimeScope
@@ -59,7 +58,7 @@ class ProjectionOffsetRepository:
         source_revision: int,
         source_digest: str,
         offset_ref: str,
-    ) -> Mapping[str, object]:
+    ) -> RowMapping:
         _validate_position(projection_generation, source_revision, source_digest)
         table = runtime_table("runtime_projection_offsets")
         now = utc_now()
@@ -89,7 +88,7 @@ class ProjectionOffsetRepository:
 
     def load(
         self, projection_offset_id: str, *, for_update: bool = False
-    ) -> Mapping[str, object]:
+    ) -> RowMapping:
         table = runtime_table("runtime_projection_offsets")
         statement = select(table).where(
             table.c.project_key == runtime_scope_key(self.scope),
@@ -104,7 +103,7 @@ class ProjectionOffsetRepository:
 
     def load_source(
         self, key: ProjectionOffsetKey, *, for_update: bool = False
-    ) -> Mapping[str, object] | None:
+    ) -> RowMapping | None:
         table = runtime_table("runtime_projection_offsets")
         statement = select(table).where(
             table.c.project_key == runtime_scope_key(self.scope),
@@ -132,7 +131,7 @@ class ProjectionOffsetRepository:
         source_revision: int,
         source_digest: str,
         offset_ref: str,
-    ) -> Mapping[str, object]:
+    ) -> RowMapping:
         _validate_position(expected_generation, source_revision, source_digest)
         if source_revision < expected_source_revision:
             raise StaleRevisionError("projection source revision regressed")

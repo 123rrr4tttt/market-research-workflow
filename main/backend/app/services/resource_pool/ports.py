@@ -12,7 +12,7 @@ class ResourcePoolAppendPort(Protocol):
         self,
         url: str,
         source: str,
-        source_ref: dict,
+        source_ref: dict[str, object],
         *,
         project_key: str,
         job_type: str,

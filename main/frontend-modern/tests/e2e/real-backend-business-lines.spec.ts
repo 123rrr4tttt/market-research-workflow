@@ -293,7 +293,7 @@ test('real-backend business line smoke [line_key=ingest] classifies endpoint, da
 test('real-backend business line smoke [line_key=search_discovery_index] classifies endpoint, data, and browser failures', async ({ page, request }) => {
   const lineKey: CanonicalBusinessLineKey = 'search_discovery_index'
   skipWhenBackendCheckBypassed()
-  await probeEndpoint(request, lineKey, '/api/v1/search?q=smoke&limit=1', {
+  await probeEndpoint(request, lineKey, '/api/v1/search?q=smoke&limit=1&rank=bm25', {
     requireData: (data) => {
       const payload = requireObject(data, 'Search response')
       if (typeof payload.query !== 'string' || !Array.isArray(payload.results)) {

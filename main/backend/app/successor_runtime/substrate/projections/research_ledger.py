@@ -14,12 +14,12 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from types import MappingProxyType
-from typing import Any
+from typing import TypeGuard
 
 import sqlalchemy as sa
-from sqlalchemy.engine import Connection
+from sqlalchemy.engine import Connection, RowMapping
 
-from app.successor_runtime.research.codec import is_sha256_hex, sha256_hex
+from app.successor_runtime.research.codec import is_sha256_hex, runtime_value, sha256_hex
 from app.successor_runtime.runtime.ports import RuntimeScope
 from app.successor_runtime.substrate.postgres.research_ledger import (
     assert_table_scope,
@@ -254,10 +254,10 @@ def _full_snapshot_statement(
     objects: sa.Table,
     relations: sa.Table,
     project_key: str,
-) -> sa.Select:
+) -> sa.Select[tuple[object, ...]]:
     """Return one statement so both authority tables share one MVCC snapshot."""
 
-    def null_as(column: sa.Column[Any]) -> Any:
+    def null_as(column: sa.Column[object]) -> sa.ColumnElement[object]:
         return sa.cast(sa.null(), column.type)
 
     object_rows = sa.select(
@@ -309,21 +309,21 @@ def _full_snapshot_statement(
     )
 
 
-def _required_text(row: Mapping[str, Any], name: str) -> str:
+def _required_text(row: RowMapping, name: str) -> str:
     value = row[name]
     if not isinstance(value, str) or not value:
         raise ResearchLedgerProjectionError(f"Ledger {name} is not exact text")
     return value
 
 
-def _revision(row: Mapping[str, Any]) -> int:
+def _revision(row: RowMapping) -> int:
     value = row["revision"]
     if not isinstance(value, int) or isinstance(value, bool) or value < 1:
         raise ResearchLedgerProjectionError("Ledger revision must be an integer >= 1")
     return value
 
 
-def _digest(row: Mapping[str, Any], name: str) -> str:
+def _digest(row: RowMapping, name: str) -> str:
     value = _required_text(row, name)
     if not is_sha256_hex(value):
         raise ResearchLedgerProjectionError(f"Ledger {name} is not canonical sha256")
@@ -331,32 +331,50 @@ def _digest(row: Mapping[str, Any], name: str) -> str:
 
 
 def _object_record(
-    row: Mapping[str, Any], project_key: str
+    row: RowMapping, project_key: str
 ) -> ResearchLedgerObjectRecord:
+    object_id = _required_text(row, "record_id")
+    object_type = _required_text(row, "record_type")
+    revision = _revision(row)
+    incarnation = _required_text(row, "incarnation")
+    lifecycle_state = _required_text(row, "state")
+    owner_binding_ref = _required_text(row, "owner_binding_ref")
+    content_ref = _required_text(row, "content_ref")
+    content_digest = _digest(row, "content_digest")
+    provenance_closure_digest = _digest(row, "provenance_closure_digest")
+    valid_from = runtime_value(row["valid_from"])
+    valid_to = runtime_value(row["valid_to"])
+    if valid_from is not None and not isinstance(valid_from, datetime):
+        raise ResearchLedgerProjectionError("Ledger valid_from is not a datetime")
+    if valid_to is not None and not isinstance(valid_to, datetime):
+        raise ResearchLedgerProjectionError("Ledger valid_to is not a datetime")
     payload = {
         "project_key": project_key,
-        "object_id": _required_text(row, "record_id"),
-        "object_type": _required_text(row, "record_type"),
-        "revision": _revision(row),
-        "incarnation": _required_text(row, "incarnation"),
-        "lifecycle_state": _required_text(row, "state"),
-        "owner_binding_ref": _required_text(row, "owner_binding_ref"),
-        "content_ref": _required_text(row, "content_ref"),
-        "content_digest": _digest(row, "content_digest"),
-        "provenance_closure_digest": _digest(row, "provenance_closure_digest"),
-        "valid_from": row["valid_from"],
-        "valid_to": row["valid_to"],
+        "object_id": object_id,
+        "object_type": object_type,
+        "revision": revision,
+        "incarnation": incarnation,
+        "lifecycle_state": lifecycle_state,
+        "owner_binding_ref": owner_binding_ref,
+        "content_ref": content_ref,
+        "content_digest": content_digest,
+        "provenance_closure_digest": provenance_closure_digest,
+        "valid_from": valid_from,
+        "valid_to": valid_to,
     }
-    if payload["valid_from"] is not None and not isinstance(
-        payload["valid_from"], datetime
-    ):
-        raise ResearchLedgerProjectionError("Ledger valid_from is not a datetime")
-    if payload["valid_to"] is not None and not isinstance(
-        payload["valid_to"], datetime
-    ):
-        raise ResearchLedgerProjectionError("Ledger valid_to is not a datetime")
     return ResearchLedgerObjectRecord(
-        **payload,
+        project_key=project_key,
+        object_id=object_id,
+        object_type=object_type,
+        revision=revision,
+        incarnation=incarnation,
+        lifecycle_state=lifecycle_state,
+        owner_binding_ref=owner_binding_ref,
+        content_ref=content_ref,
+        content_digest=content_digest,
+        provenance_closure_digest=provenance_closure_digest,
+        valid_from=valid_from,
+        valid_to=valid_to,
         record_digest=sha256_hex(
             {"schema": "mrw.research-ledger.object-record.v1", **payload}
         ),
@@ -377,16 +395,40 @@ _OBJECT_REF_FIELDS = frozenset(
 )
 
 
+def _is_string_object_mapping(
+    value: object,
+) -> TypeGuard[Mapping[str, object]]:
+    if not _is_object_mapping(value):
+        return False
+    return all(isinstance(key, str) for key in value)
+
+
+def _is_object_dict(value: object) -> TypeGuard[dict[object, object]]:
+    return isinstance(value, dict)
+
+
+def _is_string_object_dict(
+    value: object,
+) -> TypeGuard[dict[str, object]]:
+    if not _is_object_dict(value):
+        return False
+    return all(isinstance(key, str) for key in value)
+
+
+def _is_object_mapping(value: object) -> TypeGuard[Mapping[object, object]]:
+    return isinstance(value, Mapping)
+
+
 def _exact_object_ref(value: object, project_key: str) -> Mapping[str, object]:
     if not isinstance(value, str):
         raise ResearchLedgerProjectionError("relation object ref is not encoded text")
     try:
-        decoded = json.loads(value)
+        decoded = runtime_value(json.loads(value))
     except (TypeError, ValueError) as exc:
         raise ResearchLedgerProjectionError(
             "relation object ref is invalid JSON"
         ) from exc
-    if not isinstance(decoded, dict) or frozenset(decoded) != _OBJECT_REF_FIELDS:
+    if not _is_string_object_dict(decoded) or frozenset(decoded) != _OBJECT_REF_FIELDS:
         raise ResearchLedgerProjectionError(
             "relation object ref has an inexact identity"
         )
@@ -415,28 +457,49 @@ def _exact_object_ref(value: object, project_key: str) -> Mapping[str, object]:
     return MappingProxyType(decoded)
 
 
-def _relation_record(
-    row: Mapping[str, Any], project_key: str
-) -> ResearchLedgerRelationRecord:
-    validity = row["validity_json"]
-    if not isinstance(validity, Mapping):
+def _relation_record(row: RowMapping, project_key: str) -> ResearchLedgerRelationRecord:
+    validity = runtime_value(row["validity_json"])
+    if not _is_string_object_mapping(validity):
         raise ResearchLedgerProjectionError("relation validity_json is not an object")
+    relation_id = _required_text(row, "record_id")
+    relation_type = _required_text(row, "record_type")
+    revision = _revision(row)
+    incarnation = _required_text(row, "incarnation")
+    state = _required_text(row, "state")
+    source_object_ref = _exact_object_ref(row["source_object_ref"], project_key)
+    target_object_ref = _exact_object_ref(row["target_object_ref"], project_key)
+    direction = _required_text(row, "direction")
+    scope_ref = _required_text(row, "scope_ref")
+    uncertainty_profile_ref = _required_text(row, "uncertainty_profile_ref")
+    exact_validity = MappingProxyType(dict(validity))
+    provenance_closure_digest = _digest(row, "provenance_closure_digest")
     payload = {
-        "relation_id": _required_text(row, "record_id"),
-        "relation_type": _required_text(row, "record_type"),
-        "revision": _revision(row),
-        "incarnation": _required_text(row, "incarnation"),
-        "state": _required_text(row, "state"),
-        "source_object_ref": _exact_object_ref(row["source_object_ref"], project_key),
-        "target_object_ref": _exact_object_ref(row["target_object_ref"], project_key),
-        "direction": _required_text(row, "direction"),
-        "scope_ref": _required_text(row, "scope_ref"),
-        "uncertainty_profile_ref": _required_text(row, "uncertainty_profile_ref"),
-        "validity": MappingProxyType(dict(validity)),
-        "provenance_closure_digest": _digest(row, "provenance_closure_digest"),
+        "relation_id": relation_id,
+        "relation_type": relation_type,
+        "revision": revision,
+        "incarnation": incarnation,
+        "state": state,
+        "source_object_ref": source_object_ref,
+        "target_object_ref": target_object_ref,
+        "direction": direction,
+        "scope_ref": scope_ref,
+        "uncertainty_profile_ref": uncertainty_profile_ref,
+        "validity": exact_validity,
+        "provenance_closure_digest": provenance_closure_digest,
     }
     return ResearchLedgerRelationRecord(
-        **payload,
+        relation_id=relation_id,
+        relation_type=relation_type,
+        revision=revision,
+        incarnation=incarnation,
+        state=state,
+        source_object_ref=source_object_ref,
+        target_object_ref=target_object_ref,
+        direction=direction,
+        scope_ref=scope_ref,
+        uncertainty_profile_ref=uncertainty_profile_ref,
+        validity=exact_validity,
+        provenance_closure_digest=provenance_closure_digest,
         record_digest=sha256_hex(
             {"schema": "mrw.research-ledger.relation-record.v1", **payload}
         ),

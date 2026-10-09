@@ -13,10 +13,11 @@ from hashlib import sha256
 import json
 from pathlib import Path
 import re
-from typing import Any
+from typing import Any, Literal, TypeGuard
 from uuid import uuid4
 
 from functorial_kit import Failure
+from app.services.agent_sessions.service import AgentSessionService
 from mrw_functorial_kit.core.agent_service_semantics import agent_runtime_failures
 from app.services.llm.codex_macro_binding import NativeAgentBinding, NativeSkillBinding, NativeToolBinding
 from app.successor_runtime.capabilities.agent_macro_native import (
@@ -30,7 +31,6 @@ from .macro_tools import FacilityBinding
 from .project_tools import get_agent_macro_facility_catalog
 from .registry import CoreToolRegistry
 
-
 RESOLVED_MACRO_ENVIRONMENT_CONTRACT_VERSION = "agent_macro.environment.resolved.v1"
 _CONTENT_ID = re.compile(r"^sha256:[0-9a-f]{64}$")
 BASE_CORE_BINDING_REF = "agent.macro.base"
@@ -38,6 +38,46 @@ _BASE_CONCEPTUAL_RULE_REFS = ("agent_macro_architecture.section.2",)
 _ACTIVATE_TOOL_NAME = "agent_macro.registration_package.activate"
 _REGISTRATION_ARTIFACT_TYPE = "agent_macro.registration_package"
 _REGISTRATION_NAME_PREFIX = "macro-registration/"
+
+
+def _is_object_mapping(value: object) -> TypeGuard[Mapping[object, object]]:
+    return isinstance(value, Mapping)
+
+
+def _is_string_mapping(value: object) -> TypeGuard[Mapping[str, object]]:
+    return _is_object_mapping(value) and all(isinstance(key, str) for key in value)
+
+
+def _is_object_sequence(value: object) -> TypeGuard[list[object]]:
+    return isinstance(value, list)
+
+
+def _mapping_or_empty(value: object) -> Mapping[str, object]:
+    return value if _is_string_mapping(value) else {}
+
+
+def _string_tuple(value: object) -> tuple[str, ...]:
+    if not _is_object_sequence(value):
+        return ()
+    return tuple(str(item) for item in value)
+
+
+def _relation_realization(value: object) -> Literal["virtual", "real"]:
+    text = str(value or "").strip()
+    if text == "virtual":
+        return "virtual"
+    if text == "real":
+        return "real"
+    raise ValueError("macro relation realization must be virtual or real")
+
+
+def _core_mode(value: object) -> Literal["model-only", "native-agent"]:
+    text = str(value or "").strip()
+    if text == "model-only":
+        return "model-only"
+    if text == "native-agent":
+        return "native-agent"
+    raise ValueError("macro core mode must be model-only or native-agent")
 
 
 def _failure(code: str, message: str, **context: Any) -> Failure:
@@ -60,9 +100,9 @@ class ResolvedMacroPackage:
     package_id: str
     package_version: str
     content_digest: str
-    package: Mapping[str, Any]
-    artifact: Mapping[str, Any]
-    activation: Mapping[str, Any]
+    package: Mapping[str, object]
+    artifact: Mapping[str, object]
+    activation: Mapping[str, object]
 
 
 @dataclass(frozen=True, slots=True)
@@ -130,7 +170,7 @@ def _resolve_skill(raw: Mapping[str, Any], source_roots: Sequence[str | Path]) -
         content_id=_text(raw.get("content_id"), field="content_id"),
         applicability_ref=_text(raw.get("applicability_ref"), field="applicability_ref"),
         outcome_ref=_text(raw.get("outcome_ref"), field="outcome_ref"),
-        tool_refs=tuple(str(item) for item in raw.get("tool_refs") or ()),
+        tool_refs=_string_tuple(raw.get("tool_refs")),
     )
     if not _CONTENT_ID.fullmatch(authored.content_id):
         raise ValueError("skill content_id must be sha256:<hex>")
@@ -178,7 +218,9 @@ def _validate_activation_source(activation: Mapping[str, Any]) -> None:
     raise ValueError("unknown activation authorization source")
 
 
-def _activated_package(service: Any, *, project_key: str, package_id: str, package_version: str) -> ResolvedMacroPackage:
+def _activated_package(
+    service: AgentSessionService, *, project_key: str, package_id: str, package_version: str
+) -> ResolvedMacroPackage:
     result = read_registration_package(
         service, session_id="", project_key=project_key,
         package_id=package_id, package_version=package_version,
@@ -187,8 +229,8 @@ def _activated_package(service: Any, *, project_key: str, package_id: str, packa
         raise ValueError("registration package readback failed")
     if result.get("legacy") or result.get("runnable") is False:
         raise ValueError("legacy_activation_unverified")
-    package = dict(result["package"])
-    activation = dict(package.get("activation") or {})
+    package = _mapping_or_empty(result.get("package"))
+    activation = _mapping_or_empty(package.get("activation"))
     digest = str(package.get("content_digest") or "")
     if activation.get("status") != "activated" or activation.get("authority") != "host_authorization":
         raise ValueError("package is not activated by trusted host authority")
@@ -197,10 +239,11 @@ def _activated_package(service: Any, *, project_key: str, package_id: str, packa
         raise ValueError("activation project scope mismatch")
     if str(activation.get("content_digest") or "") != digest:
         raise ValueError("activation package digest mismatch")
-    metadata = dict(result.get("artifact", {}).get("metadata") or {})
+    artifact = _mapping_or_empty(result.get("artifact"))
+    metadata = _mapping_or_empty(artifact.get("metadata"))
     if str(metadata.get("content_digest") or "") != digest or metadata.get("activation_status") != "activated":
         raise ValueError("activated artifact metadata mismatch")
-    return ResolvedMacroPackage(package_id, package_version, digest, package, dict(result["artifact"]), activation)
+    return ResolvedMacroPackage(package_id, package_version, digest, package, artifact, activation)
 
 
 def _definition_from_package(
@@ -208,10 +251,10 @@ def _definition_from_package(
     facilities: Sequence[FacilityBinding], skills: Sequence[ResolvedSkillContent],
 ) -> MacroCellDefinition:
     raw = package.package
-    cell = dict(raw.get("cell") or {})
-    tool_refs = tuple(str(item) for item in cell.get("tool_refs") or ())
-    facility_refs = tuple(str(item) for item in cell.get("facility_refs") or ())
-    readback_refs = tuple(str(item) for item in cell.get("readback_refs") or ())
+    cell = _mapping_or_empty(raw.get("cell"))
+    tool_refs = _string_tuple(cell.get("tool_refs"))
+    facility_refs = _string_tuple(cell.get("facility_refs"))
+    readback_refs = _string_tuple(cell.get("readback_refs"))
     tool_by_name = {spec.name: spec for spec in tools}
     facility_by_id = {binding.binding_id: binding for binding in facilities}
     if len(tool_by_name) != len(tool_refs) or any(name not in tool_by_name for name in tool_refs):
@@ -220,17 +263,19 @@ def _definition_from_package(
         raise ValueError("unknown facility_ref")
     if any(name not in facility_by_id for name in readback_refs):
         raise ValueError("unknown readback_ref")
+    relations_value = raw.get("relations") or ()
+    relations_raw: list[object] = relations_value if _is_object_sequence(relations_value) else []
     relations = tuple(MacroRelationRealization(
         relation_id=str(item.get("relation_id") or ""),
         source_ref=str(item.get("source_ref") or ""),
         target_ref=str(item.get("target_ref") or ""),
         observation_boundary=str(item.get("observation_boundary") or ""),
-        realization=str(item.get("realization") or ""),
+        realization=_relation_realization(item.get("realization")),
         implementation_ref=str(item.get("implementation_ref") or ""),
         authority_ref=str(item.get("authority_ref") or ""),
-        failure_refs=tuple(str(ref) for ref in item.get("failure_refs") or ()),
-        readback_refs=tuple(str(ref) for ref in item.get("readback_refs") or ()),
-    ) for item in raw.get("relations") or ())
+        failure_refs=_string_tuple(item.get("failure_refs")),
+        readback_refs=_string_tuple(item.get("readback_refs")),
+    ) for item in relations_raw if _is_string_mapping(item))
     executable_refs = set(tool_by_name)
     executable_refs.update(spec.project_service_id for spec in tools if spec.project_service_id)
     executable_refs.update(binding.binding_id for binding in facilities)
@@ -254,9 +299,9 @@ def _definition_from_package(
         operation=operation,
         owner=str(raw.get("owner") or ""),
         core_binding_ref=core_binding_ref,
-        conceptual_rule_refs=tuple(str(item) for item in cell.get("conceptual_rule_refs") or ()),
+        conceptual_rule_refs=_string_tuple(cell.get("conceptual_rule_refs")),
         relations=relations,
-        core_mode=str(cell.get("core_mode") or ""),
+        core_mode=_core_mode(cell.get("core_mode")),
         skill_contents=tuple(item.authored for item in skills),
         tool_refs=tool_refs,
         facility_refs=facility_refs,
@@ -390,14 +435,20 @@ def resolve_macro_environment(
         resolved_package = _activated_package(
             service, project_key=project, package_id=ids[0], package_version=versions[0]
         )
-        resolved_skills = tuple(
-            _resolve_skill(item, source_roots)
-            for item in resolved_package.package.get("skill_contents") or ()
+        skill_contents_value = resolved_package.package.get("skill_contents")
+        if not _is_object_sequence(skill_contents_value):
+            raise ValueError("skill_contents must be an array")
+        skill_contents = tuple(
+            item for item in skill_contents_value if _is_string_mapping(item)
         )
+        if len(skill_contents) != len(skill_contents_value):
+            raise ValueError("skill content must be an object")
+        resolved_skills = tuple(_resolve_skill(item, source_roots) for item in skill_contents)
         all_tools = tuple(registry.list_specs())
-        tool_refs = tuple(str(item) for item in resolved_package.package["cell"].get("tool_refs") or ())
+        cell = _mapping_or_empty(resolved_package.package.get("cell"))
+        tool_refs = _string_tuple(cell.get("tool_refs"))
         declared_tools = tuple(spec for spec in all_tools if spec.name in tool_refs)
-        facility_refs = tuple(str(item) for item in resolved_package.package["cell"].get("facility_refs") or ())
+        facility_refs = _string_tuple(cell.get("facility_refs"))
         facilities = tuple(binding for binding in catalog if binding.binding_id in facility_refs)
         definition = _definition_from_package(
             resolved_package, tools=declared_tools, facilities=facilities, skills=resolved_skills
@@ -478,7 +529,7 @@ def native_tool_specs(tools: Sequence[CoreToolSpec]) -> list[dict[str, Any]]:
 def resolve_tool_package_digest(
     resolved: ResolvedMacroEnvironment,
     context: Any,
-    executor: Any,
+    executor: AgentSessionService,
     tool_call: CoreToolCall,
 ) -> str | None | Failure:
     """Authoritative package digest for one tool call, never model-supplied.
@@ -515,7 +566,8 @@ def resolve_tool_package_digest(
             package_id=package_id,
             package_version=package_version,
         )
-    digest = str(result["package"].get("content_digest") or "").strip()
+    package = _mapping_or_empty(result.get("package"))
+    digest = str(package.get("content_digest") or "").strip()
     if not digest:
         return _failure(
             "macro_environment_invalid",
@@ -527,7 +579,7 @@ def resolve_tool_package_digest(
 
 
 def select_active_macro_identity(
-    service: Any,
+    service: AgentSessionService,
     project_key: str,
     package_id: str | None = None,
     package_version: str | None = None,
@@ -544,10 +596,7 @@ def select_active_macro_identity(
     if explicit_id and explicit_version:
         return ((explicit_id,), (explicit_version,))
 
-    list_project = getattr(getattr(service, "store", None), "list_project_artifacts", None)
-    if not callable(list_project):
-        return _failure("macro_environment_invalid", "project artifact listing is unavailable")
-    rows = list_project(project_key=project)
+    rows = service.store.list_project_artifacts(project_key=project)
     if isinstance(rows, Failure):
         return _failure("macro_environment_invalid", "project artifact listing failed")
     activated: set[tuple[str, str]] = set()
@@ -557,8 +606,15 @@ def select_active_macro_identity(
         name = str(row.get("name") or "")
         if not (name.startswith(_REGISTRATION_NAME_PREFIX) and name.endswith(".json")):
             continue
-        activation = dict((row.get("content_json") or {}).get("activation") or {})
-        metadata = dict(row.get("metadata") or {})
+        content_json = row.get("content_json") or {}
+        activation_value = content_json.get("activation") if _is_string_mapping(content_json) else None
+        activation: Mapping[str, object] = (
+            activation_value if _is_string_mapping(activation_value) else {}
+        )
+        metadata_value = row.get("metadata") or {}
+        metadata: Mapping[str, object] = (
+            metadata_value if _is_string_mapping(metadata_value) else {}
+        )
         if activation.get("status") != "activated" and metadata.get("activation_status") != "activated":
             continue
         inner = name[len(_REGISTRATION_NAME_PREFIX):-len(".json")]

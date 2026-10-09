@@ -81,8 +81,9 @@ def _extract_topic(topic: str, text: str) -> Optional[Dict[str, Any]]:
         config_key = f"{topic}_topic_extraction"
         config = get_llm_config(config_key)
         snippet = raw[:3500]
-        if config and config.get("user_prompt_template"):
-            prompt = format_prompt_template(config["user_prompt_template"], text=snippet, topic=topic)
+        prompt_template = config.get("user_prompt_template") if config else None
+        if config and prompt_template:
+            prompt = format_prompt_template(prompt_template, text=snippet, topic=topic)
             model = get_chat_model(
                 model=config.get("model"),
                 temperature=config.get("temperature"),
@@ -113,4 +114,3 @@ def extract_product_info(text: str) -> Optional[Dict[str, Any]]:
 
 def extract_operation_info(text: str) -> Optional[Dict[str, Any]]:
     return _extract_topic("operation", text)
-

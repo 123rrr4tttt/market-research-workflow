@@ -11,6 +11,110 @@ if TYPE_CHECKING:
 
 
 
+SourceMode = Literal["protocol_search", "provider_harvest", "site_search", "url_execution"]
+TerminalStatus = Literal["ok", "partial", "error", "accepted", "completed", "failed", "cancelled"]
+
+
+class TerminalCollectResult(Protocol):
+    @property
+    def status(self) -> str: ...
+
+
+class TerminalItemView(TypedDict):
+    item_key: str
+    item_type: str | None
+    managed_by: str | None
+    external_manifest: dict[str, object] | None
+
+
+class TerminalTimeWindowView(TypedDict):
+    days_back: int | None
+    start_time: str | None
+    end_time: str | None
+
+
+class TerminalPagingView(TypedDict):
+    page: int | None
+    start_offset: int | None
+    cursor: str | None
+
+
+class TerminalLimitsView(TypedDict):
+    limit: int | None
+    max_items: int | None
+    per_keyword_limit: int | None
+    max_candidates: int | None
+    ingest_limit: int | None
+
+
+class TerminalRequestView(TypedDict):
+    project_key: str | None
+    query_terms: list[str]
+    time_window: TerminalTimeWindowView
+    paging: TerminalPagingView
+    limits: TerminalLimitsView
+
+
+class TerminalErrorView(TypedDict, total=False):
+    source: str
+    message: str
+    url: str | None
+    channel_key: str | None
+
+
+class TerminalStatsView(TypedDict):
+    fetched: int
+    normalized: int
+    dropped: int
+    errors: int
+
+
+class TerminalRecordView(TypedDict):
+    record_id: str
+    url: str | None
+    title: str | None
+    content_text: str | None
+    summary: str | None
+    published_at: str | None
+    author: str | None
+    language: str | None
+    source_label: str | None
+    record_meta: dict[str, object]
+    raw_ref: dict[str, object]
+
+
+class TerminalResultsView(TypedDict):
+    records: list[TerminalRecordView]
+    stats: TerminalStatsView
+
+
+class TerminalMetaView(TypedDict):
+    reason_code: str
+    retryable: bool
+    provider: str | None
+    provider_job_id: str | None
+    trace_id: str | None
+    warnings: list[str]
+    provider_handoff: dict[str, object] | None
+    frontdoor_route_profile: dict[str, object] | None
+    frontdoor_router_contract: dict[str, object] | None
+    terminal_readback: dict[str, object] | None
+    outcome_unknown: dict[str, object] | None
+    raw_result_keys: list[str]
+
+
+class TerminalOutputDto(TypedDict):
+    contract_version: str
+    status: TerminalStatus
+    source_mode: SourceMode
+    item: TerminalItemView
+    request: TerminalRequestView
+    results: TerminalResultsView
+    errors: list[TerminalErrorView]
+    meta: TerminalMetaView
+    raw_snapshot: dict[str, object]
+
+
 class RoutingStageObservation(TypedDict):
     budget: int
     parallelism: int
@@ -64,7 +168,7 @@ class RoutingSummary(TypedDict):
 
 class SourceChannelExecutor(Protocol):
     def __call__(
-        self, *, channel: Mapping[str, object], params: Mapping[str, object],
+        self, *, channel: Mapping[str, object], params: Mapping[object, object],
         project_key: str | None, item_key: str | None,
     ) -> RunnerObject: ...
 
@@ -78,14 +182,14 @@ class SourceItemExecutor(Protocol):
 
 class SourceClusterExecutor(Protocol):
     def __call__(
-        self, *, item: dict[str, object], params: dict[str, object],
+        self, *, item: dict[str, object], params: Mapping[object, object],
         project_key: str | None, channel_map: dict[str, dict[str, object]],
     ) -> ExecutionPayload: ...
 
 
 class SourceUrlExecutor(Protocol):
     def __call__(
-        self, *, item: dict[str, object], params: dict[str, object],
+        self, *, item: dict[str, object], params: Mapping[object, object],
         project_key: str | None, channel_map: dict[str, dict[str, object]],
         execution_layer: Literal["execute", "terminal_output_only"],
     ) -> RoutingObservation: ...
@@ -476,7 +580,7 @@ def source_concurrency_plan_to_dict(plan: SourceConcurrencyPlan) -> Dict[str, An
 
 def build_source_concurrency_plan(
     *,
-    params: Dict[str, Any] | None,
+    params: Mapping[object, object] | None,
     total_search_tasks: int,
     total_url_tasks: int,
 ) -> Annotated[

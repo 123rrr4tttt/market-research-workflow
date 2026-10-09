@@ -487,13 +487,6 @@ def _extract_codex_token(request: Request) -> str | None:
     return custom_header or None
 
 
-def _has_valid_codex_oauth_session(request: Request) -> bool:
-    sid = (request.cookies.get(codex_cookie_name()) or "").strip()
-    if not sid:
-        return has_valid_token_sink()
-    return get_session(sid) is not None or has_valid_token_sink()
-
-
 def _actor_from_verified_claims(
     claims: dict[str, object] | None,
     *,

@@ -2,13 +2,14 @@ from __future__ import annotations
 
 import hashlib
 import json
+from typing import Annotated, Any, Iterable, Mapping, NoReturn, TypeGuard
 from urllib.parse import urlparse
-from typing import Annotated, Any, Iterable, Mapping, NoReturn
 
 from functorial_kit import Failure
-from mrw_functorial_kit.core.w04_service_semantics import search_failures
-from ...contracts.materials import normalize_material_source_type
 
+from mrw_functorial_kit.core.w04_service_semantics import search_failures
+
+from ...contracts.materials import normalize_material_source_type
 
 GLOBAL_VECTOR_OBJECT_CONTRACT_VERSION = "global_vector_object.v2"
 SEARCH_EVIDENCE_HIT_CONTRACT_VERSION = "search_evidence_hit.v2"
@@ -98,13 +99,21 @@ _SEARCH_FAILURE_CONTEXT_KEYS = frozenset(
 )
 
 
-def _contract_failure(code: str, message: str, *, operation: str, site: str, **details: Any) -> Failure:
+def search_contract_failure(
+    code: str,
+    message: str,
+    *,
+    operation: str,
+    site: str,
+    public_exception: type[Exception] = ValueError,
+    **details: Any,
+) -> Failure:
     context: dict[str, Any] = {
         "boundary_class": "PURE_CONTRACT_FAILURE",
         "failure_family": search_failures.name,
         "operation": operation,
         "owner": site,
-        "public_exception": "ValueError",
+        "public_exception": public_exception.__name__,
         "public_message": message,
         "site": site,
         "witness": _SEARCH_FAILURE_WITNESS,
@@ -113,22 +122,27 @@ def _contract_failure(code: str, message: str, *, operation: str, site: str, **d
     return search_failures.fail(code, message, context)
 
 
-def _raise_contract_failure(failure: Failure, *, cause: BaseException | None = None) -> NoReturn:
+def raise_search_contract_legacy(
+    failure: Failure,
+    exception_type: type[Exception] = ValueError,
+    *,
+    cause: BaseException | None = None,
+) -> NoReturn:
     context = failure.context or {}
     if (
         not search_failures.matches(failure)
         or _SEARCH_FAILURE_CONTEXT_KEYS - set(context)
         or context.get("failure_family") != search_failures.name
-        or context.get("public_exception") != "ValueError"
+        or context.get("public_exception") != exception_type.__name__
     ):
         # kit:boundary owner=search.vector_contracts.failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w04_search_abi_lift_preserves_legacy_value_error_message
         raise TypeError("search contract failure lift context is incomplete or inconsistent")
     message = str(context["public_message"])
     if cause is None:
         # kit:boundary owner=search.vector_contracts.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=search.failure witness=test:test_w04_search_abi_lift_preserves_legacy_value_error_message
-        raise ValueError(message)
+        raise exception_type(message)
     # kit:boundary owner=search.vector_contracts.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=search.failure witness=test:test_w04_search_abi_lift_preserves_legacy_value_error_message
-    raise ValueError(message) from cause
+    raise exception_type(message) from cause
 
 
 def _clean_text(value: Any) -> str:
@@ -140,8 +154,20 @@ def _clean_optional_text(value: Any) -> str | None:
     return cleaned or None
 
 
+def _is_mapping(value: object) -> TypeGuard[Mapping[str, Any]]:
+    return isinstance(value, Mapping)
+
+
+def _is_object_dict(value: object) -> TypeGuard[dict[str, Any]]:
+    return isinstance(value, dict)
+
+
+def _is_object_list(value: object) -> TypeGuard[list[object]]:
+    return isinstance(value, list)
+
+
 def _mapping(value: Any) -> Mapping[str, Any]:
-    return value if isinstance(value, Mapping) else {}
+    return value if _is_mapping(value) else {}
 
 
 def _lookup(row: Mapping[str, Any], *keys: str) -> Any:
@@ -155,7 +181,7 @@ def _payload_provenance(row: Mapping[str, Any]) -> dict[str, Any]:
     provenance: dict[str, Any] = {}
     for key in ("global_vector_object_provenance", "payload_provenance", "provenance"):
         value = row.get(key)
-        if isinstance(value, Mapping):
+        if _is_mapping(value):
             provenance.update(dict(value))
     return provenance
 
@@ -295,7 +321,7 @@ def _infer_verification_state(row: Mapping[str, Any]) -> str:
     verification_state = _clean_text(_lookup(row, "verification_state")).lower()
     if verification_state:
         return verification_state
-    tags = {str(item).lower() for item in _lookup(row, "tags") or []}
+    tags = {str(item).lower() for item in list(_lookup(row, "tags") or [])}
     if "fallback" in tags:
         return "fallback"
     return "unverified"
@@ -314,7 +340,7 @@ def _infer_fallback_reason(row: Mapping[str, Any]) -> str | None:
     fallback_reason = _clean_optional_text(_lookup_with_payload_provenance(row, "fallback_reason", "fallback"))
     if fallback_reason:
         return fallback_reason
-    tags = {str(item).lower() for item in _lookup(row, "tags") or []}
+    tags = {str(item).lower() for item in list(_lookup(row, "tags") or [])}
     if "fallback" in tags:
         backend = _infer_backend(row)
         return f"{backend}_fallback"
@@ -547,12 +573,9 @@ def build_search_evidence_hits(
             retrieval_family=retrieval_family,
         )
         for index, row in enumerate(rows, start=1)
-        if isinstance(row, Mapping)
     ]
     for hit in hits:
-        failure = validate_search_evidence_hit(hit)
-        if failure is not None:
-            _raise_contract_failure(failure)
+        validate_search_evidence_hit(hit)
     return query_group_id, hits
 
 
@@ -573,7 +596,7 @@ def build_retrieval_run_record(
     "fact_source=query+evidence_hits+rank_parameters "
     "witness=test:test_w04_authority_metadata",
 ]:
-    hits = [dict(hit) for hit in evidence_hits if isinstance(hit, Mapping)]
+    hits = [dict(hit) for hit in evidence_hits]
     branch_map: dict[str, dict[str, Any]] = {}
     for hit in hits:
         branch_id = _clean_text(hit.get("matrix_branch_id")) or "branch_unknown"
@@ -642,7 +665,7 @@ def build_retrieval_run_record(
             "filters": dict(filters),
         }
         retrieval_branches.append(enriched_branch)
-    retrieval_hits = []
+    retrieval_hits: list[dict[str, Any]] = []
     for hit in hits:
         vector_object = _mapping(hit.get("global_vector_object"))
         retrieval_hits.append(
@@ -692,42 +715,37 @@ def build_retrieval_run_record(
         "hit_count": len(retrieval_hits),
         "status": "completed",
     }
-    failure = validate_retrieval_run_record(record)
-    if failure is not None:
-        _raise_contract_failure(failure)
+    validate_retrieval_run_record(record)
     return record
 
 
 def serialize_retrieval_run_record(record: Mapping[str, Any]) -> str:
-    failure = validate_retrieval_run_record(record)
-    if failure is not None:
-        _raise_contract_failure(failure)
+    validate_retrieval_run_record(record)
     return json.dumps(record, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
 
 
 def load_retrieval_run_record(raw: str) -> dict[str, Any]:
     try:
-        record = json.loads(raw)
+        decoded: object = json.loads(raw)
     except (TypeError, ValueError) as exc:
-        failure = _contract_failure(
+        failure = search_contract_failure(
             "retrieval_run_invalid",
             str(exc),
             operation="load_retrieval_run_record",
             site="search.vector_contracts.load_retrieval_run_record",
             cause=exc,
         )
-        _raise_contract_failure(failure, cause=exc)
-    if not isinstance(record, dict):
-        failure = _contract_failure(
+        raise_search_contract_legacy(failure, cause=exc)
+    if not _is_object_dict(decoded):
+        failure = search_contract_failure(
             "retrieval_run_invalid",
             "search_retrieval_run must be a JSON object",
             operation="load_retrieval_run_record",
             site="search.vector_contracts.load_retrieval_run_record",
         )
-        _raise_contract_failure(failure)
-    failure = validate_retrieval_run_record(record)
-    if failure is not None:
-        _raise_contract_failure(failure)
+        raise_search_contract_legacy(failure)
+    record = decoded
+    validate_retrieval_run_record(record)
     return record
 
 
@@ -748,8 +766,9 @@ def build_agent_matrix_evidence_hits(
     for index, candidate in enumerate(candidates, start=1):
         url = _clean_optional_text(_lookup(candidate, "url", "link", "canonical_link"))
         trust = _mapping(candidate.get("trust"))
-        branches = list(candidate.get("matrix_branches") or [])
-        first_branch = _mapping(branches[0]) if branches else {}
+        branches_value: object = candidate.get("matrix_branches") or []
+        branches = branches_value if _is_object_list(branches_value) else []
+        first_branch: Mapping[str, Any] = _mapping(branches[0]) if branches else {}
         provider = (
             _clean_optional_text(first_branch.get("provider"))
             or _clean_optional_text(_lookup(candidate, "source_provider", "provider", "source"))
@@ -802,7 +821,7 @@ def try_validate_global_vector_object(vector_object: Mapping[str, Any]) -> Failu
     site = "search.vector_contracts.validate_global_vector_object"
     vector_object = _mapping(vector_object)
     if vector_object.get("contract_version") not in {"global_vector_object.v1", GLOBAL_VECTOR_OBJECT_CONTRACT_VERSION}:
-        return _contract_failure(
+        return search_contract_failure(
             "global_vector_object_invalid",
             "unsupported global vector object contract_version",
             operation=operation,
@@ -814,7 +833,7 @@ def try_validate_global_vector_object(vector_object: Mapping[str, Any]) -> Failu
         required_fields = tuple(field for field in required_fields if field != "material_id")
     missing = [field for field in required_fields if field not in vector_object]
     if missing:
-        return _contract_failure(
+        return search_contract_failure(
             "global_vector_object_invalid",
             f"global_vector_object_missing_fields:{','.join(missing)}",
             operation=operation,
@@ -824,13 +843,13 @@ def try_validate_global_vector_object(vector_object: Mapping[str, Any]) -> Failu
     if vector_object.get("contract_version") == GLOBAL_VECTOR_OBJECT_CONTRACT_VERSION and (
         _clean_text(vector_object.get("material_id")) != _clean_text(vector_object.get("document_id"))
     ):
-        return _contract_failure(
+        return search_contract_failure(
             "global_vector_object_invalid", "material_id and document_id must identify the same body",
             operation=operation, site=site, field="material_id",
         )
     for field in ("object_type", "object_id", "chunk_id", "source_id", "document_id", "vector_version"):
         if not _clean_text(vector_object.get(field)):
-            return _contract_failure(
+            return search_contract_failure(
                 "global_vector_object_invalid",
                 f"global_vector_object_empty_field:{field}",
                 operation=operation,
@@ -838,7 +857,7 @@ def try_validate_global_vector_object(vector_object: Mapping[str, Any]) -> Failu
                 field=field,
             )
     if not isinstance(vector_object.get("provenance"), Mapping):
-        return _contract_failure(
+        return search_contract_failure(
             "global_vector_object_invalid",
             "global_vector_object provenance must be an object",
             operation=operation,
@@ -850,7 +869,7 @@ def try_validate_global_vector_object(vector_object: Mapping[str, Any]) -> Failu
         field for field in GLOBAL_VECTOR_OBJECT_PROVENANCE_REQUIRED_FIELDS if field not in provenance
     ]
     if missing_provenance:
-        return _contract_failure(
+        return search_contract_failure(
             "global_vector_object_invalid",
             f"global_vector_object_provenance_missing_fields:{','.join(missing_provenance)}",
             operation=operation,
@@ -871,7 +890,7 @@ def try_validate_global_vector_object(vector_object: Mapping[str, Any]) -> Failu
         "reference",
     ):
         if not _clean_text(provenance.get(field)):
-            return _contract_failure(
+            return search_contract_failure(
                 "global_vector_object_invalid",
                 f"global_vector_object_provenance_empty_field:{field}",
                 operation=operation,
@@ -879,7 +898,7 @@ def try_validate_global_vector_object(vector_object: Mapping[str, Any]) -> Failu
                 field=field,
             )
     if "score" not in provenance and not _clean_text(provenance.get("fallback_reason")):
-        return _contract_failure(
+        return search_contract_failure(
             "global_vector_object_invalid",
             "global_vector_object_provenance_requires_score_or_fallback_reason",
             operation=operation,
@@ -894,7 +913,7 @@ def try_validate_search_evidence_hit(hit: Mapping[str, Any]) -> Failure | None:
     site = "search.vector_contracts.validate_search_evidence_hit"
     hit = _mapping(hit)
     if hit.get("contract_version") not in {"search_evidence_hit.v1", SEARCH_EVIDENCE_HIT_CONTRACT_VERSION}:
-        return _contract_failure(
+        return search_contract_failure(
             "evidence_hit_invalid",
             "unsupported search evidence hit contract_version",
             operation=operation,
@@ -903,7 +922,7 @@ def try_validate_search_evidence_hit(hit: Mapping[str, Any]) -> Failure | None:
         )
     missing = [field for field in SEARCH_EVIDENCE_HIT_REQUIRED_FIELDS if field not in hit]
     if missing:
-        return _contract_failure(
+        return search_contract_failure(
             "evidence_hit_invalid",
             f"search_evidence_hit_missing_fields:{','.join(missing)}",
             operation=operation,
@@ -912,7 +931,7 @@ def try_validate_search_evidence_hit(hit: Mapping[str, Any]) -> Failure | None:
         )
     for field in ("hit_id", "query_group_id", "matrix_branch_id", "retrieval_mode", "backend", "evidence_class"):
         if not _clean_text(hit.get(field)):
-            return _contract_failure(
+            return search_contract_failure(
                 "evidence_hit_invalid",
                 f"search_evidence_hit_empty_field:{field}",
                 operation=operation,
@@ -920,7 +939,7 @@ def try_validate_search_evidence_hit(hit: Mapping[str, Any]) -> Failure | None:
                 field=field,
             )
     if _coerce_int_or_none(hit.get("rank")) is None or int(hit["rank"]) < 1:
-        return _contract_failure(
+        return search_contract_failure(
             "evidence_hit_invalid",
             "search_evidence_hit rank must be a positive integer",
             operation=operation,
@@ -928,7 +947,7 @@ def try_validate_search_evidence_hit(hit: Mapping[str, Any]) -> Failure | None:
             field="rank",
         )
     if not isinstance(hit.get("rank_features"), Mapping):
-        return _contract_failure(
+        return search_contract_failure(
             "evidence_hit_invalid",
             "search_evidence_hit rank_features must be an object",
             operation=operation,
@@ -936,7 +955,7 @@ def try_validate_search_evidence_hit(hit: Mapping[str, Any]) -> Failure | None:
             field="rank_features",
         )
     if not isinstance(hit.get("provenance"), Mapping):
-        return _contract_failure(
+        return search_contract_failure(
             "evidence_hit_invalid",
             "search_evidence_hit provenance must be an object",
             operation=operation,
@@ -945,7 +964,7 @@ def try_validate_search_evidence_hit(hit: Mapping[str, Any]) -> Failure | None:
         )
     vector_failure = try_validate_global_vector_object(_mapping(hit.get("global_vector_object")))
     if vector_failure is not None:
-        return _contract_failure(
+        return search_contract_failure(
             "evidence_hit_invalid",
             vector_failure.message,
             operation=operation,
@@ -961,7 +980,7 @@ def try_validate_retrieval_run_record(record: Mapping[str, Any]) -> Failure | No
     site = "search.vector_contracts.validate_retrieval_run_record"
     record = _mapping(record)
     if record.get("contract_version") != SEARCH_RETRIEVAL_RUN_CONTRACT_VERSION:
-        return _contract_failure(
+        return search_contract_failure(
             "retrieval_run_invalid",
             "unsupported search retrieval run contract_version",
             operation=operation,
@@ -970,39 +989,43 @@ def try_validate_retrieval_run_record(record: Mapping[str, Any]) -> Failure | No
         )
     missing = [field for field in SEARCH_RETRIEVAL_RUN_REQUIRED_FIELDS if field not in record]
     if missing:
-        return _contract_failure(
+        return search_contract_failure(
             "retrieval_run_invalid",
             f"search_retrieval_run_missing_fields:{','.join(missing)}",
             operation=operation,
             site=site,
             fields=tuple(missing),
         )
-    if not isinstance(record.get("branch_records"), list):
-        return _contract_failure(
+    branch_records_value: object = record.get("branch_records")
+    if not _is_object_list(branch_records_value):
+        return search_contract_failure(
             "retrieval_run_invalid",
             "search_retrieval_run branch_records must be a list",
             operation=operation,
             site=site,
             field="branch_records",
         )
-    if not isinstance(record.get("retrieval_branches"), list):
-        return _contract_failure(
+    retrieval_branches_value: object = record.get("retrieval_branches")
+    if not _is_object_list(retrieval_branches_value):
+        return search_contract_failure(
             "retrieval_run_invalid",
             "search_retrieval_run retrieval_branches must be a list",
             operation=operation,
             site=site,
             field="retrieval_branches",
         )
-    if not isinstance(record.get("retrieval_hits"), list):
-        return _contract_failure(
+    retrieval_hits_value: object = record.get("retrieval_hits")
+    if not _is_object_list(retrieval_hits_value):
+        return search_contract_failure(
             "retrieval_run_invalid",
             "search_retrieval_run retrieval_hits must be a list",
             operation=operation,
             site=site,
             field="retrieval_hits",
         )
-    if not isinstance(record.get("evidence_hits"), list):
-        return _contract_failure(
+    evidence_hits_value: object = record.get("evidence_hits")
+    if not _is_object_list(evidence_hits_value):
+        return search_contract_failure(
             "retrieval_run_invalid",
             "search_retrieval_run evidence_hits must be a list",
             operation=operation,
@@ -1010,21 +1033,21 @@ def try_validate_retrieval_run_record(record: Mapping[str, Any]) -> Failure | No
             field="evidence_hits",
         )
     run_id = _clean_text(record.get("run_id"))
-    hits = list(record.get("evidence_hits") or [])
-    branch_records = list(record.get("branch_records") or [])
-    retrieval_branches = list(record.get("retrieval_branches") or [])
-    retrieval_hits = list(record.get("retrieval_hits") or [])
-    hit_ids = {_clean_text(hit.get("hit_id")) for hit in hits if isinstance(hit, Mapping)}
-    hit_branch_ids = {_clean_text(hit.get("matrix_branch_id")) for hit in hits if isinstance(hit, Mapping)}
+    hits = evidence_hits_value
+    branch_records = branch_records_value
+    retrieval_branches = retrieval_branches_value
+    retrieval_hits = retrieval_hits_value
+    hit_ids = {_clean_text(hit.get("hit_id")) for hit in hits if _is_mapping(hit)}
+    hit_branch_ids = {_clean_text(hit.get("matrix_branch_id")) for hit in hits if _is_mapping(hit)}
     record_branch_ids = {
-        _clean_text(branch.get("matrix_branch_id")) for branch in branch_records if isinstance(branch, Mapping)
+        _clean_text(branch.get("matrix_branch_id")) for branch in branch_records if _is_mapping(branch)
     }
     persisted_branch_ids = {
-        _clean_text(branch.get("matrix_branch_id")) for branch in retrieval_branches if isinstance(branch, Mapping)
+        _clean_text(branch.get("matrix_branch_id")) for branch in retrieval_branches if _is_mapping(branch)
     }
-    persisted_hit_ids = {_clean_text(hit.get("hit_id")) for hit in retrieval_hits if isinstance(hit, Mapping)}
+    persisted_hit_ids = {_clean_text(hit.get("hit_id")) for hit in retrieval_hits if _is_mapping(hit)}
     if hit_branch_ids != record_branch_ids:
-        return _contract_failure(
+        return search_contract_failure(
             "retrieval_run_invalid",
             "search_retrieval_run branch_records do not match evidence hit branches",
             operation=operation,
@@ -1032,7 +1055,7 @@ def try_validate_retrieval_run_record(record: Mapping[str, Any]) -> Failure | No
             field="branch_records",
         )
     if hit_branch_ids != persisted_branch_ids:
-        return _contract_failure(
+        return search_contract_failure(
             "retrieval_run_invalid",
             "search_retrieval_run retrieval_branches do not match evidence hit branches",
             operation=operation,
@@ -1040,7 +1063,7 @@ def try_validate_retrieval_run_record(record: Mapping[str, Any]) -> Failure | No
             field="retrieval_branches",
         )
     if hit_ids != persisted_hit_ids:
-        return _contract_failure(
+        return search_contract_failure(
             "retrieval_run_invalid",
             "search_retrieval_run retrieval_hits do not match evidence hits",
             operation=operation,
@@ -1050,7 +1073,7 @@ def try_validate_retrieval_run_record(record: Mapping[str, Any]) -> Failure | No
     for hit in hits:
         failure = try_validate_search_evidence_hit(_mapping(hit))
         if failure is not None:
-            return _contract_failure(
+            return search_contract_failure(
                 "retrieval_run_invalid",
                 failure.message,
                 operation=operation,
@@ -1061,7 +1084,7 @@ def try_validate_retrieval_run_record(record: Mapping[str, Any]) -> Failure | No
     for branch in branch_records:
         branch_hit_ids = {_clean_text(item) for item in list(_mapping(branch).get("hit_ids") or [])}
         if not branch_hit_ids.issubset(hit_ids):
-            return _contract_failure(
+            return search_contract_failure(
                 "retrieval_run_invalid",
                 "search_retrieval_run branch references unknown hit_id",
                 operation=operation,
@@ -1071,7 +1094,7 @@ def try_validate_retrieval_run_record(record: Mapping[str, Any]) -> Failure | No
     for branch in retrieval_branches:
         branch_map = _mapping(branch)
         if branch_map.get("contract_version") != SEARCH_RETRIEVAL_BRANCH_CONTRACT_VERSION:
-            return _contract_failure(
+            return search_contract_failure(
                 "retrieval_run_invalid",
                 "unsupported search retrieval branch contract_version",
                 operation=operation,
@@ -1079,7 +1102,7 @@ def try_validate_retrieval_run_record(record: Mapping[str, Any]) -> Failure | No
                 field="retrieval_branches.contract_version",
             )
         if _clean_text(branch_map.get("run_id")) != run_id:
-            return _contract_failure(
+            return search_contract_failure(
                 "retrieval_run_invalid",
                 "search_retrieval_branch run_id mismatch",
                 operation=operation,
@@ -1088,7 +1111,7 @@ def try_validate_retrieval_run_record(record: Mapping[str, Any]) -> Failure | No
             )
         branch_hit_ids = {_clean_text(item) for item in list(branch_map.get("hit_ids") or [])}
         if not branch_hit_ids.issubset(hit_ids):
-            return _contract_failure(
+            return search_contract_failure(
                 "retrieval_run_invalid",
                 "search_retrieval_branch references unknown hit_id",
                 operation=operation,
@@ -1098,7 +1121,7 @@ def try_validate_retrieval_run_record(record: Mapping[str, Any]) -> Failure | No
     for hit in retrieval_hits:
         hit_map = _mapping(hit)
         if hit_map.get("contract_version") != SEARCH_RETRIEVAL_HIT_CONTRACT_VERSION:
-            return _contract_failure(
+            return search_contract_failure(
                 "retrieval_run_invalid",
                 "unsupported search retrieval hit contract_version",
                 operation=operation,
@@ -1106,7 +1129,7 @@ def try_validate_retrieval_run_record(record: Mapping[str, Any]) -> Failure | No
                 field="retrieval_hits.contract_version",
             )
         if _clean_text(hit_map.get("run_id")) != run_id:
-            return _contract_failure(
+            return search_contract_failure(
                 "retrieval_run_invalid",
                 "search_retrieval_hit run_id mismatch",
                 operation=operation,
@@ -1114,7 +1137,7 @@ def try_validate_retrieval_run_record(record: Mapping[str, Any]) -> Failure | No
                 field="retrieval_hits.run_id",
             )
         if _clean_text(hit_map.get("matrix_branch_id")) not in hit_branch_ids:
-            return _contract_failure(
+            return search_contract_failure(
                 "retrieval_run_invalid",
                 "search_retrieval_hit references unknown branch",
                 operation=operation,
@@ -1127,16 +1150,16 @@ def try_validate_retrieval_run_record(record: Mapping[str, Any]) -> Failure | No
 def validate_global_vector_object(vector_object: Mapping[str, Any]) -> None:
     failure = try_validate_global_vector_object(vector_object)
     if failure is not None:
-        _raise_contract_failure(failure)
+        raise_search_contract_legacy(failure)
 
 
 def validate_search_evidence_hit(hit: Mapping[str, Any]) -> None:
     failure = try_validate_search_evidence_hit(hit)
     if failure is not None:
-        _raise_contract_failure(failure)
+        raise_search_contract_legacy(failure)
 
 
 def validate_retrieval_run_record(record: Mapping[str, Any]) -> None:
     failure = try_validate_retrieval_run_record(record)
     if failure is not None:
-        _raise_contract_failure(failure)
+        raise_search_contract_legacy(failure)

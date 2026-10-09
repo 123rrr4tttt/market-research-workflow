@@ -3,6 +3,7 @@ from __future__ import annotations
 import ast
 import json
 import time
+from typing import TypeGuard
 from urllib.parse import urljoin
 
 import httpx
@@ -15,15 +16,25 @@ from .scrapyd_client import ScrapydClient
 from .scrapyd_runtime import ensure_scrapyd_ready
 
 
-def _json_value(value: CrawlerJsonValue) -> CrawlerJsonValue:
-    if isinstance(value, dict):
+def _is_object_dict(value: object) -> TypeGuard[dict[object, object]]:
+    return isinstance(value, dict)
+
+
+def _is_object_list(value: object) -> TypeGuard[list[object]]:
+    return isinstance(value, list)
+
+
+def _json_value(value: object) -> CrawlerJsonValue:
+    if _is_object_dict(value):
         return {str(key): _json_value(item) for key, item in value.items()}
-    if isinstance(value, list):
+    if _is_object_list(value):
         return [_json_value(item) for item in value]
-    return value
+    if value is None or isinstance(value, (bool, int, float, str)):
+        return value
+    return str(value)
 
 
-def _json_object(value: CrawlerJsonValue) -> CrawlerJsonObject:
+def _json_object(value: object) -> CrawlerJsonObject:
     normalized = _json_value(value)
     return normalized if isinstance(normalized, dict) else {}
 

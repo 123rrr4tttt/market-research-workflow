@@ -2,11 +2,12 @@ from __future__ import annotations
 
 from collections.abc import Callable
 import logging
-from typing import Any
+from typing import TypeGuard
 
 from prometheus_client import REGISTRY, Counter, Histogram
 from starlette.requests import Request
 from starlette.responses import Response, StreamingResponse
+from .runtime import ProductionObservabilityController
 
 
 PRODUCTION_REQUEST_METRIC_NAME = "market_api_production_requests_total"
@@ -14,28 +15,45 @@ PRODUCTION_REQUEST_LATENCY_METRIC_NAME = "market_api_production_request_latency_
 _ERROR_LOGGER = logging.getLogger("app.production_observability.http")
 
 
-def _existing_collector(name: str) -> Any:
-    return REGISTRY._names_to_collectors.get(name)
+def _is_object_dict(value: object) -> TypeGuard[dict[object, object]]:
+    return isinstance(value, dict)
 
 
-PRODUCTION_REQUEST_COUNT = _existing_collector(PRODUCTION_REQUEST_METRIC_NAME) or Counter(
+def _collector_value(name: str) -> object | None:
+    raw_collectors: object = vars(REGISTRY).get("_names_to_collectors")
+    if not _is_object_dict(raw_collectors):
+        return None
+    return raw_collectors.get(name)
+
+
+def _existing_counter(name: str) -> Counter | None:
+    collector = _collector_value(name)
+    return collector if isinstance(collector, Counter) else None
+
+
+def _existing_histogram(name: str) -> Histogram | None:
+    collector = _collector_value(name)
+    return collector if isinstance(collector, Histogram) else None
+
+
+PRODUCTION_REQUEST_COUNT = _existing_counter(PRODUCTION_REQUEST_METRIC_NAME) or Counter(
     PRODUCTION_REQUEST_METRIC_NAME,
     "Production API request count by stable route binding",
     ("domain", "route", "release_version", "method", "status"),
 )
-PRODUCTION_REQUEST_LATENCY = _existing_collector(
+PRODUCTION_REQUEST_LATENCY = _existing_histogram(
     PRODUCTION_REQUEST_LATENCY_METRIC_NAME
 ) or Histogram(
     PRODUCTION_REQUEST_LATENCY_METRIC_NAME,
     "Production API request latency by stable route binding",
     ("domain", "route", "release_version"),
 )
-REQUEST_COUNT = _existing_collector("market_api_requests_total") or Counter(
+REQUEST_COUNT = _existing_counter("market_api_requests_total") or Counter(
     "market_api_requests_total",
     "API request count",
     ("method", "endpoint", "status"),
 )
-REQUEST_LATENCY = _existing_collector("market_api_request_latency_seconds") or Histogram(
+REQUEST_LATENCY = _existing_histogram("market_api_request_latency_seconds") or Histogram(
     "market_api_request_latency_seconds",
     "API request latency",
     ("endpoint",),
@@ -50,7 +68,7 @@ def _terminal_outcome(
     if terminal_outcome is not None:
         return terminal_outcome
     stream_state = getattr(request.state, "production_stream_state", None)
-    if isinstance(stream_state, dict):
+    if _is_object_dict(stream_state):
         stream_outcome = stream_state.get("terminal_outcome")
         if stream_outcome is not None:
             return str(stream_outcome)
@@ -60,7 +78,7 @@ def _terminal_outcome(
 
 
 def _latch_observation_failure(
-    controller: Any,
+    controller: ProductionObservabilityController | None,
     *,
     request_id: str,
     reason: str,
@@ -91,7 +109,7 @@ def _latch_observation_failure(
 
 def observe_production_http_request(
     *,
-    controller: Any,
+    controller: ProductionObservabilityController | None,
     request_id: str,
     status_code: int,
     terminal_outcome: str | None = None,
@@ -99,6 +117,8 @@ def observe_production_http_request(
 ) -> None:
     """Forward one terminal HTTP observation to the installed R7 controller."""
 
+    if controller is None:
+        return
     controller.observe_http_request(
         observation_id=request_id,
         status_code=status_code,
@@ -116,7 +136,7 @@ def finalize_request_metrics(
     metric_labels: dict[str, str],
     elapsed: float,
     production_runtime: bool,
-    controller: Any,
+    controller: ProductionObservabilityController | None,
     terminal_outcome: str | None = None,
 ) -> None:
     outcome = _terminal_outcome(request, response, terminal_outcome)
@@ -199,7 +219,7 @@ def wrap_stream_response(
             raise
         stream_state = getattr(request.state, "production_stream_state", None)
         outcome = "success"
-        if isinstance(stream_state, dict):
+        if _is_object_dict(stream_state):
             outcome = str(stream_state.get("terminal_outcome") or outcome)
         _finalize_once(outcome)
 

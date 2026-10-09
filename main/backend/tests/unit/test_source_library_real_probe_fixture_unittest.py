@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-import sys
 import socket
+import sys
 import unittest
 from pathlib import Path
 from typing import Any
@@ -15,10 +15,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 pytestmark = pytest.mark.unit
 
 import scripts.source_library_real_probes as real_probe  # noqa: E402
-from app.services.resource_pool.http_port import HttpFetchError  # noqa: E402
-from app.services.resource_pool.http_port import HttpFetchFailureReason  # noqa: E402
-from app.services.resource_pool.http_port import HttpFetchResponse  # noqa: E402
-
+from app.services.resource_pool.http_port import (  # noqa: E402
+    HttpFetchError,
+    HttpFetchFailureReason,
+    HttpFetchResponse,
+)
 from scripts.source_library_real_probes import run_probe  # noqa: E402
 
 
@@ -140,7 +141,7 @@ class SourceLibraryRealProbeFixtureUnitTestCase(unittest.TestCase):
                 "getaddrinfo",
                 side_effect=AssertionError("DNS access is forbidden in this unit fixture"),
             ) as getaddrinfo,
-            patch("app.services.resource_pool.http_port._HTTP_FETCH_PORT", transport),
+            patch("app.services.resource_pool.http_port._http_fetch_port", transport),
         ):
             result = run_probe(probe_timeout=0.5)
 

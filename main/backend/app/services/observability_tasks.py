@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from celery.app.task import Task
+
 from ..celery_app import celery_app
 from .task_readback_metadata import merge_request_runtime_context, merge_runtime_readback_payload
 
@@ -12,7 +14,7 @@ WORKER_OBSERVATION_FALLBACK_WORKER_NAME = "local.task_worker_observation_probe"
 
 @celery_app.task(bind=True, name=WORKER_OBSERVATION_TASK_NAME)
 def task_worker_observation_probe(
-    self,
+    self: Task[..., dict[str, Any]],
     *,
     request_id: str,
     run_id: str,

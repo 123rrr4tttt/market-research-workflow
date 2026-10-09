@@ -53,9 +53,16 @@ class _IngestSubmissionRow(Protocol):
     project_key: str
     registry_key: str
     request_hash: str
-    request_payload: object
-    subject_payload: object
-    response_payload: object
+
+    @property
+    def request_payload(self) -> object: ...
+
+    @property
+    def subject_payload(self) -> object: ...
+
+    @property
+    def response_payload(self) -> object: ...
+
     status: str | None
     task_id: str | None
     created_at: datetime | None
@@ -90,13 +97,6 @@ def _row(row: object) -> _IngestSubmissionRow:
         raise TypeError("ingest submission registry row created_at is invalid")
     if updated_at is not None and not isinstance(updated_at, datetime):
         raise TypeError("ingest submission registry row updated_at is invalid")
-    return row
-
-
-def _new_row() -> _IngestSubmissionRow:
-    row: object = IngestSubmissionRegistry()
-    if not isinstance(row, _IngestSubmissionRow):
-        raise TypeError("ingest submission registry model is missing required fields")
     return row
 
 
@@ -208,16 +208,17 @@ def reserve_submission_db(
                         request_hash=request_hash,
                     )
 
-                row = _new_row()
-                row.project_key = project_key
-                row.trigger_type = trigger_type
-                row.registry_key = registry_key
-                row.idempotency_key = idempotency_key
-                row.submission_id = submission_id_for_key(registry_key)
-                row.status = "submitted"
-                row.request_hash = request_hash
-                row.request_payload = deepcopy(request_payload)
-                row.subject_payload = deepcopy(subject)
+                row = IngestSubmissionRegistry(
+                    project_key=project_key,
+                    trigger_type=trigger_type,
+                    registry_key=registry_key,
+                    idempotency_key=idempotency_key,
+                    submission_id=submission_id_for_key(registry_key),
+                    status="submitted",
+                    request_hash=request_hash,
+                    request_payload=deepcopy(request_payload),
+                    subject_payload=deepcopy(subject),
+                )
                 session.add(row)
                 try:
                     session.commit()
@@ -259,12 +260,12 @@ def complete_submission_db(*, registry_key: str, response_payload: SubmissionJso
             ).scalar_one_or_none()
             if raw_row is None:
                 return
-            row = _row(raw_row)
-            row.response_payload = deepcopy(response_payload)
+            _row(raw_row)
+            raw_row.response_payload = deepcopy(response_payload)
             if response_payload.get("task_id") is not None:
-                row.task_id = str(response_payload.get("task_id"))
+                raw_row.task_id = str(response_payload.get("task_id"))
             if response_payload.get("status") is not None:
-                row.status = str(response_payload.get("status"))
+                raw_row.status = str(response_payload.get("status"))
             session.commit()
 
 

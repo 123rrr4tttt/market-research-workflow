@@ -16,7 +16,7 @@ from .assignments import (
     canonical_digest,
     require_digest,
 )
-from .failure_policy import raise_runtime_failure, runtime_failure
+from .failure_policy import public_exception_type, raise_runtime_failure, runtime_failure
 
 _T = TypeVar("_T")
 
@@ -44,15 +44,7 @@ def _try_claim(call: Callable[[], _T], *, site: str) -> _T | Failure:
 
 
 def raise_claim_failure(failure: Failure) -> None:
-    name = (failure.context or {}).get("public_exception")
-    exception_type = {
-        "TypeError": TypeError,
-        "ValueError": ValueError,
-        "OverflowError": OverflowError,
-        "KeyError": KeyError,
-        "AttributeError": AttributeError,
-    }.get(name, ValueError)
-    raise_runtime_failure(failure, exception_type)
+    raise_runtime_failure(failure, public_exception_type(failure))
 
 
 def derive_attempt_id(
@@ -145,26 +137,40 @@ class ClaimBinding(FrozenContract):
             authorization_digest=authorization_digest,
             handler_realization_digest=realization,
         )
-        content: dict[str, object] = {
-            "work_item_id": assignment.work_item_id,
-            "assignment_digest": assignment.assignment_digest,
-            "handler_binding_digest": assignment.handler_binding_digest,
-            "handler_realization_digest": realization,
-            "authorization_digest": authorization_digest,
-            "attempt_id": attempt_id,
-            "lease_token": lease_token,
-            "lease_expires_at": lease_expires_at,
-            "node_id": node_id,
-            "node_profile_digest": node_profile_digest,
-            "interpreter_profile_digest": interpreter_profile_digest,
-            "authority_digest": authority_digest,
-            "execution_reservation_ref": execution_reservation_ref,
-            "execution_reservation_digest": execution_reservation_digest,
-            "claim_authority_epoch": assignment.claim_authority_epoch,
-        }
-        provisional = cls.model_construct(**content, binding_digest="0" * 64)
+        provisional = cls.model_construct(
+            work_item_id=assignment.work_item_id,
+            assignment_digest=assignment.assignment_digest,
+            handler_binding_digest=assignment.handler_binding_digest,
+            handler_realization_digest=realization,
+            authorization_digest=authorization_digest,
+            attempt_id=attempt_id,
+            lease_token=lease_token,
+            lease_expires_at=lease_expires_at,
+            node_id=node_id,
+            node_profile_digest=node_profile_digest,
+            interpreter_profile_digest=interpreter_profile_digest,
+            authority_digest=authority_digest,
+            execution_reservation_ref=execution_reservation_ref,
+            execution_reservation_digest=execution_reservation_digest,
+            claim_authority_epoch=assignment.claim_authority_epoch,
+            binding_digest="0" * 64,
+        )
         return cls(
-            **content,
+            work_item_id=assignment.work_item_id,
+            assignment_digest=assignment.assignment_digest,
+            handler_binding_digest=assignment.handler_binding_digest,
+            handler_realization_digest=realization,
+            authorization_digest=authorization_digest,
+            attempt_id=attempt_id,
+            lease_token=lease_token,
+            lease_expires_at=lease_expires_at,
+            node_id=node_id,
+            node_profile_digest=node_profile_digest,
+            interpreter_profile_digest=interpreter_profile_digest,
+            authority_digest=authority_digest,
+            execution_reservation_ref=execution_reservation_ref,
+            execution_reservation_digest=execution_reservation_digest,
+            claim_authority_epoch=assignment.claim_authority_epoch,
             binding_digest=canonical_digest(
                 provisional,
                 exclude_fields={"binding_digest"},

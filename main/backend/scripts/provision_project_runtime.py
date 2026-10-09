@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 import argparse
+import json
+import sys
 from dataclasses import asdict, fields
 from datetime import datetime
-import json
 from pathlib import Path
-import sys
 from typing import Annotated, TypeVar
 
 _ROOT = Path(__file__).resolve().parents[3]
@@ -15,21 +15,32 @@ for _path in (_ROOT, _ROOT / "src", _ROOT / "main" / "backend"):
     if str(_path) not in sys.path:
         sys.path.insert(0, str(_path))
 
-from pydantic import TypeAdapter  # noqa: E402
-from sqlalchemy import text  # noqa: E402
-
-from app.composition.production_runtime import ProductionRuntimeAuthorityUnavailable, install_project_runtime  # noqa: E402
+from app.composition.installed_operation import installed_operation_catalog  # noqa: E402
+from app.composition.production_runtime import (  # noqa: E402
+    ProductionRuntimeAuthorityUnavailable,
+    install_project_runtime,
+    install_runtime_authority,
+)
 from app.services.request_identity import RequestActorContext, actor_id_from_secret  # noqa: E402
 from app.settings.config import settings  # noqa: E402
-from app.successor_runtime.capabilities.workflow_native_contribution import build_workflow_runtime_definition  # noqa: E402
+from app.successor_runtime.capabilities.catalog import build_operation_catalog  # noqa: E402
+from app.successor_runtime.language.catalog import OperationContractRegistry  # noqa: E402
 from app.successor_runtime.runtime.authority_grants import (  # noqa: E402
-    AuthorityOperationScope, AuthorityResourceCeiling, AuthorityResourceLimit,
+    AuthorityOperationScope,
+    AuthorityResourceCeiling,
+    AuthorityResourceLimit,
 )
 from app.successor_runtime.runtime.ports import ProjectScopeRef  # noqa: E402
 from app.successor_runtime.runtime.resources import ResourcePolicySnapshot  # noqa: E402
 from app.successor_runtime.substrate.postgres.authority import AuthorityGrant, CapabilityAuthority  # noqa: E402
 from app.successor_runtime.substrate.postgres.runtime_journal import ExactBindingConflict  # noqa: E402
-from app.successor_runtime.substrate.postgres.session import compute_scope_digest, create_runtime_engine  # noqa: E402
+from app.successor_runtime.substrate.postgres.session import (  # noqa: E402
+    ServerProjectScopeResolver,
+    compute_scope_digest,
+    create_runtime_engine,
+)
+from pydantic import TypeAdapter  # noqa: E402
+from sqlalchemy import text  # noqa: E402
 
 _T = TypeVar("_T", CapabilityAuthority, ResourcePolicySnapshot)
 
@@ -122,33 +133,99 @@ def provision(args: ProvisionArguments) -> dict[str, object]:
         actor_id=args.administrator_id, actor_source="local_deployment_cli",
         actor_trusted=True, actor_auth_mode="os_operator",
     )
-    installed = build_workflow_runtime_definition().registry
+    installed_contracts = tuple(
+        item.definition.contract for item in installed_operation_catalog
+    )
+    installed = OperationContractRegistry(
+        catalog=build_operation_catalog(
+            installed_contracts,
+            catalog_id="mrw.installed-operation.native.v1",
+            catalog_version="1",
+        ),
+        contracts=installed_contracts,
+    )
+    for operation_kind in args.operation:
+        if not installed.catalog.requires(operation_kind):
+            raise ExactBindingConflict(
+                "installation grant references an uninstalled operation"
+            )
     ceiling = AuthorityResourceCeiling.from_content(limits=tuple(args.resource_limit), max_active=args.max_active)
     engine = create_runtime_engine(settings.database_url)
     try:
         with engine.begin() as connection:
-            schema = connection.execute(text(
-                "SELECT schema_name FROM public.projects WHERE project_key = :project_key"
-            ), {"project_key": args.project_key}).scalar_one_or_none()
-            if not isinstance(schema, str):
-                raise ValueError("first installation requires an existing business Project")
-            candidate = ProjectScopeRef(
-                project_key=args.project_key, resolved_schema=schema, project_registry_revision=1,
-                incarnation=args.incarnation,
-                scope_digest=compute_scope_digest(args.project_key, schema, 1, args.incarnation),
-            )
+            scope_history = connection.execute(
+                text(
+                    "SELECT project_key FROM public.project_scope_registry "
+                    "WHERE project_key = :project_key "
+                    "ORDER BY registry_revision DESC LIMIT 1 FOR UPDATE"
+                ),
+                {"project_key": args.project_key},
+            ).mappings().first()
+            first_installation = scope_history is None
+            if first_installation:
+                project = connection.execute(
+                    text(
+                        "SELECT schema_name, enabled FROM public.projects "
+                        "WHERE project_key = :project_key FOR UPDATE"
+                    ),
+                    {"project_key": args.project_key},
+                ).mappings().one_or_none()
+                if (
+                    project is None
+                    or project["enabled"] is not True
+                    or not isinstance(project["schema_name"], str)
+                ):
+                    raise ValueError(
+                        "first installation requires an existing business Project"
+                    )
+                schema = project["schema_name"]
+                project_scope = ProjectScopeRef(
+                    project_key=args.project_key,
+                    resolved_schema=schema,
+                    project_registry_revision=1,
+                    incarnation=args.incarnation,
+                    scope_digest=compute_scope_digest(
+                        args.project_key, schema, 1, args.incarnation
+                    ),
+                )
+            else:
+                project_scope = ServerProjectScopeResolver(
+                    connection=connection
+                ).resolve(args.project_key)
+                if project_scope.incarnation != args.incarnation:
+                    raise ExactBindingConflict(
+                        "existing project Runtime scope has a different incarnation"
+                    )
             grant = AuthorityGrant(
                 grant_id=args.grant_id, actor_id=target_actor, capability_id=capability.capability_id,
                 operation_scope_json=AuthorityOperationScope.from_content(
-                    operation_kinds=tuple(args.operation), project_scope_digest=candidate.scope_digest,
+                    operation_kinds=tuple(args.operation),
+                    project_scope_digest=project_scope.scope_digest,
                 ), resource_ceiling_json=ceiling, credential_ref=args.credential_ref,
                 grant_epoch=args.grant_epoch, expires_at=args.expires_at,
             )
-            scope = install_project_runtime(
-                connection, administrator=administrator, project_scope=candidate, grant=grant,
-                capability=capability, resource=resources, installed=installed,
-            )
-        return {"project_scope": asdict(scope), "grant_id": grant.grant_id, "actor_id": grant.actor_id}
+            if first_installation:
+                scope = install_project_runtime(
+                    connection,
+                    administrator=administrator,
+                    project_scope=project_scope,
+                    grant=grant,
+                    capability=capability,
+                    resource=resources,
+                    installed=installed,
+                )
+            else:
+                install_runtime_authority(
+                    connection,
+                    administrator=administrator,
+                    project_scope=project_scope,
+                    grant=grant,
+                    capability=capability,
+                    resource=resources,
+                    installed=installed,
+                )
+                scope = project_scope
+            return {"project_scope": asdict(scope), "grant_id": grant.grant_id, "actor_id": grant.actor_id}
     finally:
         engine.dispose()
 

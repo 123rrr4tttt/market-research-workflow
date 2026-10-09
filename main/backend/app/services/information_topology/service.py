@@ -6,23 +6,26 @@ service has no in-memory fallback and never asks a module to execute its content
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Callable, Mapping, Protocol, Sequence
+from typing import Any, Callable, Mapping, Protocol, Sequence, TypeGuard
 
+from app.models.base import SessionLocal
+from app.models.information_topology_entities import InformationTopologyLink
 from functorial_kit import Failure
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.models.information_topology_entities import InformationTopologyLink
-from app.models.base import SessionLocal
-
 from .contracts import (
-    BoundRef, Element, ElementRef, Endpoint, PatchOperation, TopologyState,
+    BoundRef,
+    Element,
+    ElementRef,
+    Endpoint,
+    PatchOperation,
+    TopologyState,
     topology_failures,
 )
 from .mapping import MappingSpec, preview_mapping
 from .profiles import ProfileSpec, apply_patch, decode_state
-from .structural_schema import derive_read_model_attributes
 from .repository import (
     InformationTopologyRepository,
     LinkRead,
@@ -30,6 +33,7 @@ from .repository import (
     StateRead,
     StateWrite,
 )
+from .structural_schema import derive_read_model_attributes
 
 StateKey = tuple[str, str, str, str]
 
@@ -145,18 +149,22 @@ class InformationTopologyService:
 
     @staticmethod
     def _source_ref_from_payload(payload: Mapping[str, Any]) -> Mapping[str, Any] | None:
-        elements = payload.get("elements", ())
-        if not isinstance(elements, (list, tuple)):
+        elements = _runtime_value(payload.get("elements", ()))
+        if not _is_object_sequence(elements):
             return None
-        matches = [element for element in elements if isinstance(element, Mapping)
-                   and isinstance(element.get("ref"), Mapping)
-                   and isinstance(element["ref"].get("ref"), Mapping)
-                   and element["ref"]["ref"].get("type_id") == "domain_vocabulary"]
+        matches: list[dict[str, object]] = []
+        for value in elements:
+            element = _string_mapping(value)
+            if element is None:
+                continue
+            bound = _string_mapping(element.get("ref"))
+            identity = _string_mapping(bound.get("ref")) if bound is not None else None
+            if identity is not None and identity.get("type_id") == "domain_vocabulary":
+                matches.append(element)
         if len(matches) != 1:
             return None
-        attributes = matches[0].get("attributes")
-        source_ref = attributes.get("source_ref") if isinstance(attributes, Mapping) else None
-        return source_ref if isinstance(source_ref, Mapping) else None
+        attributes = _string_mapping(matches[0].get("attributes"))
+        return _string_mapping(attributes.get("source_ref")) if attributes is not None else None
 
     def describe_profiles(self, project_key: str) -> dict[str, Any]:
         available = {(profile.profile_id, profile.version): profile
@@ -175,7 +183,7 @@ class InformationTopologyService:
                  for _, profile in sorted(available.items())]
         return {"items": items, "total": len(items)}
 
-    def list_topologies(self, project_key: str) -> dict[str, Any]:
+    def list_topologies(self, project_key: str) -> dict[str, Any] | Failure:
         """Read current project topologies in one DB round trip; this is a derived read model."""
         with self.dependencies.session_factory() as session:
             rows = self.repository.list_current_states(session, project_key)
@@ -195,7 +203,7 @@ class InformationTopologyService:
                                      "state_id": row["state_id"]},
                     "profile_id": row["profile_id"], "profile_version": row["profile_version"],
                     "revision": row["revision"], "digest": row["digest"],
-                    "created_at": row["created_at"].isoformat() if row.get("created_at") else None,
+                    "created_at": row["created_at"].isoformat() if row["created_at"] is not None else None,
                     "element_count": row["element_count"], "topology": self._read_model(session, project_key, profile, state),
                 })
         return {"items": list(items), "total": len(items)}
@@ -212,14 +220,17 @@ class InformationTopologyService:
         with self.dependencies.session_factory() as session:
             rows = self.repository.list_current_states(session, project_key)
         for row in rows:
-            payload = row.get("payload")
-            elements = payload.get("elements", ()) if isinstance(payload, Mapping) else ()
+            payload = row["payload"]
+            elements = _runtime_value(payload.get("elements", ()))
+            if not _is_object_sequence(elements):
+                continue
             for element in elements:
-                if not isinstance(element, Mapping):
+                element_mapping = _string_mapping(element)
+                if element_mapping is None:
                     continue
-                ref = element.get("ref")
-                identity = ref.get("ref") if isinstance(ref, Mapping) else None
-                if isinstance(identity, Mapping) and identity.get("type_id") == type_id:
+                ref = _string_mapping(element_mapping.get("ref"))
+                identity = _string_mapping(ref.get("ref")) if ref is not None else None
+                if identity is not None and identity.get("type_id") == type_id:
                     total += 1
         return total
 
@@ -231,7 +242,7 @@ class InformationTopologyService:
         with self.dependencies.session_factory() as session:
             with session.begin():
                 rows = self.repository.list_current_states(session, project_key)
-                writes = []
+                writes: list[StateWrite] = []
                 for row in rows:
                     if not row["profile_id"].startswith("retrieval.domain.") or row["profile_version"].startswith("3+"):
                         continue
@@ -277,8 +288,8 @@ class InformationTopologyService:
                     return topology_failures.fail("UNRESOLVABLE_REFERENCE", "reference does not resolve", {"ref": _ref_dict(ref)})
                 if isinstance(result, BoundRef):
                     bound = result
-                elif isinstance(result, Mapping) and "ref" in result:
-                    bound = _bound_ref(result)
+                elif (result_mapping := _string_mapping(_runtime_value(result))) is not None and "ref" in result_mapping:
+                    bound = _bound_ref(result_mapping)
                 else:
                     return topology_failures.fail("UNRESOLVABLE_REFERENCE", "resolver returned an invalid bound reference")
                 if bound.ref.project_key != project_key or bound.ref != ref:
@@ -292,8 +303,10 @@ class InformationTopologyService:
             return row
         if row is None or row["deleted"]:
             return None
-        state = row.get("state")
-        if state is None:
+        state_value = _runtime_value(row.get("state"))
+        if isinstance(state_value, TopologyState):
+            state = state_value
+        else:
             profile = self._resolve_profile(project_key, row["profile_id"], row["profile_version"], row["payload"],
                                             self._source_ref_from_payload(row["payload"]))
             if isinstance(profile, Failure):
@@ -313,33 +326,34 @@ class InformationTopologyService:
                 return row
             if row is None or row["deleted"]:
                 return topology_failures.fail("NOT_FOUND", "topology state was not found")
-            state = row.get("state")
-            if state is None:
+            state_value = _runtime_value(row.get("state"))
+            if isinstance(state_value, TopologyState):
+                state: TopologyState | Failure = state_value
+            else:
                 profile = self._resolve_profile(project_key, row["profile_id"], row["profile_version"], row["payload"],
                                                 self._source_ref_from_payload(row["payload"]))
                 if isinstance(profile, Failure):
                     return profile
                 state = decode_state(profile, row["payload"])
-            if not isinstance(state, Failure):
-                profile = self._resolve_profile(project_key, row["profile_id"], row["profile_version"],
-                                                row["payload"], self._source_ref_from_payload(row["payload"]))
-                if isinstance(profile, Failure):
-                    return profile
-                wire = self._read_model(session, project_key, profile, state)
-        if isinstance(state, Failure):
-            return state
+            if isinstance(state, Failure):
+                return state
+            profile = self._resolve_profile(project_key, row["profile_id"], row["profile_version"],
+                                            row["payload"], self._source_ref_from_payload(row["payload"]))
+            if isinstance(profile, Failure):
+                return profile
+            wire = self._read_model(session, project_key, profile, state)
         unknown_filters = set(filters) - {"type_ids", "local_ids"}
         if unknown_filters:
             return topology_failures.fail("INVALID_STRUCTURE", "unsupported topology filters", {"filters": sorted(unknown_filters)})
         type_ids, local_ids = filters.get("type_ids"), filters.get("local_ids")
-        if type_ids is not None and (not isinstance(type_ids, list) or any(not isinstance(x, str) for x in type_ids)):
+        if type_ids is not None and not _is_string_list(_runtime_value(type_ids)):
             return topology_failures.fail("INVALID_STRUCTURE", "type_ids filter must be a list of strings")
-        if local_ids is not None and (not isinstance(local_ids, list) or any(not isinstance(x, str) for x in local_ids)):
+        if local_ids is not None and not _is_string_list(_runtime_value(local_ids)):
             return topology_failures.fail("INVALID_STRUCTURE", "local_ids filter must be a list of strings")
         if type_ids is not None or local_ids is not None:
-            wire["elements"] = [element for element in wire["elements"]
-                if (type_ids is None or element["ref"]["ref"]["type_id"] in type_ids)
-                and (local_ids is None or element["ref"]["ref"]["local_id"] in local_ids)]
+            wire["elements"] = [element for element in _mapping_list(wire.get("elements"))
+                if (type_ids is None or _wire_identity_value(element, "type_id") in type_ids)
+                and (local_ids is None or _wire_identity_value(element, "local_id") in local_ids)]
         return {"topology": wire, "revision": row["revision"], "digest": row["digest"]}
 
     def find_relations(self, project_key: str, ref: Mapping[str, Any], relation_types: Sequence[str], direction: str) -> dict[str, Any] | Failure:
@@ -363,12 +377,12 @@ class InformationTopologyService:
         for row in rows:
             if relation_types and row.type_or_rule_ref not in relation_types:
                 continue
-            matched = []
-            for endpoint in row.endpoints or []:
-                target = endpoint.get("target") if isinstance(endpoint, Mapping) else None
-                raw_ref = target.get("ref") if isinstance(target, Mapping) else None
+            matched: list[str] = []
+            for endpoint in _mapping_list(row.endpoints):
+                target = _string_mapping(endpoint.get("target"))
+                raw_ref = _string_mapping(target.get("ref")) if target is not None else None
                 if raw_ref == target_wire:
-                    matched.append(str(endpoint.get("role", "")))
+                    matched.append(str(endpoint.get("role") or ""))
             if not matched:
                 continue
             if direction != "both":
@@ -490,8 +504,10 @@ class InformationTopologyService:
                                     {"key": key, "expected_revision": expected_revision,
                                      "actual_revision": row["revision"]},
                                 )
-                            original = row.get("state")
-                            if original is None:
+                            state_value = _runtime_value(row.get("state"))
+                            if isinstance(state_value, TopologyState):
+                                original = state_value
+                            else:
                                 profile = self._resolve_profile(
                                     project_key, row["profile_id"], row["profile_version"], row["payload"],
                                     self._source_ref_from_payload(row["payload"]),
@@ -514,12 +530,9 @@ class InformationTopologyService:
                             if element is not None and ref.ref.type_id == "material":
                                 prior = next((e for e in original.elements if e.ref == ref), None)
                                 if prior is not None:
-                                    from app.services.document_queries.identity import canonical_material_identity
-
                                     prior_ref = prior.attributes.get("material_ref", prior.attributes.get("document_ref"))
                                     next_ref = element.attributes.get("material_ref", element.attributes.get("document_ref"))
-                                    identity = lambda value: canonical_material_identity(project_key, value) if isinstance(value, Mapping) else value
-                                    if identity(prior_ref) != identity(next_ref):
+                                    if _canonical_identity_or_value(project_key, prior_ref) != _canonical_identity_or_value(project_key, next_ref):
                                         return topology_failures.fail("INVALID_PATCH", "material identity cannot be rebound by a structural patch")
                             if ref.ref.project_key != project_key or (element and any(
                                 candidate.ref.project_key != project_key
@@ -540,7 +553,7 @@ class InformationTopologyService:
                         changed_states.append(changed)
 
                     if self.dependencies.material_binder is not None:
-                        normalized_writes = []
+                        normalized_writes: list[StateWrite] = []
                         for write in state_writes:
                             bound_state = self.dependencies.material_binder(session, write.state)
                             if isinstance(bound_state, Failure):
@@ -579,11 +592,61 @@ class InformationTopologyService:
 __all__ = ["InformationTopologyDependencies", "InformationTopologyService", "ProfileResolver", "StructureIO"]
 
 
-def _all_project_refs(value: Any, project_key: str) -> bool:
-    if isinstance(value, Mapping):
+def _all_project_refs(value: object, project_key: str) -> bool:
+    if _is_object_mapping(value):
         if "project_key" in value and value["project_key"] != project_key:
             return False
         return all(_all_project_refs(child, project_key) for child in value.values())
-    if isinstance(value, (list, tuple)):
+    if _is_object_sequence(value):
         return all(_all_project_refs(child, project_key) for child in value)
     return True
+
+
+def _runtime_value(value: object) -> object:
+    return value
+
+
+def _is_object_mapping(value: object) -> TypeGuard[Mapping[object, object]]:
+    return isinstance(value, Mapping)
+
+
+def _is_object_sequence(value: object) -> TypeGuard[list[object] | tuple[object, ...]]:
+    return isinstance(value, (list, tuple))
+
+
+def _is_string_list(value: object) -> TypeGuard[list[str]]:
+    return _is_object_list(value) and all(isinstance(item, str) for item in value)
+
+
+def _is_object_list(value: object) -> TypeGuard[list[object]]:
+    return isinstance(value, list)
+
+
+def _string_mapping(value: object) -> dict[str, object] | None:
+    if not _is_object_mapping(value):
+        return None
+    result: dict[str, object] = {}
+    for key, item in value.items():
+        if not isinstance(key, str):
+            return None
+        result[key] = item
+    return result
+
+
+def _mapping_list(value: object) -> list[dict[str, object]]:
+    if not _is_object_sequence(value):
+        return []
+    return [item for raw in value if (item := _string_mapping(raw)) is not None]
+
+
+def _wire_identity_value(element: Mapping[str, object], field: str) -> object:
+    bound = _string_mapping(element.get("ref"))
+    identity = _string_mapping(bound.get("ref")) if bound is not None else None
+    return identity.get(field) if identity is not None else None
+
+
+def _canonical_identity_or_value(project_key: str, value: object) -> object:
+    from app.services.document_queries.identity import canonical_material_identity
+
+    mapping = _string_mapping(value)
+    return canonical_material_identity(project_key, mapping) if mapping is not None else value

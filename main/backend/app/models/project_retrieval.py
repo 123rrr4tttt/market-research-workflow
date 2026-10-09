@@ -15,7 +15,7 @@ from app.services.project_retrieval.contracts import (
     RetrievalJsonValue,
 )
 
-from .base import Base, BigIDMixin
+from .base import Base, BigIDMixin, require_model_table
 
 
 # SQLAlchemy resolves recursive ``Mapped`` aliases in this module's namespace.
@@ -97,8 +97,8 @@ def project_retrieval_tables() -> tuple[Table, Table]:
     """Return the native tenant tables owned by project retrieval."""
 
     return (
-        ProjectRetrievalMode.__table__,
-        ProjectRetrievalPlan.__table__,
+        require_model_table(ProjectRetrievalMode.__table__),
+        require_model_table(ProjectRetrievalPlan.__table__),
     )
 
 

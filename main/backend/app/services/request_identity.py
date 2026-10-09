@@ -3,7 +3,7 @@ from __future__ import annotations
 import hashlib
 import secrets
 from dataclasses import dataclass, field
-from typing import Any, Mapping, NoReturn
+from typing import Any, Mapping, NoReturn, TypeGuard
 
 from fastapi import HTTPException, Request
 from functorial_kit import Failure
@@ -62,17 +62,22 @@ def _identity_failure(
 
 def _raise_identity_failure(failure: Failure) -> NoReturn:
     context = failure.context or {}
+    public_detail = context.get("public_detail")
     if (
         not request_identity_failures.matches(failure)
         or _REQUEST_IDENTITY_FAILURE_CONTEXT_KEYS - set(context)
         or context.get("public_exception") != "HTTPException"
         or context.get("status_code") != 403
-        or not isinstance(context.get("public_detail"), dict)
+        or not _is_payload_dict(public_detail)
     ):
         # kit:boundary owner=request_identity.failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w01_request_identity_preserves_http_403_detail_envelope
         raise TypeError("request identity failure lift context is incomplete")
     # kit:boundary owner=request_identity.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=request_identity.failure witness=test:test_w01_request_identity_preserves_http_403_detail_envelope
-    raise HTTPException(status_code=403, detail=dict(context["public_detail"]))
+    raise HTTPException(status_code=403, detail=dict(public_detail))
+
+
+def _is_payload_dict(value: object) -> TypeGuard[dict[str, object]]:
+    return isinstance(value, dict)
 
 
 @dataclass(frozen=True)
@@ -82,7 +87,7 @@ class RequestActorContext:
     actor_trusted: bool
     actor_auth_mode: str
     legacy_actor_id: str | None = None
-    actor_metadata: dict[str, Any] = field(default_factory=dict)
+    actor_metadata: dict[str, Any] = field(default_factory=lambda: {})
 
     @property
     def identity_source(self) -> str:
@@ -93,7 +98,7 @@ class RequestActorContext:
         return self.actor_auth_mode
 
     def to_observability(self) -> dict[str, Any]:
-        payload = {
+        payload: dict[str, object] = {
             "actor_id": self.actor_id,
             "actor_source": self.actor_source,
             "identity_source": self.identity_source,
@@ -198,8 +203,8 @@ def resolve_local_single_user_actor_context(
     )
 
 
-def _safe_actor_metadata(metadata: dict[str, Any] | None) -> dict[str, Any]:
-    if not isinstance(metadata, dict):
+def _safe_actor_metadata(metadata: object) -> dict[str, Any]:
+    if not _is_payload_dict(metadata):
         return {}
     safe: dict[str, Any] = {}
     for key, value in metadata.items():
@@ -255,7 +260,7 @@ def _authenticated_context_from_state(request: Request | None) -> RequestActorCo
     legacy_actor_id = legacy_actor_id_from_request(request)
     for attr_name in ("authenticated_actor", "codex_authenticated_actor"):
         raw_actor = getattr(state, attr_name, None)
-        if not isinstance(raw_actor, dict):
+        if not _is_payload_dict(raw_actor):
             continue
         actor_id = _clean_text(
             raw_actor.get("actor_id")
@@ -300,7 +305,7 @@ def resolve_request_actor_context(request: Request | None) -> RequestActorContex
     actor_id = _clean_text(getattr(state, "actor_id", None))
     if actor_id:
         state_actor_context = getattr(state, "actor_context", None)
-        state_actor_context = state_actor_context if isinstance(state_actor_context, dict) else {}
+        state_actor_context = state_actor_context if _is_payload_dict(state_actor_context) else {}
         legacy_actor_id = (
             _clean_text(state_actor_context.get("legacy_actor_id"))
             or _clean_text(getattr(state, "legacy_actor_id", None))

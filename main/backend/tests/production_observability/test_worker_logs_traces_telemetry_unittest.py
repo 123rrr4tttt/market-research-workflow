@@ -105,6 +105,25 @@ class WorkerTelemetryTestCase(unittest.TestCase):
         self.assertEqual(empty["traces_status"], "not_observed")
         self.assertEqual(empty["correlatable_request_ids"], [])
 
+    def test_read_accepts_legacy_list_pair_rows(self) -> None:
+        class _ListPairRedis:
+            def xrange(self, *_args: object, **_kwargs: object) -> list[list[object]]:
+                return [
+                    [
+                        "1-0",
+                        {
+                            "contract_version": WORKER_TELEMETRY_CONTRACT_VERSION,
+                            "record_type": "worker_event",
+                            "request_id": "request-list-pair",
+                        },
+                    ]
+                ]
+
+        snapshot = read_worker_telemetry_snapshot(_ListPairRedis())
+
+        self.assertEqual(snapshot.read_status, "ok")
+        self.assertEqual(snapshot.records[0]["request_id"], "request-list-pair")
+
 
 if __name__ == "__main__":
     unittest.main()

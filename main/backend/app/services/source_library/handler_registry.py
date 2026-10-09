@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from typing import Any, Callable, Dict
+from typing import Any, Callable
 
-ChannelHandler = Callable[[Dict[str, Any], str | None], Dict[str, Any]]
+ChannelHandler = Callable[[dict[object, object], str | None], dict[str, Any]]
 ChannelKey = tuple[str, str]
 
 _HANDLERS: dict[ChannelKey, ChannelHandler] = {}

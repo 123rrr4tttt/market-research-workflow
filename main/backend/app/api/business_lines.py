@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import importlib.util
 import sys
+from collections.abc import Mapping
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Annotated, Any
+from types import ModuleType
+from typing import Annotated, Any, TypeGuard
 
 from fastapi import APIRouter
 from mrw_functorial_kit.business_line_vocabulary import (
@@ -109,10 +111,6 @@ READ_ONLY_CONTEXT_PROOF_BOUNDARY_FIELDS: dict[str, Any] = {
 }
 
 
-def _read_only_context_proof_boundary(**extra: Any) -> dict[str, Any]:
-    return {**READ_ONLY_CONTEXT_PROOF_BOUNDARY_FIELDS, **extra}
-
-
 def _business_line_project_root() -> Path:
     module_path = Path(__file__).resolve()
     for parent in module_path.parents:
@@ -212,7 +210,7 @@ def _checker_unavailable_summary(*, reason: str, observed_at: str | None = None)
     }
 
 
-def _load_scheduled_artifact_checker(checker_path: Path) -> Any:
+def _load_scheduled_artifact_checker(checker_path: Path) -> ModuleType:
     spec = importlib.util.spec_from_file_location(
         "scheduled_automation_artifact_checker",
         checker_path,
@@ -231,11 +229,11 @@ def _lane_status(lane_classification: str) -> str:
 
 
 def _summarize_scheduled_lane(
-    lane: dict[str, Any],
+    lane: Mapping[str, object],
     *,
     fallback_observed_at: str,
     fallback_recommended_command: str,
-) -> dict[str, Any]:
+) -> dict[str, object]:
     lane_classification = str(lane.get("classification") or "missing")
     return {
         "lane": lane.get("lane"),
@@ -249,7 +247,7 @@ def _summarize_scheduled_lane(
     }
 
 
-def _scheduled_artifact_row(artifact: dict[str, Any]) -> dict[str, Any]:
+def _scheduled_artifact_row(artifact: Mapping[str, object]) -> dict[str, object]:
     classification = str(artifact.get("classification") or "missing")
     return {
         "artifact_path": artifact.get("artifact_path"),
@@ -272,36 +270,68 @@ def _scheduled_artifact_row(artifact: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _non_negative_int(value: Any) -> int:
+def _non_negative_int(value: object) -> int:
     if isinstance(value, int) and not isinstance(value, bool) and value >= 0:
         return value
     return 0
 
 
-def _string_list(value: Any) -> list[str]:
-    if not isinstance(value, list):
+def _string_list(value: object) -> list[str]:
+    if not _is_object_list(value):
         return []
     return [item for item in value if isinstance(item, str) and item]
 
 
-def _optional_string(value: Any) -> str | None:
+def _optional_string(value: object) -> str | None:
     if isinstance(value, str) and value:
         return value
     return None
 
 
-def _optional_positive_int(value: Any) -> int | None:
+def _optional_positive_int(value: object) -> int | None:
     if isinstance(value, int) and not isinstance(value, bool) and value > 0:
         return value
     return None
 
 
-def _non_negative_int_dict(value: Any) -> dict[str, int]:
-    if not isinstance(value, dict):
+def _is_object_mapping(value: object) -> TypeGuard[Mapping[object, object]]:
+    return isinstance(value, Mapping)
+
+
+def _object_mapping(value: object) -> Mapping[object, object] | None:
+    return value if _is_object_mapping(value) else None
+
+
+def _object_dict(value: object) -> dict[str, object]:
+    mapping = _object_mapping(value)
+    if mapping is None:
+        return {}
+    return {key: item for key, item in mapping.items() if isinstance(key, str)}
+
+
+def _is_object_list(value: object) -> TypeGuard[list[object]]:
+    return isinstance(value, list)
+
+
+def _object_list(value: object) -> list[object]:
+    return value if _is_object_list(value) else []
+
+
+def _is_object_tuple(value: object) -> TypeGuard[tuple[object, ...]]:
+    return isinstance(value, tuple)
+
+
+def _object_tuple(value: object) -> tuple[object, ...]:
+    return value if _is_object_tuple(value) else ()
+
+
+def _non_negative_int_dict(value: object) -> dict[str, int]:
+    mapping = _object_mapping(value)
+    if mapping is None:
         return {}
     return {
         key: count
-        for key, count in value.items()
+        for key, count in mapping.items()
         if isinstance(key, str)
         and key
         and isinstance(count, int)
@@ -311,18 +341,18 @@ def _non_negative_int_dict(value: Any) -> dict[str, int]:
 
 
 def _drilldown_scheduled_lane(
-    lane: dict[str, Any],
+    lane: Mapping[str, object],
     *,
     fallback_observed_at: str,
     fallback_recommended_command: str,
-) -> dict[str, Any]:
+) -> dict[str, object]:
     lane_classification = str(lane.get("classification") or "missing")
     artifacts = lane.get("artifacts")
     sanitized_artifacts = [
-        _scheduled_artifact_row(artifact)
-        for artifact in artifacts
-        if isinstance(artifact, dict)
-    ] if isinstance(artifacts, list) else []
+        _scheduled_artifact_row(artifact_mapping)
+        for artifact in _object_list(artifacts)
+        if (artifact_mapping := _object_dict(artifact))
+    ]
     if lane_classification == "missing":
         sanitized_artifacts = []
 
@@ -359,18 +389,20 @@ def _drilldown_scheduled_lane(
     }
 
 
-def _checker_whitelisted_lanes(checker: Any, lanes: list[dict[str, Any]]) -> list[str]:
-    default_lanes = getattr(checker, "DEFAULT_LANES", None)
-    if isinstance(default_lanes, tuple):
-        lane_names = [getattr(spec, "lane", None) for spec in default_lanes]
-        whitelisted = [lane for lane in lane_names if isinstance(lane, str) and lane]
+def _checker_whitelisted_lanes(checker: object, lanes: list[dict[str, object]]) -> list[str]:
+    default_lanes: object = getattr(checker, "DEFAULT_LANES", None)
+    default_lane_specs = _object_tuple(default_lanes)
+    if default_lane_specs:
+        default_lane_names = [getattr(spec, "lane", None) for spec in default_lane_specs]
+        whitelisted = [lane for lane in default_lane_names if isinstance(lane, str) and lane]
         if whitelisted:
             return whitelisted
-    return [
-        lane["lane"]
-        for lane in lanes
-        if isinstance(lane.get("lane"), str) and lane.get("lane")
-    ]
+    lane_names: list[str] = []
+    for lane in lanes:
+        lane_name = lane.get("lane")
+        if isinstance(lane_name, str) and lane_name:
+            lane_names.append(lane_name)
+    return lane_names
 
 
 def build_scheduled_artifact_summaries(
@@ -394,36 +426,30 @@ def build_scheduled_artifact_summaries(
                 reason="scheduled artifact checker does not expose callable build_report"
             )
 
-        report = build_report(repo_root)
+        raw_report: object = build_report(repo_root)
     except Exception as exc:  # noqa: BLE001
         return _scheduled_checker_unavailable_summaries(
             reason=f"scheduled artifact checker failed: {exc.__class__.__name__}: {exc}"
         )
 
-    observed_at = report.get("observed_at") if isinstance(report, dict) else None
+    report = _object_dict(raw_report)
+    observed_at = report.get("observed_at")
     observed_at = observed_at if isinstance(observed_at, str) and observed_at else _utc_now()
-    recommended_command = (
-        report.get("recommended_command")
-        if isinstance(report, dict)
-        and isinstance(report.get("recommended_command"), str)
-        and report.get("recommended_command")
-        else "python3 scripts/check_scheduled_automation_artifacts.py --json"
-    )
-    raw_lanes = report.get("lanes") if isinstance(report, dict) else None
+    raw_recommended_command = report.get("recommended_command")
+    recommended_command = raw_recommended_command if isinstance(raw_recommended_command, str) and raw_recommended_command else "python3 scripts/check_scheduled_automation_artifacts.py --json"
+    raw_lanes = _object_list(report.get("lanes"))
     lanes = [
         _summarize_scheduled_lane(
-            lane,
+            lane_mapping,
             fallback_observed_at=observed_at,
             fallback_recommended_command=recommended_command,
         )
         for lane in raw_lanes
-        if isinstance(lane, dict)
-    ] if isinstance(raw_lanes, list) else []
-    summary = report.get("summary", {}) if isinstance(report, dict) else {}
-    if not isinstance(summary, dict):
-        summary = {}
+        if (lane_mapping := _object_dict(lane))
+    ]
+    summary = _object_dict(report.get("summary"))
     scheduled_count = summary.get("scheduled_run_evidence_count")
-    status = report.get("status") if isinstance(report, dict) else None
+    status = report.get("status")
     if not isinstance(status, str) or not status:
         status = "passed" if isinstance(scheduled_count, int) and scheduled_count > 0 else "blocked"
 
@@ -461,36 +487,30 @@ def build_scheduled_artifact_drilldown(
                 reason="scheduled artifact checker does not expose callable build_report"
             )
 
-        report = build_report(repo_root)
+        raw_report: object = build_report(repo_root)
     except Exception as exc:  # noqa: BLE001
         return _scheduled_checker_unavailable_drilldown(
             reason=f"scheduled artifact checker failed: {exc.__class__.__name__}: {exc}"
         )
 
-    observed_at = report.get("observed_at") if isinstance(report, dict) else None
+    report = _object_dict(raw_report)
+    observed_at = report.get("observed_at")
     observed_at = observed_at if isinstance(observed_at, str) and observed_at else _utc_now()
-    recommended_command = (
-        report.get("recommended_command")
-        if isinstance(report, dict)
-        and isinstance(report.get("recommended_command"), str)
-        and report.get("recommended_command")
-        else "python3 scripts/check_scheduled_automation_artifacts.py --json"
-    )
-    raw_lanes = report.get("lanes") if isinstance(report, dict) else None
+    raw_recommended_command = report.get("recommended_command")
+    recommended_command = raw_recommended_command if isinstance(raw_recommended_command, str) and raw_recommended_command else "python3 scripts/check_scheduled_automation_artifacts.py --json"
+    raw_lanes = _object_list(report.get("lanes"))
     lanes = [
         _drilldown_scheduled_lane(
-            lane,
+            lane_mapping,
             fallback_observed_at=observed_at,
             fallback_recommended_command=recommended_command,
         )
         for lane in raw_lanes
-        if isinstance(lane, dict)
-    ] if isinstance(raw_lanes, list) else []
-    summary = report.get("summary", {}) if isinstance(report, dict) else {}
-    if not isinstance(summary, dict):
-        summary = {}
+        if (lane_mapping := _object_dict(lane))
+    ]
+    summary = _object_dict(report.get("summary"))
     scheduled_count = summary.get("scheduled_run_evidence_count")
-    status = report.get("status") if isinstance(report, dict) else None
+    status = report.get("status")
     if not isinstance(status, str) or not status:
         status = "passed" if isinstance(scheduled_count, int) and scheduled_count > 0 else "blocked"
 
@@ -526,17 +546,16 @@ def build_scheduled_matrix_artifact_summary(
             ),
         )
 
-    lanes = scheduled_summaries.get("lanes")
-    matrix_lane = None
-    if isinstance(lanes, list):
-        matrix_lane = next(
-            (
-                lane
-                for lane in lanes
-                if isinstance(lane, dict) and lane.get("lane") == SCHEDULED_MATRIX_LANE
-            ),
-            None,
-        )
+    lanes = _object_list(scheduled_summaries.get("lanes"))
+    matrix_lane = next(
+        (
+            lane_mapping
+            for lane in lanes
+            if (lane_mapping := _object_dict(lane))
+            and lane_mapping.get("lane") == SCHEDULED_MATRIX_LANE
+        ),
+        None,
+    )
 
     if matrix_lane is None:
         return {
@@ -653,14 +672,10 @@ def _async_task_readback(
     }
 
 
-def _trace_baseline(*, live_smoke: dict[str, Any]) -> dict[str, Any]:
+def _trace_baseline(*, live_smoke: Mapping[str, object]) -> dict[str, Any]:
     probe_path = str(live_smoke.get("probe_path") or "")
-    response_assertions = live_smoke.get("response_assertions")
-    envelope_required = (
-        response_assertions.get("envelope_required", True)
-        if isinstance(response_assertions, dict)
-        else True
-    )
+    response_assertions = _object_mapping(live_smoke.get("response_assertions"))
+    envelope_required = response_assertions.get("envelope_required", True) if response_assertions else True
     body_meta_trace_required = bool(envelope_required)
 
     return {

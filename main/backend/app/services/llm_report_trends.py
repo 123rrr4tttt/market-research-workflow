@@ -2,10 +2,11 @@ from __future__ import annotations
 
 from decimal import Decimal
 from datetime import datetime, timezone
-from typing import Annotated, Any
+from typing import Annotated, Any, TypeGuard
 from uuid import uuid4
 
 from sqlalchemy import select
+from sqlalchemy.orm import Session
 
 from ..models.base import run_with_session_retry
 from ..models.llm_report_trends import LlmReportQualityTrend
@@ -120,6 +121,9 @@ def _export_source_ref(
 
 def _export_quality_gate_ref(*, gate: dict[str, Any], export_readiness: dict[str, Any]) -> dict[str, Any]:
     decision = str(gate.get("decision") or export_readiness.get("quality_gate_decision") or "fail").strip().lower()
+    hard_failures = _first_list(gate.get("hard_failures")) or []
+    soft_failures = _first_list(gate.get("soft_failures")) or []
+    missing_items = _first_list(gate.get("missing_items")) or []
     return {
         "contract_version": "llm_report.export_quality_gate_ref.v1",
         "decision": decision if decision in {"pass", "warn", "fail"} else "fail",
@@ -127,9 +131,9 @@ def _export_quality_gate_ref(*, gate: dict[str, Any], export_readiness: dict[str
         "mode_raw": export_readiness.get("quality_gate_mode_raw"),
         "mode_fallback": bool(export_readiness.get("quality_gate_mode_fallback")),
         "strict_gate_blocks_export": bool(export_readiness.get("strict_gate_blocks_export")),
-        "hard_failure_count": len(gate.get("hard_failures") if isinstance(gate.get("hard_failures"), list) else []),
-        "soft_failure_count": len(gate.get("soft_failures") if isinstance(gate.get("soft_failures"), list) else []),
-        "missing_items_count": len(gate.get("missing_items") if isinstance(gate.get("missing_items"), list) else []),
+        "hard_failure_count": len(hard_failures),
+        "soft_failure_count": len(soft_failures),
+        "missing_items_count": len(missing_items),
     }
 
 
@@ -236,9 +240,9 @@ def build_quality_trend_metric(
     dict[str, Any],
     "kit:non-authoritative derived_as=view fact_source=llm.report_quality_gate witness=test:test_w01_meta",
 ]:
-    missing_items = gate.get("missing_items") if isinstance(gate.get("missing_items"), list) else []
-    hard_failures = gate.get("hard_failures") if isinstance(gate.get("hard_failures"), list) else []
-    soft_failures = gate.get("soft_failures") if isinstance(gate.get("soft_failures"), list) else []
+    missing_items = _first_list(gate.get("missing_items")) or []
+    hard_failures = _first_list(gate.get("hard_failures")) or []
+    soft_failures = _first_list(gate.get("soft_failures")) or []
     return {
         "contract_version": "llm_report.quality_trend_metric.v1",
         "trace_id": trace_id,
@@ -289,9 +293,9 @@ def build_export_trend_metric(
     normalized_outcome = _normalize_export_outcome(outcome)
     base_trace = str(integrity.get("trace_id") or artifact_id or "export").strip()[:72] or "export"
     trace_id = f"{base_trace}:export:{uuid4().hex[:12]}"[:128]
-    hard_failures = gate.get("hard_failures") if isinstance(gate.get("hard_failures"), list) else []
-    soft_failures = gate.get("soft_failures") if isinstance(gate.get("soft_failures"), list) else []
-    missing_items = gate.get("missing_items") if isinstance(gate.get("missing_items"), list) else []
+    hard_failures = _first_list(gate.get("hard_failures")) or []
+    soft_failures = _first_list(gate.get("soft_failures")) or []
+    missing_items = _first_list(gate.get("missing_items")) or []
     decision = str(gate.get("decision") or export_readiness.get("quality_gate_decision") or "fail").strip().lower()
     source_ref = _export_source_ref(
         export_format=normalized_format,
@@ -384,7 +388,7 @@ def _apply_record_to_row(row: LlmReportQualityTrend, record: dict[str, Any]) -> 
 
 
 def _persist_quality_trend(record: dict[str, Any]) -> bool:
-    def _operation(session):
+    def _operation(session: Session) -> bool:
         row = None
         trace_id = _as_str_or_none(record.get("trace_id"))
         if trace_id:
@@ -450,7 +454,7 @@ def _quality_trend_key(record: dict[str, Any]) -> str:
 
 
 def _trend_model_to_record(row: LlmReportQualityTrend) -> dict[str, Any]:
-    payload = row.payload if isinstance(row.payload, dict) else {}
+    payload = _first_mapping(row.payload) or {}
     return {
         **payload,
         "contract_version": payload.get("contract_version") or "llm_report.quality_trend_metric.v1",
@@ -486,7 +490,7 @@ def _load_database_quality_trends(
     project_key: str | None = None,
     decision: str | None = None,
 ) -> tuple[list[dict[str, Any]], bool]:
-    def _operation(session):
+    def _operation(session: Session) -> list[dict[str, Any]]:
         query = select(LlmReportQualityTrend)
         if project_key:
             query = query.where(LlmReportQualityTrend.project_key == project_key)
@@ -521,7 +525,7 @@ def _load_persisted_quality_trends(limit: int) -> tuple[list[dict[str, Any]], bo
     for job in jobs:
         if str(job.get("job_type") or "") != LLM_REPORT_JOB_TYPE:
             continue
-        params = job.get("params") if isinstance(job.get("params"), dict) else {}
+        params = _first_mapping(job.get("params")) or {}
         trend = params.get("report_quality_trend_metric") or params.get("quality_gate_trend_record")
         if not isinstance(trend, dict):
             continue
@@ -540,33 +544,41 @@ def _load_persisted_quality_trends(limit: int) -> tuple[list[dict[str, Any]], bo
     return records, False
 
 
-def _first_mapping(*values: Any) -> dict[str, Any] | None:
+def _is_payload_dict(value: object) -> TypeGuard[dict[str, object]]:
+    return isinstance(value, dict)
+
+
+def _is_payload_list(value: object) -> TypeGuard[list[object]]:
+    return isinstance(value, list)
+
+
+def _first_mapping(*values: object) -> dict[str, object] | None:
     for value in values:
-        if isinstance(value, dict):
+        if _is_payload_dict(value):
             return dict(value)
     return None
 
 
-def _first_list(*values: Any) -> list[Any] | None:
+def _first_list(*values: object) -> list[object] | None:
     for value in values:
-        if isinstance(value, list):
+        if _is_payload_list(value):
             return list(value)
     return None
 
 
 def _job_context_from_params(params: dict[str, Any]) -> dict[str, Any]:
-    export_contract = params.get("export_contract") if isinstance(params.get("export_contract"), dict) else {}
-    report = params.get("report") if isinstance(params.get("report"), dict) else {}
+    export_contract = _first_mapping(params.get("export_contract")) or {}
+    report = _first_mapping(params.get("report")) or {}
     quality_gate = _first_mapping(params.get("quality_gate"), params.get("report_quality_gate"))
     export_artifact = _first_mapping(
         params.get("export_artifact"),
         params.get("artifact"),
-        export_contract.get("artifact") if isinstance(export_contract, dict) else None,
+        export_contract.get("artifact"),
     )
     source_refs = _first_list(
         params.get("source_refs"),
         params.get("sources"),
-        report.get("sources") if isinstance(report, dict) else None,
+        report.get("sources"),
     )
     source_query = _first_mapping(params.get("source_query"), params.get("query"), params.get("source_request"))
     repair_context = _first_mapping(
@@ -585,8 +597,8 @@ def _job_context_from_params(params: dict[str, Any]) -> dict[str, Any]:
         "repair_context": repair_context or {},
     }
     if report:
-        sections = report.get("sections") if isinstance(report.get("sections"), list) else []
-        sources = report.get("sources") if isinstance(report.get("sources"), list) else []
+        sections = _first_list(report.get("sections")) or []
+        sources = _first_list(report.get("sources")) or []
         context["report_summary"] = {
             "topic": report.get("topic"),
             "template_version": report.get("template_version"),
@@ -598,21 +610,22 @@ def _job_context_from_params(params: dict[str, Any]) -> dict[str, Any]:
 
 
 def _job_trace_candidates(job: dict[str, Any]) -> set[str]:
-    params = job.get("params") if isinstance(job.get("params"), dict) else {}
+    params = _first_mapping(job.get("params")) or {}
+    observability = _first_mapping(params.get("observability")) or {}
     candidates = {
         str(params.get("trace_id") or "").strip(),
-        str((params.get("observability") or {}).get("trace_id") if isinstance(params.get("observability"), dict) else "").strip(),
+        str(observability.get("trace_id") or "").strip(),
     }
     for key in ("report_quality_trend_metric", "quality_gate_trend_record"):
-        trend = params.get(key)
-        if isinstance(trend, dict):
+        trend = _first_mapping(params.get(key))
+        if trend is not None:
             candidates.add(str(trend.get("trace_id") or "").strip())
             candidates.add(str(trend.get("source_trace_id") or "").strip())
     return {candidate for candidate in candidates if candidate}
 
 
 def _job_quality_record(job: dict[str, Any]) -> dict[str, Any] | None:
-    params = job.get("params") if isinstance(job.get("params"), dict) else {}
+    params = _first_mapping(job.get("params")) or {}
     trend = params.get("report_quality_trend_metric") or params.get("quality_gate_trend_record")
     if not isinstance(trend, dict):
         return None
@@ -660,7 +673,7 @@ def _load_database_quality_trends_for_trace_ids(
     limit: int,
     project_key: str | None,
 ) -> tuple[list[dict[str, Any]], bool]:
-    def _operation(session):
+    def _operation(session: Session) -> list[dict[str, Any]]:
         query = select(LlmReportQualityTrend).where(LlmReportQualityTrend.trace_id.in_(trace_ids))
         if project_key:
             query = query.where(LlmReportQualityTrend.project_key == project_key)
@@ -744,11 +757,18 @@ def list_quality_trend_records_for_trace_ids(
     }
 
 
+def _increment_summary_counter(summary: dict[str, object], key: str) -> None:
+    current = summary.get(key)
+    summary[key] = current + 1 if isinstance(current, int) else 1
+
+
 def summarize_quality_trends(records: list[dict[str, Any]]) -> dict[str, Any]:
     decisions = {"pass": 0, "warn": 0, "fail": 0}
     readiness: dict[str, int] = {}
     project_keys: dict[str, int] = {}
-    export_events = {
+    export_formats: dict[str, int] = {}
+    export_integrity_modes: dict[str, int] = {}
+    export_events: dict[str, object] = {
         "total": 0,
         "success": 0,
         "blocked": 0,
@@ -757,8 +777,8 @@ def summarize_quality_trends(records: list[dict[str, Any]]) -> dict[str, Any]:
         "legacy": 0,
         "trusted": 0,
         "ui_read_only_context_included_count": 0,
-        "by_format": {},
-        "by_integrity_mode": {},
+        "by_format": export_formats,
+        "by_integrity_mode": export_integrity_modes,
     }
     citation_values: list[float] = []
     evidence_values: list[float] = []
@@ -772,24 +792,22 @@ def summarize_quality_trends(records: list[dict[str, Any]]) -> dict[str, Any]:
         if str(record.get("event_type") or "").strip().lower() == "llm_report_export" or str(
             record.get("record_source") or ""
         ).strip().lower() == "export":
-            export_events["total"] += 1
+            _increment_summary_counter(export_events, "total")
             export_format = str(record.get("export_format") or "unknown").strip().lower() or "unknown"
             outcome = str(record.get("export_outcome") or record.get("outcome") or "unknown").strip().lower()
             integrity_mode = str(record.get("export_integrity_mode") or record.get("integrity_mode") or "unknown").strip().lower()
-            export_events["by_format"][export_format] = export_events["by_format"].get(export_format, 0) + 1
-            export_events["by_integrity_mode"][integrity_mode] = (
-                export_events["by_integrity_mode"].get(integrity_mode, 0) + 1
-            )
+            export_formats[export_format] = export_formats.get(export_format, 0) + 1
+            export_integrity_modes[integrity_mode] = export_integrity_modes.get(integrity_mode, 0) + 1
             if outcome in {"success", "blocked", "token_invalid", "failed"}:
-                export_events[outcome] += 1
+                _increment_summary_counter(export_events, outcome)
             else:
-                export_events["failed"] += 1
+                _increment_summary_counter(export_events, "failed")
             if integrity_mode == "legacy_payload_gate":
-                export_events["legacy"] += 1
+                _increment_summary_counter(export_events, "legacy")
             if bool(record.get("export_integrity_trusted") or record.get("integrity_trusted")):
-                export_events["trusted"] += 1
+                _increment_summary_counter(export_events, "trusted")
             if record.get("ui_read_only_context_included") is True:
-                export_events["ui_read_only_context_included_count"] += 1
+                _increment_summary_counter(export_events, "ui_read_only_context_included_count")
         try:
             citation_values.append(float(record.get("citation_coverage") or 0.0))
         except (TypeError, ValueError):

@@ -1,21 +1,23 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from copy import deepcopy
-from typing import Annotated, Any, Mapping
+from typing import Annotated, Iterable, Protocol, TypeGuard, runtime_checkable
+from typing import Mapping as TypingMapping
 from unittest.mock import patch
 from uuid import uuid4
 
 from sqlalchemy import text
 
-from ...models.base import SessionLocal, engine
+from ...models.base import SessionLocal, engine, require_model_table
 from ...models.entities import Document, Source
+from ...models.ingest_registry import IngestSubmissionRegistry
 from ..projects import bind_project
 from ..projects.context import project_schema_name
 from .canary_handoff import (
     LIVE_CANARY_EVIDENCE_CONTRACT_VERSION,
     build_single_url_canary_handoff,
 )
-
 
 PRODUCTION_LIKE_HANDOFF_CHECK_CONTRACT_VERSION = "ingest.single_url_canary_handoff.production_like_check.v1"
 _API_ENDPOINT = "/api/v1/ingest/url/single"
@@ -24,6 +26,78 @@ _REMAINING_EXTERNAL_GAPS = [
     "production 24h inserted-valid ratio readback remains open",
     "production all-project strict-gate enablement remains operations-owned",
 ]
+
+
+class _JsonResponse(Protocol):
+    status_code: int
+    text: str
+
+    def json(self) -> object: ...
+
+
+@runtime_checkable
+class _HttpClient(Protocol):
+    def post(
+        self,
+        url: str,
+        *,
+        json: TypingMapping[str, object],
+        headers: TypingMapping[str, str],
+    ) -> _JsonResponse: ...
+
+    def close(self) -> None: ...
+
+
+def _require_http_client(value: object) -> _HttpClient:
+    if not isinstance(value, _HttpClient):
+        raise TypeError("TestClient does not expose the required JSON client interface")
+    return value
+
+
+def _is_string_key(value: object) -> bool:
+    return isinstance(value, str)
+
+
+@runtime_checkable
+class _StringKeyInspectable(Protocol):
+    def keys(self) -> Iterable[object]: ...
+
+
+def _has_only_string_keys(value: object) -> bool:
+    if not isinstance(value, _StringKeyInspectable):
+        return False
+    return all(map(_is_string_key, value.keys()))
+
+
+def _is_object_mapping(value: object) -> TypeGuard[Mapping[str, object]]:
+    if not _has_only_string_keys(value):
+        return False
+    return isinstance(value, Mapping)
+
+
+def _object_mapping(value: object) -> Mapping[str, object]:
+    return value if _is_object_mapping(value) else {}
+
+
+def _object_dict(value: object) -> dict[str, object]:
+    return dict(value) if _is_object_mapping(value) else {}
+
+
+def _is_object_list(value: object) -> TypeGuard[list[object]]:
+    return isinstance(value, list)
+
+
+def _coerce_int(value: object) -> int:
+    if not isinstance(value, (str, bytes, int, float)):
+        return 0
+    try:
+        return int(value)
+    except (OverflowError, TypeError, ValueError):
+        return 0
+
+
+def _model_value(row: object, field: str) -> object:
+    return getattr(row, field, None)
 
 
 def _article_content(run_id: str) -> str:
@@ -54,7 +128,11 @@ def _prepare_project_schema(project_key: str) -> str:
     schema_name = project_schema_name(project_key)
     with engine.begin() as conn:
         conn.execute(text(f'CREATE SCHEMA IF NOT EXISTS "{schema_name}"'))
-    for table in (Source.__table__, Document.__table__):
+    for table in (
+        require_model_table(Source.__table__),
+        require_model_table(Document.__table__),
+        require_model_table(IngestSubmissionRegistry.__table__),
+    ):
         with engine.begin() as conn:
             conn.execute(text(f'SET search_path TO "{schema_name}"'))
             table.create(bind=conn, checkfirst=True)
@@ -66,14 +144,19 @@ def _drop_project_schema(schema_name: str) -> None:
         conn.execute(text(f'DROP SCHEMA IF EXISTS "{schema_name}" CASCADE'))
 
 
-def _fake_channels() -> list[dict[str, Any]]:
+def _fake_channels() -> list[dict[str, object]]:
     return [{"channel_key": "url_pool", "enabled": True}]
 
 
+def _fake_list_channels(**_kwargs: object) -> list[dict[str, object]]:
+    return _fake_channels()
+
+
 def _fake_routing(*, run_id: str):
-    def _run_item_with_url_routing(**kwargs: Any) -> dict[str, Any]:
-        params = kwargs.get("params") if isinstance(kwargs.get("params"), dict) else {}
-        urls = params.get("urls") if isinstance(params.get("urls"), list) else []
+    def _run_item_with_url_routing(**kwargs: object) -> dict[str, object]:
+        params = _object_mapping(kwargs.get("params"))
+        urls_value = params.get("urls")
+        urls = list(urls_value) if _is_object_list(urls_value) else []
         url = str(urls[0] if urls else "").strip()
         is_search = "/search" in url
         return {
@@ -94,7 +177,7 @@ def _fake_routing(*, run_id: str):
     return _run_item_with_url_routing
 
 
-def _fake_structured_extraction(**_kwargs: Any) -> dict[str, Any]:
+def _fake_structured_extraction(**_kwargs: object) -> dict[str, object]:
     return {
         "status": "ok",
         "reason": None,
@@ -108,36 +191,34 @@ def _fake_structured_extraction(**_kwargs: Any) -> dict[str, Any]:
     }
 
 
-def _response_payload(response: Any) -> dict[str, Any]:
+def _response_payload(response: _JsonResponse) -> dict[str, object]:
     try:
         payload = response.json()
     except Exception:  # noqa: BLE001
         return {"_json_error": str(getattr(response, "text", ""))}
-    return payload if isinstance(payload, dict) else {"_json_error": "response JSON was not an object"}
+    return _object_dict(payload) if _is_object_mapping(payload) else {"_json_error": "response JSON was not an object"}
 
 
-def _response_data(payload: Mapping[str, Any]) -> dict[str, Any]:
-    data = payload.get("data")
-    return dict(data or {}) if isinstance(data, Mapping) else {}
+def _response_data(payload: Mapping[str, object]) -> dict[str, object]:
+    return _object_dict(payload.get("data"))
 
 
-def _handoff_from_result(result: Mapping[str, Any]) -> dict[str, Any]:
-    handoff = result.get("canary_handoff")
-    return dict(handoff or {}) if isinstance(handoff, Mapping) else {}
+def _handoff_from_result(result: Mapping[str, object]) -> dict[str, object]:
+    return _object_dict(result.get("canary_handoff"))
 
 
-def _readback_documents(*, project_key: str, accepted_url: str, rejected_url: str) -> dict[str, Any]:
+def _readback_documents(*, project_key: str, accepted_url: str, rejected_url: str) -> dict[str, object]:
     with bind_project(project_key):
         with SessionLocal() as session:
             rows = session.query(Document).filter(Document.uri.in_([accepted_url, rejected_url])).all()
-            accepted = [row for row in rows if row.uri == accepted_url]
-            rejected = [row for row in rows if row.uri == rejected_url]
+            accepted = [row for row in rows if _model_value(row, "uri") == accepted_url]
+            rejected = [row for row in rows if _model_value(row, "uri") == rejected_url]
             return {
                 "accepted_doc_count": len(accepted),
-                "accepted_doc_ids": [int(row.id) for row in accepted],
-                "accepted_titles": [str(row.title or "") for row in accepted],
+                "accepted_doc_ids": [_coerce_int(_model_value(row, "id")) for row in accepted],
+                "accepted_titles": [str(_model_value(row, "title") or "") for row in accepted],
                 "rejected_doc_count": len(rejected),
-                "rejected_doc_ids": [int(row.id) for row in rejected],
+                "rejected_doc_ids": [_coerce_int(_model_value(row, "id")) for row in rejected],
             }
 
 
@@ -148,27 +229,27 @@ def build_production_like_handoff_evidence(
     rejected_url: str,
     accepted_status_code: int,
     rejected_status_code: int,
-    accepted_result: Mapping[str, Any],
-    rejected_result: Mapping[str, Any],
-    db_readback: Mapping[str, Any],
+    accepted_result: Mapping[str, object],
+    rejected_result: Mapping[str, object],
+    db_readback: Mapping[str, object],
 ) -> Annotated[
-    dict[str, Any],
+    dict[str, object],
     "kit:non-authoritative derived_as=generated_evidence fact_source=repo_local_api_responses+db_readback witness=test:test_w03_ingest_ports_authority_metadata",
 ]:
     accepted_handoff = _handoff_from_result(accepted_result)
     rejected_handoff = _handoff_from_result(rejected_result)
-    accepted_gate = accepted_handoff.get("strict_gate_state") if isinstance(accepted_handoff.get("strict_gate_state"), Mapping) else {}
-    rejected_gate = rejected_handoff.get("strict_gate_state") if isinstance(rejected_handoff.get("strict_gate_state"), Mapping) else {}
-    accepted_rollout = accepted_handoff.get("rollout") if isinstance(accepted_handoff.get("rollout"), Mapping) else {}
-    rejected_rollout = rejected_handoff.get("rollout") if isinstance(rejected_handoff.get("rollout"), Mapping) else {}
+    accepted_gate = _object_mapping(accepted_handoff.get("strict_gate_state"))
+    rejected_gate = _object_mapping(rejected_handoff.get("strict_gate_state"))
+    accepted_rollout = _object_mapping(accepted_handoff.get("rollout"))
+    rejected_rollout = _object_mapping(rejected_handoff.get("rollout"))
 
     checks = {
         "api_runtime_validated": accepted_status_code == 200
         and rejected_status_code == 200
         and str(accepted_result.get("status") or "") == "success"
         and str(rejected_result.get("status") or "") in {"failed", "degraded_success"},
-        "db_readback_validated": int(db_readback.get("accepted_doc_count") or 0) == 1
-        and int(db_readback.get("rejected_doc_count") or 0) == 0,
+        "db_readback_validated": _coerce_int(db_readback.get("accepted_doc_count")) == 1
+        and _coerce_int(db_readback.get("rejected_doc_count")) == 0,
         "guardrail_pass_observed": accepted_gate.get("state") == "strict_passed"
         and accepted_gate.get("strict_gate_enabled") is True
         and accepted_rollout.get("channel") == "canary",
@@ -208,8 +289,8 @@ def build_production_like_handoff_evidence(
     }
 
 
-def validate_production_like_handoff_evidence(evidence: Mapping[str, Any]) -> dict[str, Any]:
-    checks = evidence.get("validation_checks") if isinstance(evidence.get("validation_checks"), Mapping) else {}
+def validate_production_like_handoff_evidence(evidence: Mapping[str, object]) -> dict[str, object]:
+    checks = _object_mapping(evidence.get("validation_checks"))
     required = {
         "api_runtime_validated",
         "db_readback_validated",
@@ -234,21 +315,20 @@ def validate_production_like_handoff_evidence(evidence: Mapping[str, Any]) -> di
     }
 
 
-def run_repo_local_production_like_handoff_canary(*, project_key: str | None = None) -> dict[str, Any]:
+def run_repo_local_production_like_handoff_canary(*, project_key: str | None = None) -> dict[str, object]:
     run_id = uuid4().hex[:10]
     resolved_project_key = str(project_key or f"wave55_ingest_canary_{run_id}").strip().lower()
     accepted_url = f"https://example.com/wave55-production-like-{run_id}"
     rejected_url = f"https://example.com/search?q=wave55-{run_id}"
     schema_name = _prepare_project_schema(resolved_project_key)
-    cleanup: dict[str, Any] = {"schema_name": schema_name, "performed": False, "error": None}
-    result: dict[str, Any] | None = None
+    cleanup: dict[str, object] = {"schema_name": schema_name, "performed": False, "error": None}
+    result: dict[str, object] | None = None
     try:
+        from app.main import app
         from fastapi.testclient import TestClient
 
-        from app.main import app
-
         with (
-            patch("app.services.source_library.resolver.list_effective_channels", side_effect=lambda **_kwargs: _fake_channels()),
+            patch("app.services.source_library.resolver.list_effective_channels", side_effect=_fake_list_channels),
             patch("app.services.source_library.resolver.run_item_with_url_routing", side_effect=_fake_routing(run_id=run_id)),
             patch("app.services.ingest.postprocess_frontdoor.run_unified_structured_extraction", side_effect=_fake_structured_extraction),
             patch("app.services.ingest.postprocess_frontdoor.settings.ingest_enable_strict_gate", False),
@@ -256,7 +336,7 @@ def run_repo_local_production_like_handoff_canary(*, project_key: str | None = N
             patch("app.services.ingest.guardrail_rollout.settings.ingest_guardrail_rollout_mode", "canary"),
             patch("app.services.ingest.guardrail_rollout.settings.ingest_guardrail_canary_projects", resolved_project_key),
         ):
-            client = TestClient(app, raise_server_exceptions=False)
+            client = _require_http_client(TestClient(app, raise_server_exceptions=False))
             headers = {"X-Project-Key": resolved_project_key}
             try:
                 accepted_response = client.post(
@@ -305,31 +385,21 @@ def run_repo_local_production_like_handoff_canary(*, project_key: str | None = N
         )
         validation = validate_production_like_handoff_evidence(evidence)
 
-        accepted_postprocess = (
-            accepted_result.get("postprocess_frontdoor")
-            if isinstance(accepted_result.get("postprocess_frontdoor"), Mapping)
-            else {}
-        )
-        accepted_ingress = (
-            accepted_result.get("frontdoor_ingress") if isinstance(accepted_result.get("frontdoor_ingress"), Mapping) else {}
-        )
-        accepted_data = (
-            accepted_postprocess.get("data") if isinstance(accepted_postprocess.get("data"), Mapping) else {}
-        )
-        writer_result = (
-            accepted_data.get("writer_result") if isinstance(accepted_data.get("writer_result"), Mapping) else {}
-        )
+        accepted_postprocess = _object_mapping(accepted_result.get("postprocess_frontdoor"))
+        accepted_ingress = _object_mapping(accepted_result.get("frontdoor_ingress"))
+        accepted_data = _object_mapping(accepted_postprocess.get("data"))
+        writer_result = _object_mapping(accepted_data.get("writer_result"))
         validated_handoff = build_single_url_canary_handoff(
             ingress_envelope=accepted_ingress,
             postprocess_frontdoor=accepted_postprocess,
             writer_result=writer_result,
             live_canary_evidence=evidence,
-            live_canary_validated=validation["passed"],
+            live_canary_validated=validation.get("passed") is True,
             closure_claim=False,
         )
         result = {
             "contract_version": PRODUCTION_LIKE_HANDOFF_CHECK_CONTRACT_VERSION,
-            "status": "passed" if validation["passed"] else "failed",
+            "status": "passed" if validation.get("passed") is True else "failed",
             "project_key": resolved_project_key,
             "schema_name": schema_name,
             "accepted_response_status_code": int(accepted_response.status_code),

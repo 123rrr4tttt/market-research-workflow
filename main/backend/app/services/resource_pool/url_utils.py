@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from typing import TypeGuard
 from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
 _TRACKING_QUERY_KEYS = {
@@ -21,7 +22,15 @@ _TRACKING_QUERY_KEYS = {
 }
 
 
-def extract_urls_from_text(text: str | None) -> list[str]:
+def _is_object_dict(value: object) -> TypeGuard[dict[object, object]]:
+    return isinstance(value, dict)
+
+
+def _is_object_sequence(value: object) -> TypeGuard[list[object] | tuple[object, ...]]:
+    return isinstance(value, (list, tuple))
+
+
+def extract_urls_from_text(text: object) -> list[str]:
     """Extract http/https URLs from text. Filters out data:, mailto:, etc."""
     if not text or not isinstance(text, str):
         return []
@@ -30,7 +39,7 @@ def extract_urls_from_text(text: str | None) -> list[str]:
         re.IGNORECASE,
     )
     found = pattern.findall(text)
-    result = []
+    result: list[str] = []
     for url in found:
         url = url.rstrip(".,;:!?")
         if url.lower().startswith(("data:", "mailto:", "javascript:")):
@@ -51,10 +60,10 @@ def extract_urls_from_json(obj: object) -> list[str]:
                 if norm and norm not in seen:
                     seen.add(norm)
                     result.append(norm)
-        elif isinstance(o, dict):
+        elif _is_object_dict(o):
             for v in o.values():
                 _walk(v)
-        elif isinstance(o, (list, tuple)):
+        elif _is_object_sequence(o):
             for item in o:
                 _walk(item)
 
@@ -62,7 +71,7 @@ def extract_urls_from_json(obj: object) -> list[str]:
     return result
 
 
-def canonicalize_url(url: str) -> tuple[str | None, str]:
+def canonicalize_url(url: object) -> tuple[str | None, str]:
     """Return canonical URL and dedupe reason.
 
     Canonicalization rules (contract-level):

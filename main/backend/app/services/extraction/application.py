@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import os
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextvars import copy_context
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any, Optional, TypeGuard
 
 from .service import (
     extract_entities_relations,
@@ -14,9 +15,13 @@ from .service import (
 )
 from .topic_extract import (
     extract_company_info,
-    extract_product_info,
     extract_operation_info,
+    extract_product_info,
 )
+
+
+def _is_string_object(value: object) -> TypeGuard[dict[str, object]]:
+    return isinstance(value, dict)
 
 
 @dataclass
@@ -76,7 +81,7 @@ class ExtractionApplicationService:
                 out["entities"] = ents
 
         # Specialized overlays run in a shared parallel executor.
-        tasks: list[tuple[str, Any]] = []
+        tasks: list[tuple[str, Callable[[str], Optional[dict[str, Any]]]]] = []
         if include_sentiment:
             tasks.append(("sentiment", extract_structured_sentiment))
         if include_policy:
@@ -114,7 +119,7 @@ class ExtractionApplicationService:
                             out[key] = value
 
         sentiment = out.get("sentiment")
-        if isinstance(sentiment, dict) and sentiment.get("key_phrases") and not out.get("keywords"):
+        if _is_string_object(sentiment) and sentiment.get("key_phrases") and not out.get("keywords"):
             out["keywords"] = sentiment["key_phrases"]
 
         return out or None

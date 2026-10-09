@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timezone
 import hashlib
 import json
 import logging
 from threading import RLock
-from typing import Annotated, Any
+from typing import Annotated, Protocol, TypeGuard, runtime_checkable
 
 from prometheus_client import Gauge
 
@@ -30,6 +30,99 @@ _IDENTITY_FIELDS = (
 )
 _CANDIDATE_KEYS = ("candidate_id", "item_key", "source_id", "candidate_review_key")
 _RUN_KEYS = ("run_id", "workflow_run_id")
+
+
+@runtime_checkable
+class ObjectIterable(Protocol):
+    def __iter__(self) -> Iterator[object]: ...
+
+
+def _is_object_mapping(value: object) -> TypeGuard[Mapping[object, object]]:
+    return isinstance(value, Mapping)
+
+
+def _is_object_sequence(value: object) -> TypeGuard[Sequence[object]]:
+    return isinstance(value, Sequence)
+
+
+def _is_object_pair(value: object) -> TypeGuard[Sequence[object]]:
+    return (
+        not isinstance(value, (str, bytes))
+        and _is_object_sequence(value)
+        and len(value) == 2
+    )
+
+
+class RedisStreamClient(Protocol):
+    def xadd(
+        self,
+        stream: str,
+        fields: dict[str, str],
+        *,
+        maxlen: int,
+        approximate: bool,
+    ) -> object: ...
+
+    def xrange(
+        self,
+        stream: str,
+        *,
+        min: str,
+        max: str,
+        count: int,
+    ) -> Iterable[tuple[object, Mapping[object, object]]] | None: ...
+
+
+class _RedisStreamClientAdapter:
+    def __init__(self, client: object) -> None:
+        self._client = client
+
+    def xadd(
+        self,
+        stream: str,
+        fields: dict[str, str],
+        *,
+        maxlen: int,
+        approximate: bool,
+    ) -> object:
+        method = getattr(self._client, "xadd", None)
+        if not callable(method):
+            raise TypeError("Redis stream client does not expose xadd")
+        return method(
+            stream,
+            fields,
+            maxlen=maxlen,
+            approximate=approximate,
+        )
+
+    def xrange(
+        self,
+        stream: str,
+        *,
+        min: str,
+        max: str,
+        count: int,
+    ) -> Iterable[tuple[object, Mapping[object, object]]] | None:
+        method = getattr(self._client, "xrange", None)
+        if not callable(method):
+            raise TypeError("Redis stream client does not expose xrange")
+        raw_rows: object = method(stream, min=min, max=max, count=count)
+        if raw_rows is None:
+            return None
+        if not isinstance(raw_rows, ObjectIterable):
+            raise TypeError("Redis stream xrange result is not iterable")
+        rows: list[tuple[object, Mapping[object, object]]] = []
+        for raw_row in raw_rows:
+            if not _is_object_pair(raw_row):
+                raise TypeError("Redis stream xrange row has an invalid shape")
+            stream_id = raw_row[0]
+            fields = raw_row[1]
+            if not _is_object_mapping(fields):
+                raise TypeError("Redis stream xrange fields are not a mapping")
+            rows.append((stream_id, fields))
+        return rows
+
+
 _WORKER_TELEMETRY_GAUGE = Gauge(
     "market_api_production_worker_observability_status",
     "Current worker/structured-log/trace source observation status",
@@ -45,11 +138,11 @@ _active_tasks: dict[str, dict[str, str]] = {}
 _active_lock = RLock()
 
 
-def _text(value: Any, *, max_length: int = 128) -> str:
+def _text(value: object, *, max_length: int = 128) -> str:
     return str(value if value is not None else "").strip()[:max_length]
 
 
-def _identity_from_mapping(value: Mapping[str, Any], output: dict[str, str]) -> None:
+def _identity_from_mapping(value: Mapping[object, object], output: dict[str, str]) -> None:
     for key in ("request_id", "trace_id", "project_key", "task_id", "worker_name", "queue"):
         text = _text(value.get(key))
         if text:
@@ -64,23 +157,31 @@ def _identity_from_mapping(value: Mapping[str, Any], output: dict[str, str]) -> 
             output.setdefault("candidate_id", text)
 
 
-def _visit_identity(value: Any, output: dict[str, str], depth: int = 0) -> None:
+def _object_iterable(value: object) -> ObjectIterable | None:
+    return value if isinstance(value, ObjectIterable) else None
+
+
+def _visit_identity(value: object, output: dict[str, str], depth: int = 0) -> None:
     if depth > 3:
         return
-    if isinstance(value, Mapping):
+    if _is_object_mapping(value):
         _identity_from_mapping(value, output)
         for item in value.values():
             _visit_identity(item, output, depth + 1)
-    elif isinstance(value, Iterable) and not isinstance(value, (str, bytes)):
-        for item in value:
+    else:
+        iterable = _object_iterable(value)
+        if iterable is None or isinstance(iterable, (str, bytes)):
+            return
+        iterator = iter(iterable)
+        for item in iterator:
             _visit_identity(item, output, depth + 1)
 
 
 def build_worker_telemetry_identity(
     *,
-    args: Iterable[Any] = (),
-    kwargs: Mapping[str, Any] | None = None,
-    task: Any = None,
+    args: Iterable[object] = (),
+    kwargs: Mapping[str, object] | None = None,
+    task: object = None,
 ) -> Annotated[
     dict[str, str],
     "kit:non-authoritative derived_as=view fact_source=args+kwargs+celery_task_request "
@@ -90,9 +191,13 @@ def build_worker_telemetry_identity(
     _visit_identity(tuple(args), identity)
     _visit_identity(dict(kwargs or {}), identity)
     request = getattr(task, "request", None)
-    _visit_identity({"task_id": getattr(request, "id", None), "worker_name": getattr(request, "hostname", None)}, identity)
+    request_identity = {
+        "task_id": getattr(request, "id", None),
+        "worker_name": getattr(request, "hostname", None),
+    }
+    _visit_identity(request_identity, identity)
     delivery_info = getattr(request, "delivery_info", None)
-    if isinstance(delivery_info, Mapping):
+    if _is_object_mapping(delivery_info):
         queue = _text(delivery_info.get("routing_key") or delivery_info.get("queue"))
         if queue:
             identity.setdefault("queue", queue)
@@ -103,7 +208,7 @@ def build_worker_telemetry_identity(
 
 
 def _record(
-    identity: Mapping[str, Any],
+    identity: Mapping[str, object],
     *,
     record_type: str,
     event: str,
@@ -127,7 +232,7 @@ def _record(
 
 
 def _records_for_event(
-    identity: Mapping[str, Any],
+    identity: Mapping[str, object],
     *,
     event: str,
     status: str,
@@ -140,18 +245,23 @@ def _records_for_event(
     )
 
 
-def _redis_client() -> Any:
+def _redis_client() -> RedisStreamClient:
     from ..settings.config import settings
     import redis
 
-    return redis.Redis.from_url(
+    factory: object = redis.Redis
+    from_url = getattr(factory, "from_url", None)
+    if not callable(from_url):
+        raise TypeError("Redis client factory does not expose from_url")
+    client = from_url(
         str(getattr(settings, "redis_url", "") or ""),
         socket_connect_timeout=0.5,
         socket_timeout=0.5,
     )
+    return _RedisStreamClientAdapter(client)
 
 
-def publish_worker_telemetry(records: Iterable[Mapping[str, Any]], client: Any = None) -> bool:
+def publish_worker_telemetry(records: Iterable[Mapping[str, str]], client: RedisStreamClient | None = None) -> bool:
     items = tuple(records)
     if not items:
         return True
@@ -182,11 +292,15 @@ def _started_at_ms() -> int:
     return int(datetime.now(timezone.utc).timestamp() * 1000)
 
 
-def install_worker_telemetry(app: Any) -> None:
+def install_worker_telemetry(app: object) -> None:
     from celery import signals
 
-    @signals.task_prerun.connect(weak=False)
-    def _record_task_prerun(task=None, args=None, kwargs=None, **_unused: Any) -> None:
+    def record_task_prerun(
+        task: object = None,
+        args: Iterable[object] | None = None,
+        kwargs: Mapping[str, object] | None = None,
+        **_unused: object,
+    ) -> None:
         identity = build_worker_telemetry_identity(args=args or (), kwargs=kwargs or {}, task=task)
         task_id = identity.get("task_id")
         if task_id:
@@ -194,8 +308,13 @@ def install_worker_telemetry(app: Any) -> None:
                 _active_tasks[task_id] = {**identity, "_started_at_ms": str(_started_at_ms())}
         publish_worker_telemetry(_records_for_event(identity, event="started", status="running"))
 
-    @signals.task_postrun.connect(weak=False)
-    def _record_task_postrun(task=None, args=None, kwargs=None, state=None, **_unused: Any) -> None:
+    def record_task_postrun(
+        task: object = None,
+        args: Iterable[object] | None = None,
+        kwargs: Mapping[str, object] | None = None,
+        state: object = None,
+        **_unused: object,
+    ) -> None:
         identity = build_worker_telemetry_identity(args=args or (), kwargs=kwargs or {}, task=task)
         task_id = identity.get("task_id")
         started_text: str | None = None
@@ -212,10 +331,18 @@ def install_worker_telemetry(app: Any) -> None:
             _records_for_event(identity, event="terminal", status=status, duration_ms=duration_ms)
         )
 
-    @signals.task_failure.connect(weak=False)
-    def _record_task_failure(task=None, args=None, kwargs=None, **_unused: Any) -> None:
+    def record_task_failure(
+        task: object = None,
+        args: Iterable[object] | None = None,
+        kwargs: Mapping[str, object] | None = None,
+        **_unused: object,
+    ) -> None:
         identity = build_worker_telemetry_identity(args=args or (), kwargs=kwargs or {}, task=task)
         publish_worker_telemetry(_records_for_event(identity, event="failed", status="failed"))
+
+    signals.task_prerun.connect(record_task_prerun, weak=False)
+    signals.task_postrun.connect(record_task_postrun, weak=False)
+    signals.task_failure.connect(record_task_failure, weak=False)
 
 
 @dataclass(frozen=True, slots=True)
@@ -225,24 +352,26 @@ class WorkerTelemetrySnapshot:
     records: tuple[dict[str, str], ...]
     read_error: str | None = None
 
-    def to_dict(self) -> dict[str, Any]:
+    def to_dict(self) -> dict[str, object]:
         records = tuple(self.records)
         by_type = {
             record_type: tuple(item for item in records if item.get("record_type") == record_type)
             for record_type in ("worker_event", "structured_log", "trace")
         }
-        request_ids = {
-            item.get("request_id")
-            for item in records
-            if item.get("request_id") and all(
+        request_ids: set[str] = set()
+        for item in records:
+            request_id = item.get("request_id")
+            if request_id is None:
+                continue
+            if all(
                 any(
-                    sibling.get("request_id") == item.get("request_id")
+                    sibling.get("request_id") == request_id
                     and sibling.get("record_type") == record_type
                     for sibling in records
                 )
                 for record_type in by_type
-            )
-        }
+            ):
+                request_ids.add(request_id)
         latest = records[-1] if records else {}
         source_status = self.read_status
         return {
@@ -258,7 +387,7 @@ class WorkerTelemetrySnapshot:
         }
 
 
-def read_worker_telemetry_snapshot(client: Any = None) -> WorkerTelemetrySnapshot:
+def read_worker_telemetry_snapshot(client: RedisStreamClient | None = None) -> WorkerTelemetrySnapshot:
     try:
         active_client = client if client is not None else _redis_client()
         raw_rows = active_client.xrange(
@@ -275,10 +404,8 @@ def read_worker_telemetry_snapshot(client: Any = None) -> WorkerTelemetrySnapsho
             read_error=type(exc).__name__,
         )
     records: list[dict[str, str]] = []
-    for _stream_id, fields in raw_rows or []:
-        if not isinstance(fields, Mapping):
-            continue
-        normalized_fields: dict[str, Any] = {}
+    for _stream_id, fields in raw_rows or ():
+        normalized_fields: dict[str, object] = {}
         for raw_key, raw_value in fields.items():
             key = raw_key.decode("utf-8") if isinstance(raw_key, bytes) else str(raw_key)
             normalized_fields[key] = raw_value

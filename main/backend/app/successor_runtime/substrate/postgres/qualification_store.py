@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Iterable
 
 from sqlalchemy import insert, select
-from sqlalchemy.engine import Connection
+from sqlalchemy.engine import Connection, RowMapping
 
 from app.successor_runtime.runtime.ports import RuntimeScope
 from app.successor_runtime.runtime.qualification import StepAuthorizationBinding
@@ -67,7 +67,7 @@ class QualificationStoreRepository:
         self.connection = connection
         self.scope = scope
 
-    def persist(self, binding: ExactQualificationBinding) -> Mapping[str, object]:
+    def persist(self, binding: ExactQualificationBinding) -> RowMapping:
         project_key = runtime_scope_key(self.scope)
         if binding.project_key != project_key:
             raise ExactBindingConflict("qualification scope mismatch")
@@ -174,7 +174,7 @@ class QualificationStoreRepository:
             )
         return self.load(binding.qualification_id)
 
-    def load(self, qualification_id: str) -> Mapping[str, object]:
+    def load(self, qualification_id: str) -> RowMapping:
         table = runtime_table("runtime_qualifications")
         row = one_mapping(
             self.connection.execute(
@@ -215,8 +215,8 @@ class QualificationStoreRepository:
         return validate_authorization_row(current)
 
 
-def _common_or_none(values: object) -> object | None:
-    items = tuple(values)  # type: ignore[arg-type]
+def _common_or_none(values: Iterable[object]) -> object | None:
+    items = tuple(values)
     if not items:
         return None
     return items[0] if all(item == items[0] for item in items) else None

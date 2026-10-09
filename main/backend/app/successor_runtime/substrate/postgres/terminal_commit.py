@@ -67,7 +67,6 @@ from app.successor_runtime.runtime.node import (
     DefiniteInterpreterFailure,
     InterpreterOutcome,
     RuntimeExecutionContext,
-    RuntimeHandler,
     RuntimeClaim,
 )
 from app.successor_runtime.runtime.ports import RuntimeScope
@@ -457,7 +456,7 @@ class PostgresTerminalStageReader:
             )
 
 
-class PostgresVerifyAdmitHandler(RuntimeHandler):
+class PostgresVerifyAdmitHandler:
     """Read-only exact verifier; canonical commit is terminal-hook owned."""
 
     def __init__(

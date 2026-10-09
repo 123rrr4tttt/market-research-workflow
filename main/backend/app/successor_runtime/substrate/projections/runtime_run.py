@@ -563,7 +563,7 @@ def _runtime_projection_row(row: RowMapping) -> RuntimeProjectionRow:
 
 
 def _projection_offset_row(
-    row: Mapping[str, object] | None,
+    row: RowMapping | None,
 ) -> ProjectionOffsetRow | None:
     """Validate one durable offset row returned by its repository."""
 

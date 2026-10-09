@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from datetime import date, datetime
+from decimal import Decimal
+
 from sqlalchemy import (
     Boolean,
     Column,
@@ -15,7 +18,7 @@ from sqlalchemy import (
     func,
 )
 from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from pgvector.sqlalchemy import Vector
 from sqlalchemy.sql import expression
 
@@ -25,14 +28,16 @@ from .base import Base, BigIDMixin
 class Source(BigIDMixin, Base):
     __tablename__ = "sources"
 
-    name = Column(String(255), nullable=False)
-    kind = Column(String(32), nullable=False)
-    base_url = Column(String(1024), nullable=True)
-    enabled = Column(Boolean, nullable=False, server_default=expression.true())
-    created_at = Column(
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    kind: Mapped[str] = mapped_column(String(32), nullable=False)
+    base_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+    enabled: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default=expression.true()
+    )
+    created_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
-    updated_at = Column(
+    updated_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
     )
 
@@ -43,21 +48,23 @@ class Material(BigIDMixin, Base):
     """Canonical source material; the existing table preserves all addresses."""
     __tablename__ = "documents"
 
-    source_id = Column(BigInteger, ForeignKey("sources.id", ondelete="SET NULL"))
-    state = Column(String(8), nullable=True)
-    doc_type = Column(String(16), nullable=False)
-    title = Column(Text, nullable=True)
-    status = Column(String(32), nullable=True)
-    publish_date = Column(Date, nullable=True)
-    content = Column(Text, nullable=True)
-    summary = Column(Text, nullable=True)
-    text_hash = Column(String(64), nullable=True, unique=True)
-    uri = Column(Text, nullable=True)
-    extracted_data = Column(JSONB, nullable=True)
-    created_at = Column(
+    source_id: Mapped[int | None] = mapped_column(
+        BigInteger, ForeignKey("sources.id", ondelete="SET NULL")
+    )
+    state: Mapped[str | None] = mapped_column(String(8), nullable=True)
+    doc_type: Mapped[str] = mapped_column(String(16), nullable=False)
+    title: Mapped[str | None] = mapped_column(Text, nullable=True)
+    status: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    publish_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    content: Mapped[str | None] = mapped_column(Text, nullable=True)
+    summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+    text_hash: Mapped[str | None] = mapped_column(String(64), nullable=True, unique=True)
+    uri: Mapped[str | None] = mapped_column(Text, nullable=True)
+    extracted_data: Mapped[dict[str, object] | None] = mapped_column(JSONB, nullable=True)
+    created_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
-    updated_at = Column(
+    updated_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
     )
 
@@ -118,15 +125,21 @@ class Embedding(BigIDMixin, Base):
 class EtlJobRun(BigIDMixin, Base):
     __tablename__ = "etl_job_runs"
 
-    job_type = Column(String(16), nullable=False)
-    params = Column(JSONB, nullable=True)
-    status = Column(String(16), nullable=False, server_default="queued")
-    external_job_id = Column(String(255), nullable=True)
-    external_provider = Column(String(64), nullable=True)
-    retry_count = Column(Integer, nullable=True)
-    started_at = Column(DateTime(timezone=True), nullable=True)
-    finished_at = Column(DateTime(timezone=True), nullable=True)
-    error = Column(Text, nullable=True)
+    job_type: Mapped[str] = mapped_column(String(16), nullable=False)
+    params: Mapped[dict[str, object] | None] = mapped_column(JSONB, nullable=True)
+    status: Mapped[str] = mapped_column(
+        String(16), nullable=False, server_default="queued"
+    )
+    external_job_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    external_provider: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    retry_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    started_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    finished_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    error: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 
 class SearchHistory(BigIDMixin, Base):
@@ -134,7 +147,7 @@ class SearchHistory(BigIDMixin, Base):
     __table_args__ = (UniqueConstraint("topic", name="uq_search_history_topic"),)
 
     topic = Column(String(255), nullable=False)
-    last_search_time = Column(
+    last_search_time: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
 
@@ -143,57 +156,80 @@ class KeywordHistory(BigIDMixin, Base):
     __tablename__ = "keyword_history"
     __table_args__ = (UniqueConstraint("keyword", name="uq_keyword_history_keyword"),)
 
-    keyword = Column(String(255), nullable=False, unique=True)
-    normalized_keyword = Column(String(255), nullable=False)
-    search_count = Column(Integer, nullable=False, server_default="0")
-    hit_count = Column(Integer, nullable=False, server_default="0")
-    inserted_count = Column(Integer, nullable=False, server_default="0")
-    rejected_count = Column(Integer, nullable=False, server_default="0")
-    last_status = Column(String(32), nullable=True)
-    last_source = Column(String(64), nullable=True)
-    last_source_domain = Column(String(255), nullable=True)
-    last_filter_decision = Column(String(32), nullable=True)
-    first_seen_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
-    last_seen_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
-    extra = Column(JSONB, nullable=True)
+    keyword: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
+    normalized_keyword: Mapped[str] = mapped_column(String(255), nullable=False)
+    search_count: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
+    hit_count: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
+    inserted_count: Mapped[int] = mapped_column(
+        Integer, nullable=False, server_default="0"
+    )
+    rejected_count: Mapped[int] = mapped_column(
+        Integer, nullable=False, server_default="0"
+    )
+    last_status: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    last_source: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    last_source_domain: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    last_filter_decision: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    first_seen_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    last_seen_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    extra: Mapped[dict[str, object] | None] = mapped_column(JSONB, nullable=True)
 
 
 class KeywordPrior(BigIDMixin, Base):
     __tablename__ = "keyword_priors"
     __table_args__ = (UniqueConstraint("keyword", name="uq_keyword_priors_keyword"),)
 
-    keyword = Column(String(255), nullable=False, unique=True)
-    normalized_keyword = Column(String(255), nullable=False)
-    prior_score = Column(Numeric(6, 4), nullable=False, server_default="0.5000")
-    confidence = Column(Numeric(6, 4), nullable=False, server_default="0.5000")
-    source = Column(String(64), nullable=False, server_default="manual")
-    enabled = Column(Boolean, nullable=False, server_default=expression.true())
-    tags = Column(JSONB, nullable=True)
-    notes = Column(Text, nullable=True)
-    extra = Column(JSONB, nullable=True)
-    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
+    keyword: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
+    normalized_keyword: Mapped[str] = mapped_column(String(255), nullable=False)
+    prior_score: Mapped[Decimal] = mapped_column(
+        Numeric(6, 4), nullable=False, server_default="0.5000"
+    )
+    confidence: Mapped[Decimal] = mapped_column(
+        Numeric(6, 4), nullable=False, server_default="0.5000"
+    )
+    source: Mapped[str] = mapped_column(String(64), nullable=False, server_default="manual")
+    enabled: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default=expression.true()
+    )
+    tags: Mapped[list[str] | None] = mapped_column(JSONB, nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    extra: Mapped[dict[str, object] | None] = mapped_column(JSONB, nullable=True)
+    created_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
 
 
 class LlmServiceConfig(BigIDMixin, Base):
     __tablename__ = "llm_service_configs"
     __table_args__ = (UniqueConstraint("service_name", name="uq_llm_service_config_service_name"),)
 
-    service_name = Column(String(64), nullable=False, unique=True)
-    description = Column(Text, nullable=True)
-    system_prompt = Column(Text, nullable=True)
-    user_prompt_template = Column(Text, nullable=True)
-    model = Column(String(128), nullable=True)
-    temperature = Column(Numeric(3, 2), nullable=True)
-    max_tokens = Column(Integer, nullable=True)
-    top_p = Column(Numeric(5, 4), nullable=True)
-    presence_penalty = Column(Numeric(5, 4), nullable=True)
-    frequency_penalty = Column(Numeric(5, 4), nullable=True)
-    enabled = Column(Boolean, nullable=False, server_default=expression.true())
-    created_at = Column(
+    service_name: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    system_prompt: Mapped[str | None] = mapped_column(Text, nullable=True)
+    user_prompt_template: Mapped[str | None] = mapped_column(Text, nullable=True)
+    model: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    temperature: Mapped[Decimal | None] = mapped_column(Numeric(3, 2), nullable=True)
+    max_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    top_p: Mapped[Decimal | None] = mapped_column(Numeric(5, 4), nullable=True)
+    presence_penalty: Mapped[Decimal | None] = mapped_column(Numeric(5, 4), nullable=True)
+    frequency_penalty: Mapped[Decimal | None] = mapped_column(Numeric(5, 4), nullable=True)
+    enabled: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default=expression.true()
+    )
+    created_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
-    updated_at = Column(
+    updated_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
     )
 
@@ -202,13 +238,15 @@ class Topic(BigIDMixin, Base):
     __tablename__ = "topics"
     __table_args__ = (UniqueConstraint("topic_name", name="uq_topic_topic_name"),)
 
-    topic_name = Column(String(128), nullable=False, unique=True)
-    domains = Column(JSONB, nullable=False)  # List of domains: macro, industry, commodity, ecom, social
-    languages = Column(JSONB, nullable=False)  # List of languages: zh, en
-    keywords_seed = Column(JSONB, nullable=True)  # List of seed keywords
-    subreddits = Column(JSONB, nullable=True)  # List of default subreddits for social domain
-    enabled = Column(Boolean, nullable=False, server_default=expression.true())
-    description = Column(Text, nullable=True)
+    topic_name: Mapped[str] = mapped_column(String(128), nullable=False, unique=True)
+    domains: Mapped[list[str]] = mapped_column(JSONB, nullable=False)
+    languages: Mapped[list[str]] = mapped_column(JSONB, nullable=False)
+    keywords_seed: Mapped[list[str] | None] = mapped_column(JSONB, nullable=True)
+    subreddits: Mapped[list[str] | None] = mapped_column(JSONB, nullable=True)
+    enabled: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default=expression.true()
+    )
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at = Column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
@@ -291,20 +329,24 @@ class IngestChannel(BigIDMixin, Base):
     __tablename__ = "ingest_channels"
     __table_args__ = (UniqueConstraint("channel_key", name="uq_ingest_channel_key"),)
 
-    channel_key = Column(String(128), nullable=False, unique=True)
-    name = Column(String(255), nullable=False)
-    kind = Column(String(64), nullable=False)
-    provider = Column(String(64), nullable=False)
-    provider_type = Column(String(32), nullable=False, server_default="native")
-    provider_config = Column(JSONB, nullable=True)
-    execution_policy = Column(JSONB, nullable=True)
-    description = Column(Text, nullable=True)
+    channel_key: Mapped[str] = mapped_column(String(128), nullable=False, unique=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    kind: Mapped[str] = mapped_column(String(64), nullable=False)
+    provider: Mapped[str] = mapped_column(String(64), nullable=False)
+    provider_type: Mapped[str] = mapped_column(
+        String(32), nullable=False, server_default="native"
+    )
+    provider_config: Mapped[dict[str, object] | None] = mapped_column(JSONB, nullable=True)
+    execution_policy: Mapped[dict[str, object] | None] = mapped_column(JSONB, nullable=True)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
     credential_refs = Column(JSONB, nullable=True)
-    default_params = Column(JSONB, nullable=True)
-    param_schema = Column(JSONB, nullable=True)
+    default_params: Mapped[dict[str, object] | None] = mapped_column(JSONB, nullable=True)
+    param_schema: Mapped[dict[str, object] | None] = mapped_column(JSONB, nullable=True)
     extends_channel_key = Column(String(128), nullable=True)
-    enabled = Column(Boolean, nullable=False, server_default=expression.true())
-    extra = Column(JSONB, nullable=True)
+    enabled: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default=expression.true()
+    )
+    extra: Mapped[dict[str, object] | None] = mapped_column(JSONB, nullable=True)
     created_at = Column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
@@ -317,18 +359,20 @@ class SourceLibraryItem(BigIDMixin, Base):
     __tablename__ = "source_library_items"
     __table_args__ = (UniqueConstraint("item_key", name="uq_source_library_item_key"),)
 
-    item_key = Column(String(128), nullable=False, unique=True)
-    name = Column(String(255), nullable=False)
-    channel_key = Column(String(128), nullable=False)
-    description = Column(Text, nullable=True)
-    params = Column(JSONB, nullable=True)
-    tags = Column(JSONB, nullable=True)
+    item_key: Mapped[str] = mapped_column(String(128), nullable=False, unique=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    channel_key: Mapped[str] = mapped_column(String(128), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    params: Mapped[dict[str, object] | None] = mapped_column(JSONB, nullable=True)
+    tags: Mapped[list[str] | None] = mapped_column(JSONB, nullable=True)
     schedule = Column(String(128), nullable=True)
     item_type = Column(String(32), nullable=False, server_default="user_defined")
     managed_by = Column(String(32), nullable=False, server_default="user")
     extends_item_key = Column(String(128), nullable=True)
-    enabled = Column(Boolean, nullable=False, server_default=expression.true())
-    extra = Column(JSONB, nullable=True)
+    enabled: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default=expression.true()
+    )
+    extra: Mapped[dict[str, object] | None] = mapped_column(JSONB, nullable=True)
     created_at = Column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
@@ -360,13 +404,15 @@ class Product(BigIDMixin, Base):
     __tablename__ = "products"
     __table_args__ = (UniqueConstraint("name", "source_uri", name="uq_product_name_source"),)
 
-    name = Column(String(255), nullable=False)
-    category = Column(String(64), nullable=True)
-    source_name = Column(String(128), nullable=True)
-    source_uri = Column(Text, nullable=True)
-    selector_hint = Column(Text, nullable=True)
-    currency = Column(String(16), nullable=True)
-    enabled = Column(Boolean, nullable=False, server_default=expression.true())
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    category: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    source_name: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    source_uri: Mapped[str | None] = mapped_column(Text, nullable=True)
+    selector_hint: Mapped[str | None] = mapped_column(Text, nullable=True)
+    currency: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    enabled: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default=expression.true()
+    )
     extra = Column(JSONB, nullable=True)
     created_at = Column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
@@ -437,10 +483,14 @@ class ResourcePoolCaptureConfig(BigIDMixin, Base):
         {"schema": "public"},
     )
 
-    project_key = Column(String(64), nullable=False)
-    scope = Column(String(16), nullable=False, server_default="project")
-    job_types = Column(JSONB, nullable=False)
-    enabled = Column(Boolean, nullable=False, server_default=expression.true())
+    project_key: Mapped[str] = mapped_column(String(64), nullable=False)
+    scope: Mapped[str] = mapped_column(
+        String(16), nullable=False, server_default="project"
+    )
+    job_types: Mapped[list[str]] = mapped_column(JSONB, nullable=False)
+    enabled: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default=expression.true()
+    )
     created_at = Column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
@@ -458,21 +508,25 @@ class SharedResourcePoolSiteEntry(BigIDMixin, Base):
         {"schema": "public"},
     )
 
-    site_url = Column(Text, nullable=False)
-    domain = Column(String(255), nullable=True)
-    entry_type = Column(String(32), nullable=False, server_default="domain_root")
-    template = Column(Text, nullable=True)
-    name = Column(String(255), nullable=True)
-    capabilities = Column(JSONB, nullable=True)
-    source = Column(String(32), nullable=False, server_default="manual")
-    source_ref = Column(JSONB, nullable=True)
-    tags = Column(JSONB, nullable=True)
-    enabled = Column(Boolean, nullable=False, server_default=expression.true())
-    extra = Column(JSONB, nullable=True)
-    created_at = Column(
+    site_url: Mapped[str] = mapped_column(Text, nullable=False)
+    domain: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    entry_type: Mapped[str] = mapped_column(
+        String(32), nullable=False, server_default="domain_root"
+    )
+    template: Mapped[str | None] = mapped_column(Text, nullable=True)
+    name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    capabilities: Mapped[dict[str, object] | None] = mapped_column(JSONB, nullable=True)
+    source: Mapped[str] = mapped_column(String(32), nullable=False, server_default="manual")
+    source_ref: Mapped[dict[str, object] | None] = mapped_column(JSONB, nullable=True)
+    tags: Mapped[list[str] | None] = mapped_column(JSONB, nullable=True)
+    enabled: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default=expression.true()
+    )
+    extra: Mapped[dict[str, object] | None] = mapped_column(JSONB, nullable=True)
+    created_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
-    updated_at = Column(
+    updated_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
     )
 
@@ -485,22 +539,26 @@ class ResourcePoolSiteEntry(BigIDMixin, Base):
         UniqueConstraint("site_url", name="uq_resource_pool_site_entries_site_url"),
     )
 
-    site_url = Column(Text, nullable=False)
-    domain = Column(String(255), nullable=True)
-    entry_type = Column(String(32), nullable=False, server_default="domain_root")
-    template = Column(Text, nullable=True)
-    name = Column(String(255), nullable=True)
-    capabilities = Column(JSONB, nullable=True)
-    source = Column(String(32), nullable=False, server_default="manual")
-    source_ref = Column(JSONB, nullable=True)
-    tags = Column(JSONB, nullable=True)
-    enabled = Column(Boolean, nullable=False, server_default=expression.true())
-    project_key = Column(String(64), nullable=True)
-    extra = Column(JSONB, nullable=True)
-    created_at = Column(
+    site_url: Mapped[str] = mapped_column(Text, nullable=False)
+    domain: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    entry_type: Mapped[str] = mapped_column(
+        String(32), nullable=False, server_default="domain_root"
+    )
+    template: Mapped[str | None] = mapped_column(Text, nullable=True)
+    name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    capabilities: Mapped[dict[str, object] | None] = mapped_column(JSONB, nullable=True)
+    source: Mapped[str] = mapped_column(String(32), nullable=False, server_default="manual")
+    source_ref: Mapped[dict[str, object] | None] = mapped_column(JSONB, nullable=True)
+    tags: Mapped[list[str] | None] = mapped_column(JSONB, nullable=True)
+    enabled: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default=expression.true()
+    )
+    project_key: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    extra: Mapped[dict[str, object] | None] = mapped_column(JSONB, nullable=True)
+    created_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
-    updated_at = Column(
+    updated_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
     )
 
@@ -534,22 +592,28 @@ class CrawlerProject(BigIDMixin, Base):
         {"schema": "public"},
     )
 
-    project_key = Column(String(64), nullable=False, unique=True)
-    name = Column(String(255), nullable=False)
-    description = Column(Text, nullable=True)
-    source_type = Column(String(32), nullable=False, server_default="manual")
-    source_uri = Column(Text, nullable=True)
-    provider = Column(String(64), nullable=False, server_default="scrapyd")
-    status = Column(String(32), nullable=False, server_default="imported")
-    current_version = Column(String(128), nullable=True)
-    deployed_version = Column(String(128), nullable=True)
-    previous_version = Column(String(128), nullable=True)
-    import_payload = Column(JSONB, nullable=True)
-    analysis_plan = Column(JSONB, nullable=True)
-    created_at = Column(
+    project_key: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    source_type: Mapped[str] = mapped_column(
+        String(32), nullable=False, server_default="manual"
+    )
+    source_uri: Mapped[str | None] = mapped_column(Text, nullable=True)
+    provider: Mapped[str] = mapped_column(
+        String(64), nullable=False, server_default="scrapyd"
+    )
+    status: Mapped[str] = mapped_column(
+        String(32), nullable=False, server_default="imported"
+    )
+    current_version: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    deployed_version: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    previous_version: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    import_payload: Mapped[dict[str, object] | None] = mapped_column(JSONB, nullable=True)
+    analysis_plan: Mapped[dict[str, object] | None] = mapped_column(JSONB, nullable=True)
+    created_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
-    updated_at = Column(
+    updated_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
     )
 
@@ -562,26 +626,30 @@ class CrawlerDeployRun(BigIDMixin, Base):
         {"schema": "public"},
     )
 
-    crawler_project_id = Column(
+    crawler_project_id: Mapped[int] = mapped_column(
         BigInteger,
         ForeignKey("public.crawler_projects.id", ondelete="CASCADE"),
         nullable=False,
     )
-    action = Column(String(16), nullable=False)  # deploy | rollback
-    status = Column(String(16), nullable=False, server_default="running")
-    requested_version = Column(String(128), nullable=True)
-    from_version = Column(String(128), nullable=True)
-    to_version = Column(String(128), nullable=True)
-    planner_mode = Column(String(16), nullable=False, server_default="heuristic")
-    plan = Column(JSONB, nullable=True)
-    external_provider = Column(String(64), nullable=True)
-    external_job_id = Column(String(255), nullable=True)
-    error = Column(Text, nullable=True)
-    started_at = Column(
+    action: Mapped[str] = mapped_column(String(16), nullable=False)  # deploy | rollback
+    status: Mapped[str] = mapped_column(
+        String(16), nullable=False, server_default="running"
+    )
+    requested_version: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    from_version: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    to_version: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    planner_mode: Mapped[str] = mapped_column(
+        String(16), nullable=False, server_default="heuristic"
+    )
+    plan: Mapped[dict[str, object] | None] = mapped_column(JSONB, nullable=True)
+    external_provider: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    external_job_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    started_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
-    finished_at = Column(DateTime(timezone=True), nullable=True)
-    created_at = Column(
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
 

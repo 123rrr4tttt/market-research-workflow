@@ -27,6 +27,7 @@ from .extraction.topic_workflow import (
     topic_has_data,
 )
 from .graph.models import Graph, GraphEdge, GraphNode
+from .graph.mapping import normalize_graph_json_object
 from .graph.relation_ontology import relation_annotation
 from .projects import bind_project
 from .document_views import (
@@ -1111,7 +1112,11 @@ def augment_market_graph_with_topic_structured(
         key = f"{node_type}:{node_id}"
         current = graph.nodes.get(key)
         if current is None:
-            current = GraphNode(type=node_type, id=node_id, properties=properties)
+            current = GraphNode(
+                type=node_type,
+                id=node_id,
+                properties=normalize_graph_json_object(properties),
+            )
             graph.nodes[key] = current
             return current
         current_properties_value: object = current.properties
@@ -1119,7 +1124,7 @@ def augment_market_graph_with_topic_structured(
         for property_name, property_value in properties.items():
             if property_name not in current_properties or current_properties.get(property_name) in (None, "", []):
                 current_properties[property_name] = property_value
-        current.properties = current_properties
+        current.properties = normalize_graph_json_object(current_properties)
         return current
 
     def edge_key(
@@ -1148,7 +1153,12 @@ def augment_market_graph_with_topic_structured(
             return
         edge_keys.add(key)
         graph.edges.append(
-            GraphEdge(type=edge_type, from_node=from_node, to_node=to_node, properties=properties or {})
+            GraphEdge(
+                type=edge_type,
+                from_node=from_node,
+                to_node=to_node,
+                properties=normalize_graph_json_object(properties or {}),
+            )
         )
 
     scope_to_field = {

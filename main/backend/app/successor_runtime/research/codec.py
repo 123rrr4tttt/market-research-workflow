@@ -12,7 +12,7 @@ from __future__ import annotations
 import datetime as _dt
 import hashlib
 from dataclasses import fields, is_dataclass
-from typing import Any, Mapping, Sequence
+from typing import Mapping, NoReturn, Sequence, TypeGuard
 
 from functorial_kit import Failure
 
@@ -21,7 +21,7 @@ from mrw_functorial_kit.core.w07_semantics import research_failures
 _RESEARCH_FAILURE_WITNESS = "test:test_w07_language_research_failure_boundary"
 
 
-def _failure(
+def research_failure(
     code: str,
     message: object,
     exception_type: type[Exception],
@@ -44,12 +44,12 @@ def _failure(
     )
 
 
-def _raise_failure(
+def raise_research_failure(
     failure: Failure,
     exception_type: type[Exception],
     *,
     cause: BaseException | None = None,
-) -> None:
+) -> NoReturn:
     """Lift a complete typed failure while retaining the existing exception ABI."""
 
     context = failure.context or {}
@@ -77,8 +77,29 @@ __all__ = [
     "encode",
     "finalize_digest",
     "is_sha256_hex",
+    "raise_research_failure",
+    "research_failure",
+    "runtime_value",
     "sha256_hex",
 ]
+
+
+def runtime_value(value: object) -> object:
+    """Expose a constructor value to runtime validation without weakening its field type."""
+
+    return value
+
+
+def _is_object_mapping(value: object) -> TypeGuard[Mapping[object, object]]:
+    return isinstance(value, Mapping)
+
+
+def _is_object_sequence(value: object) -> TypeGuard[list[object] | tuple[object, ...]]:
+    return isinstance(value, (list, tuple))
+
+
+def _is_object_set(value: object) -> TypeGuard[set[object] | frozenset[object]]:
+    return isinstance(value, (set, frozenset))
 
 
 class CanonicalCodecError(ValueError):
@@ -111,8 +132,8 @@ def _quote(text: str) -> str:
 
 def _datetime_text(value: _dt.datetime) -> str:
     if value.tzinfo is None:
-        _raise_failure(
-            _failure(
+        raise_research_failure(
+            research_failure(
                 "CANONICAL_ENCODING_INVALID",
                 "naive datetime is not canonical",
                 CanonicalCodecError,
@@ -123,12 +144,12 @@ def _datetime_text(value: _dt.datetime) -> str:
     return value.astimezone(_dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
 
 
-def encode(value: Any) -> str:
+def encode(value: object) -> str:
     """Return canonical JSON text for a supported value."""
     return _encode(value)
 
 
-def _encode(value: Any) -> str:
+def _encode(value: object) -> str:
     if value is None:
         return "null"
     if value is True:
@@ -139,8 +160,8 @@ def _encode(value: Any) -> str:
         return str(value)
     if isinstance(value, float):
         if value != value or value in (float("inf"), float("-inf")):
-            _raise_failure(
-                _failure(
+            raise_research_failure(
+                research_failure(
                     "CANONICAL_ENCODING_INVALID",
                     f"non-finite float is not canonical: {value!r}",
                     CanonicalCodecError,
@@ -153,11 +174,13 @@ def _encode(value: Any) -> str:
         return _quote(value)
     if isinstance(value, _dt.datetime):
         return _quote(_datetime_text(value))
-    if isinstance(value, Mapping):
-        for key in value:
+    if _is_object_mapping(value):
+        mapping = value
+        string_items: list[tuple[str, object]] = []
+        for key, item in mapping.items():
             if not isinstance(key, str):
-                _raise_failure(
-                    _failure(
+                raise_research_failure(
+                    research_failure(
                         "CANONICAL_JSON_ROOT_INVALID",
                         f"non-string JSON object key is not canonical: {key!r}",
                         CanonicalCodecError,
@@ -165,18 +188,19 @@ def _encode(value: Any) -> str:
                     ),
                     CanonicalCodecError,
                 )
-        items = sorted(value.items(), key=lambda item: _utf16_key(item[0]))
+            string_items.append((key, item))
+        items = sorted(string_items, key=lambda item: _utf16_key(item[0]))
         body = ",".join(_quote(key) + ":" + _encode(item) for key, item in items)
         return "{" + body + "}"
-    if isinstance(value, (list, tuple)):
+    if _is_object_sequence(value):
         return "[" + ",".join(_encode(item) for item in value) + "]"
-    if isinstance(value, (set, frozenset)):
+    if _is_object_set(value):
         ordered = sorted(value, key=encode)
         return "[" + ",".join(_encode(item) for item in ordered) + "]"
     if is_dataclass(value):
         return _encode(dataclass_to_json(value))
-    _raise_failure(
-        _failure(
+    raise_research_failure(
+        research_failure(
             "CANONICAL_VALUE_UNSUPPORTED",
             f"cannot canonicalize {type(value).__name__}; refusing lossy string coercion",
             UnsupportedCanonicalValueError,
@@ -186,11 +210,11 @@ def _encode(value: Any) -> str:
     )
 
 
-def dataclass_to_json(obj: Any, exclude: Sequence[str] = ()) -> dict[str, Any]:
+def dataclass_to_json(obj: object, exclude: Sequence[str] = ()) -> dict[str, object]:
     """Return a JSON-native mapping for a dataclass in declaration order."""
     if not is_dataclass(obj):
-        _raise_failure(
-            _failure(
+        raise_research_failure(
+            research_failure(
                 "CANONICAL_ENCODING_INVALID",
                 f"expected a dataclass instance, got {type(obj).__name__}",
                 TypeError,
@@ -206,27 +230,27 @@ def dataclass_to_json(obj: Any, exclude: Sequence[str] = ()) -> dict[str, Any]:
     }
 
 
-def canonical_json(value: Any) -> str:
+def canonical_json(value: object) -> str:
     """Return canonical JSON text without any lossy default coercion."""
     return encode(value)
 
 
-def canonical_bytes(value: Any) -> bytes:
+def canonical_bytes(value: object) -> bytes:
     """Return canonical JSON bytes without any lossy default coercion."""
     return canonical_json(value).encode("utf-8")
 
 
-def sha256_hex(value: Any) -> str:
+def sha256_hex(value: object) -> str:
     """Return the SHA-256 digest of the canonical JSON encoding."""
     return hashlib.sha256(canonical_bytes(value)).hexdigest()
 
 
-def digest_dataclass(obj: Any, exclude: Sequence[str] = ()) -> str:
+def digest_dataclass(obj: object, exclude: Sequence[str] = ()) -> str:
     """Return the canonical digest of a dataclass, minus excluded fields."""
     return sha256_hex(dataclass_to_json(obj, exclude))
 
 
-def finalize_digest(obj: Any, digest_field: str) -> None:
+def finalize_digest(obj: object, digest_field: str) -> None:
     """Compute or validate one self-referential digest field on a dataclass."""
     expected = digest_dataclass(obj, (digest_field,))
     current = getattr(obj, digest_field)
@@ -234,8 +258,8 @@ def finalize_digest(obj: Any, digest_field: str) -> None:
         object.__setattr__(obj, digest_field, expected)
         return
     if current != expected:
-        _raise_failure(
-            _failure(
+        raise_research_failure(
+            research_failure(
                 "DIGEST_FINALIZATION_INVALID",
                 f"{type(obj).__name__} {digest_field} mismatch",
                 ValueError,

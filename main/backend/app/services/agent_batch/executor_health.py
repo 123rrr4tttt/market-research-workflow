@@ -1,12 +1,16 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, TypeGuard
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from app.celery_app import celery_app
 
 _SENSITIVE_QUERY_KEYS = {"password", "pass", "pwd", "token", "secret", "access_token"}
+
+
+def _is_payload_dict(value: object) -> TypeGuard[dict[object, object]]:
+    return isinstance(value, dict)
 
 
 def _utcnow_iso() -> str:
@@ -73,7 +77,7 @@ def inspect_executor_health(*, app_instance: Any | None = None, inspect_timeout:
         diagnostics["inspect_ok"] = False
         diagnostics["error"] = f"{type(exc).__name__}: {exc}"
 
-    if isinstance(ping_payload, dict):
+    if _is_payload_dict(ping_payload):
         workers = sorted(str(k) for k in ping_payload.keys())
         worker_online = len(workers) > 0
         diagnostics["ping_response_type"] = "dict"
@@ -92,4 +96,3 @@ def inspect_executor_health(*, app_instance: Any | None = None, inspect_timeout:
         "timestamp": _utcnow_iso(),
         "diagnostics": diagnostics,
     }
-

@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal
 
-from .codec import digest_dataclass, finalize_digest
+from .codec import finalize_digest
 
 __all__ = [
     "CANONICAL_CODEC_ID",

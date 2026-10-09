@@ -11,7 +11,13 @@ from typing import TYPE_CHECKING, Any, Literal, Mapping
 from functorial_kit import Failure
 from mrw_functorial_kit.core.agent_service_semantics import agent_runtime_failures
 
-from .contracts import AgentCoreRequest, CoreToolCall, CoreToolSpec, ToolPermission
+from .contracts import (
+    AgentCoreRequest,
+    CoreToolCall,
+    CoreToolSpec,
+    ToolPermission,
+    json_object,
+)
 from app.services.request_identity import RequestActorContext
 
 if TYPE_CHECKING:
@@ -115,7 +121,7 @@ def host_action_binding(
 def authorize_tool_call(
     service: AgentSessionService,
     context: TrustedHostContext,
-    spec: CoreToolSpec,
+    spec: object,
     canonical_arguments: Mapping[str, Any],
     package_digest: str | None = None,
     *,
@@ -164,6 +170,8 @@ def authorize_tool_call(
         return _failure("tool_permission_unsupported", f"unsupported tool permission: {spec.permission}")
 
     approvals = service.list_approvals(session_id=context.session_id)
+    if isinstance(approvals, Failure):
+        return approvals
     action_identity = _action_identity(binding)
     matching = [
         item
@@ -240,7 +248,7 @@ def validate_host_authorization(
     approval = service.store.get_approval(normalized_approval_id)
     if isinstance(approval, Failure):
         return approval
-    binding = dict(approval.get("binding_payload") or {})
+    binding = json_object(approval.get("binding_payload") or {})
     if binding.get("contract_version") != HOST_AUTHORIZATION_CONTRACT_VERSION:
         return _failure("host_approval_contract_invalid", "approval does not use the host authorization contract")
     resolved_execution_call_id = (
@@ -287,8 +295,8 @@ def validate_host_authorization(
     provenance_failure = _validate_request_host_message(service, context)
     if isinstance(provenance_failure, Failure):
         return provenance_failure
-    metadata = dict(approval.get("metadata") or {})
-    confirmation = dict(metadata.get("host_confirmation") or {})
+    metadata = json_object(approval.get("metadata") or {})
+    confirmation = json_object(metadata.get("host_confirmation") or {})
     confirmation_message_id = str(confirmation.get("user_message_id") or "")
     if not confirmation_message_id:
         return _failure("host_confirmation_missing", "approved host action has no trusted user confirmation", approval_id=normalized_approval_id)
@@ -324,12 +332,20 @@ def validate_host_authorization(
         )
         if isinstance(consumed, Failure):
             return _consume_failure(consumed)
+    permission = _tool_permission(binding)
+    if isinstance(permission, Failure):
+        return _failure(
+            "host_approval_binding_mismatch",
+            "host approval has an unsupported tool permission",
+            field="tool_permission",
+            approval_id=normalized_approval_id,
+        )
     return VerifiedHostAuthorization(
         context=context,
         tool_name=tool_name,
         arguments_sha256=arguments_sha256,
         package_digest=_normalize_optional_text(package_digest),
-        permission=str(binding.get("tool_permission") or "ask"),
+        permission=permission,
         approval_id=normalized_approval_id,
         origin_call_id=str(binding.get("origin_call_id") or ""),
         origin_turn_id=origin_context.turn_id,
@@ -524,7 +540,7 @@ def _validate_host_message(
     return _failure("host_confirmation_message_missing", "trusted host confirmation message was not found", approval_id=approval_id)
 
 
-def _validate_expiry(approval: dict[str, Any]) -> None | Failure:
+def _validate_expiry(approval: Mapping[str, object]) -> None | Failure:
     value = approval.get("expires_at")
     if value is None:
         return None
@@ -551,6 +567,19 @@ def _normalize_package_digest(package_digest: str | None) -> str | None | Failur
 def _normalize_optional_text(value: str | None) -> str | None:
     normalized = str(value or "").strip()
     return normalized or None
+
+
+def _tool_permission(binding: Mapping[str, object]) -> ToolPermission | Failure:
+    value = str(binding.get("tool_permission") or "ask")
+    if value == "allow":
+        return "allow"
+    if value == "ask":
+        return "ask"
+    if value == "deny":
+        return "deny"
+    if value == "explicit_user_request":
+        return "explicit_user_request"
+    return _failure("host_approval_binding_mismatch", "host approval has an unsupported tool permission")
 
 
 def _is_sha256(value: str) -> bool:

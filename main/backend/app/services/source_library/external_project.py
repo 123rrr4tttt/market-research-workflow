@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from ipaddress import ip_address, ip_network
 import socket
-from typing import Annotated, Any, NoReturn
+from typing import Annotated, NoReturn
+from typing import TypeGuard
 from urllib.parse import quote_plus, urlsplit
 
 from functorial_kit import Failure
@@ -59,8 +61,24 @@ _BLOCKED_RUNTIME_HEADER_KEYS = {
 _FAILURE_WITNESS = "test:test_w01_source_export_failures"
 
 
-def _manifest_failure(code: str, message: str, *, site: str, **details: Any) -> Failure:
-    context: dict[str, Any] = {
+def _is_object(value: object) -> TypeGuard[dict[str, object]]:
+    return isinstance(value, dict)
+
+
+def _object(value: object) -> dict[str, object]:
+    return dict(value) if _is_object(value) else {}
+
+
+def _object_list(value: object) -> list[object]:
+    return list(value) if _is_object_list(value) else []
+
+
+def _is_object_list(value: object) -> TypeGuard[list[object]]:
+    return isinstance(value, list)
+
+
+def _manifest_failure(code: str, message: str, *, site: str, **details: object) -> Failure:
+    context: dict[str, object] = {
         "boundary_class": "PURE_CONTRACT_FAILURE",
         "failure_family": source_library_contract_failures.name,
         "operation": "source_library.external_project",
@@ -100,28 +118,28 @@ def _raise_manifest_failure(
     raise exception_type(message) from cause
 
 
-def has_external_project_manifest(extra: dict[str, Any] | None) -> bool:
+def has_external_project_manifest(extra: dict[str, object] | None) -> bool:
     return isinstance(extra, dict) and isinstance(extra.get(EXTERNAL_PROJECT_MANIFEST_KEY), dict)
 
 
-def is_external_project_item(item: dict[str, Any] | None) -> bool:
+def is_external_project_item(item: dict[str, object] | None) -> bool:
     payload = item if isinstance(item, dict) else {}
     if str(payload.get("channel_key") or "").strip().lower() == EXTERNAL_PROJECT_CHANNEL_KEY:
         return True
-    return has_external_project_manifest(payload.get("extra") if isinstance(payload.get("extra"), dict) else None)
+    return has_external_project_manifest(_object(payload.get("extra")))
 
 
-def validate_external_http_url(value: Any, *, field_name: str) -> str:
+def validate_external_http_url(value: object, *, field_name: str) -> str:
     return _normalize_remote_http_url(value, field_name=field_name)
 
 
 def normalize_external_project_extra(
-    extra: dict[str, Any] | None,
+    extra: Mapping[str, object] | None,
     *,
     item_key: str | None,
     display_name: str | None,
     channel_key: str | None,
-) -> dict[str, Any]:
+) -> dict[str, object]:
     normalized = dict(extra or {})
     has_manifest = isinstance(normalized.get(EXTERNAL_PROJECT_MANIFEST_KEY), dict)
     normalized_channel = str(channel_key or "").strip().lower()
@@ -143,7 +161,7 @@ def normalize_external_project_extra(
                 )
             )
         normalized[EXTERNAL_PROJECT_MANIFEST_KEY] = normalize_external_project_manifest(
-            normalized.get(EXTERNAL_PROJECT_MANIFEST_KEY),
+            _object(normalized.get(EXTERNAL_PROJECT_MANIFEST_KEY)),
             item_key=item_key,
             display_name=display_name,
         )
@@ -151,25 +169,25 @@ def normalize_external_project_extra(
 
 
 def get_external_project_manifest(
-    extra: dict[str, Any] | None,
+    extra: dict[str, object] | None,
     *,
     item_key: str | None = None,
     display_name: str | None = None,
-) -> dict[str, Any] | None:
+) -> dict[str, object] | None:
     if not isinstance(extra, dict):
         return None
     payload = extra.get(EXTERNAL_PROJECT_MANIFEST_KEY)
-    if not isinstance(payload, dict):
+    if not _is_object(payload):
         return None
     return normalize_external_project_manifest(payload, item_key=item_key, display_name=display_name)
 
 
 def normalize_external_project_manifest(
-    manifest: dict[str, Any] | None,
+    manifest: dict[str, object] | None,
     *,
     item_key: str | None = None,
     display_name: str | None = None,
-) -> dict[str, Any]:
+) -> dict[str, object]:
     payload = dict(manifest or {})
     contract_version = str(payload.get("contract_version") or "").strip()
     if contract_version != EXTERNAL_PROJECT_MANIFEST_CONTRACT_VERSION:
@@ -219,7 +237,7 @@ def normalize_external_project_manifest(
             )
         )
 
-    normalized = {
+    normalized: dict[str, object] = {
         "contract_version": EXTERNAL_PROJECT_MANIFEST_CONTRACT_VERSION,
         "item_key": resolved_item_key,
         "display_name": resolved_display_name,
@@ -246,13 +264,15 @@ def normalize_external_project_manifest(
         "refresh_policy": _normalize_refresh_policy(payload.get("refresh_policy")),
         "provenance": _normalize_provenance(payload.get("provenance")),
     }
-    runtime_config = payload.get("runtime_config") if isinstance(payload.get("runtime_config"), dict) else {}
-    if isinstance(payload.get("runtime"), dict):
-        runtime_config = {**runtime_config, **dict(payload.get("runtime") or {})}
+    runtime_config = _object(payload.get("runtime_config"))
+    runtime = _object(payload.get("runtime"))
+    if runtime:
+        runtime_config = {**runtime_config, **runtime}
     normalized["runtime_config"] = _normalize_runtime_config(runtime_config)
     normalized["provider_binding"] = resolve_external_project_provider_binding(normalized)
 
-    if not any(bool(normalized["capabilities"].get(key)) for key in _CAPABILITY_KEYS):
+    capabilities = _object(normalized["capabilities"])
+    if not any(bool(capabilities.get(key)) for key in _CAPABILITY_KEYS):
         _raise_manifest_failure(
             _manifest_failure(
                 "external_project_manifest_invalid",
@@ -264,8 +284,8 @@ def normalize_external_project_manifest(
     return normalized
 
 
-def build_external_project_summary(manifest: dict[str, Any] | None) -> Annotated[
-    dict[str, Any] | None,
+def build_external_project_summary(manifest: dict[str, object] | None) -> Annotated[
+    dict[str, object] | None,
     "kit:non-authoritative derived_as=view fact_source=source_library.manifest witness=test:test_w01_meta",
 ]:
     if not isinstance(manifest, dict):
@@ -280,16 +300,16 @@ def build_external_project_summary(manifest: dict[str, Any] | None) -> Annotated
         "source_scope": normalized.get("source_scope"),
         "execution_mode": normalized.get("execution_mode"),
         "runner_ref": normalized.get("runner_ref"),
-        "frontdoor_strategy": ((normalized.get("normalization") or {}).get("frontdoor_strategy")),
-        "capabilities": dict((normalized.get("capabilities") or {})),
-        "accepted_inputs": dict((normalized.get("accepted_inputs") or {})),
-        "normalization": dict((normalized.get("normalization") or {})),
-        "provider_binding": dict((normalized.get("provider_binding") or {})),
+        "frontdoor_strategy": _object(normalized.get("normalization")).get("frontdoor_strategy"),
+        "capabilities": _object(normalized.get("capabilities")),
+        "accepted_inputs": _object(normalized.get("accepted_inputs")),
+        "normalization": _object(normalized.get("normalization")),
+        "provider_binding": _object(normalized.get("provider_binding")),
     }
 
 
 def resolve_runner_url(
-    manifest: dict[str, Any],
+    manifest: dict[str, object],
     *,
     query_terms: list[str] | None = None,
     domains: list[str] | None = None,
@@ -340,7 +360,7 @@ def resolve_runner_url(
     return _normalize_remote_http_url(rendered, field_name="runner_ref")
 
 
-def _normalize_runner_ref(value: Any, *, execution_mode: str) -> str:
+def _normalize_runner_ref(value: object, *, execution_mode: str) -> str:
     raw = str(value or "").strip()
     if not raw:
         _raise_manifest_failure(
@@ -393,7 +413,7 @@ def _normalize_runner_ref(value: Any, *, execution_mode: str) -> str:
     return _normalize_remote_http_url(raw, field_name="runner_ref")
 
 
-def _normalize_remote_http_url(value: Any, *, field_name: str) -> str:
+def _normalize_remote_http_url(value: object, *, field_name: str) -> str:
     raw = str(value or "").strip()
     if not raw:
         _raise_manifest_failure(
@@ -435,7 +455,7 @@ def _ensure_host_resolves_public(host: str, *, field_name: str) -> None:
     except socket.gaierror:
         return
     benchmark_proxy_net = ip_network("198.18.0.0/15")
-    resolved_addresses = []
+    resolved_addresses: list[object] = []
     for row in resolved:
         sockaddr = row[4] if len(row) > 4 else None
         if not sockaddr:
@@ -466,7 +486,7 @@ def _ensure_host_resolves_public(host: str, *, field_name: str) -> None:
             )
 
 
-def _require_text(value: Any, *, field_name: str) -> str:
+def _require_text(value: object, *, field_name: str) -> str:
     text = str(value or "").strip()
     if not text:
         _raise_manifest_failure(
@@ -480,12 +500,12 @@ def _require_text(value: Any, *, field_name: str) -> str:
 
 
 def _normalize_bool_map(
-    payload: Any,
+    payload: object,
     *,
     allowed_keys: tuple[str, ...],
     defaults: dict[str, bool],
 ) -> dict[str, bool]:
-    source = dict(payload or {}) if isinstance(payload, dict) else {}
+    source = _object(payload)
     out = dict(defaults)
     for key in allowed_keys:
         if key in source:
@@ -493,43 +513,46 @@ def _normalize_bool_map(
     return out
 
 
-def _normalize_int(value: Any, *, default: int, min_value: int, max_value: int) -> int:
-    try:
-        parsed = int(value)
-    except Exception:
-        parsed = int(default)
+def normalize_bounded_int(value: object, *, default: int, min_value: int, max_value: int) -> int:
+    if not isinstance(value, int | float | str):
+        parsed = default
+    else:
+        try:
+            parsed = int(value)
+        except (TypeError, ValueError, OverflowError):
+            parsed = default
     return max(min_value, min(max_value, parsed))
 
 
-def _normalize_limits(payload: Any) -> dict[str, int]:
-    source = dict(payload or {}) if isinstance(payload, dict) else {}
+def _normalize_limits(payload: object) -> dict[str, int]:
+    source = _object(payload)
     return {
-        "default_max_items": _normalize_int(source.get("default_max_items"), default=20, min_value=1, max_value=500),
-        "max_items_cap": _normalize_int(source.get("max_items_cap"), default=100, min_value=1, max_value=2000),
-        "request_timeout_ms": _normalize_int(source.get("request_timeout_ms"), default=30000, min_value=1000, max_value=120000),
+        "default_max_items": normalize_bounded_int(source.get("default_max_items"), default=20, min_value=1, max_value=500),
+        "max_items_cap": normalize_bounded_int(source.get("max_items_cap"), default=100, min_value=1, max_value=2000),
+        "request_timeout_ms": normalize_bounded_int(source.get("request_timeout_ms"), default=30000, min_value=1000, max_value=120000),
     }
 
 
-def _normalize_refresh_policy(payload: Any) -> dict[str, int]:
-    source = dict(payload or {}) if isinstance(payload, dict) else {}
+def _normalize_refresh_policy(payload: object) -> dict[str, int]:
+    source = _object(payload)
     return {
-        "manifest_ttl_minutes": _normalize_int(source.get("manifest_ttl_minutes"), default=60, min_value=1, max_value=10080),
-        "probe_ttl_minutes": _normalize_int(source.get("probe_ttl_minutes"), default=1440, min_value=1, max_value=43200),
+        "manifest_ttl_minutes": normalize_bounded_int(source.get("manifest_ttl_minutes"), default=60, min_value=1, max_value=10080),
+        "probe_ttl_minutes": normalize_bounded_int(source.get("probe_ttl_minutes"), default=1440, min_value=1, max_value=43200),
     }
 
 
-def _normalize_provenance(payload: Any) -> dict[str, Any]:
-    source = dict(payload or {}) if isinstance(payload, dict) else {}
-    source_refs = source.get("source_refs") if isinstance(source.get("source_refs"), list) else []
+def _normalize_provenance(payload: object) -> dict[str, object]:
+    source = _object(payload)
+    source_refs = _object_list(source.get("source_refs"))
     return {
         "discovered_by": str(source.get("discovered_by") or "manual_registration").strip() or "manual_registration",
         "source_refs": [str(ref).strip() for ref in source_refs if str(ref or "").strip()],
     }
 
 
-def _normalize_normalization(payload: Any, *, capabilities: Any) -> dict[str, str]:
-    source = dict(payload or {}) if isinstance(payload, dict) else {}
-    capability_map = dict(capabilities or {}) if isinstance(capabilities, dict) else {}
+def _normalize_normalization(payload: object, *, capabilities: object) -> dict[str, str]:
+    source = _object(payload)
+    capability_map = _object(capabilities)
     record_kind = str(source.get("record_kind") or "").strip().lower()
     if not record_kind:
         if capability_map.get("article_body"):
@@ -547,13 +570,13 @@ def _normalize_normalization(payload: Any, *, capabilities: Any) -> dict[str, st
     }
 
 
-def _normalize_runtime_config(payload: Any) -> dict[str, Any]:
-    source = dict(payload or {}) if isinstance(payload, dict) else {}
-    headers = source.get("headers") if isinstance(source.get("headers"), dict) else {}
-    query_param_map = source.get("query_param_map") if isinstance(source.get("query_param_map"), dict) else {}
-    record_mapping = source.get("record_mapping") if isinstance(source.get("record_mapping"), dict) else {}
-    json_body = source.get("json_body") if isinstance(source.get("json_body"), dict) else {}
-    fixture_records = source.get("fixture_records") if isinstance(source.get("fixture_records"), list) else []
+def _normalize_runtime_config(payload: object) -> dict[str, object]:
+    source = _object(payload)
+    headers = _object(source.get("headers"))
+    query_param_map = _object(source.get("query_param_map"))
+    record_mapping = _object(source.get("record_mapping"))
+    json_body = _object(source.get("json_body"))
+    fixture_records = _object_list(source.get("fixture_records"))
     fixture_output_json = source.get("fixture_output_json")
     parser = str(source.get("parser") or "trafilatura_or_heuristic").strip().lower()
     if parser not in {"trafilatura_or_heuristic", "heuristic.main_content.v1"}:

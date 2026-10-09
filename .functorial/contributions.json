@@ -54,6 +54,27 @@
           "name": "information_topology"
         }
       },
+      "ingest.operation.failure": {
+        "content": {
+          "codes": [
+            "social_collect_result_invalid",
+            "extraction_payload_invalid",
+            "canary_readback_not_object",
+            "commodity_collection_failed",
+            "ecom_collection_failed",
+            "official_news_collection_failed",
+            "market_web_collection_failed",
+            "raw_import_failed",
+            "california_report_collection_failed",
+            "weekly_report_collection_failed",
+            "monthly_report_collection_failed",
+            "social_sentiment_collection_failed",
+            "policy_regulation_collection_failed",
+            "url_pool_collection_failed"
+          ],
+          "name": "ingest.operation.failure"
+        }
+      },
       "kit.contribution": {
         "content": {
           "codes": [
@@ -152,6 +173,31 @@
             "single_source_guard_strict_source_required"
           ],
           "name": "source.single-source-guard.failure"
+        }
+      },
+      "source_library.contract_failure": {
+        "content": {
+          "codes": [
+            "external_project_manifest_invalid",
+            "external_project_evidence_insufficient",
+            "external_project_execution_mode_unsupported",
+            "channel_not_found",
+            "channel_disabled",
+            "required_params_missing",
+            "crawler_project_required",
+            "crawler_spider_required",
+            "channel_credentials_missing",
+            "channel_provider_unsupported",
+            "policy_state_required",
+            "market_keywords_required",
+            "google_news_keywords_required",
+            "url_routing_urls_required",
+            "routing_value_invalid",
+            "frontdoor_runtime_targets_invalid",
+            "frontdoor_entrypoint_rejected",
+            "source_item_disabled"
+          ],
+          "name": "source_library.contract_failure"
         }
       },
       "successor.capability.contract_failure": {

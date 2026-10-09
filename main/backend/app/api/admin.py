@@ -717,7 +717,8 @@ def raw_import_documents(request: Request, payload: RawImportRequest):
         )
         return success_response(task_result)
     with bind_project(project_key):
-        result = run_raw_import_documents(payload_dict, project_key)
+        raw_payload: dict[str, object] = {key: value for key, value in payload_dict.items()}
+        result = run_raw_import_documents(raw_payload, project_key)
         return success_response(parse_json_object(result, field="raw_import_result"))
 
 
@@ -864,9 +865,20 @@ def re_extract_documents(payload: ReExtractRequest):
     if payload.preview:
         return success_response(_build_reextract_preview(document_admin.preview_admin_reextract(command), payload))
 
+    def _run_extraction(
+        *,
+        title: str | None,
+        content: str | None,
+        extraction_plan: JsonObject | None = None,
+    ) -> object:
+        plan: dict[str, object] | None = None
+        if extraction_plan is not None:
+            plan = {key: value for key, value in extraction_plan.items()}
+        return run_frontdoor_extraction(title=title, content=content, extraction_plan=plan)
+
     result = document_admin.reextract_admin_documents(
         command,
-        extraction_runner=run_frontdoor_extraction,
+        extraction_runner=_run_extraction,
         fetch_html=fetch_html,
         extract_text_from_html=_extract_text_from_html,
     )

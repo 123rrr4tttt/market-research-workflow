@@ -2,13 +2,13 @@ from __future__ import annotations
 
 from typing import Annotated, Any
 
-from .common_view import get_entities, get_extracted_data, get_relations
+from .common_view import get_entities, get_extracted_data, get_relations, is_object_list, payload_dict_or_empty
 
 
 def get_policy_data(doc: Any) -> dict[str, Any]:
     extracted = get_extracted_data(doc)
     policy = extracted.get("policy")
-    return dict(policy) if isinstance(policy, dict) else {}
+    return payload_dict_or_empty(policy)
 
 
 def get_policy_state(doc: Any) -> str | None:
@@ -26,7 +26,7 @@ def get_policy_type(doc: Any) -> str | None:
 def get_policy_key_points(doc: Any) -> list[str]:
     policy = get_policy_data(doc)
     raw_value = policy.get("key_points")
-    if not isinstance(raw_value, list):
+    if not is_object_list(raw_value):
         return []
     return [item.strip() for item in raw_value if isinstance(item, str) and item.strip()]
 

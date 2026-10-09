@@ -11,6 +11,7 @@ from hashlib import sha256
 from typing import Literal, NoReturn
 
 from functorial_kit import Failure
+from app.successor_runtime.research.codec import runtime_value
 
 from app.successor_runtime.capabilities.workflow_common import (
     HISTORICAL_C1_ACCEPTANCE_SCHEMA,
@@ -83,7 +84,8 @@ def read_workflow_acceptance_artifact(
 ) -> WorkflowAcceptanceArtifactRead:
     """Read acceptance bytes without normalizing or re-encoding them."""
 
-    if not isinstance(raw_bytes, bytes):
+    raw_value = runtime_value(raw_bytes)
+    if not isinstance(raw_value, bytes):
         _raise_acceptance_failure(
             _acceptance_failure(
                 WORKFLOW_ACCEPTANCE_INPUT_INVALID,

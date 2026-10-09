@@ -3,7 +3,8 @@ from __future__ import annotations
 
 import logging
 import re
-from typing import Iterable, List, Dict, Set
+from collections.abc import Iterable
+from typing import Protocol, runtime_checkable
 
 try:  # 避免在未安装 redis 时崩溃
     import redis  # type: ignore
@@ -17,8 +18,15 @@ from ...project_customization import get_project_customization
 
 logger = logging.getLogger(__name__)
 
-_REDIS_CLIENT: "redis.Redis | None" = None
-_FALLBACK_STORE: Dict[str, Set[str]] = {}
+@runtime_checkable
+class _RedisClient(Protocol):
+    def ping(self) -> object: ...
+    def sadd(self, key: str, *values: str) -> object: ...
+    def smembers(self, key: str) -> set[str]: ...
+
+
+_redis_client: _RedisClient | None = None
+_FALLBACK_STORE: dict[str, set[str]] = {}
 
 # Key: social:keywords:{project_key}:{platform} for project pool, social:keywords:shared:{platform} for shared
 _SHARED_KEY = "shared"
@@ -40,22 +48,29 @@ def _pool_key(platform: str) -> str:
     return f"social:keywords:{key}:{platform_key}"
 
 
-def _get_redis_client():
-    global _REDIS_CLIENT
-    if _REDIS_CLIENT is not None or redis is None:
-        return _REDIS_CLIENT
+def _get_redis_client() -> _RedisClient | None:
+    global _redis_client
+    if _redis_client is not None or redis is None:
+        return _redis_client
 
     try:
-        client = redis.Redis.from_url(  # type: ignore[assignment]
+        redis_factory = getattr(redis, "Redis", None)
+        from_url = getattr(redis_factory, "from_url", None)
+        if not callable(from_url):
+            return None
+        candidate: object = from_url(
             settings.redis_url,
             decode_responses=True,
         )
+        if not isinstance(candidate, _RedisClient):
+            return None
+        client = candidate
         client.ping()
-        _REDIS_CLIENT = client
+        _redis_client = client
     except Exception as exc:  # noqa: BLE001
         logger.warning("keyword_library: redis unavailable, fallback to in-memory store: %s", exc)
-        _REDIS_CLIENT = None
-    return _REDIS_CLIENT
+        _redis_client = None
+    return _redis_client
 
 
 
@@ -89,9 +104,9 @@ def _is_domain_keyword(normalized: str) -> bool:
     return False
 
 
-def clean_keywords(keywords: Iterable[str]) -> List[str]:
-    seen: Set[str] = set()
-    cleaned: List[str] = []
+def clean_keywords(keywords: Iterable[str]) -> list[str]:
+    seen: set[str] = set()
+    cleaned: list[str] = []
     for keyword in keywords:
         normalized = normalize_keyword(keyword)
         if not normalized or normalized in seen:
@@ -104,7 +119,7 @@ def clean_keywords(keywords: Iterable[str]) -> List[str]:
     return cleaned
 
 
-def store_keywords(platform: str, keywords: Iterable[str]) -> List[str]:
+def store_keywords(platform: str, keywords: Iterable[str]) -> list[str]:
     cleaned = clean_keywords(keywords)
     if not cleaned:
         return []
@@ -127,7 +142,7 @@ def store_keywords(platform: str, keywords: Iterable[str]) -> List[str]:
         return list(storage)
 
 
-def get_keywords(platform: str) -> List[str]:
+def get_keywords(platform: str) -> list[str]:
     key = _pool_key(platform)
     client = _get_redis_client()
     if client is None:
@@ -145,9 +160,7 @@ def get_keywords(platform: str) -> List[str]:
         return sorted(storage)
 
 
-def merge_keywords(platform: str, keywords: Iterable[str]) -> List[str]:
+def merge_keywords(platform: str, keywords: Iterable[str]) -> list[str]:
     """存储关键词并返回去重后的全部关键词列表"""
     stored = store_keywords(platform, keywords)
     return stored
-
-

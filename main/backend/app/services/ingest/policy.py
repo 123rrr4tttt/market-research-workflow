@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import hashlib
 from collections.abc import Callable, Iterable
-from typing import Any, NoReturn
+from typing import Any, NoReturn, Iterable, Protocol, runtime_checkable, TypeGuard
 
 from sqlalchemy.orm import Session
 
@@ -32,6 +32,43 @@ POLICY_MATERIALIZATION_PROJECTION_SCHEMA_REF = (
 )
 
 
+def _is_string_key(value: object) -> bool:
+    return isinstance(value, str)
+
+
+@runtime_checkable
+class _StringKeyInspectable(Protocol):
+    def keys(self) -> Iterable[object]: ...
+
+
+def _has_only_string_keys(value: object) -> bool:
+    if not isinstance(value, _StringKeyInspectable):
+        return False
+    return all(map(_is_string_key, value.keys()))
+
+
+def _is_object_dict(value: object) -> TypeGuard[dict[str, object]]:
+    if not _has_only_string_keys(value):
+        return False
+    return isinstance(value, dict)
+
+
+def _object_dict(value: object) -> dict[str, object]:
+    return dict(value) if _is_object_dict(value) else {}
+
+
+def _safe_int(value: object) -> int:
+    try:
+        return int(value) if isinstance(value, (str, bytes, int, float)) else 0
+    except (TypeError, ValueError):
+        return 0
+
+
+def _isoformat(value: object) -> str | None:
+    formatter = getattr(value, "isoformat", None)
+    return str(formatter()) if callable(formatter) else None
+
+
 def _get_or_create_source(session: Session, doc: PolicyDocument) -> Source:
     name = doc.source_name or "Unknown Source"
     source = (
@@ -42,7 +79,10 @@ def _get_or_create_source(session: Session, doc: PolicyDocument) -> Source:
     if source:
         return source
 
-    source = Source(name=name, kind="state_site", base_url=doc.uri)
+    source = Source()
+    setattr(source, "name", name)
+    setattr(source, "kind", "state_site")
+    setattr(source, "base_url", doc.uri)
     session.add(source)
     session.flush()
     return source
@@ -79,11 +119,7 @@ def _policy_document_row(
         "state": str(getattr(document, "state", None) or state),
         "title": str(getattr(document, "title", None) or ""),
         "status": getattr(document, "status", None),
-        "publish_date": (
-            getattr(document, "publish_date", None).isoformat()
-            if getattr(document, "publish_date", None) is not None
-            else None
-        ),
+        "publish_date": _isoformat(getattr(document, "publish_date", None)),
         "summary": getattr(document, "summary", None),
         "content": str(getattr(document, "content", None) or ""),
         "uri": getattr(document, "uri", None),
@@ -204,10 +240,10 @@ def materialize_policy_documents(
 def _extraction_readback(
     *,
     requested: bool,
-    outcome: dict[str, Any] | None,
-) -> dict[str, Any]:
+    outcome: dict[str, object] | None,
+) -> dict[str, object]:
     if not requested:
-        payload = {
+        payload: dict[str, object] = {
             "operation": "ingest.policy.structured_extraction.v1",
             "status": "SKIPPED_NOT_REQUESTED",
             "reason": "extraction_not_requested",
@@ -218,12 +254,12 @@ def _extraction_readback(
     raw = dict(outcome or {})
     status = str(raw.get("status") or "failed").strip().lower()
     typed_status = "SUCCEEDED" if status == "ok" else "FAILED"
-    payload = {
+    payload: dict[str, object] = {
         "operation": "ingest.policy.structured_extraction.v1",
         "status": typed_status,
         "reason": raw.get("reason"),
         "error": raw.get("error"),
-        "domains": dict(raw.get("domains") or {}),
+        "domains": _object_dict(raw.get("domains")),
     }
     return {**payload, "readback_digest": content_digest(payload)}
 
@@ -265,7 +301,7 @@ def ingest_policy_documents(
     cancel_check: Callable[[int], bool] | None = None,
     request_id: str | None = None,
     idempotency_key: str | None = None,
-) -> dict:
+) -> dict[str, object]:
     """Ingest policy documents through the frontdoor writer.
 
     Provider iteration completes before ``start_job``. Bounded/cancellable
@@ -376,31 +412,32 @@ def ingest_policy_documents(
                     ingress_envelope=ingress_envelope,
                     run_writer=True,
                 )
-                writer_result = (frontdoor_result.get("data") or {}).get("writer_result") if isinstance(frontdoor_result.get("data"), dict) else {}
-                normalized_payload = (frontdoor_result.get("data") or {}).get("normalized_payload") if isinstance(frontdoor_result.get("data"), dict) else {}
-                extracted_data = (normalized_payload or {}).get("extracted_data") if isinstance(normalized_payload, dict) else {}
-                extraction = (extracted_data or {}).get("extraction") if isinstance(extracted_data, dict) else {}
-                if isinstance(extraction, dict) and isinstance(extracted_data, dict):
-                    extraction = {**extraction, "domains": extracted_data.get("domains") or {}}
+                frontdoor_data = frontdoor_result["data"]
+                writer_result = _object_dict(frontdoor_data.get("writer_result"))
+                normalized_payload = _object_dict(frontdoor_data.get("normalized_payload"))
+                extracted_data = _object_dict(normalized_payload.get("extracted_data"))
+                extraction = _object_dict(extracted_data.get("extraction"))
+                if extraction:
+                    extraction = {**extraction, "domains": _object_dict(extracted_data.get("domains"))}
                 extraction_readback = _extraction_readback(
                     requested=bool(enable_extraction),
                     outcome=(
                         extraction
-                        if isinstance(extraction, dict) and extraction
-                        else ((frontdoor_result.get("data") or {}).get("extraction_outcome") if isinstance(frontdoor_result.get("data"), dict) else None)
+                        if extraction
+                        else _object_dict(frontdoor_data.get("extraction_outcome")) or None
                     ),
                 )
                 extraction_stats["succeeded" if extraction_readback["status"] == "SUCCEEDED" else "failed" if extraction_readback["status"] == "FAILED" else "skipped"] += 1
                 item_result = {
                     "status": "ok",
                     "uri": doc.uri,
-                    "doc_id": (writer_result or {}).get("doc_id"),
+                    "doc_id": writer_result.get("doc_id"),
                     "extraction": extraction_readback,
                 }
-                if int((writer_result or {}).get("inserted") or 0) > 0:
-                    inserted_ids.append(int((writer_result or {}).get("doc_id") or 0))
+                if _safe_int(writer_result.get("inserted")) > 0:
+                    inserted_ids.append(_safe_int(writer_result.get("doc_id")))
                     inserted += 1
-                elif str((writer_result or {}).get("reason") or "") == "skipped_exists":
+                elif str(writer_result.get("reason") or "") == "skipped_exists":
                     skipped += 1
                     item_result["status"] = "skipped_exists"
                 item_results.append(item_result)
@@ -441,7 +478,7 @@ def ingest_policy_documents(
             if materialization.failed_count
             else "succeeded"
         )
-        result = {
+        result: dict[str, object] = {
             "inserted": inserted,
             "skipped": skipped,
             "state": state.upper(),

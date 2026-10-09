@@ -4,7 +4,7 @@ import json
 import os
 import tempfile
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Mapping, TypeGuard
 
 from .vector_contracts import (
     SEARCH_RETRIEVAL_RUN_CONTRACT_VERSION,
@@ -15,6 +15,10 @@ from .vector_contracts import (
 
 SEARCH_RETRIEVAL_RUN_READBACK_CONTRACT_VERSION = "search_retrieval_run_readback.v1"
 RETRIEVAL_RUNS_BRANCHES_HITS_BLOCKER = "retrieval_runs_branches_hits_persistence_not_implemented"
+
+
+def _is_payload_dict(value: object) -> TypeGuard[dict[str, object]]:
+    return isinstance(value, dict)
 
 
 def default_search_retrieval_runs_path() -> Path:
@@ -58,7 +62,7 @@ def read_search_retrieval_run_record(path: Path | str, run_id: str) -> dict[str,
                 row = json.loads(stripped)
             except json.JSONDecodeError as exc:
                 raise ValueError(f"invalid search retrieval run JSONL at line {line_number}: {exc}") from exc
-            if not isinstance(row, dict):
+            if not _is_payload_dict(row):
                 raise ValueError(f"search retrieval run JSONL line {line_number} must be an object")
             if str(row.get("run_id") or "") == target_run_id:
                 matched = row

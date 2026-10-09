@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 import logging
 import re
-from typing import Any
+from typing import Any, TypeGuard
 
 from sqlalchemy import select
 
@@ -16,6 +16,27 @@ from .search.web import search_sources
 logger = logging.getLogger(__name__)
 
 _DEFAULT_TARGET_SOURCES = 6
+
+
+def _is_string_object_dict(value: object) -> TypeGuard[dict[str, object]]:
+    return isinstance(value, dict)
+
+
+def _string_object_dict(value: object) -> dict[str, object]:
+    return value if _is_string_object_dict(value) else {}
+
+
+def _is_object_list(value: object) -> TypeGuard[list[object]]:
+    return isinstance(value, list)
+
+
+def _int_or_none(value: object) -> int | None:
+    if not isinstance(value, (str, int, float, bytes, bytearray)):
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
 
 
 def _topic_terms(topic: str) -> list[str]:
@@ -45,22 +66,24 @@ def _score_text_match(text: str, topic: str) -> int:
 
 
 def _extract_graph_evidence_from_document(document: Document) -> str:
-    extracted = document.extracted_data if isinstance(document.extracted_data, dict) else {}
+    extracted = _string_object_dict(document.extracted_data)
     snippets: list[str] = []
 
-    er = extracted.get("entities_relations") if isinstance(extracted.get("entities_relations"), dict) else {}
-    relations = er.get("relations") if isinstance(er.get("relations"), list) else []
+    er = _string_object_dict(extracted.get("entities_relations"))
+    relations_value = er.get("relations")
+    relations = relations_value if _is_object_list(relations_value) else []
     for rel in relations[:3]:
-        if not isinstance(rel, dict):
+        if not _is_string_object_dict(rel):
             continue
         evidence = str(rel.get("evidence") or "").strip()
         if evidence:
             snippets.append(evidence)
 
     if not snippets:
-        top_relations = extracted.get("relations") if isinstance(extracted.get("relations"), list) else []
+        top_relations_value = extracted.get("relations")
+        top_relations = top_relations_value if _is_object_list(top_relations_value) else []
         for rel in top_relations[:3]:
-            if not isinstance(rel, dict):
+            if not _is_string_object_dict(rel):
                 continue
             evidence = str(rel.get("evidence") or "").strip()
             if evidence:
@@ -80,7 +103,7 @@ def _source_from_document(document: Document, source_id: str) -> dict[str, Any] 
     if not uri.startswith("http://") and not uri.startswith("https://"):
         return None
 
-    extracted = document.extracted_data if isinstance(document.extracted_data, dict) else {}
+    extracted = _string_object_dict(document.extracted_data)
     publisher = (
         str(extracted.get("source_domain") or extracted.get("source") or document.doc_type or "internal_rag").strip()
         or "internal_rag"
@@ -108,9 +131,8 @@ def _collect_from_rag_documents(topic: str, max_results: int) -> list[dict[str, 
 
     doc_ids: list[int] = []
     for hit in rag_hits:
-        try:
-            doc_id = int(hit.get("document_id"))
-        except Exception:  # noqa: BLE001
+        doc_id = _int_or_none(hit.get("document_id"))
+        if doc_id is None:
             continue
         if doc_id not in doc_ids:
             doc_ids.append(doc_id)
@@ -154,7 +176,7 @@ def _collect_from_graph_nodes(topic: str, max_results: int, start_index: int) ->
 
     ranked: list[tuple[int, GraphNodeRecord]] = []
     for row in rows:
-        props = row.properties if isinstance(row.properties, dict) else {}
+        props = _string_object_dict(row.properties)
         blob = " ".join(
             [
                 str(row.display_name or ""),
@@ -172,7 +194,7 @@ def _collect_from_graph_nodes(topic: str, max_results: int, start_index: int) ->
 
     sources: list[dict[str, Any]] = []
     for idx, (_, row) in enumerate(ranked[: max_results * 3], start=start_index):
-        props = row.properties if isinstance(row.properties, dict) else {}
+        props = _string_object_dict(row.properties)
         url = str(props.get("source_uri") or props.get("uri") or "").strip()
         if not (url.startswith("http://") or url.startswith("https://")):
             continue

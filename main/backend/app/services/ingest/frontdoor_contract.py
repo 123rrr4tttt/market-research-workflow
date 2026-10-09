@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Annotated, Any, Iterable, Mapping
+from typing import Annotated, Any, Iterable, Mapping, Protocol, runtime_checkable, TypeGuard
 
 from .gate_reason_codes import normalize_reason_code, reason_category
 
@@ -43,8 +43,29 @@ def _normalize_flags(flags: Iterable[Any] | None) -> list[str]:
     return normalized
 
 
+def _is_string_key(value: object) -> bool:
+    return isinstance(value, str)
+
+
+@runtime_checkable
+class _StringKeyInspectable(Protocol):
+    def keys(self) -> Iterable[object]: ...
+
+
+def _has_only_string_keys(value: object) -> bool:
+    if not isinstance(value, _StringKeyInspectable):
+        return False
+    return all(map(_is_string_key, value.keys()))
+
+
+def _is_string_object_dict(value: object) -> TypeGuard[dict[str, object]]:
+    if not _has_only_string_keys(value):
+        return False
+    return isinstance(value, dict)
+
+
 def _normalize_diagnostics(value: Any) -> dict[str, Any]:
-    if isinstance(value, dict):
+    if _is_string_object_dict(value):
         return dict(value)
     return {}
 

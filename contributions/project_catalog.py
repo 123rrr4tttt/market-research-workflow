@@ -14,6 +14,12 @@ from app.successor_runtime.capabilities.workflow_common import (
 )
 from app.composition.installed_operation import installed_operation_contribution_catalog
 
+from mrw_functorial_kit.core.application_failure_semantics import (
+    source_library_contract_failures,
+)
+from mrw_functorial_kit.core.provider_port_failures import (
+    ingest_operation_failures,
+)
 from mrw_functorial_kit.contributions.source import source_contribution_catalog
 from mrw_functorial_kit.contributions.batch import batch_contribution_catalog
 from mrw_functorial_kit.contributions.task import task_contribution_catalog
@@ -27,7 +33,12 @@ project_contribution_catalog = (
         ContributionSpec(
             id="mrw.project.failure.metadata.v1",
             owner="mrw.project",
-            failures=(WORKFLOW_DEFINITION_FAILURES, contribution_failures),
+            failures=(
+                WORKFLOW_DEFINITION_FAILURES,
+                contribution_failures,
+                source_library_contract_failures,
+                ingest_operation_failures,
+            ),
         )
     ),
     *source_contribution_catalog,

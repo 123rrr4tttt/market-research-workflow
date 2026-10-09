@@ -72,7 +72,8 @@ class RuntimeCompositionError(RuntimeError):
 
 
 class _ReadUow(Protocol):
-    connection: Connection
+    @property
+    def connection(self) -> Connection: ...
 
     def __enter__(self) -> Self: ...
 
@@ -103,7 +104,7 @@ class InstalledMaterialReadHandler:
         )
 
 
-class PostgresMaterialReadHandler(RuntimeHandler):
+class PostgresMaterialReadHandler:
     """Execute one exact material read from submission-captured project bytes."""
 
     def __init__(

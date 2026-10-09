@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Query
 from pydantic import BaseModel, Field
-from typing import Any, Optional
+from typing import Any, Optional, TypedDict
 
 from ..project_customization.service import get_project_customization
 from ..composition.discovery import create_default_discovery_application
@@ -22,9 +22,16 @@ class DiscoveryRequest(BaseModel):
 
 
 router = APIRouter(prefix="/discovery", tags=["discovery"])
+
+
+class _UnifiedDiscoveryParams(TypedDict):
+    query_terms: list[str]
+    max_items: int
+
+
 discovery_app = create_default_discovery_application()
 DiscoveryDictEnvelope = ApiEnvelope[dict[str, Any]]
-DISCOVERY_ERROR_RESPONSES = {
+DISCOVERY_ERROR_RESPONSES: dict[int | str, dict[str, object]] = {
     400: {"description": "Invalid input"},
     404: {"description": "Not found"},
     429: {"description": "Rate limited"},
@@ -46,7 +53,13 @@ def _error_status_code(code: ErrorCode) -> int:
     return mapping.get(code, 500)
 
 
-def _error_json(code: ErrorCode, message: str, details, *, meta: dict | None = None) -> JSONResponse:
+def _error_json(
+    code: ErrorCode,
+    message: str,
+    details: dict[str, Any] | None,
+    *,
+    meta: dict[str, Any] | None = None,
+) -> JSONResponse:
     payload = error_response(
         code,
         message,
@@ -61,7 +74,7 @@ def _error_json(code: ErrorCode, message: str, details, *, meta: dict | None = N
     )
 
 
-def _project_unified_discovery_params(topic: str, max_results: int) -> dict:
+def _project_unified_discovery_params(topic: str, max_results: int) -> _UnifiedDiscoveryParams:
     """Phase-2 bridge: expose a unified view without changing current API contract.
 
     This keeps discovery endpoints backward compatible while aligning with
@@ -77,7 +90,7 @@ def _project_unified_discovery_params(topic: str, max_results: int) -> dict:
 @router.post("/search", response_model=DiscoveryDictEnvelope, responses=DISCOVERY_ERROR_RESPONSES)
 def discovery_search(payload: DiscoveryRequest, debug: bool = Query(False), persist: bool = Query(True)):
     unified_params = _project_unified_discovery_params(payload.topic, payload.max_results)
-    job_params = {
+    job_params: dict[str, object] = {
         "topic": payload.topic,
         "language": payload.language,
         "max_results": payload.max_results,
@@ -131,7 +144,7 @@ class SmartDiscoveryRequest(BaseModel):
 def discovery_smart(payload: SmartDiscoveryRequest, persist: bool = Query(True)):
     """智能搜索：自动增量搜索，只返回新信息"""
     unified_params = _project_unified_discovery_params(payload.topic, payload.max_results)
-    job_params = {
+    job_params: dict[str, object] = {
         "topic": payload.topic,
         "language": payload.language,
         "max_results": payload.max_results,
@@ -181,7 +194,7 @@ class DeepDiscoveryRequest(BaseModel):
 @router.post("/deep", response_model=DiscoveryDictEnvelope, responses=DISCOVERY_ERROR_RESPONSES)
 def discovery_deep(payload: DeepDiscoveryRequest, persist: bool = Query(True)):
     unified_params = _project_unified_discovery_params(payload.topic, payload.max_results)
-    job_params = {
+    job_params: dict[str, object] = {
         "topic": payload.topic,
         "language": payload.language,
         "iterations": payload.iterations,

@@ -315,6 +315,44 @@ def test_project_tenant_table_manifest_includes_mandatory_ingest_registry_once()
     assert registry_tables == [IngestSubmissionRegistry.__table__]
 
 
+def test_require_model_table_returns_native_table_identity() -> None:
+    from sqlalchemy.sql.schema import Table
+
+    from app.models.base import require_model_table
+    from app.models.entities import Source
+
+    table = Source.__table__
+
+    assert isinstance(table, Table)
+    assert require_model_table(table) is table
+
+
+def test_schema_startup_rejects_non_table_model_before_ddl(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app import startup_hooks as startup_module
+
+    database_engine = _RecordingEngine()
+    bad_model = SimpleNamespace(__table__=object())
+    monkeypatch.setattr(startup_module, "Source", bad_model)
+    monkeypatch.setattr(startup_module, "engine", database_engine)
+    monkeypatch.setattr(startup_module, "build_topology_service", lambda: object())
+    app = FastAPI()
+    startup_module.register_startup_hooks(app)
+    handler = next(
+        callback
+        for callback in app.router.on_startup
+        if callback.__name__ == "_ensure_all_project_schemas_ready"
+    )
+
+    with pytest.raises(TypeError) as caught:
+        handler()
+
+    assert str(caught.value) == "mapped model __table__ must be a SQLAlchemy Table"
+    assert database_engine.begin_calls == 0
+    assert database_engine.connection.statements == []
+
+
 def test_database_cli_wrapper_runs_preflight_before_command(monkeypatch: pytest.MonkeyPatch) -> None:
     from main.backend.scripts import _cli_runtime
 

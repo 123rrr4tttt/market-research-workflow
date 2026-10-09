@@ -24,31 +24,30 @@ class ProductPayload(BaseModel):
 
 
 @router.get("")
-def list_products(enabled: bool | None = None) -> dict:
+def list_products(enabled: bool | None = None) -> dict[str, object]:
     with SessionLocal() as session:
         stmt = select(Product).order_by(Product.id.asc())
         if enabled is not None:
             stmt = stmt.where(Product.enabled == enabled)
         rows = session.execute(stmt).scalars().all()
-        return ok({
-            "items": [
-                {
-                    "id": row.id,
-                    "name": row.name,
-                    "category": row.category,
-                    "source_name": row.source_name,
-                    "source_uri": row.source_uri,
-                    "selector_hint": row.selector_hint,
-                    "currency": row.currency,
-                    "enabled": row.enabled,
-                }
-                for row in rows
-            ]
-        })
+        items: list[dict[str, object]] = [
+            {
+                "id": row.id,
+                "name": row.name,
+                "category": row.category,
+                "source_name": row.source_name,
+                "source_uri": row.source_uri,
+                "selector_hint": row.selector_hint,
+                "currency": row.currency,
+                "enabled": row.enabled,
+            }
+            for row in rows
+        ]
+        return ok({"items": items})
 
 
 @router.post("")
-def create_product(payload: ProductPayload) -> dict:
+def create_product(payload: ProductPayload) -> dict[str, object]:
     with SessionLocal() as session:
         row = Product(
             name=payload.name.strip(),
@@ -66,7 +65,7 @@ def create_product(payload: ProductPayload) -> dict:
 
 
 @router.put("/{product_id}")
-def update_product(product_id: int, payload: ProductPayload) -> dict:
+def update_product(product_id: int, payload: ProductPayload) -> dict[str, object]:
     with SessionLocal() as session:
         row = session.get(Product, product_id)
         if row is None:
@@ -89,7 +88,7 @@ def update_product(product_id: int, payload: ProductPayload) -> dict:
 
 
 @router.delete("/{product_id}")
-def delete_product(product_id: int) -> dict:
+def delete_product(product_id: int) -> dict[str, object]:
     with SessionLocal() as session:
         row = session.get(Product, product_id)
         if row is None:

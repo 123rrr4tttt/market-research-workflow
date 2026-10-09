@@ -3,7 +3,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Optional, List, Dict, Any
+
+from ...contracts.json import JSONObject, JSONValue
 
 
 @dataclass
@@ -13,18 +14,18 @@ class NormalizedSocialPost:
     uri: str
     platform: str
     text: str
-    username: Optional[str] = None
-    subreddit: Optional[str] = None
-    publish_date: Optional[datetime] = None
-    createdAt: Optional[datetime] = None
-    state: Optional[str] = None
-    sentiment_orientation: Optional[str] = None  # positive/negative/neutral
-    sentiment_tags: List[str] = field(default_factory=list)
-    key_phrases: List[str] = field(default_factory=list)
-    emotion_words: List[str] = field(default_factory=list)
-    topic: Optional[str] = None
-    entities: List[Dict[str, Any]] = field(default_factory=list)  # [{text, type, span, kb_id?, canonical_name?}]
-    keywords: List[str] = field(default_factory=list)
+    username: str | None = None
+    subreddit: str | None = None
+    publish_date: datetime | None = None
+    createdAt: datetime | None = None
+    state: str | None = None
+    sentiment_orientation: str | None = None  # positive/negative/neutral
+    sentiment_tags: list[str] = field(default_factory=list[str])
+    key_phrases: list[str] = field(default_factory=list[str])
+    emotion_words: list[str] = field(default_factory=list[str])
+    topic: str | None = None
+    entities: list[JSONObject] = field(default_factory=list[JSONObject])  # [{text, type, span, kb_id?, canonical_name?}]
+    keywords: list[str] = field(default_factory=list[str])
 
 
 @dataclass
@@ -32,34 +33,34 @@ class NormalizedMarketData:
     """规范化市场数据结构（从Document表中提取）"""
     stat_id: int  # 文档ID
     state: str
-    game: Optional[str] = None
-    date: Optional[datetime] = None
-    sales_volume: Optional[float] = None
-    revenue: Optional[float] = None
-    jackpot: Optional[float] = None
-    ticket_price: Optional[float] = None
-    source_name: Optional[str] = None
-    source_uri: Optional[str] = None
-    title: Optional[str] = None  # 文档标题
-    entities: List[Dict[str, Any]] = field(default_factory=list)  # 实体列表
+    game: str | None = None
+    date: datetime | None = None
+    sales_volume: float | None = None
+    revenue: float | None = None
+    jackpot: float | None = None
+    ticket_price: float | None = None
+    source_name: str | None = None
+    source_uri: str | None = None
+    title: str | None = None  # 文档标题
+    entities: list[JSONObject] = field(default_factory=list[JSONObject])  # 实体列表
 
 
 @dataclass
 class NormalizedPolicyData:
     """规范化政策数据结构"""
     doc_id: int
-    title: Optional[str] = None
-    state: Optional[str] = None
-    status: Optional[str] = None
-    publish_date: Optional[datetime] = None
-    effective_date: Optional[datetime] = None
-    policy_type: Optional[str] = None
-    key_points: List[str] = field(default_factory=list)
-    summary: Optional[str] = None
-    source_name: Optional[str] = None
-    source_uri: Optional[str] = None
-    entities: List[Dict[str, Any]] = field(default_factory=list)
-    relations: List[Dict[str, Any]] = field(default_factory=list)
+    title: str | None = None
+    state: str | None = None
+    status: str | None = None
+    publish_date: datetime | None = None
+    effective_date: datetime | None = None
+    policy_type: str | None = None
+    key_points: list[str] = field(default_factory=list[str])
+    summary: str | None = None
+    source_name: str | None = None
+    source_uri: str | None = None
+    entities: list[JSONObject] = field(default_factory=list[JSONObject])
+    relations: list[JSONObject] = field(default_factory=list[JSONObject])
 
 
 @dataclass
@@ -67,7 +68,7 @@ class GraphNode:
     """图谱节点"""
     type: str  # Post, Keyword, Entity, Topic, SentimentTag, User, Subreddit, MarketData, State, Segment
     id: str  # 节点唯一标识
-    properties: Dict[str, Any] = field(default_factory=dict)
+    properties: JSONObject = field(default_factory=dict[str, JSONValue])
 
 
 @dataclass
@@ -76,13 +77,12 @@ class GraphEdge:
     type: str  # MENTIONS_KEYWORD, MENTIONS_ENTITY, HAS_TOPIC, HAS_SENTIMENT, AUTHORED_BY, IN_SUBREDDIT, CO_OCCURS, IN_STATE, HAS_SEGMENT, ON_DATE, etc.
     from_node: GraphNode
     to_node: GraphNode
-    properties: Dict[str, Any] = field(default_factory=dict)
+    properties: JSONObject = field(default_factory=dict[str, JSONValue])
 
 
 @dataclass
 class Graph:
     """图谱数据结构"""
-    nodes: Dict[str, GraphNode] = field(default_factory=dict)  # key: node_id, value: GraphNode
-    edges: List[GraphEdge] = field(default_factory=list)
+    nodes: dict[str, GraphNode] = field(default_factory=dict[str, GraphNode])  # key: node_id, value: GraphNode
+    edges: list[GraphEdge] = field(default_factory=list[GraphEdge])
     schema_version: str = "v1"
-

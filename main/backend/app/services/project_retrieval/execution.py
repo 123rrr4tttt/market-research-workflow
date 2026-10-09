@@ -2489,6 +2489,7 @@ def _read_document_body(
                 body = str(document.content or "").strip()
                 if not body:
                     return {"status": "missing", "error": {"code": "DOCUMENT_BODY_EMPTY"}}, None
+                updated_at = document.updated_at
                 return {
                     "status": "read",
                     "document_id": normalized_document_id,
@@ -2496,9 +2497,7 @@ def _read_document_body(
                     "uri": str(document.uri or ""),
                     "body_digest": sha256(body.encode("utf-8")).hexdigest(),
                     "body_length": len(body),
-                    "document_updated_at": document.updated_at.isoformat()
-                    if getattr(document, "updated_at", None)
-                    else None,
+                    "document_updated_at": updated_at.isoformat() if updated_at is not None else None,
                 }, body
     except Exception as exc:
         return {"status": "failed", "error": _failure(exc)}, None

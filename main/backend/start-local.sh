@@ -13,14 +13,16 @@ fi
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 REPO_DIR="$(cd "$ROOT_DIR/.." && pwd)"
-export PYTHONPATH="$REPO_DIR/src${PYTHONPATH:+:$PYTHONPATH}"
+export PYTHONPATH="$SCRIPT_DIR:$REPO_DIR/src:$REPO_DIR"
 FRONTEND_DIR="$ROOT_DIR/frontend-modern"
 OPS_DIR="$(cd "$SCRIPT_DIR/../ops" && pwd)"
+WEBUI_DIR="$OPS_DIR/codex-webui"
 ES_LOCAL_SCRIPT="$REPO_DIR/scripts/start-es-local.sh"
 FRONTEND_PORT="${FRONTEND_PORT:-5173}"
 FRONTEND_HOST="${FRONTEND_HOST:-127.0.0.1}"
 FRONTEND_LOG_FILE="/tmp/frontend-modern-dev.log"
 FRONTEND_PID_FILE="/tmp/frontend-modern-dev.pid"
+FRONTEND_MODE="${FRONTEND_MODE:-}"
 WORKER_LOG_FILE="/tmp/celery-local-worker.log"
 WORKER_PID_FILE="/tmp/celery-local-worker.pid"
 CELERY_LOG_LEVEL="${CELERY_LOG_LEVEL:-info}"
@@ -67,6 +69,8 @@ WITH_LOCAL_WORKER=1
 AUTO_INSTALL_DEPS=1
 KEEP_DOCKER_DEPS=0
 WITH_LANCEDB=0
+PROVISION=0
+PREPARE_DEPENDENCIES=0
 
 usage() {
     cat <<'EOF'
@@ -81,12 +85,20 @@ Options:
   --backend-only        仅启动后端；跳过本机前端和 Celery worker
   --with-local-worker   同时启动本机 Celery worker（默认已开启）
   --no-local-worker     不启动本机 Celery worker
+  --provision           允许创建环境、安装依赖、启动依赖、迁移和导入 seed
+  --prepare-dependencies
+                        仅在当前源码根准备 Python/frontend/WebUI 依赖后退出
+  --no-provision        仅使用现有环境与数据（默认）
   --no-auto-install     不自动安装缺失依赖（Homebrew/Node/PostgreSQL/Redis/pgvector）
   --with-lancedb        安装并启用 LanceDB 本地索引增强（可选依赖）
   -h, --help            显示帮助
 
-初始化时自动：安装 Python 依赖、PostgreSQL/Redis（Homebrew）、pgvector、Node.js、
-复制 .env、数据库迁移、演示数据导入（无数据时）。
+默认仅使用现有环境与数据；使用 --provision 时才安装 Python/Node/PostgreSQL 依赖、
+复制 .env、执行数据库迁移并导入演示数据。
+
+依赖准备不会读取或创建 .env，不启动服务、Docker 或 Homebrew，也不迁移或导入数据。
+若需复用另一份相同源码的运行依赖，可设置 MRW_DEPENDENCY_SOURCE_ROOT 为其绝对根目录；
+源码导入仍会校验为当前脚本所在根目录。
 EOF
 }
 
@@ -134,6 +146,18 @@ while [ $# -gt 0 ]; do
             WITH_LANCEDB=1
             shift
             ;;
+        --provision)
+            PROVISION=1
+            shift
+            ;;
+        --prepare-dependencies)
+            PREPARE_DEPENDENCIES=1
+            shift
+            ;;
+        --no-provision)
+            PROVISION=0
+            shift
+            ;;
         -h|--help)
             usage
             exit 0
@@ -146,15 +170,35 @@ while [ $# -gt 0 ]; do
     esac
 done
 
+if [ "$PREPARE_DEPENDENCIES" = "1" ]; then
+    PROVISION=1
+fi
+
+if [ -z "$FRONTEND_MODE" ]; then
+    if [ "$PROVISION" = "1" ]; then
+        FRONTEND_MODE="dev"
+    else
+        FRONTEND_MODE="preview"
+    fi
+fi
+
 ensure_modern_frontend_running() {
     if [ ! -d "$FRONTEND_DIR" ]; then
+        if [ "$PROVISION" != "1" ]; then
+            echo "❌ 未找到 modern 前端目录：$FRONTEND_DIR"
+            return 1
+        fi
         echo "⚠️  未找到 modern 前端目录，跳过前端启动：$FRONTEND_DIR"
         return
     fi
 
-    if lsof -Pi :"$FRONTEND_PORT" -sTCP:LISTEN -t >/dev/null 2>&1; then
-        echo "✅ modern 前端已运行（端口$FRONTEND_PORT）"
-        return
+    if [[ -n "$(lsof -nP -iTCP:"$FRONTEND_PORT" -sTCP:LISTEN -t 2>/dev/null || true)" ]]; then
+        if port_has_only_owned_listener "$FRONTEND_PORT" "$FRONTEND_DIR" "vite"; then
+            echo "✅ modern 前端已运行（端口$FRONTEND_PORT）"
+            return 0
+        fi
+        echo "❌ 前端端口$FRONTEND_PORT 被非本仓库进程占用"
+        return 1
     fi
 
     if ! command -v npm >/dev/null 2>&1; then
@@ -166,12 +210,20 @@ ensure_modern_frontend_running() {
     echo "🎨 启动 modern 前端（端口$FRONTEND_PORT）..."
     cd "$FRONTEND_DIR"
 
+    if [ "$PROVISION" != "1" ] && [ ! -d "node_modules" ]; then
+        echo "❌ modern 前端依赖缺失；使用 --provision 安装"
+        return 1
+    fi
+    if [ "$FRONTEND_MODE" = "preview" ] && [ ! -f "dist/index.html" ]; then
+        echo "❌ modern 前端静态产物缺失；先完成构建或显式 FRONTEND_MODE=dev"
+        return 1
+    fi
     if [ ! -d "node_modules" ]; then
         echo "📦 安装 frontend-modern 依赖..."
         npm install
     fi
 
-    VITE_API_PROXY_TARGET="http://localhost:8000" nohup npm run dev -- --host "$FRONTEND_HOST" --port "$FRONTEND_PORT" >"$FRONTEND_LOG_FILE" 2>&1 &
+    VITE_API_PROXY_TARGET="http://localhost:8000" nohup npm run "$FRONTEND_MODE" -- --host "$FRONTEND_HOST" --port "$FRONTEND_PORT" --strictPort >"$FRONTEND_LOG_FILE" 2>&1 &
     FRONTEND_PID=$!
     echo "$FRONTEND_PID" >"$FRONTEND_PID_FILE"
 
@@ -488,6 +540,16 @@ detect_python_cmd() {
 }
 
 ensure_backend_venv() {
+    if [ "$PROVISION" != "1" ]; then
+        if [ ! -x "${VENV_DIR}/bin/python" ] || [ ! -x "${VENV_DIR}/bin/uvicorn" ]; then
+            echo "❌ 后端运行环境缺失；使用 --provision 创建并安装依赖"
+            return 1
+        fi
+        # shellcheck disable=SC1091
+        source "${VENV_DIR}/bin/activate"
+        return 0
+    fi
+
     local pycmd
     pycmd="$(detect_python_cmd)" || {
         echo "❌ 未找到 Python 解释器（需要 python3.11 或 python3）"
@@ -550,6 +612,166 @@ PY
             echo "$optional_hash" > "$OPTIONAL_REQ_HASH_FILE"
         fi
     fi
+}
+
+canonical_existing_dir() {
+    local path="$1"
+    [ -d "$path" ] || return 1
+    (cd "$path" && pwd -P)
+}
+
+reuse_dependency_tree() {
+    local label="$1"
+    local source="$2"
+    local target="$3"
+    local source_real target_real
+    source_real="$(canonical_existing_dir "$source")" || {
+        echo "❌ 复用依赖缺失（$label）：$source"
+        return 1
+    }
+    if [ -e "$target" ] || [ -L "$target" ]; then
+        target_real="$(canonical_existing_dir "$target")" || {
+            echo "❌ 现有依赖路径不可用（$label）：$target"
+            return 1
+        }
+        if [ "$target_real" != "$source_real" ]; then
+            echo "❌ 当前根已有不同依赖目录（$label）：$target_real"
+            return 1
+        fi
+    else
+        ln -s "$source_real" "$target" || return 1
+    fi
+    echo "✅ 复用 $label：$source_real"
+}
+
+prepare_reused_dependencies() {
+    local source_root source_backend source_frontend source_webui
+    source_root="$(canonical_existing_dir "$MRW_DEPENDENCY_SOURCE_ROOT")" || {
+        echo "❌ MRW_DEPENDENCY_SOURCE_ROOT 不是可读目录"
+        return 1
+    }
+    if [[ "$MRW_DEPENDENCY_SOURCE_ROOT" != /* ]]; then
+        echo "❌ MRW_DEPENDENCY_SOURCE_ROOT 必须是绝对路径"
+        return 1
+    fi
+    if [ "$source_root" = "$REPO_DIR" ]; then
+        echo "❌ 依赖来源必须与当前源码根不同；当前根无需复用"
+        return 1
+    fi
+
+    source_backend="$source_root/main/backend"
+    source_frontend="$source_root/main/frontend-modern"
+    source_webui="$source_root/main/ops/codex-webui"
+    cmp -s "$REQ_FILE" "$source_backend/$REQ_FILE" || {
+        echo "❌ 依赖来源 requirements.txt 与当前候选不一致"
+        return 1
+    }
+    cmp -s "$FRONTEND_DIR/package-lock.json" "$source_frontend/package-lock.json" || {
+        echo "❌ 依赖来源 frontend package-lock.json 与当前候选不一致"
+        return 1
+    }
+    cmp -s "$WEBUI_DIR/pnpm-lock.yaml" "$source_webui/pnpm-lock.yaml" || {
+        echo "❌ 依赖来源 WebUI pnpm-lock.yaml 与当前候选不一致"
+        return 1
+    }
+
+    local requirements_hash source_requirements_hash
+    requirements_hash="$(shasum -a 256 "$REQ_FILE" | awk '{print $1}')"
+    source_requirements_hash="$(cat "$source_backend/$REQ_HASH_FILE" 2>/dev/null || true)"
+    if [ "$requirements_hash" != "$source_requirements_hash" ]; then
+        echo "❌ 依赖来源 Python 环境未绑定当前 requirements.txt"
+        return 1
+    fi
+
+    reuse_dependency_tree "backend venv" "$source_backend/$VENV_DIR" "$SCRIPT_DIR/$VENV_DIR" || return 1
+    reuse_dependency_tree "frontend node_modules" "$source_frontend/node_modules" "$FRONTEND_DIR/node_modules" || return 1
+    reuse_dependency_tree "WebUI node_modules" "$source_webui/node_modules" "$WEBUI_DIR/node_modules" || return 1
+}
+
+verify_candidate_source_imports() {
+    MRW_EXPECTED_SOURCE_ROOT="$REPO_DIR" python - <<'PY'
+import importlib
+import os
+from pathlib import Path
+
+root = Path(os.environ["MRW_EXPECTED_SOURCE_ROOT"]).resolve()
+expected = {
+    "app": root / "main" / "backend" / "app" / "__init__.py",
+    "mrw_functorial_kit": root / "src" / "mrw_functorial_kit" / "__init__.py",
+}
+for name, expected_path in expected.items():
+    module = importlib.import_module(name)
+    actual_raw = getattr(module, "__file__", None)
+    if not actual_raw:
+        raise SystemExit(f"candidate source import has no file: {name}")
+    actual = Path(actual_raw).resolve()
+    if actual != expected_path.resolve():
+        raise SystemExit(
+            f"candidate source import escaped root: {name} expected={expected_path.resolve()} actual={actual}"
+        )
+    print(f"candidate_source_import={name} path={actual}")
+PY
+}
+
+verify_backend_python311() {
+    "$VENV_DIR/bin/python" - <<'PY'
+import sys
+
+if sys.version_info[:2] != (3, 11):
+    raise SystemExit(
+        f"backend runtime must be Python 3.11, got {sys.version_info.major}.{sys.version_info.minor}"
+    )
+print(f"backend_python={sys.executable} version={sys.version_info.major}.{sys.version_info.minor}")
+PY
+}
+
+prepare_dependencies_only() {
+    echo "📦 仅准备当前候选根的运行依赖：$REPO_DIR"
+    if [ -n "${MRW_DEPENDENCY_SOURCE_ROOT:-}" ]; then
+        prepare_reused_dependencies || return 1
+        # shellcheck disable=SC1091
+        source "$VENV_DIR/bin/activate"
+    else
+        if [ -d "$VENV_DIR" ]; then
+            [ -x "$VENV_DIR/bin/python" ] || {
+                echo "❌ 现有 $VENV_DIR 缺少 Python；请移除该不完整目录后重试"
+                return 1
+            }
+            verify_backend_python311 || return 1
+        elif ! command -v python3.11 >/dev/null 2>&1; then
+            echo "❌ fresh dependency prepare requires an explicit python3.11 interpreter"
+            return 1
+        fi
+        ensure_backend_venv || return 1
+        command -v npm >/dev/null 2>&1 || {
+            echo "❌ npm 不可用；依赖准备不会自动安装 Node/Homebrew"
+            return 1
+        }
+        command -v pnpm >/dev/null 2>&1 || {
+            echo "❌ pnpm 不可用；依赖准备不会自动安装 pnpm/Homebrew"
+            return 1
+        }
+        echo "📦 按 package-lock.json 准备 frontend-modern 依赖..."
+        (cd "$FRONTEND_DIR" && npm ci)
+        echo "📦 按 pnpm-lock.yaml 准备 Codex WebUI 依赖..."
+        (cd "$WEBUI_DIR" && pnpm install --frozen-lockfile)
+    fi
+
+    [ -x "$VENV_DIR/bin/python" ] && [ -x "$VENV_DIR/bin/uvicorn" ] || {
+        echo "❌ 后端运行依赖不完整"
+        return 1
+    }
+    verify_backend_python311 || return 1
+    [ -x "$FRONTEND_DIR/node_modules/.bin/vite" ] || {
+        echo "❌ frontend-modern 运行依赖不完整"
+        return 1
+    }
+    [ -x "$WEBUI_DIR/node_modules/.bin/codex" ] || {
+        echo "❌ Codex WebUI 固定版本 CLI 不完整"
+        return 1
+    }
+    verify_candidate_source_imports || return 1
+    echo "✅ 依赖准备完成；未读取 .env，未启动服务，未执行迁移或 seed"
 }
 
 resolve_psql_cmd() {
@@ -749,6 +971,92 @@ ensure_local_worker_running() {
     return 1
 }
 
+pid_cwd() {
+    lsof -a -p "$1" -d cwd -Fn 2>/dev/null | sed -n 's/^n//p' | head -n 1
+}
+
+terminate_pid_gracefully() {
+    local pid="$1"
+    local label="$2"
+    kill -TERM "$pid" 2>/dev/null || return 1
+    for _ in $(seq 1 20); do
+        if ! kill -0 "$pid" >/dev/null 2>&1; then
+            return 0
+        fi
+        sleep 0.1
+    done
+    kill -KILL "$pid" 2>/dev/null || true
+    sleep 0.2
+    if kill -0 "$pid" >/dev/null 2>&1; then
+        echo "❌ 无法停止${label}进程 $pid"
+        return 1
+    fi
+    return 0
+}
+
+stop_owned_port_listener() {
+    local port="$1"
+    local expected_cwd="$2"
+    local command_marker="$3"
+    local pid command_line cwd foreign_owner=0 pid_line
+    while IFS= read -r pid; do
+        [ -n "$pid" ] || continue
+        command_line="$(ps -p "$pid" -o command= 2>/dev/null || true)"
+        cwd="$(pid_cwd "$pid")"
+        if [ "$cwd" = "$expected_cwd" ] && [[ "$command_line" == *"$command_marker"* ]]; then
+            terminate_pid_gracefully "$pid" "端口${port}的" || return 1
+        else
+            foreign_owner=1
+        fi
+    done < <(lsof -nP -iTCP:"$port" -sTCP:LISTEN -t 2>/dev/null || true)
+
+    if [ "$foreign_owner" = "1" ]; then
+        echo "❌ 端口${port}包含非本仓库进程，已跳过"
+        return 1
+    fi
+    return 0
+}
+
+port_has_only_owned_listener() {
+    local port="$1"
+    local expected_cwd="$2"
+    local command_marker="$3"
+    local pid command_line cwd
+    while IFS= read -r pid; do
+        [ -n "$pid" ] || continue
+        command_line="$(ps -p "$pid" -o command= 2>/dev/null || true)"
+        cwd="$(pid_cwd "$pid")"
+        if [ "$cwd" != "$expected_cwd" ] || [[ "$command_line" != *"$command_marker"* ]]; then
+            return 1
+        fi
+    done < <(lsof -nP -iTCP:"$port" -sTCP:LISTEN -t 2>/dev/null || true)
+    return 0
+}
+
+ensure_runtime_dependencies_ready() {
+    if ! is_tcp_open "$DB_HOST" "$DB_PORT"; then
+        echo "❌ PostgreSQL 未监听（$DB_HOST:$DB_PORT）；现有运行模式不自动启动"
+        return 1
+    fi
+    echo "✅ PostgreSQL 已运行（$DB_HOST:$DB_PORT）"
+    if ! is_tcp_open "$REDIS_HOST" "$REDIS_PORT"; then
+        echo "❌ Redis 未监听（$REDIS_HOST:$REDIS_PORT）；现有运行模式不自动启动"
+        return 1
+    fi
+    echo "✅ Redis 已运行（$REDIS_HOST:$REDIS_PORT）"
+    if command -v curl >/dev/null 2>&1 && curl -fsS "${ES_URL:-http://localhost:9200}" >/dev/null 2>&1; then
+        echo "✅ Elasticsearch 已运行"
+    else
+        echo "ℹ️  Elasticsearch 未就绪，相关全文检索功能可能不可用"
+    fi
+    return 0
+}
+
+if [ "$PREPARE_DEPENDENCIES" = "1" ]; then
+    prepare_dependencies_only
+    exit $?
+fi
+
 echo "🚀 启动本地开发环境..."
 
 ensure_backend_venv || exit 1
@@ -757,16 +1065,29 @@ unset DOCKER_ENV
 export DOCKER_ENV=""
 
 if [ ! -f ".env" ]; then
-    if [ -f ".env.example" ]; then
+    if [ "$PROVISION" = "1" ] && [ -f ".env.example" ]; then
         echo "📄 复制 .env.example 为 .env"
         cp .env.example .env
     else
-        echo "⚠️  .env文件不存在，将使用默认配置（localhost）"
-        echo "💡 提示：可以复制 .env.example 为 .env 并修改配置"
+        echo "❌ .env 文件不存在；使用 --provision 初始化"
+        exit 1
+    fi
+elif [ "$PROVISION" != "1" ]; then
+    set -a
+    # shellcheck source=/dev/null
+    source ".env"
+    set +a
+    if [[ -n "${DATABASE_URL:-}" ]] && [[ "$DATABASE_URL" =~ postgresql[^:]*://([^:]+):([^@]*)@([^:]+):([0-9]+)/([^?]*) ]]; then
+        DB_HOST="${BASH_REMATCH[3]}"
+        DB_PORT="${BASH_REMATCH[4]}"
     fi
 fi
 
 if [ "$USE_DOCKER_DEPS" = "1" ]; then
+    if [ "$PROVISION" != "1" ]; then
+        echo "❌ --with-docker-deps 需要显式 --provision；现有运行模式不启动容器依赖"
+        exit 1
+    fi
     if [ -f "$OPS_DIR/docker-compose.yml" ]; then
         echo ""
         echo "📦 检查数据库服务状态（Docker依赖模式）..."
@@ -800,12 +1121,16 @@ if [ "$USE_DOCKER_DEPS" = "1" ]; then
 else
     echo ""
     echo "📦 使用纯本机依赖模式（不启动 Docker db/es/redis）"
-    stop_conflicting_docker_deps_for_local_mode
-    ensure_local_postgres_running || exit 1
-    ensure_postgres_user_ready || exit 1
-    ensure_local_redis_running || exit 1
-    ensure_local_elasticsearch_running || true
-    ensure_pgvector_available || true
+    if [ "$PROVISION" = "1" ]; then
+        stop_conflicting_docker_deps_for_local_mode
+        ensure_local_postgres_running || exit 1
+        ensure_postgres_user_ready || exit 1
+        ensure_local_redis_running || exit 1
+        ensure_local_elasticsearch_running || true
+        ensure_pgvector_available || true
+    else
+        ensure_runtime_dependencies_ready || exit 1
+    fi
 fi
 
 # Run alembic migrations and seed demo data when empty
@@ -852,7 +1177,9 @@ with e.connect() as c:
     fi
 }
 
-ensure_db_migrated_and_seeded
+if [ "$PROVISION" = "1" ]; then
+    ensure_db_migrated_and_seeded
+fi
 
 if lsof -Pi :8000 -sTCP:LISTEN -t >/dev/null; then
     echo ""
@@ -894,8 +1221,7 @@ if lsof -Pi :8000 -sTCP:LISTEN -t >/dev/null; then
     else
         if [ "$FORCE" = "1" ]; then
             echo "🚨 --force 已启用，自动停止占用8000端口的进程"
-            lsof -ti:8000 | xargs kill -9 2>/dev/null || true
-            sleep 1
+            stop_owned_port_listener 8000 "$SCRIPT_DIR" "uvicorn app.main:app" || exit 1
         elif [ "$NON_INTERACTIVE" = "1" ]; then
             echo "❌ --non-interactive 模式遇到端口冲突，退出"
             exit 1
@@ -903,8 +1229,7 @@ if lsof -Pi :8000 -sTCP:LISTEN -t >/dev/null; then
             read -p "是否要停止占用8000端口的进程？(y/n) " -n 1 -r
             echo
             if [[ $REPLY =~ ^[Yy]$ ]]; then
-                lsof -ti:8000 | xargs kill -9 2>/dev/null || true
-                sleep 1
+                stop_owned_port_listener 8000 "$SCRIPT_DIR" "uvicorn app.main:app" || exit 1
             else
                 echo "请手动停止占用端口的进程或使用其他端口"
                 exit 1
@@ -914,8 +1239,15 @@ if lsof -Pi :8000 -sTCP:LISTEN -t >/dev/null; then
 fi
 
 if [ "$BACKEND_ONLY" != "1" ]; then
-    ensure_node_available || true
-    ensure_modern_frontend_running
+    if [ "$PROVISION" = "1" ]; then
+        ensure_node_available || true
+    else
+        command -v npm >/dev/null 2>&1 || {
+            echo "❌ 未检测到 npm；现有运行模式不自动安装"
+            exit 1
+        }
+    fi
+    ensure_modern_frontend_running || exit 1
     ensure_local_worker_running || exit 1
 fi
 
@@ -940,7 +1272,7 @@ echo ""
 echo "按 Ctrl+C 停止服务"
 echo ""
 
-BACKEND_HOST="${BACKEND_HOST:-0.0.0.0}"
+BACKEND_HOST="${BACKEND_HOST:-127.0.0.1}"
 if [ "$DEV_RELOAD" = "1" ]; then
     DOCKER_ENV="" uvicorn app.main:app --reload --host "$BACKEND_HOST" --port 8000
 else

@@ -2,8 +2,11 @@ from __future__ import annotations
 
 from typing import Any
 
+from sqlalchemy.orm import Session
+
 from ...models.base import SessionLocal
-from ...models.entities import Material as Document, Source
+from ...models.entities import Material as Document
+from ...models.entities import Source
 from .doc_type_mapper import normalize_doc_type
 
 
@@ -14,7 +17,7 @@ def persist_terminal_document(payload: dict[str, Any]) -> dict[str, Any]:
         return result
 
 
-def persist_terminal_document_in_session(session: Any, payload: dict[str, Any]) -> dict[str, Any]:
+def persist_terminal_document_in_session(session: Session, payload: dict[str, Any]) -> dict[str, Any]:
     """Persist the sole material body inside a caller-owned transaction."""
     normalized = dict(payload or {})
     normalized_doc_type = normalize_doc_type(str(normalized.get("doc_type") or "unknown"))
@@ -37,7 +40,7 @@ def persist_terminal_document_in_session(session: Any, payload: dict[str, Any]) 
             "doc_type": normalized_doc_type,
         }
 
-    source = _get_or_create_source(
+    source = get_or_create_source(
         session,
         name=str(normalized.get("source_name") or "unknown"),
         kind=str(normalized.get("source_kind") or "external"),
@@ -87,7 +90,7 @@ def persist_terminal_document_in_session(session: Any, payload: dict[str, Any]) 
     }
 
 
-def _get_or_create_source(session: Any, *, name: str, kind: str, base_url: str | None) -> Source:
+def get_or_create_source(session: Session, *, name: str, kind: str, base_url: str | None) -> Source:
     existing = session.query(Source).filter(Source.name == name, Source.kind == kind).first()
     if existing:
         return existing
@@ -99,5 +102,12 @@ def _get_or_create_source(session: Any, *, name: str, kind: str, base_url: str |
 
 persist_terminal_material = persist_terminal_document
 persist_terminal_material_in_session = persist_terminal_document_in_session
+_get_or_create_source = get_or_create_source
 
-__all__ = ["persist_terminal_material", "persist_terminal_material_in_session", "persist_terminal_document", "persist_terminal_document_in_session"]
+__all__ = [
+    "get_or_create_source",
+    "persist_terminal_material",
+    "persist_terminal_material_in_session",
+    "persist_terminal_document",
+    "persist_terminal_document_in_session",
+]

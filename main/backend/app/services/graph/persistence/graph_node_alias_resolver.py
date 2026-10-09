@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import re
 import unicodedata
+from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Any
 
 
 @dataclass(frozen=True)
@@ -19,13 +19,13 @@ class GraphNodeAliasResolver:
     _alias_keys = ("label", "name", "text", "canonical_name", "title")
 
     @staticmethod
-    def _normalize_text(value: Any) -> str:
+    def _normalize_text(value: object) -> str:
         text = unicodedata.normalize("NFKC", str(value or ""))
         text = re.sub(r"[\u200B-\u200D\uFEFF]", "", text)
         text = re.sub(r"\s+", " ", text).strip().lower()
         return text
 
-    def resolve(self, node_payload: dict[str, Any]) -> list[GraphAliasCandidate]:
+    def resolve(self, node_payload: Mapping[str, object]) -> list[GraphAliasCandidate]:
         out: list[GraphAliasCandidate] = []
         seen: set[tuple[str, str]] = set()
 

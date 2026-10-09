@@ -3,10 +3,10 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, date
-from typing import Optional, List, Dict, Any
 
 from ....models.entities import Document
 from ..models import NormalizedPolicyData
+from ..mapping import normalize_graph_json_object
 from ...document_views import (
     get_policy_data,
     get_policy_entities,
@@ -21,7 +21,7 @@ from ...document_views import (
 logger = logging.getLogger(__name__)
 
 
-def _to_datetime(value: Any) -> Optional[datetime]:
+def _to_datetime(value: object) -> datetime | None:
     """将日期/时间值转换为datetime对象"""
     if value is None:
         return None
@@ -41,12 +41,12 @@ def _to_datetime(value: Any) -> Optional[datetime]:
 class PolicyAdapter:
     """政策数据适配器"""
 
-    def to_normalized(self, doc: Document) -> Optional[NormalizedPolicyData]:
+    def to_normalized(self, doc: Document) -> NormalizedPolicyData | None:
         if not has_structured_data(doc):
             logger.debug("Document %s 缺少 extracted_data，跳过", doc.id)
             return None
 
-        policy_data: Dict[str, Any] = get_policy_data(doc)
+        policy_data: dict[str, object] = dict(get_policy_data(doc))
 
         # 如果既没有 policy 数据也没有基本信息，则跳过
         if not policy_data and doc.doc_type not in ("policy", "policy_regulation"):
@@ -83,6 +83,6 @@ class PolicyAdapter:
             summary=summary,
             source_name=source_name,
             source_uri=doc.uri,
-            entities=entities,
-            relations=relations,
+            entities=[normalize_graph_json_object(entity) for entity in entities],
+            relations=[normalize_graph_json_object(relation) for relation in relations],
         )

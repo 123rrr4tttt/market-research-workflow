@@ -8,17 +8,52 @@ from __future__ import annotations
 import hashlib
 import json
 from dataclasses import dataclass
-from typing import Any, Callable, Mapping, Sequence
-
-from sqlalchemy import select
-from sqlalchemy.orm import Session
-from functorial_kit import Failure
+from datetime import datetime
+from typing import Any, Callable, Mapping, Sequence, TypedDict, TypeGuard
 
 from app.models.information_topology_entities import InformationTopologyLink, InformationTopologyState
+from functorial_kit import Failure
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
 from .contracts import TopologyState, topology_failures, topology_state_codec
 from .profiles import ProfileSpec, decode_state, encode_state
 
 StateKey = tuple[str, str, str, str]  # project, module, namespace, state id
+
+
+class ProfileIdentityRow(TypedDict):
+    profile_id: str
+    profile_version: str
+    payload: dict[str, object]
+
+
+class CurrentStateRow(TypedDict):
+    module_id: str
+    namespace: str
+    state_id: str
+    profile_id: str
+    profile_version: str
+    revision: int
+    digest: str
+    created_at: datetime | None
+    element_count: int
+    payload: dict[str, object]
+
+
+class StateResultRow(TypedDict):
+    key: StateKey
+    revision: int
+    profile_id: str
+    profile_version: str
+    payload: dict[str, object]
+    provenance: dict[str, object] | None
+    digest: str
+    deleted: bool
+    is_current: bool
+    state: TopologyState
+
+
 ProfileResolver = Callable[
     [str, str, str, Mapping[str, Any], Mapping[str, Any] | None],
     ProfileSpec | Failure,
@@ -58,6 +93,25 @@ def _canonical(value: Any) -> bytes:
 
 def _digest(value: Any) -> str:
     return hashlib.sha256(_canonical(value)).hexdigest()
+
+
+def _runtime_value(value: object) -> object:
+    return value
+
+
+def _is_object_mapping(value: object) -> TypeGuard[Mapping[object, object]]:
+    return isinstance(value, Mapping)
+
+
+def _is_object_sequence(value: object) -> TypeGuard[list[object] | tuple[object, ...]]:
+    return isinstance(value, (list, tuple))
+
+
+def _payload_element_count(payload: object) -> int:
+    if not _is_object_mapping(payload):
+        return 0
+    elements = payload.get("elements", ())
+    return len(elements) if _is_object_sequence(elements) else 0
 
 
 @dataclass(frozen=True, slots=True)
@@ -126,11 +180,14 @@ class InformationTopologyRepository:
             return topology_failures.fail("UNKNOWN_PROFILE", "profile resolver failed", {"reason": str(exc)})
         if isinstance(resolved, Failure):
             return resolved
-        if not isinstance(resolved, ProfileSpec) or (resolved.profile_id, resolved.version) != (profile_id, profile_version):
+        resolved_value = _runtime_value(resolved)
+        if not isinstance(resolved_value, ProfileSpec):
             return topology_failures.fail("UNKNOWN_PROFILE", "profile resolver returned a different profile identity")
-        return resolved
+        if (resolved_value.profile_id, resolved_value.version) != (profile_id, profile_version):
+            return topology_failures.fail("UNKNOWN_PROFILE", "profile resolver returned a different profile identity")
+        return resolved_value
 
-    def list_profile_identities(self, session: Session, project_key: str) -> tuple[dict[str, Any], ...]:
+    def list_profile_identities(self, session: Session, project_key: str) -> tuple[ProfileIdentityRow, ...]:
         """List each current, non-deleted profile identity used by this project.
 
         A representative canonical payload accompanies each pair so the service
@@ -154,14 +211,14 @@ class InformationTopologyRepository:
                 InformationTopologyState.state_id,
             )
         ).all()
-        identities: dict[tuple[str, str], dict[str, Any]] = {}
+        identities: dict[tuple[str, str], ProfileIdentityRow] = {}
         for profile_id, profile_version, payload in rows:
             identities.setdefault((profile_id, profile_version), {
                 "profile_id": profile_id, "profile_version": profile_version, "payload": payload,
             })
         return tuple(identities[key] for key in sorted(identities))
 
-    def list_current_states(self, session: Session, project_key: str) -> tuple[dict[str, Any], ...]:
+    def list_current_states(self, session: Session, project_key: str) -> tuple[CurrentStateRow, ...]:
         """List current topology identities and counts without decoding their payloads."""
         rows = session.execute(
             select(
@@ -188,9 +245,10 @@ class InformationTopologyRepository:
             "module_id": module_id, "namespace": namespace, "state_id": state_id,
             "profile_id": profile_id, "profile_version": profile_version,
             "revision": revision, "digest": digest,
-            "element_count": len(payload.get("elements", ())) if isinstance(payload, Mapping) else 0,
+            "created_at": _created_at,
+            "element_count": _payload_element_count(payload),
             "payload": payload,
-        } for module_id, namespace, state_id, profile_id, profile_version, revision, digest, created_at, payload in rows)
+        } for module_id, namespace, state_id, profile_id, profile_version, revision, digest, _created_at, payload in rows)
 
     def prepare_state_write(self, write: StateWrite) -> Mapping[str, Any] | Failure:
         """Canonicalize and validate one candidate without touching a database session."""
@@ -205,7 +263,7 @@ class InformationTopologyRepository:
             return topology_failures.fail("IDENTITY_CONFLICT", "state key project differs from element refs")
         return encoded
 
-    def read_state(self, session: Session, key: StateKey, *, revision: int | None = None) -> dict[str, Any] | None | Failure:
+    def read_state(self, session: Session, key: StateKey, *, revision: int | None = None) -> StateResultRow | None | Failure:
         query = select(InformationTopologyState).where(
             InformationTopologyState.project_key == key[0],
             InformationTopologyState.module_id == key[1],
@@ -237,7 +295,7 @@ class InformationTopologyRepository:
         links: Sequence[LinkWrite] = (),
         read_set: Sequence[StateRead] = (),
         link_read_set: Sequence[LinkRead] = (),
-    ) -> tuple[dict[str, int], ...] | Any:
+    ) -> tuple[dict[str, int], ...] | Failure:
         """Validate all target bases and protected reads before writing any revision.
 
         Caller must wrap this call in one ``with session.begin()`` transaction.
@@ -268,7 +326,9 @@ class InformationTopologyRepository:
         # Read/protection locks use one deterministic order. Lock current rows first,
         # then compare every expected revision before any current flag is changed.
         locked_states: dict[StateKey, InformationTopologyState | None] = {}
-        expected_state_keys = {entry.key: entry.expected_revision for entry in read_set}
+        expected_state_keys: dict[StateKey, int | None] = {
+            entry.key: entry.expected_revision for entry in read_set
+        }
         expected_state_keys.update({write.key: write.expected_revision for write in states})
         if len(expected_state_keys) != len(read_set) + len(states):
             return topology_failures.fail("INVALID_PATCH", "duplicate state in write/read set")
@@ -291,7 +351,9 @@ class InformationTopologyRepository:
                     {"key": key, "expected_revision": expected, "actual_revision": actual},
                 )
 
-        link_expected = {(entry.project_key, entry.link_id): entry.expected_revision for entry in link_read_set}
+        link_expected: dict[tuple[str, str], int | None] = {
+            (entry.project_key, entry.link_id): entry.expected_revision for entry in link_read_set
+        }
         for write in links:
             key = (write.project_key, write.link_id)
             if key in link_expected:
@@ -315,10 +377,9 @@ class InformationTopologyRepository:
                     {"key": key, "expected_revision": expected, "actual_revision": actual},
                 )
 
-        if any(locked_states[write.key] is not None and locked_states[write.key].deleted for write in states):
+        if any((row := locked_states[write.key]) is not None and row.deleted for write in states):
             return topology_failures.fail("IDENTITY_CONFLICT", "tombstoned state identity cannot be reused")
-        if any(locked_links[(write.project_key, write.link_id)] is not None and
-               locked_links[(write.project_key, write.link_id)].deleted for write in links):
+        if any((row := locked_links[(write.project_key, write.link_id)]) is not None and row.deleted for write in links):
             return topology_failures.fail("IDENTITY_CONFLICT", "tombstoned link identity cannot be reused")
 
         results: list[dict[str, int]] = []

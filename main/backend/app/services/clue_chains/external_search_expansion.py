@@ -5,8 +5,10 @@ import json
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Annotated, Any, Callable, Mapping, Protocol, Sequence
+from typing import Annotated, Any, Callable, Iterable, Mapping, Protocol, Sequence, TypeGuard
 from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
+
+from .source_library_expansion import clue_chain_failure, raise_clue_chain_legacy
 
 CONTRACT_VERSION = "clue_chain.external_search_expansion.v1"
 HOP_CONTRACT_VERSION = "clue_chain.hop.v1"
@@ -54,7 +56,7 @@ class ExternalSearchProviderResponse:
     provider_name: str
     results: list[dict[str, Any]]
     trace: dict[str, Any]
-    replay: dict[str, Any]
+    replay: Mapping[str, object]
     fixture_gate: bool
     blocked_reason: str | None = None
 
@@ -128,7 +130,7 @@ class FixtureExternalSearchProvider:
             "blocked_reason": blocked_reason,
             "raw_result_count": len(results),
         }
-        replay = {
+        replay: dict[str, object] = {
             "mode": mode,
             "provider_name": self.provider_name,
             "query": request.query,
@@ -175,7 +177,7 @@ class LiveHookExternalSearchProvider:
             "blocked_reason": None,
             "raw_result_count": len(results),
         }
-        replay = {
+        replay: dict[str, object] = {
             "mode": "live_hook",
             "provider_name": self.provider_name,
             "query": request.query,
@@ -208,7 +210,7 @@ class LiveHookExternalSearchProvider:
             "blocked_reason": blocked_reason,
             "raw_result_count": 0,
         }
-        replay = {
+        replay: dict[str, object] = {
             "mode": "blocked",
             "provider_name": self.provider_name,
             "query": request.query,
@@ -440,7 +442,7 @@ def build_external_search_provider(
     )
 
 
-def normalize_external_search_url(url: str | None) -> str:
+def normalize_external_search_url(url: object) -> str:
     raw = _clean_text(url)
     if not raw:
         return ""
@@ -498,16 +500,20 @@ def _merge_results(
     duplicate_count = 0
 
     for raw in results:
-        if not isinstance(raw, Mapping):
+        raw_value = _runtime_value(raw)
+        if not _is_object_mapping(raw_value):
             skipped_count += 1
             continue
-        result = dict(raw)
+        result = _string_object_mapping(raw_value)
+        if result is None:
+            skipped_count += 1
+            continue
         normalized_url = normalize_external_search_url(
             result.get("normalized_url") or result.get("url") or result.get("link")
         )
         title = _clean_text(result.get("title") or result.get("name"))
         snippet = _clean_text(result.get("snippet") or result.get("description") or result.get("content"))
-        aliases = _unique_texts([*list(result.get("aliases") or []), title])
+        aliases = _unique_texts([*_object_iterable_or_empty(result.get("aliases")), title])
         dedupe_key = external_search_dedupe_key(
             {
                 "dedupe_key": result.get("dedupe_key"),
@@ -564,23 +570,28 @@ def _coerce_request(request: ExternalSearchExpansionRequest | Mapping[str, Any])
 
 
 def _load_fixture_results(fixture_path: Path, query: str) -> list[dict[str, Any]]:
-    payload = json.loads(fixture_path.read_text(encoding="utf-8"))
-    if isinstance(payload, list):
+    payload = _runtime_value(json.loads(fixture_path.read_text(encoding="utf-8")))
+    if _is_object_sequence(payload):
         return _dict_list(payload)
-    if not isinstance(payload, Mapping):
+    payload_mapping = _string_object_mapping(payload)
+    if payload_mapping is None:
         return []
-    if isinstance(payload.get("queries"), Mapping):
-        query_payload = payload["queries"].get(query) or payload["queries"].get("*") or {}
-        if isinstance(query_payload, Mapping):
-            return _dict_list(query_payload.get("results") or [])
-        return _dict_list(query_payload or [])
-    return _dict_list(payload.get("results") or [])
+    queries = _string_object_mapping(payload_mapping.get("queries"))
+    if queries is not None:
+        query_payload: object = queries.get(query) or queries.get("*") or {}
+        query_mapping = _string_object_mapping(query_payload)
+        if query_mapping is not None:
+            results_value = query_mapping.get("results")
+            return _dict_list(results_value if results_value is not None else [])
+        return _dict_list(query_payload)
+    results_value = payload_mapping.get("results")
+    return _dict_list(results_value if results_value is not None else [])
 
 
-def _dict_list(items: Sequence[Mapping[str, Any]] | Any) -> list[dict[str, Any]]:
-    if not isinstance(items, Sequence) or isinstance(items, (str, bytes, bytearray)):
+def _dict_list(items: object) -> list[dict[str, Any]]:
+    if not _is_object_sequence(items):
         return []
-    return [dict(item) for item in items if isinstance(item, Mapping)]
+    return [item for value in items if (item := _string_object_mapping(value)) is not None]
 
 
 def _stable_id(prefix: str, *parts: Any) -> str:
@@ -609,3 +620,47 @@ def _unique_texts(values: Sequence[Any]) -> list[str]:
         seen.add(key)
         output.append(text)
     return output
+
+
+def _runtime_value(value: object) -> object:
+    return value
+
+
+def _is_object_mapping(value: object) -> TypeGuard[Mapping[object, object]]:
+    return isinstance(value, Mapping)
+
+
+def _is_object_sequence(value: object) -> TypeGuard[Sequence[object]]:
+    return isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray))
+
+
+def _is_object_iterable(value: object) -> TypeGuard[Iterable[object]]:
+    return isinstance(value, Iterable)
+
+
+def _object_iterable_or_empty(value: object) -> Iterable[object]:
+    if not value:
+        return ()
+    if _is_object_iterable(value):
+        return value
+    raise_clue_chain_legacy(
+        clue_chain_failure(
+            "provider_result_invalid",
+            "external search aliases must be iterable",
+            owner="clue_chains.external_search_expansion.aliases",
+            public_exception=TypeError,
+            actual_type=type(value).__name__,
+        ),
+        exception_type=TypeError,
+    )
+
+
+def _string_object_mapping(value: object) -> dict[str, object] | None:
+    if not _is_object_mapping(value):
+        return None
+    result: dict[str, object] = {}
+    for key, item in value.items():
+        if not isinstance(key, str):
+            return None
+        result[key] = item
+    return result

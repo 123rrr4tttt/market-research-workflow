@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from typing import Any
+from typing import Any, TypeGuard, cast
 from urllib.parse import urlparse
 
 from .url_utils import domain_from_url
@@ -23,7 +23,17 @@ _ALLOWED_CHANNEL_KEYS = frozenset(
 _SYMBOL_PATTERN = re.compile(r"^[a-zA-Z][a-zA-Z0-9_]*$")
 
 
-def validate_llm_recommendation(raw: dict[str, Any], site_url: str) -> dict[str, Any] | None:
+def _is_string_object_dict(value: object) -> TypeGuard[dict[str, object]]:
+    return isinstance(value, dict) and all(
+        isinstance(key, str) for key in cast(dict[object, object], value)
+    )
+
+
+def _clean_text(value: object) -> str:
+    return value.strip() if isinstance(value, str) else ""
+
+
+def validate_llm_recommendation(raw: object, site_url: str) -> dict[str, Any] | None:
     """
     Validate LLM output. Returns sanitized dict if valid, None if invalid.
 
@@ -33,13 +43,13 @@ def validate_llm_recommendation(raw: dict[str, Any], site_url: str) -> dict[str,
     - template: if search_template, must contain {{q}}; domain must match site_url
     - symbol_suggestion: if present, must be valid identifier
     """
-    if not isinstance(raw, dict):
+    if not _is_string_object_dict(raw):
         return None
 
-    entry_type = (raw.get("entry_type") or "").strip().lower()
-    channel_key = (raw.get("channel_key") or "").strip()
-    template = (raw.get("template") or "").strip() or None
-    symbol_suggestion = (raw.get("symbol_suggestion") or "").strip() or None
+    entry_type = _clean_text(raw.get("entry_type")).lower()
+    channel_key = _clean_text(raw.get("channel_key"))
+    template = _clean_text(raw.get("template")) or None
+    symbol_suggestion = _clean_text(raw.get("symbol_suggestion")) or None
 
     if not entry_type or entry_type not in _ALLOWED_ENTRY_TYPES:
         return None

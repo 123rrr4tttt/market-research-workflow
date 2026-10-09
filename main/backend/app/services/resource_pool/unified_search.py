@@ -2,36 +2,37 @@
 
 from __future__ import annotations
 
+import json
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
-import json
-from typing import Any, NoReturn
+from typing import Any, NoReturn, TypeGuard, cast
 
 from functorial_kit import Failure
+
 from mrw_functorial_kit.core.provider_port_failures import resource_pool_contract_failures
 
+from ..source_library.item_plan import build_item_execution_plan
+from ..source_library.relevance_review import build_relevance_review_queue
+from ..source_library.resolver import list_effective_items
+from .auto_classify import infer_keyword_capabilities
+from .candidate_source_plan import build_candidate_source_plan, plan_to_metadata
+from .extract import append_url
 from .http_port import (
     HttpFetchError,
     handle_official_access_api,
 )
-from .auto_classify import infer_keyword_capabilities
-from .candidate_source_plan import build_candidate_source_plan, plan_to_metadata
-from ..source_library.resolver import list_effective_items
-from ..source_library.item_plan import build_item_execution_plan
-from ..source_library.relevance_review import build_relevance_review_queue
-from .extract import append_url
 from .resolver import list_urls
-from .search_capabilities import make_search_candidate
-from .site_search_policy import resolve_site_search_policy_for_entry
-from .search_template_service import execute_feed_probe
-from .search_template_service import execute_external_site_search
-from .search_template_service import execute_search_template
-from .search_template_service import execute_sitemap_probe
-from .search_template_adapters import apply_search_template_adapter_plan
-from .search_template_adapters import resolve_search_template_adapter_plan
-from .search_template_service import normalize_search_template_placeholders
-from .search_template_service import resolve_search_template_pagination
+from .search_template_adapters import apply_search_template_adapter_plan, resolve_search_template_adapter_plan
+from .search_template_service import (
+    execute_external_site_search,
+    execute_feed_probe,
+    execute_search_template,
+    execute_sitemap_probe,
+    normalize_search_template_placeholders,
+    resolve_search_template_pagination,
+)
 from .site_entries import get_site_entry_by_url
+from .site_search_policy import SiteSearchPolicy, resolve_site_search_policy_for_entry
 from .url_utils import domain_from_url
 
 
@@ -39,12 +40,12 @@ from .url_utils import domain_from_url
 class UnifiedSearchResult:
     item_key: str
     query_terms: list[str]
-    site_entries_used: list[dict[str, Any]]
-    runtime_diagnostics: list[dict[str, Any]]
+    site_entries_used: list[dict[str, object]]
+    runtime_diagnostics: list[dict[str, object]]
     candidates: list[str]
     written: dict[str, int] | None
     ingest_result: dict[str, Any] | None
-    errors: list[dict[str, str]]
+    errors: list[dict[str, object]]
     relevance_review_queue: dict[str, Any]
 
 
@@ -69,6 +70,46 @@ _PRIORITY_KEEP_DOMAINS = {
     "docs.anthropic.com",
     "cloud.google.com",
 }
+
+
+def _is_object_dict(value: object) -> TypeGuard[dict[object, object]]:
+    return isinstance(value, dict)
+
+
+def _is_object_list(value: object) -> TypeGuard[list[object]]:
+    return isinstance(value, list)
+
+
+def _is_candidate_tuple(value: object) -> TypeGuard[tuple[object, object, object]]:
+    return isinstance(value, tuple) and len(cast(tuple[object, ...], value)) == 3
+
+
+def _string_object_view(value: object) -> dict[str, object]:
+    if not _is_object_dict(value):
+        return {}
+    return {
+        key: item
+        for key, item in value.items()
+        if isinstance(key, str)
+    }
+
+
+def _optional_float(value: object) -> float | None:
+    if not isinstance(value, (str, int, float)):
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _optional_int(value: object) -> int | None:
+    if not isinstance(value, (str, bytes, bytearray, int, float)):
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
 
 
 _RESOURCE_POOL_FAILURE_WITNESS = "test:test_latest_service_b_resource_pool_failure_lifts"
@@ -235,34 +276,30 @@ def _resolve_candidate_target_config(
             raw = json.loads(text)
         except Exception:
             return None
-    if not isinstance(raw, dict):
+    raw_view = _string_object_view(raw)
+    if not raw_view:
         return None
-    bucket_by = str(raw.get("bucket_by") or raw.get("group_by") or "").strip().lower()
+    bucket_by = str(raw_view.get("bucket_by") or raw_view.get("group_by") or "").strip().lower()
     if bucket_by not in {"entry_type", "route_kind", "candidate_source", "entry_domain", "site_policy", "search_service"}:
         return None
-    ratios = _parse_ratio_map(raw.get("ratios") or raw.get("weights"))
-    minimums = _parse_int_map(raw.get("minimums") or raw.get("mins"))
-    maximums = _parse_int_map(raw.get("maximums") or raw.get("caps") or raw.get("maximum_caps"))
-    allocation_mode = str(raw.get("allocation_mode") or raw.get("distribution_mode") or "weighted").strip().lower()
+    ratios = _parse_ratio_map(raw_view.get("ratios") or raw_view.get("weights"))
+    minimums = _parse_int_map(raw_view.get("minimums") or raw_view.get("mins"))
+    maximums = _parse_int_map(raw_view.get("maximums") or raw_view.get("caps") or raw_view.get("maximum_caps"))
+    allocation_mode = str(raw_view.get("allocation_mode") or raw_view.get("distribution_mode") or "weighted").strip().lower()
     if allocation_mode not in {"weighted", "equal"}:
         allocation_mode = "weighted"
     default_ratio = 0.0
-    try:
-        default_ratio = max(0.0, float(raw.get("default_ratio") or 0.0))
-    except Exception:
-        default_ratio = 0.0
+    default_ratio = max(0.0, _optional_float(raw_view.get("default_ratio")) or 0.0)
     target_total = None
-    if raw.get("target_total") is not None or raw.get("total") is not None:
-        try:
-            target_total = max(1, min(int(raw.get("target_total") or raw.get("total")), max_candidates))
-        except Exception:
-            target_total = None
+    raw_target_total = raw_view.get("target_total") or raw_view.get("total")
+    parsed_target_total = _optional_int(raw_target_total)
+    if parsed_target_total is not None:
+        target_total = max(1, min(parsed_target_total, max_candidates))
     target_per_bucket = None
-    if raw.get("target_per_bucket") is not None or raw.get("per_bucket_target") is not None:
-        try:
-            target_per_bucket = max(1, min(int(raw.get("target_per_bucket") or raw.get("per_bucket_target")), max_candidates))
-        except Exception:
-            target_per_bucket = None
+    raw_target_per_bucket = raw_view.get("target_per_bucket") or raw_view.get("per_bucket_target")
+    parsed_target_per_bucket = _optional_int(raw_target_per_bucket)
+    if parsed_target_per_bucket is not None:
+        target_per_bucket = max(1, min(parsed_target_per_bucket, max_candidates))
     if not ratios and not minimums and not maximums and allocation_mode != "equal" and target_per_bucket is None:
         return None
     return CandidateTargetConfig(
@@ -277,17 +314,15 @@ def _resolve_candidate_target_config(
     )
 
 
-def _parse_ratio_map(raw: Any) -> dict[str, float]:
-    if not isinstance(raw, dict):
-        return {}
+def _parse_ratio_map(raw: object) -> dict[str, float]:
+    raw_view = _string_object_view(raw)
     out: dict[str, float] = {}
-    for key, value in raw.items():
+    for key, value in raw_view.items():
         normalized_key = str(key or "").strip()
         if not normalized_key:
             continue
-        try:
-            numeric = float(value)
-        except Exception:
+        numeric = _optional_float(value)
+        if numeric is None:
             continue
         if numeric < 0:
             continue
@@ -295,17 +330,15 @@ def _parse_ratio_map(raw: Any) -> dict[str, float]:
     return out
 
 
-def _parse_int_map(raw: Any) -> dict[str, int]:
-    if not isinstance(raw, dict):
-        return {}
+def _parse_int_map(raw: object) -> dict[str, int]:
+    raw_view = _string_object_view(raw)
     out: dict[str, int] = {}
-    for key, value in raw.items():
+    for key, value in raw_view.items():
         normalized_key = str(key or "").strip()
         if not normalized_key:
             continue
-        try:
-            numeric = int(value)
-        except Exception:
+        numeric = _optional_int(value)
+        if numeric is None:
             continue
         if numeric < 0:
             continue
@@ -367,7 +400,7 @@ def _apply_candidate_target_selection(
         allocated += quota
     remaining = max(0, target_total - allocated)
 
-    weighted_buckets = []
+    weighted_buckets: list[tuple[str, int, float]] = []
     total_weight = 0.0
     for bucket, items in buckets.items():
         cap = min(config.maximums.get(bucket, len(items)), len(items))
@@ -435,9 +468,9 @@ def _apply_candidate_target_selection(
 
 
 def _resolve_pinned_search_contract(entry: dict[str, Any], terms: list[str]) -> tuple[str | None, list[str]]:
-    extra = entry.get("extra") if isinstance(entry, dict) else None
-    profile = extra.get("search_contract_profile") if isinstance(extra, dict) else None
-    if not isinstance(profile, dict):
+    extra = _string_object_view(entry.get("extra"))
+    profile = _string_object_view(extra.get("search_contract_profile"))
+    if not profile:
         return None, terms
     best_template = str(profile.get("best_template") or "").strip() or None
     best_suffix = str(profile.get("best_suffix") or "").strip()
@@ -480,13 +513,13 @@ def _collect_history_pool_urls(
     return out
 
 
-def _as_terms(raw: Any) -> list[str]:
+def _as_terms(raw: object) -> list[str]:
     if raw is None:
         return []
     if isinstance(raw, str):
         s = raw.strip()
         return [s] if s else []
-    if isinstance(raw, list):
+    if _is_object_list(raw):
         out: list[str] = []
         for x in raw:
             s = str(x).strip()
@@ -502,7 +535,8 @@ def _normalize_search_template_placeholders(template: str | None) -> str:
 
 
 def _resolve_search_template_pagination(params: dict[str, Any]) -> tuple[int, int]:
-    return resolve_search_template_pagination(params)
+    open_params: dict[object, object] = {key: value for key, value in params.items()}
+    return resolve_search_template_pagination(open_params)
 
 
 def _is_low_value_candidate_url(url: str) -> bool:
@@ -531,9 +565,9 @@ def _resolve_item_site_entries(
     item: dict[str, Any],
     execution_plan: dict[str, Any] | None = None,
 ) -> list[str]:
-    plan = execution_plan if isinstance(execution_plan, dict) else build_item_execution_plan(item)
-    urls = plan.get("site_entry_urls") if isinstance(plan, dict) else None
-    if not isinstance(urls, list):
+    plan = execution_plan if execution_plan is not None else build_item_execution_plan(item)
+    urls = plan.get("site_entry_urls")
+    if not _is_object_list(urls):
         return []
     return [str(u or "").strip() for u in urls if str(u or "").strip()]
 
@@ -563,42 +597,19 @@ def _entry_keyword_mode(entry: dict[str, Any], entry_type: str) -> str:
 
 
 def _resolve_entry_keyword_capabilities(entry: dict[str, Any], entry_type: str) -> dict[str, Any]:
-    capabilities = entry.get("capabilities") if isinstance(entry, dict) else None
+    capabilities = entry.get("capabilities")
     inferred = infer_keyword_capabilities(
         entry_type,
-        str(entry.get("channel_key") or "").strip().lower() if isinstance(entry, dict) else None,
+        str(entry.get("channel_key") or "").strip().lower(),
     )
-    if not isinstance(capabilities, dict) or not capabilities:
+    capabilities_view = _string_object_view(capabilities)
+    if not capabilities_view:
         return inferred
     merged = dict(inferred)
-    for key, value in capabilities.items():
+    for key, value in capabilities_view.items():
         if value not in (None, ""):
             merged[key] = value
     return merged
-
-
-def _build_search_candidates(
-    raw_candidates: list[dict[str, Any]],
-    *,
-    strategy: str,
-    source_url: str,
-    entry_domain: str,
-) -> list[Any]:
-    built = []
-    for candidate in raw_candidates:
-        metadata = dict(candidate.get("extra") or {}) if isinstance(candidate.get("extra"), dict) else {}
-        item = make_search_candidate(
-            url=str(candidate.get("url") or "").strip(),
-            strategy=strategy,
-            title=str(candidate.get("title") or "").strip(),
-            text=str(candidate.get("text") or "").strip(),
-            source_url=source_url,
-            entry_domain=entry_domain,
-            metadata=metadata,
-        )
-        if item is not None:
-            built.append(item)
-    return built
 
 
 def unified_search_by_item(
@@ -643,7 +654,7 @@ def unified_search_by_item(
         pool_scope = "project"
 
     items = list_effective_items(scope="effective", project_key=project_key)
-    item_map = {x.get("item_key"): x for x in items if isinstance(x, dict)}
+    item_map = {x.get("item_key"): x for x in items}
     item = item_map.get(item_key)
     if not item:
         _raise_contract_failure(
@@ -671,6 +682,503 @@ def unified_search_by_item(
         enable_extraction=enable_extraction,
         allow_term_fallback=allow_term_fallback,
     )
+
+
+def _process_query_route(
+    *,
+    entry: dict[str, object],
+    entry_type: str,
+    base_url: str,
+    entry_domain: str,
+    entry_view: dict[str, object],
+    entry_runtime: dict[str, object],
+    policy: SiteSearchPolicy,
+    terms: list[str],
+    params: dict[str, object],
+    routed_params: dict[str, object],
+    template: object,
+    probe_timeout: float,
+    allow_term_fallback: bool,
+    sitemap_max_depth: int,
+    sitemap_max_sitemaps: int,
+    external_search_enabled: bool,
+    local_errors: list[dict[str, object]],
+    local_candidates: list[tuple[str, dict[str, object], float]],
+) -> dict[str, object]:
+    etype = entry_type
+    if not _entry_supports_query_terms(entry, etype):
+        return {"entry": None, "runtime": entry_runtime, "candidates": local_candidates, "errors": local_errors}
+    # Only keep sources that can accept keyword parameters directly.
+    # e.g. search_template(q={{q}}). Filter-style sources (rss/sitemap) are excluded
+    # from keyword candidate pool to avoid semantic confusion.
+    if _entry_keyword_mode(entry, etype) not in {"search", "filter"}:
+        return {"entry": None, "runtime": entry_runtime, "candidates": local_candidates, "errors": local_errors}
+
+    def _push_local(u: str, *, ref: dict[str, Any], score: float = 0.0) -> None:
+        if u:
+            local_candidates.append((u, ref, score))
+
+    if etype == "rss":
+        open_routed_params: dict[object, object] = {
+            key: value for key, value in routed_params.items()
+        }
+        execution = execute_feed_probe(
+            feed_url=base_url,
+            query_terms=terms,
+            probe_timeout=probe_timeout,
+            allow_term_fallback=allow_term_fallback,
+            params=open_routed_params,
+        )
+        for error_row in execution.errors:
+            local_errors.append(
+                {
+                    "site_url": base_url,
+                    "error": str(error_row.get("error") or "rss_candidate_generation_failed"),
+                    "error_class": str(error_row.get("error_class") or "").strip() or None,
+                    "search_service_used": "feed_native",
+                }
+            )
+        if execution.used_term_fallback:
+            local_errors.append(
+                {
+                    "site_url": base_url,
+                    "error": (
+                        "url_term_filter_empty_fallback_used"
+                        if allow_term_fallback
+                        else "url_term_filter_empty_no_fallback"
+                    ),
+                }
+            )
+        for decision in execution.selected_candidates:
+            u = str(decision.url or "").strip()
+            if not u:
+                continue
+            _push_local(
+                u,
+                ref={
+                    "site_entry_url": base_url,
+                    "entry_type": etype,
+                    "domain": entry_domain,
+                    "entry_domain": entry_domain,
+                    "tool": "rss",
+                    "candidate_source": "rss_feed",
+                    "site_policy": policy.category,
+                    "matched_by": decision.matched_by,
+                    "route_kind": getattr(decision, "route_kind", "page"),
+                    "candidate_quality": decision.candidate_quality,
+                    "usable_for_search": decision.usable_for_search,
+                },
+                score=decision.score,
+            )
+        entry_runtime["search_service"] = "feed_native"
+    elif etype == "sitemap":
+        execution = execute_sitemap_probe(
+            sitemap_url=base_url,
+            query_terms=terms,
+            probe_timeout=probe_timeout,
+            max_depth=max(0, int(sitemap_max_depth)),
+            max_sitemaps=max(1, int(sitemap_max_sitemaps)),
+            allow_term_fallback=allow_term_fallback,
+            params=routed_params,
+        )
+        for error_row in execution.errors:
+            local_errors.append(
+                {
+                    "site_url": base_url,
+                    "error": str(error_row.get("error") or "sitemap_candidate_generation_failed"),
+                    "error_class": str(error_row.get("error_class") or "").strip() or None,
+                    "search_service_used": "sitemap_native",
+                }
+            )
+        if execution.used_term_fallback:
+            local_errors.append(
+                {
+                    "site_url": base_url,
+                    "error": (
+                        "url_term_filter_empty_fallback_used"
+                        if allow_term_fallback
+                        else "url_term_filter_empty_no_fallback"
+                    ),
+                }
+            )
+        for decision in execution.selected_candidates:
+            u = str(decision.url or "").strip()
+            if not u:
+                continue
+            if entry_domain and (domain_from_url(u) or "").lower() != entry_domain:
+                continue
+            _push_local(
+                u,
+                ref={
+                    "site_entry_url": base_url,
+                    "entry_type": etype,
+                    "domain": entry_domain,
+                    "entry_domain": entry_domain,
+                    "tool": "sitemap",
+                    "candidate_source": "sitemap_probe",
+                    "site_policy": policy.category,
+                    "matched_by": decision.matched_by,
+                    "route_kind": getattr(decision, "route_kind", "page"),
+                    "candidate_quality": decision.candidate_quality,
+                    "usable_for_search": decision.usable_for_search,
+                },
+                score=decision.score,
+            )
+        entry_runtime["search_service"] = "sitemap_native"
+    elif etype == "search_template":
+        adapter_plan = resolve_search_template_adapter_plan(
+            site_url=base_url,
+            entry_domain=entry_domain,
+            params=routed_params,
+        )
+        routed_params = apply_search_template_adapter_plan(
+            plan=adapter_plan,
+            params=routed_params,
+        )
+        entry_runtime["search_template_adapter"] = adapter_plan.adapter_key
+        for key in (
+            "adapter_capability_status",
+            "adapter_capability_reason",
+            "parser_profile_requested",
+            "parser_profile_resolved",
+        ):
+            value = routed_params.get(key)
+            if value not in (None, ""):
+                entry_runtime[key] = value
+        if routed_params.get("candidate_relevance_review_required"):
+            entry_runtime["relevance_review_required"] = True
+            entry_runtime["relevance_review_reason"] = str(
+                routed_params.get("adapter_capability_reason") or "parser_profile_review"
+            )
+        if adapter_plan.reason:
+            entry_runtime["search_template_adapter_reason"] = adapter_plan.reason
+        pinned_template, pinned_terms = _resolve_pinned_search_contract(entry, terms)
+        tpl = _normalize_search_template_placeholders(str(pinned_template or template or base_url).strip())
+        if "{{q}}" not in tpl:
+            local_errors.append(
+                {
+                    "site_url": base_url,
+                    "error": "search_template_missing_query_placeholder",
+                    "error_class": "invalid_configuration",
+                    "search_service_used": str(routed_params.get("search_service") or policy.preferred_search_service or "basic"),
+                    "recommended_search_service": None,
+                }
+            )
+            entry_runtime["search_service"] = str(routed_params.get("search_service") or policy.preferred_search_service or "basic")
+            entry_runtime["template_config_valid"] = False
+            return {"entry": entry_view, "runtime": entry_runtime, "candidates": local_candidates, "errors": local_errors}
+        open_routed_params = {key: value for key, value in routed_params.items()}
+        execution = execute_search_template(
+            template=tpl,
+            query_terms=pinned_terms,
+            params=open_routed_params,
+            probe_timeout=probe_timeout,
+            allow_term_fallback=allow_term_fallback,
+            entry_domain=entry_domain,
+        )
+        external_execution = None
+        if (
+            policy.category == "keep"
+            and external_search_enabled
+            and not execution.selected_candidates
+        ):
+            external_execution = execute_external_site_search(
+                entry_domain=entry_domain,
+                query_terms=pinned_terms,
+                probe_timeout=probe_timeout,
+                allow_term_fallback=allow_term_fallback,
+                params=routed_params,
+            )
+            if external_execution.selected_candidates:
+                execution = external_execution
+        for error_row in execution.errors:
+            local_errors.append(
+                {
+                    "site_url": base_url,
+                    "error": str(error_row.get("error") or "search_template_execution_failed"),
+                    "error_class": str(error_row.get("error_class") or "").strip() or None,
+                    "search_url": str(error_row.get("search_url") or "").strip() or None,
+                    "search_service_used": str(execution.diagnostics.get("search_service") or routed_params.get("search_service") or "basic"),
+                    "recommended_search_service": str(error_row.get("recommended_search_service") or "").strip() or None,
+                }
+            )
+        if external_execution is not None and external_execution.selected_candidates:
+            local_errors.append(
+                {
+                    "site_url": base_url,
+                    "error": "external_search_fallback_used",
+                    "search_service_used": "external_search",
+                    "recommended_search_service": "external_search",
+                }
+            )
+        if not execution.selected_candidates and policy.category == "keep":
+            local_errors.append(
+                {
+                    "site_url": base_url,
+                    "error": "browser_candidate_required",
+                    "error_class": "deferred_browser_required",
+                    "search_service_code": "browser_candidate_deferred",
+                    "search_service_used": str(execution.diagnostics.get("search_service") or routed_params.get("search_service") or "basic"),
+                    "recommended_search_service": "browser_candidate_deferred",
+                    "next_step": "slow_lane_deferred",
+                    "browser_candidate_enqueued": True,
+                    "browser_candidate_reason": "throttle_or_blocking_signals",
+                }
+            )
+            entry_runtime["browser_candidate_deferred"] = True
+            entry_runtime["browser_candidate_reason"] = "throttle_or_blocking_signals"
+            entry_runtime["search_service_degraded_to"] = "browser_candidate_deferred"
+        if execution.used_term_fallback:
+            local_errors.append(
+                {
+                    "site_url": base_url,
+                    "error": (
+                        "url_term_filter_empty_fallback_used"
+                        if allow_term_fallback
+                        else "url_term_filter_empty_no_fallback"
+                    ),
+                }
+            )
+            entry_runtime["relevance_review_required"] = True
+            entry_runtime["relevance_review_reason"] = "term_fallback_candidates"
+        start_page, max_pages = _resolve_search_template_pagination(params)
+        review_required = bool(entry_runtime.get("relevance_review_required"))
+        for decision in execution.selected_candidates:
+            u = str(decision.url or "").strip()
+            if not u:
+                continue
+            if entry_domain and (domain_from_url(u) or "").lower() != entry_domain:
+                continue
+            _push_local(
+                u,
+                ref={
+                    "site_entry_url": base_url,
+                    "entry_type": etype,
+                    "domain": entry_domain,
+                    "entry_domain": entry_domain,
+                    "tool": "search_template",
+                    "candidate_source": "external_search" if external_execution is not None and execution is external_execution else "search_template",
+                    "site_policy": policy.category,
+                    "search_service": str(execution.diagnostics.get("search_service") or "basic"),
+                    "search_service_fallbacks": int(execution.diagnostics.get("search_service_fallbacks") or 0),
+                    "search_pages": [start_page, start_page + max_pages - 1],
+                    "matched_by": decision.matched_by,
+                    "route_kind": getattr(decision, "route_kind", "page"),
+                    "candidate_quality": decision.candidate_quality,
+                    "usable_for_search": decision.usable_for_search,
+                    "parser_container_hit": int(execution.diagnostics.get("parser_container_hit") or 0),
+                    "parser_structured_hit": int(execution.diagnostics.get("parser_structured_hit") or 0),
+                    "parser_json_ld_hit": int(execution.diagnostics.get("parser_json_ld_hit") or 0),
+                    "parser_global_anchor_hit": int(execution.diagnostics.get("parser_global_anchor_hit") or 0),
+                    "parser_candidate_rejected_low_value": int(
+                        execution.diagnostics.get("parser_candidate_rejected_low_value") or 0
+                    ),
+                    "adapter_capability_status": str(routed_params.get("adapter_capability_status") or "allow"),
+                    "parser_profile_resolved": str(
+                        routed_params.get("parser_profile_resolved")
+                        or routed_params.get("parser_profile")
+                        or ""
+                    ),
+                    "candidate_review_state": "relevance_review" if review_required else "auto_selected",
+                    "relevance_review_required": review_required,
+                },
+                score=decision.score,
+            )
+        entry_runtime["search_service"] = str(execution.diagnostics.get("search_service") or routed_params.get("search_service") or "basic")
+        entry_runtime["search_service_fallbacks"] = int(execution.diagnostics.get("search_service_fallbacks") or 0)
+        entry_runtime["search_template_adapter_mode"] = adapter_plan.execution_mode
+        for key in (
+            "parser_container_hit",
+            "parser_structured_hit",
+            "parser_json_ld_hit",
+            "parser_global_anchor_hit",
+            "parser_candidate_rejected_low_value",
+        ):
+            entry_runtime[key] = int(execution.diagnostics.get(key) or 0)
+    else:
+        local_errors.append({"site_url": base_url, "error": f"unsupported query entry_type: {etype}"})
+    return {"entry": entry_view, "runtime": entry_runtime, "candidates": local_candidates, "errors": local_errors}
+
+
+
+
+def _process_policy_route(
+    *,
+    policy: SiteSearchPolicy,
+    base_url: str,
+    terms: list[str],
+    probe_timeout: float,
+    allow_term_fallback: bool,
+    max_candidates: int,
+    routed_params: dict[str, object],
+    project_key: str,
+    entry_type: str,
+    entry_domain: str,
+    entry_runtime: dict[str, object],
+    entry_view: dict[str, object],
+    allow_deprioritized: bool,
+    external_search_enabled: bool,
+    local_errors: list[dict[str, object]],
+    local_candidates: list[tuple[str, dict[str, object], float]],
+) -> dict[str, object] | None:
+    etype = entry_type
+    if policy.category == "api_preferred":
+        max_results = _optional_int(routed_params.get("limit")) or 10
+        result = handle_official_access_api(
+            {
+                "provider_key": policy.provider_key or "official_access",
+                "query_terms": terms,
+                "probe_timeout": probe_timeout,
+                "allow_term_fallback": allow_term_fallback,
+                "max_results": min(max_candidates, max(1, max_results)),
+                "candidate_scoring_config": routed_params.get("candidate_scoring_config")
+                or routed_params.get("candidate_selection_config"),
+            },
+            project_key=project_key,
+        )
+        error_rows = result.get("errors")
+        for error_value in error_rows if _is_object_list(error_rows) else []:
+            error_row = _string_object_view(error_value)
+            local_errors.append(
+                {
+                    "site_url": base_url,
+                    "error": str(error_row.get("error") or f"official_api_search_failed:{policy.provider_key or 'official_access'}"),
+                    "policy_category": policy.category,
+                    "policy_reason": policy.reason,
+                    "error_class": str(error_row.get("error_class") or "").strip() or "transport_failure",
+                    "search_service_used": "official_api",
+                    "recommended_search_service": "official_api",
+                }
+            )
+        candidate_values = result.get("candidates")
+        for u in candidate_values if _is_object_list(candidate_values) else []:
+            candidate_url = str(u or "").strip()
+            if not candidate_url:
+                continue
+            local_candidates.append(
+                (
+                    candidate_url,
+                    {
+                        "site_entry_url": base_url,
+                        "entry_type": etype,
+                        "domain": entry_domain,
+                        "entry_domain": entry_domain,
+                        "tool": "official_access.api",
+                        "candidate_source": "official_api_search",
+                        "site_policy": policy.category,
+                        "search_service": "official_api",
+                        "search_service_fallbacks": 0,
+                        "provider_key": policy.provider_key or "official_access",
+                    },
+                    1.0,
+                )
+            )
+        if not local_candidates and not local_errors:
+            local_errors.append(
+                {
+                    "site_url": base_url,
+                    "error": f"site_policy_api_preferred:{policy.provider_key or 'official_access'}",
+                    "policy_category": policy.category,
+                    "policy_reason": policy.reason,
+                    "search_service_used": "official_api",
+                    "recommended_search_service": "official_api",
+                }
+            )
+        entry_runtime["search_service"] = "official_api"
+        return {"entry": entry_view, "runtime": entry_runtime, "candidates": local_candidates, "errors": local_errors}
+    if policy.category == "social_skip":
+        local_errors.append(
+            {
+                "site_url": base_url,
+                "error": "site_policy_social_skip",
+                "policy_category": policy.category,
+                "policy_reason": policy.reason,
+                "search_service_used": policy.preferred_search_service or "skip",
+                "recommended_search_service": policy.preferred_search_service or "platform_api",
+            }
+        )
+        return {"entry": entry_view, "runtime": entry_runtime, "candidates": local_candidates, "errors": local_errors}
+    if policy.category == "deprioritized" and not allow_deprioritized:
+        local_errors.append(
+            {
+                "site_url": base_url,
+                "error": "site_policy_deprioritized_skip",
+                "policy_category": policy.category,
+                "policy_reason": policy.reason,
+                "search_service_used": policy.preferred_search_service or "skip",
+                "recommended_search_service": policy.preferred_search_service or "resilient",
+            }
+        )
+        return {"entry": entry_view, "runtime": entry_runtime, "candidates": local_candidates, "errors": local_errors}
+    if policy.category == "external_preferred" and etype == "search_template":
+        execution = execute_external_site_search(
+            entry_domain=entry_domain,
+            query_terms=terms,
+            probe_timeout=probe_timeout,
+            allow_term_fallback=allow_term_fallback,
+            params=routed_params,
+        )
+        for error_row in execution.errors:
+            local_errors.append(
+                {
+                    "site_url": base_url,
+                    "error": str(error_row.get("error") or "external_search_execution_failed"),
+                    "error_class": str(error_row.get("error_class") or "").strip() or None,
+                    "search_url": str(error_row.get("search_url") or "").strip() or None,
+                    "search_service_used": str(execution.diagnostics.get("search_service") or "external_search"),
+                    "recommended_search_service": str(error_row.get("recommended_search_service") or "").strip() or "external_search",
+                }
+            )
+        for decision in execution.selected_candidates:
+            u = str(decision.url or "").strip()
+            if not u:
+                continue
+            if entry_domain and (domain_from_url(u) or "").lower() != entry_domain:
+                continue
+            local_candidates.append(
+                (
+                    u,
+                    {
+                        "site_entry_url": base_url,
+                        "entry_type": etype,
+                        "domain": entry_domain,
+                        "entry_domain": entry_domain,
+                        "tool": "search_template",
+                        "candidate_source": "external_search",
+                        "site_policy": policy.category,
+                        "search_service": str(execution.diagnostics.get("search_service") or "external_search"),
+                        "search_service_fallbacks": int(execution.diagnostics.get("search_service_fallbacks") or 0),
+                        "matched_by": getattr(decision, "matched_by", None),
+                        "route_kind": getattr(decision, "route_kind", "page"),
+                        "candidate_quality": getattr(decision, "candidate_quality", None),
+                        "usable_for_search": getattr(decision, "usable_for_search", None),
+                    },
+                    float(getattr(decision, "score", 0.0) or 0.0),
+                )
+            )
+        entry_runtime["search_service"] = str(execution.diagnostics.get("search_service") or "external_search")
+        entry_runtime["search_service_fallbacks"] = int(execution.diagnostics.get("search_service_fallbacks") or 0)
+        if not execution.selected_candidates:
+            local_errors.append(
+                {
+                    "site_url": base_url,
+                    "error": "browser_candidate_required",
+                    "error_class": "deferred_browser_required",
+                    "search_service_code": "browser_candidate_deferred",
+                    "search_service_used": str(execution.diagnostics.get("search_service") or "external_search"),
+                    "recommended_search_service": "browser_candidate_deferred",
+                    "next_step": "slow_lane_deferred",
+                    "browser_candidate_enqueued": True,
+                    "browser_candidate_reason": "throttle_or_blocking_signals",
+                }
+            )
+            entry_runtime["browser_candidate_deferred"] = True
+            entry_runtime["browser_candidate_reason"] = "throttle_or_blocking_signals"
+            entry_runtime["search_service_degraded_to"] = "browser_candidate_deferred"
+        return {"entry": entry_view, "runtime": entry_runtime, "candidates": local_candidates, "errors": local_errors}
+
+    return None
+
 
 
 def unified_search_by_item_payload(
@@ -715,12 +1223,8 @@ def unified_search_by_item_payload(
     if pool_scope not in {"project", "shared"}:
         pool_scope = "project"
 
-    params = item.get("params") or {}
-    if not isinstance(params, dict):
-        params = {}
-    extra = item.get("extra") or {}
-    if not isinstance(extra, dict):
-        extra = {}
+    params = _string_object_view(item.get("params"))
+    extra = _string_object_view(item.get("extra"))
     resolved_execution_plan = execution_plan if isinstance(execution_plan, dict) else build_item_execution_plan(item)
     expected_entry_type = str(params.get("expected_entry_type") or extra.get("expected_entry_type") or "").strip().lower()
     allow_deprioritized = bool(
@@ -744,11 +1248,11 @@ def unified_search_by_item_payload(
             max_candidates=max_candidates,
         )
 
-    used_entries: list[dict[str, Any]] = []
-    runtime_diagnostics: list[dict[str, Any]] = []
+    used_entries: list[dict[str, object]] = []
+    runtime_diagnostics: list[dict[str, object]] = []
     candidates: list[str] = []
     candidate_refs: dict[str, dict[str, Any]] = {}
-    errors: list[dict[str, str]] = []
+    errors: list[dict[str, object]] = []
     history_pool_urls: set[str] = set()
 
     def _push(u: str, *, ref: dict[str, Any]) -> None:
@@ -756,9 +1260,9 @@ def unified_search_by_item_payload(
             candidates.append(u)
             candidate_refs[u] = ref
 
-    def _process_site_entry(su: str) -> dict[str, Any]:
-        local_errors: list[dict[str, str]] = []
-        local_candidates: list[tuple[str, dict[str, Any], float]] = []
+    def _process_site_entry(su: str) -> dict[str, object]:
+        local_errors: list[dict[str, object]] = []
+        local_candidates: list[tuple[str, dict[str, object], float]] = []
         try:
             entry = get_site_entry_by_url(scope="effective", project_key=project_key, site_url=su) or {
                 "site_url": su,
@@ -808,444 +1312,46 @@ def unified_search_by_item_payload(
                 entry_runtime["implementation_hint"] = policy.implementation_hint
             if policy.parser_profile:
                 entry_runtime["parser_profile"] = policy.parser_profile
-            if policy.category == "api_preferred":
-                result = handle_official_access_api(
-                    {
-                        "provider_key": policy.provider_key or "official_access",
-                        "query_terms": terms,
-                        "probe_timeout": probe_timeout,
-                        "allow_term_fallback": allow_term_fallback,
-                        "max_results": min(max_candidates, max(1, int(routed_params.get("limit") or 10))),
-                        "candidate_scoring_config": routed_params.get("candidate_scoring_config")
-                        or routed_params.get("candidate_selection_config"),
-                    },
-                    project_key=project_key,
-                )
-                for error_row in result.get("errors") or []:
-                    local_errors.append(
-                        {
-                            "site_url": base_url,
-                            "error": str(error_row.get("error") or f"official_api_search_failed:{policy.provider_key or 'official_access'}"),
-                            "policy_category": policy.category,
-                            "policy_reason": policy.reason,
-                            "error_class": str(error_row.get("error_class") or "").strip() or "transport_failure",
-                            "search_service_used": "official_api",
-                            "recommended_search_service": "official_api",
-                        }
-                    )
-                for u in result.get("candidates") or []:
-                    candidate_url = str(u or "").strip()
-                    if not candidate_url:
-                        continue
-                    local_candidates.append(
-                        (
-                            candidate_url,
-                            {
-                                "site_entry_url": base_url,
-                                "entry_type": etype,
-                                "domain": entry_domain,
-                                "entry_domain": entry_domain,
-                                "tool": "official_access.api",
-                                "candidate_source": "official_api_search",
-                                "site_policy": policy.category,
-                                "search_service": "official_api",
-                                "search_service_fallbacks": 0,
-                                "provider_key": policy.provider_key or "official_access",
-                            },
-                            1.0,
-                        )
-                    )
-                if not local_candidates and not local_errors:
-                    local_errors.append(
-                        {
-                            "site_url": base_url,
-                            "error": f"site_policy_api_preferred:{policy.provider_key or 'official_access'}",
-                            "policy_category": policy.category,
-                            "policy_reason": policy.reason,
-                            "search_service_used": "official_api",
-                            "recommended_search_service": "official_api",
-                        }
-                    )
-                entry_runtime["search_service"] = "official_api"
-                return {"entry": entry_view, "runtime": entry_runtime, "candidates": local_candidates, "errors": local_errors}
-            if policy.category == "social_skip":
-                local_errors.append(
-                    {
-                        "site_url": base_url,
-                        "error": "site_policy_social_skip",
-                        "policy_category": policy.category,
-                        "policy_reason": policy.reason,
-                        "search_service_used": policy.preferred_search_service or "skip",
-                        "recommended_search_service": policy.preferred_search_service or "platform_api",
-                    }
-                )
-                return {"entry": entry_view, "runtime": entry_runtime, "candidates": local_candidates, "errors": local_errors}
-            if policy.category == "deprioritized" and not allow_deprioritized:
-                local_errors.append(
-                    {
-                        "site_url": base_url,
-                        "error": "site_policy_deprioritized_skip",
-                        "policy_category": policy.category,
-                        "policy_reason": policy.reason,
-                        "search_service_used": policy.preferred_search_service or "skip",
-                        "recommended_search_service": policy.preferred_search_service or "resilient",
-                    }
-                )
-                return {"entry": entry_view, "runtime": entry_runtime, "candidates": local_candidates, "errors": local_errors}
-            if policy.category == "external_preferred" and etype == "search_template":
-                execution = execute_external_site_search(
-                    entry_domain=entry_domain,
-                    query_terms=terms,
-                    probe_timeout=probe_timeout,
-                    allow_term_fallback=allow_term_fallback,
-                    params=routed_params,
-                )
-                for error_row in execution.errors:
-                    local_errors.append(
-                        {
-                            "site_url": base_url,
-                            "error": str(error_row.get("error") or "external_search_execution_failed"),
-                            "error_class": str(error_row.get("error_class") or "").strip() or None,
-                            "search_url": str(error_row.get("search_url") or "").strip() or None,
-                            "search_service_used": str(execution.diagnostics.get("search_service") or "external_search"),
-                            "recommended_search_service": str(error_row.get("recommended_search_service") or "").strip() or "external_search",
-                        }
-                    )
-                for decision in execution.selected_candidates:
-                    u = str(decision.url or "").strip()
-                    if not u:
-                        continue
-                    if entry_domain and (domain_from_url(u) or "").lower() != entry_domain:
-                        continue
-                    local_candidates.append(
-                        (
-                            u,
-                            {
-                                "site_entry_url": base_url,
-                                "entry_type": etype,
-                                "domain": entry_domain,
-                                "entry_domain": entry_domain,
-                                "tool": "search_template",
-                                "candidate_source": "external_search",
-                                "site_policy": policy.category,
-                                "search_service": str(execution.diagnostics.get("search_service") or "external_search"),
-                                "search_service_fallbacks": int(execution.diagnostics.get("search_service_fallbacks") or 0),
-                                "matched_by": getattr(decision, "matched_by", None),
-                                "route_kind": getattr(decision, "route_kind", "page"),
-                                "candidate_quality": getattr(decision, "candidate_quality", None),
-                                "usable_for_search": getattr(decision, "usable_for_search", None),
-                            },
-                            float(getattr(decision, "score", 0.0) or 0.0),
-                        )
-                    )
-                entry_runtime["search_service"] = str(execution.diagnostics.get("search_service") or "external_search")
-                entry_runtime["search_service_fallbacks"] = int(execution.diagnostics.get("search_service_fallbacks") or 0)
-                if not execution.selected_candidates:
-                    local_errors.append(
-                        {
-                            "site_url": base_url,
-                            "error": "browser_candidate_required",
-                            "error_class": "deferred_browser_required",
-                            "search_service_code": "browser_candidate_deferred",
-                            "search_service_used": str(execution.diagnostics.get("search_service") or "external_search"),
-                            "recommended_search_service": "browser_candidate_deferred",
-                            "next_step": "slow_lane_deferred",
-                            "browser_candidate_enqueued": True,
-                            "browser_candidate_reason": "throttle_or_blocking_signals",
-                        }
-                    )
-                    entry_runtime["browser_candidate_deferred"] = True
-                    entry_runtime["browser_candidate_reason"] = "throttle_or_blocking_signals"
-                    entry_runtime["search_service_degraded_to"] = "browser_candidate_deferred"
-                return {"entry": entry_view, "runtime": entry_runtime, "candidates": local_candidates, "errors": local_errors}
-            if not _entry_supports_query_terms(entry, etype):
-                return {"entry": None, "runtime": entry_runtime, "candidates": local_candidates, "errors": local_errors}
-            # Only keep sources that can accept keyword parameters directly.
-            # e.g. search_template(q={{q}}). Filter-style sources (rss/sitemap) are excluded
-            # from keyword candidate pool to avoid semantic confusion.
-            if _entry_keyword_mode(entry, etype) not in {"search", "filter"}:
-                return {"entry": None, "runtime": entry_runtime, "candidates": local_candidates, "errors": local_errors}
-
-            def _push_local(u: str, *, ref: dict[str, Any], score: float = 0.0) -> None:
-                if u:
-                    local_candidates.append((u, ref, score))
-
-            if etype == "rss":
-                execution = execute_feed_probe(
-                    feed_url=base_url,
-                    query_terms=terms,
-                    probe_timeout=probe_timeout,
-                    allow_term_fallback=allow_term_fallback,
-                    params=routed_params,
-                )
-                for error_row in execution.errors:
-                    local_errors.append(
-                        {
-                            "site_url": base_url,
-                            "error": str(error_row.get("error") or "rss_candidate_generation_failed"),
-                            "error_class": str(error_row.get("error_class") or "").strip() or None,
-                            "search_service_used": "feed_native",
-                        }
-                    )
-                if execution.used_term_fallback:
-                    local_errors.append(
-                        {
-                            "site_url": base_url,
-                            "error": (
-                                "url_term_filter_empty_fallback_used"
-                                if allow_term_fallback
-                                else "url_term_filter_empty_no_fallback"
-                            ),
-                        }
-                    )
-                for decision in execution.selected_candidates:
-                    u = str(decision.url or "").strip()
-                    if not u:
-                        continue
-                    _push_local(
-                        u,
-                        ref={
-                            "site_entry_url": base_url,
-                            "entry_type": etype,
-                            "domain": entry_domain,
-                            "entry_domain": entry_domain,
-                            "tool": "rss",
-                            "candidate_source": "rss_feed",
-                            "site_policy": policy.category,
-                            "matched_by": decision.matched_by,
-                            "route_kind": getattr(decision, "route_kind", "page"),
-                            "candidate_quality": decision.candidate_quality,
-                            "usable_for_search": decision.usable_for_search,
-                        },
-                        score=decision.score,
-                    )
-                entry_runtime["search_service"] = "feed_native"
-            elif etype == "sitemap":
-                execution = execute_sitemap_probe(
-                    sitemap_url=base_url,
-                    query_terms=terms,
-                    probe_timeout=probe_timeout,
-                    max_depth=max(0, int(sitemap_max_depth)),
-                    max_sitemaps=max(1, int(sitemap_max_sitemaps)),
-                    allow_term_fallback=allow_term_fallback,
-                    params=routed_params,
-                )
-                for error_row in execution.errors:
-                    local_errors.append(
-                        {
-                            "site_url": base_url,
-                            "error": str(error_row.get("error") or "sitemap_candidate_generation_failed"),
-                            "error_class": str(error_row.get("error_class") or "").strip() or None,
-                            "search_service_used": "sitemap_native",
-                        }
-                    )
-                if execution.used_term_fallback:
-                    local_errors.append(
-                        {
-                            "site_url": base_url,
-                            "error": (
-                                "url_term_filter_empty_fallback_used"
-                                if allow_term_fallback
-                                else "url_term_filter_empty_no_fallback"
-                            ),
-                        }
-                    )
-                for decision in execution.selected_candidates:
-                    u = str(decision.url or "").strip()
-                    if not u:
-                        continue
-                    if entry_domain and (domain_from_url(u) or "").lower() != entry_domain:
-                        continue
-                    _push_local(
-                        u,
-                        ref={
-                            "site_entry_url": base_url,
-                            "entry_type": etype,
-                            "domain": entry_domain,
-                            "entry_domain": entry_domain,
-                            "tool": "sitemap",
-                            "candidate_source": "sitemap_probe",
-                            "site_policy": policy.category,
-                            "matched_by": decision.matched_by,
-                            "route_kind": getattr(decision, "route_kind", "page"),
-                            "candidate_quality": decision.candidate_quality,
-                            "usable_for_search": decision.usable_for_search,
-                        },
-                        score=decision.score,
-                    )
-                entry_runtime["search_service"] = "sitemap_native"
-            elif etype == "search_template":
-                adapter_plan = resolve_search_template_adapter_plan(
-                    site_url=base_url,
-                    entry_domain=entry_domain,
-                    params=routed_params,
-                )
-                routed_params = apply_search_template_adapter_plan(
-                    plan=adapter_plan,
-                    params=routed_params,
-                )
-                entry_runtime["search_template_adapter"] = adapter_plan.adapter_key
-                for key in (
-                    "adapter_capability_status",
-                    "adapter_capability_reason",
-                    "parser_profile_requested",
-                    "parser_profile_resolved",
-                ):
-                    value = routed_params.get(key)
-                    if value not in (None, ""):
-                        entry_runtime[key] = value
-                if routed_params.get("candidate_relevance_review_required"):
-                    entry_runtime["relevance_review_required"] = True
-                    entry_runtime["relevance_review_reason"] = str(
-                        routed_params.get("adapter_capability_reason") or "parser_profile_review"
-                    )
-                if adapter_plan.reason:
-                    entry_runtime["search_template_adapter_reason"] = adapter_plan.reason
-                pinned_template, pinned_terms = _resolve_pinned_search_contract(entry, terms)
-                tpl = _normalize_search_template_placeholders(str(pinned_template or template or base_url).strip())
-                if "{{q}}" not in tpl:
-                    local_errors.append(
-                        {
-                            "site_url": base_url,
-                            "error": "search_template_missing_query_placeholder",
-                            "error_class": "invalid_configuration",
-                            "search_service_used": str(routed_params.get("search_service") or policy.preferred_search_service or "basic"),
-                            "recommended_search_service": None,
-                        }
-                    )
-                    entry_runtime["search_service"] = str(routed_params.get("search_service") or policy.preferred_search_service or "basic")
-                    entry_runtime["template_config_valid"] = False
-                    return {"entry": entry_view, "runtime": entry_runtime, "candidates": local_candidates, "errors": local_errors}
-                execution = execute_search_template(
-                    template=tpl,
-                    query_terms=pinned_terms,
-                    params=routed_params,
-                    probe_timeout=probe_timeout,
-                    allow_term_fallback=allow_term_fallback,
-                    entry_domain=entry_domain,
-                )
-                external_execution = None
-                if (
-                    policy.category == "keep"
-                    and external_search_enabled
-                    and not execution.selected_candidates
-                ):
-                    external_execution = execute_external_site_search(
-                        entry_domain=entry_domain,
-                        query_terms=pinned_terms,
-                        probe_timeout=probe_timeout,
-                        allow_term_fallback=allow_term_fallback,
-                        params=routed_params,
-                    )
-                    if external_execution.selected_candidates:
-                        execution = external_execution
-                for error_row in execution.errors:
-                    local_errors.append(
-                        {
-                            "site_url": base_url,
-                            "error": str(error_row.get("error") or "search_template_execution_failed"),
-                            "error_class": str(error_row.get("error_class") or "").strip() or None,
-                            "search_url": str(error_row.get("search_url") or "").strip() or None,
-                            "search_service_used": str(execution.diagnostics.get("search_service") or routed_params.get("search_service") or "basic"),
-                            "recommended_search_service": str(error_row.get("recommended_search_service") or "").strip() or None,
-                        }
-                    )
-                if external_execution is not None and external_execution.selected_candidates:
-                    local_errors.append(
-                        {
-                            "site_url": base_url,
-                            "error": "external_search_fallback_used",
-                            "search_service_used": "external_search",
-                            "recommended_search_service": "external_search",
-                        }
-                    )
-                if not execution.selected_candidates and policy.category == "keep":
-                    local_errors.append(
-                        {
-                            "site_url": base_url,
-                            "error": "browser_candidate_required",
-                            "error_class": "deferred_browser_required",
-                            "search_service_code": "browser_candidate_deferred",
-                            "search_service_used": str(execution.diagnostics.get("search_service") or routed_params.get("search_service") or "basic"),
-                            "recommended_search_service": "browser_candidate_deferred",
-                            "next_step": "slow_lane_deferred",
-                            "browser_candidate_enqueued": True,
-                            "browser_candidate_reason": "throttle_or_blocking_signals",
-                        }
-                    )
-                    entry_runtime["browser_candidate_deferred"] = True
-                    entry_runtime["browser_candidate_reason"] = "throttle_or_blocking_signals"
-                    entry_runtime["search_service_degraded_to"] = "browser_candidate_deferred"
-                if execution.used_term_fallback:
-                    local_errors.append(
-                        {
-                            "site_url": base_url,
-                            "error": (
-                                "url_term_filter_empty_fallback_used"
-                                if allow_term_fallback
-                                else "url_term_filter_empty_no_fallback"
-                            ),
-                        }
-                    )
-                    entry_runtime["relevance_review_required"] = True
-                    entry_runtime["relevance_review_reason"] = "term_fallback_candidates"
-                start_page, max_pages = _resolve_search_template_pagination(params)
-                review_required = bool(entry_runtime.get("relevance_review_required"))
-                for decision in execution.selected_candidates:
-                    u = str(decision.url or "").strip()
-                    if not u:
-                        continue
-                    if entry_domain and (domain_from_url(u) or "").lower() != entry_domain:
-                        continue
-                    _push_local(
-                        u,
-                        ref={
-                            "site_entry_url": base_url,
-                            "entry_type": etype,
-                            "domain": entry_domain,
-                            "entry_domain": entry_domain,
-                            "tool": "search_template",
-                            "candidate_source": "external_search" if external_execution is not None and execution is external_execution else "search_template",
-                            "site_policy": policy.category,
-                            "search_service": str(execution.diagnostics.get("search_service") or "basic"),
-                            "search_service_fallbacks": int(execution.diagnostics.get("search_service_fallbacks") or 0),
-                            "search_pages": [start_page, start_page + max_pages - 1],
-                            "matched_by": decision.matched_by,
-                            "route_kind": getattr(decision, "route_kind", "page"),
-                            "candidate_quality": decision.candidate_quality,
-                            "usable_for_search": decision.usable_for_search,
-                            "parser_container_hit": int(execution.diagnostics.get("parser_container_hit") or 0),
-                            "parser_structured_hit": int(execution.diagnostics.get("parser_structured_hit") or 0),
-                            "parser_json_ld_hit": int(execution.diagnostics.get("parser_json_ld_hit") or 0),
-                            "parser_global_anchor_hit": int(execution.diagnostics.get("parser_global_anchor_hit") or 0),
-                            "parser_candidate_rejected_low_value": int(
-                                execution.diagnostics.get("parser_candidate_rejected_low_value") or 0
-                            ),
-                            "adapter_capability_status": str(routed_params.get("adapter_capability_status") or "allow"),
-                            "parser_profile_resolved": str(
-                                routed_params.get("parser_profile_resolved")
-                                or routed_params.get("parser_profile")
-                                or ""
-                            ),
-                            "candidate_review_state": "relevance_review" if review_required else "auto_selected",
-                            "relevance_review_required": review_required,
-                        },
-                        score=decision.score,
-                    )
-                entry_runtime["search_service"] = str(execution.diagnostics.get("search_service") or routed_params.get("search_service") or "basic")
-                entry_runtime["search_service_fallbacks"] = int(execution.diagnostics.get("search_service_fallbacks") or 0)
-                entry_runtime["search_template_adapter_mode"] = adapter_plan.execution_mode
-                for key in (
-                    "parser_container_hit",
-                    "parser_structured_hit",
-                    "parser_json_ld_hit",
-                    "parser_global_anchor_hit",
-                    "parser_candidate_rejected_low_value",
-                ):
-                    entry_runtime[key] = int(execution.diagnostics.get(key) or 0)
-            else:
-                local_errors.append({"site_url": base_url, "error": f"unsupported query entry_type: {etype}"})
-            return {"entry": entry_view, "runtime": entry_runtime, "candidates": local_candidates, "errors": local_errors}
+            policy_result = _process_policy_route(
+                policy=policy,
+                base_url=base_url,
+                terms=terms,
+                probe_timeout=probe_timeout,
+                allow_term_fallback=allow_term_fallback,
+                max_candidates=max_candidates,
+                routed_params=routed_params,
+                project_key=project_key,
+                entry_type=etype,
+                entry_domain=entry_domain,
+                entry_runtime=entry_runtime,
+                entry_view=entry_view,
+                allow_deprioritized=allow_deprioritized,
+                external_search_enabled=external_search_enabled,
+                local_errors=local_errors,
+                local_candidates=local_candidates,
+            )
+            if policy_result is not None:
+                return policy_result
+            return _process_query_route(
+                entry=entry,
+                entry_type=etype,
+                base_url=base_url,
+                entry_domain=entry_domain,
+                entry_view=entry_view,
+                entry_runtime=entry_runtime,
+                policy=policy,
+                terms=terms,
+                params=params,
+                routed_params=routed_params,
+                template=template,
+                probe_timeout=probe_timeout,
+                allow_term_fallback=allow_term_fallback,
+                sitemap_max_depth=sitemap_max_depth,
+                sitemap_max_sitemaps=sitemap_max_sitemaps,
+                external_search_enabled=external_search_enabled,
+                local_errors=local_errors,
+                local_candidates=local_candidates,
+            )
         except HttpFetchError as exc:
             local_errors.append({"site_url": su, "error": str(exc)})
         except Exception as exc:  # noqa: BLE001
@@ -1268,17 +1374,26 @@ def unified_search_by_item_payload(
             futures = [ex.submit(_process_site_entry, su) for su in wave]
             for fut in as_completed(futures):
                 res = fut.result()
-                entry = res.get("entry")
-                if isinstance(entry, dict):
+                entry = _string_object_view(res.get("entry"))
+                if entry:
                     used_entries.append(entry)
-                runtime = res.get("runtime")
-                if isinstance(runtime, dict):
+                runtime = _string_object_view(res.get("runtime"))
+                if runtime:
                     runtime_diagnostics.append(runtime)
-                for e in res.get("errors") or []:
-                    if isinstance(e, dict):
-                        errors.append(e)
-                for u, ref, score in (res.get("candidates") or []):
-                    scored_candidates.append((float(score or 0.0), u, ref))
+                error_values = res.get("errors")
+                for error_value in error_values if _is_object_list(error_values) else []:
+                    error_row = _string_object_view(error_value)
+                    if error_row:
+                        errors.append(error_row)
+                candidate_values = res.get("candidates")
+                for candidate_value in candidate_values if _is_object_list(candidate_values) else []:
+                    if not _is_candidate_tuple(candidate_value):
+                        continue
+                    url_value, ref_value, score_value = candidate_value
+                    ref = _string_object_view(ref_value)
+                    score = _optional_float(score_value)
+                    if isinstance(url_value, str) and score is not None:
+                        scored_candidates.append((score, url_value, ref))
         scored_candidates.sort(key=lambda item: (-item[0], item[1]))
         selected_scored_candidates = _apply_candidate_target_selection(
             scored_candidates,
@@ -1306,11 +1421,14 @@ def unified_search_by_item_payload(
         runtime_diagnostics=runtime_diagnostics,
         errors=errors,
     )
-    review_entries_by_url = {
-        str((entry.get("reviewer_fields") or {}).get("url") or "").strip(): entry
-        for entry in relevance_review_queue.get("entries") or []
-        if isinstance(entry, dict)
-    }
+    review_entries_by_url: dict[str, dict[str, object]] = {}
+    review_entries = relevance_review_queue.get("entries")
+    for entry_value in review_entries if _is_object_list(review_entries) else []:
+        entry = _string_object_view(entry_value)
+        reviewer_fields = _string_object_view(entry.get("reviewer_fields"))
+        review_url = str(reviewer_fields.get("url") or "").strip()
+        if review_url:
+            review_entries_by_url[review_url] = entry
 
     written: dict[str, int] | None = None
     if auto_ingest:
@@ -1335,11 +1453,12 @@ def unified_search_by_item_payload(
                 )
             review_entry = review_entries_by_url.get(u)
             if review_entry:
+                raw_reason_codes = review_entry.get("reason_codes")
                 ref["candidate_review_state"] = "relevance_review"
                 ref["source_library_relevance_review"] = {
                     "contract_version": relevance_review_queue["contract_version"],
                     "queue_id": str(review_entry.get("queue_id") or "").strip(),
-                    "reason_codes": list(review_entry.get("reason_codes") or []),
+                    "reason_codes": list(raw_reason_codes) if _is_object_list(raw_reason_codes) else [],
                     "auto_accept_allowed": False,
                     "auto_ingest_allowed": False,
                     "review_completed": False,

@@ -77,6 +77,11 @@ class ProjectRecordProjectionError(TypeError):
         super().__init__("project record projection is invalid")
 
 
+class ProjectModelTableError(TypeError):
+    def __init__(self) -> None:
+        super().__init__("project model table must be a SQLAlchemy Table")
+
+
 class PromptFactoryResponseError(TypeError):
     def __init__(self) -> None:
         super().__init__("prompt factory response must contain a services array")
@@ -361,27 +366,41 @@ def _resolve_inject_target_key(raw_project_key: str, *, source_key: str, overwri
     return target_key
 
 
+def _require_model_table(value: object) -> Table:
+    if not isinstance(value, Table):
+        raise ProjectModelTableError
+    return value
+
+
 # Seed/inject path uses a safe subset of tenant tables (exclude embeddings/vector + llm configs).
-INITIAL_PROJECT_TABLES: list[Table] = [
-    Source.__table__,
-    Document.__table__,
-    MarketStat.__table__,
-    ConfigState.__table__,
-    SearchHistory.__table__,
-    KeywordHistory.__table__,
-    KeywordPrior.__table__,
-    Topic.__table__,
-    IngestChannel.__table__,
-    SourceLibraryItem.__table__,
-    MarketMetricPoint.__table__,
-    Product.__table__,
-    PriceObservation.__table__,
-    ResourcePoolUrl.__table__,
-    ResourcePoolSiteEntry.__table__,
-    WritingDocument.__table__,
-    WritingDocumentDraft.__table__,
-    WritingDocumentCitation.__table__,
+INITIAL_PROJECT_TABLES = [
+    _require_model_table(table)
+    for table in (
+        Source.__table__,
+        Document.__table__,
+        MarketStat.__table__,
+        ConfigState.__table__,
+        SearchHistory.__table__,
+        KeywordHistory.__table__,
+        KeywordPrior.__table__,
+        Topic.__table__,
+        IngestChannel.__table__,
+        SourceLibraryItem.__table__,
+        MarketMetricPoint.__table__,
+        Product.__table__,
+        PriceObservation.__table__,
+        ResourcePoolUrl.__table__,
+        ResourcePoolSiteEntry.__table__,
+        WritingDocument.__table__,
+        WritingDocumentDraft.__table__,
+        WritingDocumentCitation.__table__,
+    )
 ]
+
+_INFORMATION_TOPOLOGY_TABLES = (
+    _require_model_table(InformationTopologyState.__table__),
+    _require_model_table(InformationTopologyLink.__table__),
+)
 
 
 _JSON_UDT_NAMES = {"json", "jsonb"}
@@ -1016,8 +1035,8 @@ def inject_initial_project(payload: InjectInitialProjectPayload) -> ProjectJsonO
         Base.metadata.create_all(bind=conn, tables=INITIAL_PROJECT_TABLES, checkfirst=True)
         # Topology tables are project-local but never cloned from the seed
         # project's structural state; new projects start with empty topology.
-        InformationTopologyState.__table__.create(bind=conn, checkfirst=True)
-        InformationTopologyLink.__table__.create(bind=conn, checkfirst=True)
+        for table in _INFORMATION_TOPOLOGY_TABLES:
+            table.create(bind=conn, checkfirst=True)
 
         copied_counts: dict[str, int] = {}
         # Copy only tables that exist in source schema.

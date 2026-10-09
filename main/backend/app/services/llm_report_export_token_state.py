@@ -2,9 +2,10 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 from threading import RLock
-from typing import Any
+from typing import Any, NoReturn, TypeGuard
 
 from sqlalchemy import or_, select
+from sqlalchemy.orm import Session
 from functorial_kit import Failure
 from mrw_functorial_kit.core.application_failure_semantics import llm_report_request_failures
 
@@ -35,7 +36,7 @@ def _request_failure(code: str, message: str, *, operation: str, **details: Any)
     )
 
 
-def _raise_request_failure(failure: Failure) -> None:
+def _raise_request_failure(failure: Failure) -> NoReturn:
     context = failure.context or {}
     if not llm_report_request_failures.matches(failure) or _FAILURE_CONTEXT_KEYS - set(context):
         # kit:boundary owner=llm_report_export_token_state.failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w01_request_failures
@@ -103,10 +104,12 @@ def _as_int_or_none(value: Any) -> int | None:
         return None
 
 
-def _json_safe_payload(payload: Any) -> dict[str, Any]:
-    if isinstance(payload, dict):
-        return dict(payload)
-    return {}
+def _is_payload_dict(value: object) -> TypeGuard[dict[str, object]]:
+    return isinstance(value, dict)
+
+
+def _json_safe_payload(payload: object) -> dict[str, object]:
+    return dict(payload) if _is_payload_dict(payload) else {}
 
 
 def _normalize_record(payload: dict[str, Any], *, used: bool = False, revoked: bool = False) -> dict[str, Any]:
@@ -252,7 +255,7 @@ def _load_database_state(artifact_id: str) -> tuple[dict[str, Any] | None, bool]
     if not normalized_artifact_id:
         return None, False
 
-    def _operation(session):
+    def _operation(session: Session):
         row = session.execute(
             select(LlmReportExportTokenState).where(
                 LlmReportExportTokenState.artifact_id == normalized_artifact_id
@@ -278,7 +281,7 @@ def _persist_state(record: dict[str, Any]) -> tuple[dict[str, Any], bool]:
     if not artifact_id:
         return dict(record), False
 
-    def _operation(session):
+    def _operation(session: Session):
         row = session.execute(
             select(LlmReportExportTokenState).where(LlmReportExportTokenState.artifact_id == artifact_id)
         ).scalar_one_or_none()
@@ -304,7 +307,7 @@ def _persist_state(record: dict[str, Any]) -> tuple[dict[str, Any], bool]:
 
 
 def _prune_database_token_states(cutoff: datetime, *, dry_run: bool) -> tuple[int, int]:
-    def _operation(session):
+    def _operation(session: Session):
         rows = (
             session.execute(
                 select(LlmReportExportTokenState).where(
@@ -392,7 +395,7 @@ def _claim_database_state(record: dict[str, Any]) -> tuple[dict[str, Any], bool]
     if not artifact_id:
         return _with_claim_status(dict(record), claimed=False), False
 
-    def _operation(session):
+    def _operation(session: Session):
         row = session.execute(
             select(LlmReportExportTokenState)
             .where(LlmReportExportTokenState.artifact_id == artifact_id)
@@ -448,7 +451,7 @@ def prune_llm_report_export_token_states(
     *,
     dry_run: bool = True,
     now: datetime | None = None,
-) -> dict:
+) -> dict[str, object]:
     normalized_now = _parse_datetime(now) if now is not None else _utcnow()
     retention_outcome = _validate_retention_days(retention_days)
     if isinstance(retention_outcome, Failure):
@@ -482,7 +485,7 @@ def prune_llm_report_export_token_states(
     }
 
 
-def mark_llm_report_export_token_used_persistent(payload: dict) -> dict:
+def mark_llm_report_export_token_used_persistent(payload: dict[str, object]) -> dict[str, object]:
     record = _remember_state(_normalize_record(_json_safe_payload(payload), used=True))
     persisted, degraded = _persist_state(record)
     remembered = _remember_state(persisted)
@@ -492,10 +495,10 @@ def mark_llm_report_export_token_used_persistent(payload: dict) -> dict:
 def revoke_llm_report_export_token_persistent(
     artifact_id: str,
     *,
-    actor_id=None,
-    reason=None,
-    payload=None,
-) -> dict:
+    actor_id: object = None,
+    reason: object = None,
+    payload: object = None,
+) -> dict[str, object]:
     source = _json_safe_payload(payload)
     source["artifact_id"] = _as_str_or_none(artifact_id, max_length=128)
     if actor_id is not None:
@@ -508,7 +511,7 @@ def revoke_llm_report_export_token_persistent(
     return _with_degraded(remembered, degraded) or remembered
 
 
-def claim_llm_report_export_token_use(payload: dict) -> dict:
+def claim_llm_report_export_token_use(payload: dict[str, object]) -> dict[str, object]:
     record = _normalize_claim_record(_json_safe_payload(payload))
     claimed_record, degraded = _claim_database_state(record)
     if not degraded:
@@ -519,7 +522,7 @@ def claim_llm_report_export_token_use(payload: dict) -> dict:
     return _with_degraded(memory_claim, True) or memory_claim
 
 
-def get_llm_report_export_token_state(artifact_id: str) -> dict | None:
+def get_llm_report_export_token_state(artifact_id: str) -> dict[str, object] | None:
     normalized_artifact_id = _as_str_or_none(artifact_id, max_length=128)
     if not normalized_artifact_id:
         return None

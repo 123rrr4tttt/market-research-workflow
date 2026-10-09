@@ -362,7 +362,7 @@ def adoption_store(monkeypatch: pytest.MonkeyPatch):
     tables = _tables()
     engine = sa.create_engine("sqlite+pysqlite:///:memory:")
     next(iter(tables.values())).metadata.create_all(engine)
-    monkeypatch.setattr(postgres_reconciliation, "_table", tables.__getitem__)
+    monkeypatch.setattr(postgres_reconciliation, "runtime_table", tables.__getitem__)
     recovery = RecoveryBinding.from_content(
         recovery_handler_id="authoritative-readback",
         recovery_handler_version="1",

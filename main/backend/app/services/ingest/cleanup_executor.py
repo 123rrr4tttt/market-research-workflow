@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from typing import Any
 
 from .content_cleaner import clean_frontdoor_document_candidate
 from .content_extraction import apply_main_content_extraction, extract_main_text_from_html
@@ -10,18 +9,19 @@ from app.services.resource_pool.http_port import HttpFetchError, fetch_html
 
 def execute_frontdoor_cleanup(
     *,
-    document_candidate: dict[str, Any],
-    terminal_context: dict[str, Any],
+    document_candidate: dict[str, object],
+    terminal_context: dict[str, object],
     cleanup_actions: list[str] | None,
-) -> dict[str, Any]:
+) -> dict[str, object]:
     candidate = dict(document_candidate or {})
     context = dict(terminal_context or {})
     actions = list(cleanup_actions or [])
-    result = {
+    errors: list[str] = []
+    result: dict[str, object] = {
         "executed": False,
         "recovered": False,
         "actions": actions,
-        "errors": [],
+        "errors": errors,
         "document_candidate": candidate,
         "terminal_context": context,
         "content_extraction": deepcopy(context.get("content_extraction") or {}),
@@ -33,15 +33,15 @@ def execute_frontdoor_cleanup(
     if "refetch_suggested" in actions:
         uri = str(candidate.get("uri") or "").strip()
         if not uri:
-            result["errors"].append("missing_uri_for_refetch")
+            errors.append("missing_uri_for_refetch")
             return result
         try:
             html, response = fetch_html(uri, timeout=12.0, retries=1)
         except HttpFetchError as exc:
-            result["errors"].append(str(exc))
+            errors.append(str(exc))
             return result
         except Exception as exc:  # noqa: BLE001
-            result["errors"].append(repr(exc))
+            errors.append(repr(exc))
             return result
         extracted = extract_main_text_from_html(html)
         if extracted:

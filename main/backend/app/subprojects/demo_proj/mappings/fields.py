@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+from ....project_customization.interfaces import CustomizationJsonObject
 
-FIELD_MAPPING = {
+
+FIELD_MAPPING: CustomizationJsonObject = {
     "graph_doc_types": {
         "social": ["social_sentiment", "social_feed"],
         "market": ["market_info", "market"],

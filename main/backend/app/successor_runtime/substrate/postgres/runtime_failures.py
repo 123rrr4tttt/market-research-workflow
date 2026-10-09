@@ -10,14 +10,14 @@ from __future__ import annotations
 import hashlib
 import json
 from dataclasses import dataclass
-from typing import Any, TypedDict
+from typing import Any, NotRequired, TypeGuard, TypedDict
 
 from functorial_kit import Failure
 from sqlalchemy import select
 from sqlalchemy.engine import Connection
 
 from app.successor_runtime.capabilities.checksum import CanonicalJsonObject, CanonicalJsonValue
-from app.successor_runtime.research.codec import canonical_bytes, sha256_hex
+from app.successor_runtime.research.codec import canonical_bytes, runtime_value, sha256_hex
 from app.successor_runtime.runtime.assignments import (
     RuntimeAssignment,
     require_digest,
@@ -62,23 +62,65 @@ class DomainFailureBody(TypedDict):
     context: CanonicalJsonObject | None
 
 
+class RuntimeFailureBody(TypedDict):
+    schema_version: str
+    project_key: str
+    project_registry_revision: int
+    project_scope_incarnation: str
+    project_scope_digest: str
+    run_id: str
+    step_id: str | None
+    work_item_id: str
+    assignment_kind: str
+    assignment_digest: str
+    handler_binding_digest: str
+    execution_epoch: int
+    assignment_incarnation: str
+    attempt_id: str
+    claim_binding_digest: str
+    authority_digest: str
+    claim_authority_epoch: int
+    failure_code: str
+    domain_failure: NotRequired[DomainFailureBody]
+
+
+def _is_object_list(value: object) -> TypeGuard[list[object]]:
+    return isinstance(value, list)
+
+
+def _is_object_dict(value: object) -> TypeGuard[dict[object, object]]:
+    return isinstance(value, dict)
+
+
+def _is_string_object_dict(
+    value: object,
+) -> TypeGuard[dict[str, object]]:
+    if not _is_object_dict(value):
+        return False
+    return all(isinstance(key, str) for key in value)
+
+
+def _checked_json(value: object) -> CanonicalJsonValue:
+    if value is None or isinstance(value, (str, bool, int, float)):
+        return value
+    if _is_object_list(value):
+        return [_checked_json(item) for item in value]
+    if _is_string_object_dict(value):
+        return {key: _checked_json(item) for key, item in value.items()}
+    raise TypeError("domain Failure context must use JSON-native values")
+
+
 def _domain_failure_body(failure: Failure, failure_code: str) -> DomainFailureBody:
-    if not isinstance(failure, Failure):
+    if not isinstance(runtime_value(failure), Failure):
         raise TypeError("domain_failure must be Failure")
-    if any(not isinstance(value, str) for value in (failure.family, failure.code, failure.message)):
+    if any(
+        not isinstance(runtime_value(value), str)
+        for value in (failure.family, failure.code, failure.message)
+    ):
         raise TypeError("domain Failure family/code/message must be strings")
     if failure.code != failure_code or not failure.family:
         raise ValueError("domain Failure code/family differs from its failure declaration")
-    def checked_json(value: object) -> CanonicalJsonValue:
-        if value is None or isinstance(value, (str, bool, int, float)):
-            return value
-        if isinstance(value, list):
-            return [checked_json(item) for item in value]
-        if isinstance(value, dict) and all(isinstance(key, str) for key in value):
-            return {key: checked_json(item) for key, item in value.items()}
-        raise TypeError("domain Failure context must use JSON-native values")
-
-    context = checked_json(failure.context)
+    context = _checked_json(runtime_value(failure.context))
     if context is not None and not isinstance(context, dict):
         raise TypeError("domain Failure context must be a JSON object or null")
     body: DomainFailureBody = {
@@ -89,7 +131,7 @@ def _domain_failure_body(failure: Failure, failure_code: str) -> DomainFailureBo
 
 
 def _require_failure_code(failure_code: str) -> str:
-    if not isinstance(failure_code, str):
+    if not isinstance(runtime_value(failure_code), str):
         raise TypeError("failure_code must be a typed string")
     if (
         not failure_code
@@ -111,11 +153,11 @@ def _validate_exact_bindings(
     assignment: RuntimeAssignment,
     claim: ClaimBinding,
 ) -> tuple[RuntimeAssignment, ClaimBinding]:
-    if not isinstance(scope, RuntimeScope):
+    if not isinstance(runtime_value(scope), RuntimeScope):
         raise TypeError("scope must be RuntimeScope")
-    if not isinstance(assignment, RuntimeAssignment):
+    if not isinstance(runtime_value(assignment), RuntimeAssignment):
         raise TypeError("assignment must be RuntimeAssignment")
-    if not isinstance(claim, ClaimBinding):
+    if not isinstance(runtime_value(claim), ClaimBinding):
         raise TypeError("claim must be ClaimBinding")
 
     # Re-validation closes model_copy/model_construct bypasses before any
@@ -167,8 +209,8 @@ def _failure_body(
     claim: ClaimBinding,
     failure_code: str,
     domain_failure: Failure | None = None,
-) -> dict[str, Any]:
-    body = {
+) -> RuntimeFailureBody:
+    body: RuntimeFailureBody = {
         "schema_version": FAILURE_SCHEMA,
         "project_key": scope.project_scope.project_key,
         "project_registry_revision": scope.project_scope.project_registry_revision,
@@ -281,12 +323,12 @@ class RuntimeFailureRepository:
             expected_digest=failure_digest,
         )
         try:
-            decoded = json.loads(exact.decode("utf-8"))
+            decoded = runtime_value(json.loads(exact.decode("utf-8")))
         except (UnicodeDecodeError, json.JSONDecodeError) as exc:
             raise RuntimeFailureBindingError(
                 "runtime failure body is not canonical JSON"
             ) from exc
-        if not isinstance(decoded, dict) or canonical_bytes(decoded) != exact:
+        if not _is_string_object_dict(decoded) or canonical_bytes(decoded) != exact:
             raise RuntimeFailureBindingError(
                 "runtime failure body is not canonical JSON"
             )
@@ -298,9 +340,25 @@ class RuntimeFailureRepository:
         domain_failure = None
         if decoded.get("schema_version") == DOMAIN_FAILURE_SCHEMA:
             domain = decoded.get("domain_failure")
-            if not isinstance(domain, dict) or set(domain) != {"family", "code", "message", "context"}:
+            if not _is_string_object_dict(domain) or set(domain) != {"family", "code", "message", "context"}:
                 raise RuntimeFailureBindingError("runtime domain Failure body is malformed")
-            domain_failure = Failure(**domain)
+            family = domain["family"]
+            code = domain["code"]
+            message = domain["message"]
+            context = _checked_json(domain["context"])
+            if (
+                not isinstance(family, str)
+                or not isinstance(code, str)
+                or not isinstance(message, str)
+                or (context is not None and not isinstance(context, dict))
+            ):
+                raise RuntimeFailureBindingError("runtime domain Failure body is malformed")
+            domain_failure = Failure(
+                family=family,
+                code=code,
+                message=message,
+                context=context,
+            )
         try:
             expected = canonical_bytes(_failure_body(scope, assignment, claim, failure_code, domain_failure))
         except (TypeError, ValueError) as exc:

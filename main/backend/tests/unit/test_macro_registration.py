@@ -1,11 +1,16 @@
 from __future__ import annotations
 
+import json
 from dataclasses import replace
 from hashlib import sha256
-import json
 
 import pytest
-
+from app.services.agent_core.contracts import AgentCoreRequest, CoreToolCall
+from app.services.agent_core.host_authorization import (
+    TrustedHostContext,
+    VerifiedHostAuthorization,
+    canonical_arguments_sha256,
+)
 from app.services.agent_core.macro_registration import (
     CONTRACT_VERSION,
     activate_registration_package,
@@ -13,11 +18,9 @@ from app.services.agent_core.macro_registration import (
     read_registration_package,
     save_registration_package,
 )
-from app.services.agent_sessions.store import InMemoryAgentSessionStore, validate_json_object
-from app.services.agent_core.host_authorization import TrustedHostContext, VerifiedHostAuthorization, canonical_arguments_sha256
-from app.services.agent_core.contracts import AgentCoreRequest, CoreToolCall
 from app.services.agent_core.macro_tools import macro_registration_package_create_facility
 from app.services.agent_core.registry import CoreToolRegistry
+from app.services.agent_sessions.store import InMemoryAgentSessionStore, validate_json_object
 from functorial_kit import Failure
 
 
@@ -104,6 +107,45 @@ def test_candidate_package_is_canonical_and_not_active() -> None:
     ).hexdigest()
 
 
+def test_candidate_package_preserves_tuple_refs_nested_nulls_and_trimmed_identity() -> None:
+    canonical_payload = _package()
+    canonical_payload["cell"]["metadata"] = {
+        "optional": None,
+        "nested": ["kept", None, {"value": None}],
+    }
+    tuple_payload = _package()
+    tuple_payload["cell"]["cell_id"] = "  demo.cell  "
+    tuple_payload["cell"]["core_binding_ref"] = "  codex.native  "
+    tuple_payload["cell"]["metadata"] = {
+        "optional": None,
+        "nested": ("kept", None, {"value": None}),
+    }
+    for key in (
+        "conceptual_rule_refs",
+        "tool_refs",
+        "facility_refs",
+        "readback_refs",
+    ):
+        tuple_payload["cell"][key] = tuple(tuple_payload["cell"][key])
+    tuple_payload["skill_contents"][0]["tool_refs"] = tuple(
+        tuple_payload["skill_contents"][0]["tool_refs"]
+    )
+    tuple_payload["relations"][0]["failure_refs"] = tuple(
+        tuple_payload["relations"][0]["failure_refs"]
+    )
+    tuple_payload["relations"][0]["readback_refs"] = tuple(
+        tuple_payload["relations"][0]["readback_refs"]
+    )
+
+    canonical = build_registration_package(canonical_payload, project_key="demo_project")
+    from_tuple = build_registration_package(tuple_payload, project_key="demo_project")
+
+    assert not isinstance(canonical, Failure)
+    assert not isinstance(from_tuple, Failure)
+    assert from_tuple == canonical
+    assert from_tuple["content_digest"] == canonical["content_digest"]
+
+
 def test_first_save_with_real_store_and_exact_legacy_session_readback() -> None:
     service = _Service()
     service.store = InMemoryAgentSessionStore()
@@ -128,6 +170,16 @@ def test_package_rejects_scope_mismatch_and_undeclared_skill_tool() -> None:
     invalid["skill_contents"][0]["tool_refs"] = ["undeclared"]
     rejected = build_registration_package(invalid, project_key="demo_project")
     assert isinstance(rejected, Failure)
+
+
+def test_package_rejects_nested_non_json_values_as_registration_failure() -> None:
+    invalid = _package()
+    invalid["cell"]["metadata"] = {"nested": ["valid", object()]}
+
+    rejected = build_registration_package(invalid, project_key="demo_project")
+
+    assert isinstance(rejected, Failure)
+    assert rejected.context["registration_code"] == "macro_registration_invalid"
 
 
 @pytest.mark.parametrize("permission,approval_id,source", [

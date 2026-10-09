@@ -24,7 +24,9 @@ from typing import (
     Literal,
     Protocol,
     TypeAlias,
+    TypedDict,
     TypeVar,
+    Unpack,
     runtime_checkable,
 )
 
@@ -39,11 +41,14 @@ from app.successor_runtime.research import (
     ResearchArtifact,
 )
 from app.successor_runtime.research.artifacts import artifact_exact_ref
-from app.successor_runtime.research.codec import digest_dataclass
+from app.successor_runtime.research.codec import digest_dataclass, runtime_value
 from app.successor_runtime.research.evidence import Validity
 
 from .checksum import content_digest, require_hex64
-from .first_specimen import _capability_failure, _raise_capability_failure
+from .failure import (
+    capability_failure as _capability_failure,
+    raise_capability_failure as _raise_capability_failure,
+)
 
 __all__ = [
     "CapturedDocumentValue",
@@ -74,6 +79,26 @@ EffectDisposition: TypeAlias = Literal[
     "OUTCOME_UNKNOWN",
 ]
 ClaimOrGap: TypeAlias = Claim | Gap
+
+
+class VerifiedDeliveryBindingContent(TypedDict):
+    delivery_intent_digest: str
+    approved_payload_digest: str
+    approval_refs: tuple[str, ...]
+    approval_epoch: int
+    authority_digest: str
+    authority_epoch: int
+    validated_at: datetime
+    expires_at: datetime
+
+
+class InternalExportObservationContent(TypedDict):
+    idempotency_key: str
+    delivery_intent_digest: str
+    artifact_bytes_digest: str
+    attempt_ref: str
+    provider_locator: str
+    outcome_time: datetime
 
 
 def derive_material_ref(
@@ -222,7 +247,8 @@ class CapturedDocumentValue:
     exact_bytes_digest: str
 
     def __post_init__(self) -> None:
-        if not isinstance(self.exact_bytes, bytes):
+        raw_exact_bytes = runtime_value(self.exact_bytes)
+        if not isinstance(raw_exact_bytes, bytes):
             _raise_capability_failure(_capability_failure("INVALID_CAPTURED_MATERIAL", "CapturedDocumentValue.exact_bytes must be bytes"), TypeError)
         require_hex64(
             self.exact_bytes_digest,
@@ -256,7 +282,8 @@ class ComposedMarkdownArtifact:
     artifact: ResearchArtifact
 
     def __post_init__(self) -> None:
-        if not isinstance(self.exact_bytes, bytes):
+        raw_exact_bytes = runtime_value(self.exact_bytes)
+        if not isinstance(raw_exact_bytes, bytes):
             _raise_capability_failure(_capability_failure("INVALID_ARTIFACT_CLOSURE", "ComposedMarkdownArtifact.exact_bytes must be bytes"), TypeError)
         require_hex64(
             self.exact_bytes_digest,
@@ -310,7 +337,9 @@ class VerifiedDeliveryBinding:
             _raise_capability_failure(_capability_failure("DELIVERY_AUTHORITY_OR_APPROVAL_INVALID", "verified delivery binding digest mismatch"))
 
     @classmethod
-    def from_content(cls, **values: object) -> VerifiedDeliveryBinding:
+    def from_content(
+        cls, **values: Unpack[VerifiedDeliveryBindingContent]
+    ) -> VerifiedDeliveryBinding:
         provisional = cls.__new__(cls)
         for field_name, value in values.items():
             object.__setattr__(provisional, field_name, value)
@@ -371,7 +400,9 @@ class InternalExportObservation:
             _raise_capability_failure(_capability_failure("INTERNAL_EXPORT_READBACK_CONFLICT", "internal export receipt digest mismatch"))
 
     @classmethod
-    def from_content(cls, **values: object) -> InternalExportObservation:
+    def from_content(
+        cls, **values: Unpack[InternalExportObservationContent]
+    ) -> InternalExportObservation:
         provisional = cls.__new__(cls)
         for field_name, value in values.items():
             object.__setattr__(provisional, field_name, value)
@@ -444,7 +475,8 @@ class FirstSpecimenInterpreters:
             snapshot = captured.snapshot
             if snapshot.document_id != payload.document_id:
                 _raise_capability_failure(_capability_failure("DOCUMENT_OBSERVATION_MISMATCH", "captured document identity drift"))
-            if not isinstance(captured.exact_bytes, bytes):
+            raw_exact_bytes = runtime_value(captured.exact_bytes)
+            if not isinstance(raw_exact_bytes, bytes):
                 _raise_capability_failure(_capability_failure("DOCUMENT_OBSERVATION_MISMATCH", "captured value replay returned non-bytes"), TypeError)
             exact_bytes = bytes(captured.exact_bytes)
             raw_digest = _bytes_digest(exact_bytes)
@@ -844,7 +876,8 @@ def _require_delivery_input(
     artifact: ResearchArtifact,
     artifact_bytes: bytes,
 ) -> None:
-    if not isinstance(artifact_bytes, bytes):
+    raw_artifact_bytes = runtime_value(artifact_bytes)
+    if not isinstance(raw_artifact_bytes, bytes):
         _raise_capability_failure(_capability_failure("INVALID_ARTIFACT_CLOSURE", "artifact_bytes must be exact bytes"), TypeError)
     if artifact.lifecycle_state != "ADMITTED":
         _raise_capability_failure(_capability_failure("INVALID_ARTIFACT_CLOSURE", "delivery requires an admitted artifact"))
@@ -975,10 +1008,11 @@ def _render_markdown(
 
 
 def _claim_or_gap_ref(value: ClaimOrGap) -> str:
-    if isinstance(value, Claim):
-        return value.claim_id
-    if isinstance(value, Gap):
-        return value.gap_id
+    raw_value = runtime_value(value)
+    if isinstance(raw_value, Claim):
+        return raw_value.claim_id
+    if isinstance(raw_value, Gap):
+        return raw_value.gap_id
     _raise_capability_failure(_capability_failure("INVALID_CLAIM_OR_GAP", "outcome must contain Claim or Gap"), TypeError)
 
 

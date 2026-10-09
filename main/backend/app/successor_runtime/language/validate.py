@@ -91,11 +91,11 @@ class _Validator:
             )
             return
         if isinstance(node, Identity):
-            self._check_type(node.input_type, path)
+            self.check_type(node.input_type, path)
             return
         if isinstance(node, Pure):
-            self._check_type(node.input_type, path)
-            self._check_type(node.output_type, path)
+            self.check_type(node.input_type, path)
+            self.check_type(node.output_type, path)
             if not node.literal_codec:
                 self.fail("MISSING_LITERAL_CODEC", path, "Pure requires literal_codec")
             return
@@ -117,7 +117,7 @@ class _Validator:
             return
         if isinstance(node, MapOutput):
             self._walk(node.source, path + ".source")
-            self._check_type(node.target_type, path + ".target_type")
+            self.check_type(node.target_type, path + ".target_type")
             if self.transform_registry is not None:
                 if not self.transform_registry.has_transform(node.transform_ref):
                     self.fail(
@@ -191,7 +191,7 @@ class _Validator:
             f"unsupported AST node {kind!r}",
         )
 
-    def _check_type(self, object_type: "object", path: str) -> None:
+    def check_type(self, object_type: "object", path: str) -> None:
         type_id = getattr(object_type, "type_id", None)
         codec_id = getattr(object_type, "codec_id", None)
         if not isinstance(type_id, str) or not type_id:
@@ -209,13 +209,13 @@ class _Validator:
         operation = node.operation
         if not operation.operation_id:
             self.fail("EMPTY_OPERATION_ID", path, "Atom operation_id must be non-empty")
-        self._validate_operation_contract_ref(operation.contract_ref, path)
-        self._check_type(node.input_type, path + ".input_type")
-        self._check_type(node.output_type, path + ".output_type")
+        self.validate_operation_contract_ref(operation.contract_ref, path)
+        self.check_type(node.input_type, path + ".input_type")
+        self.check_type(node.output_type, path + ".output_type")
         if not operation.input_refs:
             self.fail("MISSING_INPUT_REFS", path, "Atom requires input refs")
         for index, value_ref in enumerate(operation.input_refs):
-            self._check_type(value_ref.object_type, f"{path}.input_refs[{index}]")
+            self.check_type(value_ref.object_type, f"{path}.input_refs[{index}]")
         if self.operation_contract_resolver is None:
             self.fail(
                 "MISSING_OPERATION_CONTRACT_RESOLVER",
@@ -294,7 +294,7 @@ class _Validator:
                 f"full OperationContract is missing profile refs: {missing_profiles}",
             )
 
-    def _validate_operation_contract_ref(
+    def validate_operation_contract_ref(
         self, ref: OperationContractRef, path: str
     ) -> None:
         if not ref.kind or not ref.contract_version:
@@ -361,9 +361,9 @@ def validate_operation_spec(
     )
     if not operation.operation_id:
         validator.fail("EMPTY_OPERATION_ID", path, "operation_id must be non-empty")
-    validator._validate_operation_contract_ref(operation.contract_ref, path)
+    validator.validate_operation_contract_ref(operation.contract_ref, path)
     for index, value_ref in enumerate(operation.input_refs):
-        validator._check_type(value_ref.object_type, f"{path}.input_refs[{index}]")
+        validator.check_type(value_ref.object_type, f"{path}.input_refs[{index}]")
     return tuple(validator.failures)
 
 

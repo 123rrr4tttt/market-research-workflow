@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterator, Mapping
 
 # ruff: noqa: TRY003
 from dataclasses import dataclass
-from typing import Any
+from typing import Protocol, TypeGuard, runtime_checkable
 
 from .alerts import AlertRule
 from .contracts import PRODUCTION_OBSERVABILITY_RUNTIME_CONTRACT_VERSION, AlertDirection, MetricFamily
@@ -14,6 +14,41 @@ LOCAL_RUNTIME_BOOLEAN_TRIGGER_RATIO = 1.0
 LOCAL_RUNTIME_BOOLEAN_RECOVER_RATIO = 0.0
 LOCAL_RUNTIME_LATENCY_BREACH_SECONDS = 0.25
 LOCAL_RUNTIME_ALERT_THRESHOLD_PROVENANCE = "local_runtime_validation_non_production.v2"
+
+
+@runtime_checkable
+class ObjectIterable(Protocol):
+    def __iter__(self) -> Iterator[object]: ...
+
+
+def _is_text(value: object) -> TypeGuard[str]:
+    return isinstance(value, str)
+
+
+def _is_bool(value: object) -> TypeGuard[bool]:
+    return isinstance(value, bool)
+
+
+def _is_ratio(value: object) -> TypeGuard[int | float]:
+    return not isinstance(value, bool) and isinstance(value, (int, float))
+
+
+def _is_object_tuple(value: object) -> TypeGuard[tuple[object, ...]]:
+    return isinstance(value, tuple)
+
+
+def _is_object_mapping(value: object) -> TypeGuard[Mapping[object, object]]:
+    return isinstance(value, Mapping)
+
+
+def _is_config_mapping(value: object) -> TypeGuard[Mapping[str, object]]:
+    return _is_object_mapping(value) and all(isinstance(key, str) for key in value)
+
+
+def _is_nonempty_tuple(value: object) -> TypeGuard[tuple[AlertRule, ...]]:
+    if not _is_object_tuple(value):
+        return False
+    return bool(value) and all(isinstance(item, AlertRule) for item in value)
 
 
 @dataclass(frozen=True, slots=True)
@@ -27,18 +62,18 @@ class ProductionObservabilityConfig:
     alert_rules: tuple[AlertRule, ...]
 
     def __post_init__(self) -> None:
-        if not isinstance(self.contract_version, str):
+        if not _is_text(self.contract_version):
             raise ObservabilityTypeError("config contract_version must be text")
         if self.contract_version != PRODUCTION_OBSERVABILITY_RUNTIME_CONTRACT_VERSION:
             raise ObservabilityValueError("config contract_version is closed")
-        if not isinstance(self.runtime_id, str) or not self.runtime_id.strip():
+        if not _is_text(self.runtime_id) or not self.runtime_id.strip():
             raise ObservabilityValueError("runtime_id is required")
         binding = (self.domain, self.route, self.release_version)
-        if any(not isinstance(value, str) or not value.strip() for value in binding):
+        if any(not _is_text(value) or not value.strip() for value in binding):
             raise ObservabilityValueError("config domain, route, and release_version are required")
-        if not isinstance(self.canary_route_enabled, bool):
+        if not _is_bool(self.canary_route_enabled):
             raise ObservabilityTypeError("canary_route_enabled must be boolean")
-        if not isinstance(self.alert_rules, tuple) or not self.alert_rules:
+        if not _is_nonempty_tuple(self.alert_rules):
             raise ObservabilityValueError("at least one alert rule is required")
         rule_ids = [rule.rule_id for rule in self.alert_rules]
         if len(rule_ids) != len(set(rule_ids)):
@@ -52,7 +87,7 @@ class ProductionObservabilityConfig:
             if rule.release_version != normalized_release:
                 raise ObservabilityValueError("alert rule release_version must match config")
 
-    def to_dict(self) -> dict[str, Any]:
+    def to_dict(self) -> dict[str, object]:
         return {
             "contract_version": self.contract_version,
             "runtime_id": self.runtime_id,
@@ -64,14 +99,21 @@ class ProductionObservabilityConfig:
         }
 
 
-def _required(mapping: Mapping[str, Any], key: str) -> Any:
+def _required(mapping: Mapping[str, object], key: str) -> object:
     if key not in mapping:
         raise ObservabilityValueError(f"config field is required: {key}")
     return mapping[key]
 
 
-def _alert_rule(value: Any) -> AlertRule:
-    if not isinstance(value, Mapping):
+def _required_text(mapping: Mapping[str, object], key: str) -> str:
+    value = _required(mapping, key)
+    if not _is_text(value):
+        raise ObservabilityTypeError(f"config {key} must be text")
+    return value
+
+
+def _alert_rule(value: object) -> AlertRule:
+    if not _is_config_mapping(value):
         raise ObservabilityTypeError("alert rule must be a mapping")
     fields = {
         "rule_id",
@@ -83,36 +125,43 @@ def _alert_rule(value: Any) -> AlertRule:
         "recover_threshold",
         "direction",
     }
-    unknown_fields = set(value) - fields
+    unknown_fields = set(value.keys()) - fields
     if unknown_fields:
         raise ObservabilityValueError(f"alert rule has unknown fields: {sorted(unknown_fields)}")
-    missing_fields = fields - set(value) - {"direction"}
+    missing_fields = fields - set(value.keys()) - {"direction"}
     if missing_fields:
         raise ObservabilityValueError(f"alert rule fields are required: {sorted(missing_fields)}")
     raw_family = _required(value, "metric_family")
     family = raw_family if isinstance(raw_family, MetricFamily) else MetricFamily(raw_family)
-    raw_direction = value.get("direction", AlertDirection.ABOVE)
+    raw_direction = value["direction"] if "direction" in value else AlertDirection.ABOVE
     direction = raw_direction if isinstance(raw_direction, AlertDirection) else AlertDirection(raw_direction)
     trigger = _required(value, "trigger_threshold")
     recover = _required(value, "recover_threshold")
-    if isinstance(trigger, bool) or not isinstance(trigger, (int, float)):
+    if not _is_ratio(trigger):
         raise ObservabilityTypeError("alert trigger_threshold must be numeric")
-    if isinstance(recover, bool) or not isinstance(recover, (int, float)):
+    if not _is_ratio(recover):
         raise ObservabilityTypeError("alert recover_threshold must be numeric")
     return AlertRule(
-        rule_id=_required(value, "rule_id"),
+        rule_id=_required_text(value, "rule_id"),
         metric_family=family,
-        domain=_required(value, "domain"),
-        route=_required(value, "route"),
-        release_version=_required(value, "release_version"),
+        domain=_required_text(value, "domain"),
+        route=_required_text(value, "route"),
+        release_version=_required_text(value, "release_version"),
         trigger_threshold=trigger,
         recover_threshold=recover,
         direction=direction,
     )
 
 
-def parse_production_observability_config(value: Mapping[str, Any]) -> ProductionObservabilityConfig:
-    if not isinstance(value, Mapping):
+def _required_bool(mapping: Mapping[str, object], key: str) -> bool:
+    value = _required(mapping, key)
+    if not _is_bool(value):
+        raise ObservabilityTypeError(f"config {key} must be boolean")
+    return value
+
+
+def parse_production_observability_config(value: object) -> ProductionObservabilityConfig:
+    if not _is_config_mapping(value):
         raise ObservabilityTypeError("production observability config must be a mapping")
     fields = {
         "contract_version",
@@ -123,20 +172,20 @@ def parse_production_observability_config(value: Mapping[str, Any]) -> Productio
         "canary_route_enabled",
         "alert_rules",
     }
-    unknown_fields = set(value) - fields
+    unknown_fields = set(value.keys()) - fields
     if unknown_fields:
         raise ObservabilityValueError(f"config has unknown fields: {sorted(unknown_fields)}")
     raw_rules = _required(value, "alert_rules")
-    if isinstance(raw_rules, (str, bytes)) or not isinstance(raw_rules, Iterable):
+    if isinstance(raw_rules, (str, bytes)) or not isinstance(raw_rules, ObjectIterable):
         raise ObservabilityTypeError("alert_rules must be a sequence")
     rules = tuple(_alert_rule(rule) for rule in raw_rules)
     return ProductionObservabilityConfig(
-        contract_version=_required(value, "contract_version"),
-        runtime_id=_required(value, "runtime_id"),
-        domain=_required(value, "domain"),
-        route=_required(value, "route"),
-        release_version=_required(value, "release_version"),
-        canary_route_enabled=_required(value, "canary_route_enabled"),
+        contract_version=_required_text(value, "contract_version"),
+        runtime_id=_required_text(value, "runtime_id"),
+        domain=_required_text(value, "domain"),
+        route=_required_text(value, "route"),
+        release_version=_required_text(value, "release_version"),
+        canary_route_enabled=_required_bool(value, "canary_route_enabled"),
         alert_rules=rules,
     )
 
@@ -182,6 +231,13 @@ def production_observability_config_from_settings(
         ("local-runtime-authority-mismatch.v2", MetricFamily.AUTHORITY_MISMATCH),
         ("local-runtime-request-latency.v2", MetricFamily.REQUEST_LATENCY_BREACH_RATE),
     )
+    for _rule_id, _family, trigger_name, recover_name in pairs:
+        if not _is_ratio(getattr(settings_obj, trigger_name)) or not _is_ratio(
+            getattr(settings_obj, recover_name)
+        ):
+            raise ObservabilityValueError(
+                "production observability trigger and recover settings must be numeric"
+            )
     existing_rules = tuple(
         AlertRule(
             rule_id=rule_id,
@@ -189,8 +245,8 @@ def production_observability_config_from_settings(
             domain=domain,
             route=route,
             release_version=release_version,
-            trigger_threshold=getattr(settings_obj, trigger_name),
-            recover_threshold=getattr(settings_obj, recover_name),
+            trigger_threshold=float(getattr(settings_obj, trigger_name)),
+            recover_threshold=float(getattr(settings_obj, recover_name)),
         )
         for rule_id, family, trigger_name, recover_name in pairs
     )
@@ -207,15 +263,18 @@ def production_observability_config_from_settings(
         for rule_id, family in local_gap_pairs
     )
     rules = existing_rules + local_rules
+    canary_route_enabled = getattr(
+        settings_obj, "production_canary_route_enabled", False
+    )
+    if not _is_bool(canary_route_enabled):
+        raise ObservabilityTypeError("production canary route setting must be boolean")
     return ProductionObservabilityConfig(
         contract_version=PRODUCTION_OBSERVABILITY_RUNTIME_CONTRACT_VERSION,
         runtime_id=runtime_id,
         domain=domain,
         route=route,
         release_version=release_version,
-        canary_route_enabled=getattr(
-            settings_obj, "production_canary_route_enabled", False
-        ),
+        canary_route_enabled=canary_route_enabled,
         alert_rules=rules,
     )
 

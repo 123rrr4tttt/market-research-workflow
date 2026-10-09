@@ -11,12 +11,13 @@ from __future__ import annotations
 import json
 from collections.abc import Mapping
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, TypeGuard
 
 from sqlalchemy import Table, insert, select
-from sqlalchemy.engine import Connection
+from sqlalchemy.engine import Connection, Result, RowMapping
 
 from app.successor_runtime.research.evidence import EvidenceQualification
+from app.successor_runtime.research.codec import runtime_value
 from app.successor_runtime.research.identities import ResearchObjectRef
 from app.successor_runtime.research.object_types import ObjectType
 from app.successor_runtime.research.relations import ResearchRelation
@@ -117,10 +118,11 @@ def utcnow() -> datetime:
 
 
 def scope_ref(scope: RuntimeScope | ProjectScopeRef) -> ProjectScopeRef:
-    if isinstance(scope, RuntimeScope):
-        return scope.project_scope
-    if isinstance(scope, ProjectScopeRef):
-        return scope
+    checked_scope = runtime_value(scope)
+    if isinstance(checked_scope, RuntimeScope):
+        return checked_scope.project_scope
+    if isinstance(checked_scope, ProjectScopeRef):
+        return checked_scope
     raise TypeError("scope must be RuntimeScope or ProjectScopeRef")
 
 
@@ -128,9 +130,13 @@ def scope_actor(scope: RuntimeScope | ProjectScopeRef) -> str:
     return scope.actor_id if isinstance(scope, RuntimeScope) else "project-scope"
 
 
-def project_table(tables: Any, name: str) -> Table:
-    table = getattr(tables, name, None)
-    if table is None and isinstance(tables, Mapping):
+def _is_object_mapping(value: object) -> TypeGuard[Mapping[object, object]]:
+    return isinstance(value, Mapping)
+
+
+def project_table(tables: object, name: str) -> Table:
+    table = runtime_value(getattr(tables, name, None))
+    if table is None and _is_object_mapping(tables):
         table = tables.get(name)
     if not isinstance(table, Table):
         raise TypeError(f"missing or invalid project table: {name}")
@@ -147,12 +153,11 @@ def assert_table_scope(table: Table, scope: RuntimeScope | ProjectScopeRef) -> s
     return resolved.project_key
 
 
-def one_mapping(result: Any) -> Mapping[str, Any] | None:
-    row = result.mappings().one_or_none()
-    return None if row is None else row
+def one_mapping(result: Result[tuple[object, ...]]) -> RowMapping | None:
+    return result.mappings().one_or_none()
 
 
-def mapping_tuple(result: Any) -> tuple[Mapping[str, Any], ...]:
+def mapping_tuple(result: Result[tuple[object, ...]]) -> tuple[RowMapping, ...]:
     return tuple(result.mappings().all())
 
 
@@ -178,7 +183,7 @@ def object_ref_text(ref: ResearchObjectRef) -> str:
     return json.dumps(object_ref_json(ref), sort_keys=True, separators=(",", ":"))
 
 
-def _object_from_row(row: Mapping[str, Any]) -> ResearchObjectRef:
+def _object_from_row(row: RowMapping) -> ResearchObjectRef:
     return ResearchObjectRef(
         object_id=row["object_id"],
         object_type=ObjectType(row["object_type"]),
@@ -195,7 +200,7 @@ def _object_from_row(row: Mapping[str, Any]) -> ResearchObjectRef:
     )
 
 
-def _same_object(row: Mapping[str, Any], ref: ResearchObjectRef) -> bool:
+def _same_object(row: RowMapping, ref: ResearchObjectRef) -> bool:
     return all(
         row[name] == value
         for name, value in {
@@ -224,7 +229,7 @@ class ResearchLedgerRepository:
         self,
         scope: RuntimeScope | ProjectScopeRef,
         object_type: str,
-    ) -> Mapping[str, Any]:
+    ) -> RowMapping:
         table = project_table(self.tables, "research_owner_bindings")
         project_key = assert_table_scope(table, scope)
         row = one_mapping(
@@ -533,7 +538,7 @@ class ResearchLedgerRepository:
 
     @staticmethod
     def _validate_version_cas(
-        current: Mapping[str, Any] | None,
+        current: RowMapping | None,
         *,
         new_revision: int,
         new_incarnation: str,

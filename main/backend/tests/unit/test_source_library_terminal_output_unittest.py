@@ -185,6 +185,20 @@ class SourceLibraryTerminalOutputUnitTestCase(unittest.TestCase):
         self.assertEqual(dto["meta"]["retryable"], True)
         self.assertEqual(dto["meta"]["reason_code"], "empty")
 
+    def test_explicit_empty_records_do_not_fall_back_to_candidates(self) -> None:
+        dto = to_terminal_output_dto(
+            {
+                "item_key": "report.market",
+                "result": {
+                    "records": [],
+                    "candidates": ["https://example.com/candidate"],
+                },
+            }
+        )
+
+        self.assertEqual(dto["results"]["records"], [])
+        self.assertEqual(dto["meta"]["reason_code"], "empty")
+
     def test_nested_crawler_ack_stays_accepted_and_exposes_outcome_unknown(self) -> None:
         dto = to_terminal_output_dto(
             {

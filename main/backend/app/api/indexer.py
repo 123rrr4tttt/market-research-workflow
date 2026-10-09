@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import Any
+from collections.abc import Mapping
+from typing import Any, NoReturn
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
@@ -15,7 +16,7 @@ router = APIRouter(prefix="/indexer", tags=["indexer"])
 IndexerEnvelope = ApiEnvelope[dict[str, Any]]
 
 
-def _raise_config_error(message: str) -> None:
+def _raise_config_error(message: str) -> NoReturn:
     raise HTTPException(
         status_code=400,
         detail=error_response(
@@ -25,7 +26,12 @@ def _raise_config_error(message: str) -> None:
     )
 
 
-def _raise_indexer_error(code: ErrorCode, message: str, *, details: dict | None = None) -> None:
+def _raise_indexer_error(
+    code: ErrorCode,
+    message: str,
+    *,
+    details: Mapping[str, object] | None = None,
+) -> NoReturn:
     status_code = 500
     if code == ErrorCode.CONFIG_ERROR:
         status_code = 400
@@ -38,7 +44,7 @@ def _raise_indexer_error(code: ErrorCode, message: str, *, details: dict | None 
         detail=error_response(
             code,
             message,
-            details=details,
+            details=None if details is None else dict(details),
         ),
     )
 

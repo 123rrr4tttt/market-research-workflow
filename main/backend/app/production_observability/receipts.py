@@ -8,8 +8,8 @@ from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
 from types import MappingProxyType
-from typing import Any
-from collections.abc import Iterable, Mapping
+from typing import Protocol, TypeGuard, runtime_checkable
+from collections.abc import Iterable, Iterator, Mapping, Sequence
 
 from .errors import ObservabilityTypeError, ObservabilityValueError
 from .contracts import RECEIPT_ARTIFACT_KINDS, RECEIPT_CONTRACT_VERSIONS, ReceiptScope
@@ -35,7 +35,47 @@ class ReceiptValidationCode(StrEnum):
     RECEIPT_DIGEST_INVALID = "receipt_digest_invalid"
 
 
-def _canonical_json(value: Any) -> str:
+def _is_receipt_scope(value: object) -> TypeGuard[ReceiptScope]:
+    return isinstance(value, ReceiptScope)
+
+
+def _is_object_mapping(value: object) -> TypeGuard[Mapping[object, object]]:
+    return isinstance(value, Mapping)
+
+
+@runtime_checkable
+class _ObjectIterable(Protocol):
+    def __iter__(self) -> Iterator[object]: ...
+
+
+def _is_object_sequence(value: object) -> TypeGuard[Sequence[object]]:
+    return isinstance(value, Sequence)
+
+
+def _digest_items(value: object) -> Iterable[tuple[object, object]]:
+    if value is None:
+        return ()
+    if _is_object_mapping(value):
+        return value.items()
+    if not isinstance(value, _ObjectIterable):
+        raise ObservabilityTypeError(
+            "observation_digests must be a mapping, item pairs, or null"
+        )
+    items: list[tuple[object, object]] = []
+    for item in value:
+        if (
+            isinstance(item, (str, bytes))
+            or not _is_object_sequence(item)
+            or len(item) != 2
+        ):
+            raise ObservabilityTypeError(
+                "observation_digests must contain key-value pairs"
+            )
+        items.append((item[0], item[1]))
+    return tuple(items)
+
+
+def _canonical_json(value: object) -> str:
     return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"), default=str)
 
 
@@ -74,7 +114,11 @@ class ObservationReceipt:
     declared_digest: str | None = None
 
     def __post_init__(self) -> None:
-        digests = {str(key).strip(): str(value).strip() for key, value in dict(self.observation_digests or {}).items()}
+        raw_digests: object = self.observation_digests
+        digests = {
+            str(key).strip(): str(value).strip()
+            for key, value in _digest_items(raw_digests)
+        }
         ids = tuple(dict.fromkeys(str(item).strip() for item in self.observation_ids if str(item).strip()))
         declared = str(self.declared_digest or "").strip() or None
         object.__setattr__(self, "observation_ids", ids)
@@ -83,7 +127,7 @@ class ObservationReceipt:
         object.__setattr__(self, "observed_at", parse_observed_at(self.observed_at))
         if not self.receipt_id.strip():
             raise ObservabilityValueError("receipt_id is required")
-        if not isinstance(self.scope, ReceiptScope):
+        if not _is_receipt_scope(self.scope):
             raise ObservabilityTypeError("receipt scope is closed")
         if not self.domain.strip() or not self.route.strip() or not self.release_version.strip():
             raise ObservabilityValueError("receipt domain, route, and release_version are required")
@@ -92,7 +136,7 @@ class ObservationReceipt:
     def digest(self) -> str:
         return receipt_digest(self)
 
-    def to_dict(self) -> dict[str, Any]:
+    def to_dict(self) -> dict[str, object]:
         return {
             "receipt_id": self.receipt_id,
             "observed_at": self.observed_at.isoformat(),

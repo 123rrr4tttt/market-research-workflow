@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict
+from collections.abc import Mapping
+from importlib import import_module
+from typing import Any, Dict, Protocol, TypeGuard, runtime_checkable
 
 from ..candidate_aggregation import (
     aggregate_written_counts,
@@ -18,11 +20,80 @@ from ..relevance_review import annotate_records_with_relevance_review_queue
 from ..relevance_review import merge_relevance_review_queues
 
 
-def _source_library_item_context(params: Dict[str, Any]) -> dict[str, Any]:
-    raw = params.get("_source_library_item")
-    if not isinstance(raw, dict):
-        return {}
-    extra = raw.get("extra") if isinstance(raw.get("extra"), dict) else {}
+class _UnifiedSearchResultView(Protocol):
+    runtime_diagnostics: list[dict[str, object]]
+    site_entries_used: list[dict[str, object]]
+    relevance_review_queue: dict[str, object]
+    errors: list[dict[str, str]]
+    ingest_result: dict[str, object] | None
+
+
+@runtime_checkable
+class _UnifiedSearchPort(Protocol):
+    def __call__(
+        self,
+        *,
+        project_key: str,
+        item: dict[str, object],
+        query_terms: list[str],
+        max_candidates: int,
+        write_to_pool: bool,
+        pool_scope: str,
+        probe_timeout: float,
+        sitemap_max_depth: int,
+        sitemap_max_sitemaps: int,
+        auto_ingest: bool,
+        ingest_limit: int,
+        enable_extraction: bool,
+        allow_term_fallback: bool,
+    ) -> _UnifiedSearchResultView: ...
+
+
+def _is_object(value: object) -> TypeGuard[dict[object, object]]:
+    return isinstance(value, dict)
+
+
+def _is_object_list(value: object) -> TypeGuard[list[object]]:
+    return isinstance(value, list)
+
+
+def _object(value: object) -> dict[object, object]:
+    return dict(value) if _is_object(value) else {}
+
+
+def _object_list(value: object) -> list[object]:
+    return list(value) if _is_object_list(value) else []
+
+
+def _int(value: object) -> int:
+    if not isinstance(value, int | float | str):
+        return 0
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _float(value: object, default: float) -> float:
+    if not isinstance(value, int | float | str):
+        return default
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _resolve_unified_search() -> _UnifiedSearchPort:
+    module = import_module("app.services.resource_pool")
+    candidate = getattr(module, "unified_search_by_item_payload", None)
+    if not isinstance(candidate, _UnifiedSearchPort):
+        raise RuntimeError("resource_pool.unified_search adapter is unavailable")
+    return candidate
+
+
+def _source_library_item_context(params: Mapping[object, object]) -> dict[str, object]:
+    raw = _object(params.get("_source_library_item"))
+    extra = _object(raw.get("extra"))
     return {
         "item_key": str(raw.get("item_key") or "").strip() or None,
         "channel_key": str(raw.get("channel_key") or "").strip() or None,
@@ -32,17 +103,15 @@ def _source_library_item_context(params: Dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def handle_handler_cluster(params: Dict[str, Any], project_key: str | None) -> Dict[str, Any]:
-    from ...resource_pool import unified_search_by_item_payload
-
-    merged_params = dict(params or {})
+def handle_handler_cluster(params: Mapping[object, object], project_key: str | None) -> Dict[str, Any]:
+    merged_params = _object(params)
     item_ctx = _source_library_item_context(merged_params)
     terminal_output_only = bool(merged_params.get("source_library_terminal_output_only")) or str(
         merged_params.get("source_library_execution_layer") or ""
     ).strip().lower() == "terminal_output_only"
     item_key = str(merged_params.pop("_item_key", "") or "").strip()
     item_params = {k: v for k, v in merged_params.items() if not str(k).startswith("_")}
-    item = {
+    item: dict[str, object] = {
         "item_key": item_key or "_anonymous_handler_cluster",
         "params": item_params,
         "extra": {"expected_entry_type": item_params.get("expected_entry_type")},
@@ -54,10 +123,10 @@ def handle_handler_cluster(params: Dict[str, Any], project_key: str | None) -> D
         or item_params.get("search_keywords")
         or item_params.get("base_keywords")
         or item_params.get("topic_keywords")
-        or []
+        or ()
     )
     q = normalize_query_terms(q_raw)
-    batch_size = int(item_params.get("keyword_batch_size") or 4)
+    batch_size = _int(item_params.get("keyword_batch_size")) or 4
     term_batches = split_query_batches(q, batch_size)
     candidate_limits = normalize_handler_candidate_limits(item_params)
     per_keyword_limit = candidate_limits.per_keyword_limit
@@ -65,7 +134,8 @@ def handle_handler_cluster(params: Dict[str, Any], project_key: str | None) -> D
     sitemap_max_depth = candidate_limits.sitemap_max_depth
     sitemap_max_sitemaps = candidate_limits.sitemap_max_sitemaps
 
-    us_runs = []
+    unified_search_by_item_payload = _resolve_unified_search()
+    us_runs: list[_UnifiedSearchResultView] = []
     for term_batch in term_batches:
         batch_ingest_limit = min(global_ingest_limit, per_keyword_limit * max(1, len(term_batch)))
         us_runs.append(
@@ -76,7 +146,7 @@ def handle_handler_cluster(params: Dict[str, Any], project_key: str | None) -> D
                 max_candidates=batch_max_candidates(candidate_limits, len(term_batch)),
                 write_to_pool=bool(item_params.get("write_to_pool", True)),
                 pool_scope=str(item_params.get("pool_scope") or "project"),
-                probe_timeout=float(item_params.get("probe_timeout") or 10.0),
+                probe_timeout=_float(item_params.get("probe_timeout"), 10.0),
                 sitemap_max_depth=sitemap_max_depth,
                 sitemap_max_sitemaps=sitemap_max_sitemaps,
                 auto_ingest=False if terminal_output_only else bool(item_params.get("auto_ingest", True)),
@@ -90,11 +160,11 @@ def handle_handler_cluster(params: Dict[str, Any], project_key: str | None) -> D
     merged_site_entries = unique_site_entries(us_runs)
     merged_candidates = unique_candidates(us_runs)
     written_urls_new, written_urls_skipped = aggregate_written_counts(us_runs)
-    merged_runtime_diagnostics = []
-    merged_review_queues = []
-    seen_runtime = set()
-    merged_error_details = []
-    merged_errors = []
+    merged_runtime_diagnostics: list[dict[object, object]] = []
+    merged_review_queues: list[dict[object, object]] = []
+    seen_runtime: set[str] = set()
+    merged_error_details: list[dict[object, object]] = []
+    merged_errors: list[str] = []
     ingest_inserted = 0
     ingest_updated = 0
     ingest_skipped = 0
@@ -103,42 +173,39 @@ def handle_handler_cluster(params: Dict[str, Any], project_key: str | None) -> D
     rejection_breakdown_total: dict[str, int] = {}
 
     for us in us_runs:
-        runtime_rows = list(getattr(us, "runtime_diagnostics", None) or [])
+        runtime_rows = [_object(entry) for entry in _object_list(getattr(us, "runtime_diagnostics", None))]
         if not runtime_rows:
-            runtime_rows = [dict(entry) for entry in (us.site_entries_used or []) if isinstance(entry, dict)]
+            runtime_rows = [_object(entry) for entry in _object_list(getattr(us, "site_entries_used", None))]
         for diag in runtime_rows:
-            if not isinstance(diag, dict):
-                continue
             key = str(diag.get("site_url") or diag.get("id") or "")
             if key and key not in seen_runtime:
                 seen_runtime.add(key)
                 merged_runtime_diagnostics.append(diag)
-        review_queue = getattr(us, "relevance_review_queue", None)
-        if isinstance(review_queue, dict):
+        review_queue = _object(getattr(us, "relevance_review_queue", None))
+        if review_queue:
             merged_review_queues.append(review_queue)
-        for e in (us.errors or []):
-            if not isinstance(e, dict):
-                continue
+        for raw_error in _object_list(getattr(us, "errors", None)):
+            e = _object(raw_error)
             merged_error_details.append(e)
             msg = str(e.get("error") or "").strip()
             if msg and msg not in benign_markers:
                 merged_errors.append(msg)
         if terminal_output_only:
             continue
-        ir = us.ingest_result or {}
-        ingest_inserted += int(ir.get("inserted") or 0)
-        ingest_updated += int(ir.get("updated") or 0)
-        ingest_skipped += int(ir.get("skipped") or 0)
-        inserted_valid_total += int(ir.get("inserted_valid") or 0)
-        rejected_count_total += int(ir.get("rejected_count") or 0)
-        rb = ir.get("rejection_breakdown")
-        if isinstance(rb, dict):
+        ir = _object(getattr(us, "ingest_result", None))
+        ingest_inserted += _int(ir.get("inserted"))
+        ingest_updated += _int(ir.get("updated"))
+        ingest_skipped += _int(ir.get("skipped"))
+        inserted_valid_total += _int(ir.get("inserted_valid"))
+        rejected_count_total += _int(ir.get("rejected_count"))
+        rb = _object(ir.get("rejection_breakdown"))
+        if rb:
             for key, value in rb.items():
                 reason = str(key or "").strip()
                 if not reason:
                     continue
                 try:
-                    count = int(value or 0)
+                    count = _int(value)
                 except Exception:
                     count = 0
                 if count <= 0:
@@ -165,13 +232,13 @@ def handle_handler_cluster(params: Dict[str, Any], project_key: str | None) -> D
     relevance_review_queue = merge_relevance_review_queues(
         merged_review_queues,
         project_key=project_key,
-        item_key=item_ctx.get("item_key") or item_key or "_anonymous_handler_cluster",
+        item_key=str(item_ctx.get("item_key") or item_key or "_anonymous_handler_cluster"),
         query_terms=q,
         source_surface="source_library.handler_cluster_adapter",
     )
     records = annotate_records_with_relevance_review_queue(records, relevance_review_queue)
 
-    response = {
+    response: dict[str, object] = {
         "record_stats": candidate_record_stats(merged_candidates, records, errors=merged_errors),
         "errors": merged_errors,
         "query_terms": q,

@@ -7,7 +7,12 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Literal
 
-from .codec import _failure, _raise_failure, is_sha256_hex
+from .codec import (
+    is_sha256_hex,
+    raise_research_failure as _raise_failure,
+    research_failure as _failure,
+    runtime_value,
+)
 from .object_types import ObjectType
 
 __all__ = ["LIFECYCLE_STATES", "LifecycleState", "ResearchObjectRef"]
@@ -45,7 +50,7 @@ class ResearchObjectRef:
             "content_ref": self.content_ref,
         }
         for field_name, value in required_strings.items():
-            if not isinstance(value, str) or not value.strip():
+            if not isinstance(runtime_value(value), str) or not value.strip():
                 _raise_failure(
                     _failure(
                         "RESEARCH_OBJECT_REF_INVALID",
@@ -55,7 +60,7 @@ class ResearchObjectRef:
                     ),
                     ValueError,
                 )
-        if not isinstance(self.object_type, ObjectType):
+        if not isinstance(runtime_value(self.object_type), ObjectType):
             _raise_failure(
                 _failure(
                     "RESEARCH_OBJECT_REF_INVALID",
@@ -83,7 +88,7 @@ class ResearchObjectRef:
                     ValueError,
                 )
         if (
-            not isinstance(self.revision, int)
+            not isinstance(runtime_value(self.revision), int)
             or isinstance(self.revision, bool)
             or self.revision < 1
         ):
@@ -96,7 +101,7 @@ class ResearchObjectRef:
                 ),
                 ValueError,
             )
-        if not isinstance(self.incarnation, str) or not _INCARNATION_PATTERN.fullmatch(
+        if not isinstance(runtime_value(self.incarnation), str) or not _INCARNATION_PATTERN.fullmatch(
             self.incarnation
         ):
             _raise_failure(

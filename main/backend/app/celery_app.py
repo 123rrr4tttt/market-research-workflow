@@ -43,6 +43,8 @@ def initialize_celery_worker_schema() -> bool:
         raise WorkerTerminate(1) from exc
 
 
-@signals.worker_process_init.connect(weak=False)
 def _initialize_celery_worker_schema(**_kwargs: object) -> None:
     initialize_celery_worker_schema()
+
+
+signals.worker_process_init.connect(_initialize_celery_worker_schema, weak=False)

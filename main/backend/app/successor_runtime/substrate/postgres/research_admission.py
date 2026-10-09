@@ -201,7 +201,7 @@ class ResearchAdmissionHandler:
         scope: RuntimeScope,
         intent: CommitIntent,
         candidate: object,
-        _binding: VerificationBinding,
+        binding: VerificationBinding,
     ) -> CanonicalCommit:
         self._require_intent(scope, intent)
         if self.mode is ResearchAdmissionMode.EVIDENCE_RELATION:
@@ -633,10 +633,10 @@ class PostgresCommitIntentAdapter:
     def prepare(self, binding: object) -> Mapping[str, Any]:
         if not isinstance(binding, CommitIntentBinding):
             raise TypeError("Postgres commit intent requires CommitIntentBinding")
-        return self.repository.prepare(binding)
+        return dict(self.repository.prepare(binding))
 
     def load(self, commit_intent_id: str) -> Mapping[str, Any]:
-        return self.repository.load(commit_intent_id)
+        return dict(self.repository.load(commit_intent_id))
 
     def mark_committed(
         self,
@@ -646,22 +646,22 @@ class PostgresCommitIntentAdapter:
         canonical_commit_ref: str,
         receipt_digest: str,
     ) -> Mapping[str, Any]:
-        return self.repository.record_result(
+        return dict(self.repository.record_result(
             commit_intent_id,
             expected_revision=expected_revision,
             status=CommitIntentStatus.COMMITTED,
             canonical_commit_ref=canonical_commit_ref,
             receipt_digest=receipt_digest,
-        )
+        ))
 
     def mark_outcome_unknown(
         self, commit_intent_id: str, *, expected_revision: int
     ) -> Mapping[str, Any]:
-        return self.repository.record_result(
+        return dict(self.repository.record_result(
             commit_intent_id,
             expected_revision=expected_revision,
             status=CommitIntentStatus.UNKNOWN,
-        )
+        ))
 
 
 def commit_binding_from_assignment(
@@ -704,7 +704,7 @@ def build_first_specimen_admission_registry(
             ResearchAdmissionMode.DELIVERY_RECEIPT_EXTERNAL_REF
         ),
     }
-    registrations = []
+    registrations: list[AdmissionRegistration] = []
     for kind, mode in modes.items():
         contract = bundle.operation_by_kind(kind)
         handler = ResearchAdmissionHandler(
@@ -741,7 +741,15 @@ def _canonical_commit(
         "content_digest": intent.content_digest,
     }
     return CanonicalCommit(
-        **body,
+        schema_version="mrw.research-admission.receipt.v1",
+        commit_intent_id=intent.commit_intent_id,
+        canonical_owner=intent.canonical_owner,
+        project_key=intent.project_key,
+        object_id=intent.object_id,
+        canonical_ref=canonical_ref,
+        canonical_revision=revision,
+        canonical_incarnation=incarnation,
+        content_digest=intent.content_digest,
         receipt_digest=canonical_digest(body),
     )
 

@@ -9,7 +9,7 @@ from functorial_kit import Failure
 from pydantic import Field, model_validator
 
 from .assignments import Digest, FrozenContract, canonical_digest
-from .failure_policy import raise_runtime_failure, runtime_failure
+from .failure_policy import public_exception_type, raise_runtime_failure, runtime_failure
 
 _T = TypeVar("_T")
 
@@ -41,15 +41,7 @@ def _try_authority(call: Callable[[], _T], *, site: str) -> _T | Failure:
 
 
 def raise_authority_failure(failure: Failure) -> None:
-    name = (failure.context or {}).get("public_exception")
-    exception_type = {
-        "TypeError": TypeError,
-        "ValueError": ValueError,
-        "OverflowError": OverflowError,
-        "KeyError": KeyError,
-        "AttributeError": AttributeError,
-    }.get(name, ValueError)
-    raise_runtime_failure(failure, exception_type)
+    raise_runtime_failure(failure, public_exception_type(failure))
 
 
 class AuthorityOperationScope(FrozenContract):
@@ -86,12 +78,17 @@ class AuthorityOperationScope(FrozenContract):
         operation_kinds: tuple[str, ...],
         project_scope_digest: str,
     ) -> "AuthorityOperationScope":
-        body = {
+        body: dict[str, object] = {
             "schema_version": "mrw.runtime.authority-operation-scope.v1",
             "operation_kinds": operation_kinds,
             "project_scope_digest": project_scope_digest,
         }
-        return cls(**body, scope_digest=canonical_digest(body))
+        return cls(
+            schema_version="mrw.runtime.authority-operation-scope.v1",
+            operation_kinds=operation_kinds,
+            project_scope_digest=project_scope_digest,
+            scope_digest=canonical_digest(body),
+        )
 
 
 class AuthorityResourceLimit(FrozenContract):
@@ -134,13 +131,13 @@ class AuthorityResourceCeiling(FrozenContract):
         limits: tuple[AuthorityResourceLimit, ...],
         max_active: int,
     ) -> "AuthorityResourceCeiling":
-        body = {
+        body: dict[str, object] = {
             "schema_version": "mrw.runtime.authority-resource-ceiling.v1",
             "limits": tuple(item.model_dump(mode="json") for item in limits),
             "max_active": max_active,
         }
         return cls(
-            schema_version=body["schema_version"],
+            schema_version="mrw.runtime.authority-resource-ceiling.v1",
             limits=limits,
             max_active=max_active,
             ceiling_digest=canonical_digest(body),

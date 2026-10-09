@@ -4,7 +4,7 @@ import json
 import logging
 import os
 from pathlib import Path
-from typing import Any, Dict, List, NoReturn
+from typing import Callable, NoReturn, Protocol, TypeGuard, runtime_checkable
 
 from functorial_kit import Failure
 from mrw_functorial_kit.core.application_failure_semantics import source_library_loader_failures
@@ -13,8 +13,21 @@ logger = logging.getLogger(__name__)
 _FAILURE_WITNESS = "test:test_w01_source_export_failures"
 
 
-def _loader_failure(code: str, message: str, *, site: str, **details: Any) -> Failure:
-    context: dict[str, Any] = {
+@runtime_checkable
+class _YamlModule(Protocol):
+    safe_load: Callable[[object], object]
+
+
+def _is_object(value: object) -> TypeGuard[dict[str, object]]:
+    return isinstance(value, dict)
+
+
+def _is_object_list(value: object) -> TypeGuard[list[object]]:
+    return isinstance(value, list)
+
+
+def _loader_failure(code: str, message: str, *, site: str, **details: object) -> Failure:
+    context: dict[str, object] = {
         "boundary_class": "PURE_CONTRACT_FAILURE",
         "failure_family": source_library_loader_failures.name,
         "operation": "source_library.loader",
@@ -63,14 +76,16 @@ def _source_library_root() -> Path:
         return Path(__file__).resolve().parents[4] / "信息源库"
 
 
-def try_load_single_file(path: Path) -> list[dict] | Failure:
+def try_load_single_file(path: Path) -> list[dict[str, object]] | Failure:
     suffix = path.suffix.lower()
     if suffix == ".json":
         with path.open("r", encoding="utf-8") as f:
-            data = json.load(f)
+            data: object = json.load(f)
     elif suffix in {".yaml", ".yml"}:
         try:
-            import yaml  # type: ignore
+            from importlib import import_module
+
+            candidate = import_module("yaml")
         except Exception as exc:  # noqa: BLE001
             return _loader_failure(
                 "yaml_parser_unavailable",
@@ -78,23 +93,30 @@ def try_load_single_file(path: Path) -> list[dict] | Failure:
                 site="try_load_single_file.yaml_import",
                 cause=exc,
             )
-        with path.open("r", encoding="utf-8") as f:
-            data = yaml.safe_load(f)  # type: ignore[attr-defined]
+        if not isinstance(candidate, _YamlModule):
+            return _loader_failure(
+                "yaml_parser_invalid",
+                f"Cannot use YAML parser for {path}; safe_load is unavailable.",
+                site="try_load_single_file.yaml_protocol",
+            )
+        with path.open("r", encoding="utf-8") as stream:
+            data = candidate.safe_load(stream)
     else:
         return []
 
     if data is None:
         return []
-    if isinstance(data, dict):
-        if isinstance(data.get("items"), list):
-            return [x for x in data["items"] if isinstance(x, dict)]
-        return [data]
-    if isinstance(data, list):
-        return [x for x in data if isinstance(x, dict)]
+    if _is_object(data):
+        raw_items = data.get("items")
+        if _is_object_list(raw_items):
+            return [dict(item) for item in raw_items if _is_object(item)]
+        return [dict(data)]
+    if _is_object_list(data):
+        return [dict(item) for item in data if _is_object(item)]
     return []
 
 
-def _load_single_file(path: Path) -> list[dict]:
+def _load_single_file(path: Path) -> list[dict[str, object]]:
     outcome = try_load_single_file(path)
     if isinstance(outcome, Failure):
         cause = (outcome.context or {}).get("cause")
@@ -102,10 +124,10 @@ def _load_single_file(path: Path) -> list[dict]:
     return outcome
 
 
-def _load_dir(base: Path) -> list[dict]:
+def _load_dir(base: Path) -> list[dict[str, object]]:
     if not base.exists() or not base.is_dir():
         return []
-    items: list[dict] = []
+    items: list[dict[str, object]] = []
     patterns = ["*.json", "*.yaml", "*.yml"]
     for pattern in patterns:
         for path in sorted(base.glob(pattern)):
@@ -115,7 +137,7 @@ def _load_dir(base: Path) -> list[dict]:
     return items
 
 
-def load_global_library_files() -> Dict[str, List[Dict[str, Any]]]:
+def load_global_library_files() -> dict[str, list[dict[str, object]]]:
     root = _source_library_root() / "global"
     channels = _load_dir(root / "channels")
     source_items = _load_dir(root / "items")
@@ -128,7 +150,7 @@ def load_global_library_files() -> Dict[str, List[Dict[str, Any]]]:
     return {"channels": channels, "items": source_items}
 
 
-def load_project_library_files(project_key: str | None) -> Dict[str, List[Dict[str, Any]]]:
+def load_project_library_files(project_key: str | None) -> dict[str, list[dict[str, object]]]:
     key = (project_key or "").strip().lower()
     if not key:
         return {"channels": [], "items": []}

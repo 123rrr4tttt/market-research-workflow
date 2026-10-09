@@ -16,7 +16,7 @@ aligned (no commutativity is assumed, grouping is flattened), but no
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, NoReturn, TypeAlias
+from typing import Any, NoReturn, TypeAlias, TypeGuard
 
 from functorial_kit import Failure
 from mrw_functorial_kit.core.agent_service_semantics import (
@@ -34,6 +34,18 @@ __all__ = [
 _IDENTITY_REF = "identity"
 _FAILURE_WITNESS = "test:test_w02_functorial_projection_failure_lifts"
 ProjectionFailure: TypeAlias = Failure
+
+
+def _is_object_dict(value: object) -> TypeGuard[dict[object, object]]:
+    return isinstance(value, dict)
+
+
+def _is_string_dict(value: object) -> TypeGuard[dict[str, object]]:
+    return _is_object_dict(value) and all(isinstance(key, str) for key in value)
+
+
+def _is_object_list(value: object) -> TypeGuard[list[object]]:
+    return isinstance(value, list)
 
 
 def _projection_failure(code: str, message: str, *, index: int | None = None) -> Failure:
@@ -56,15 +68,15 @@ def _raise_projection_failure(value: Failure, exception_type: type[Exception]) -
     raise exception_type(value.message)
 
 
-def _as_schema(value: Any) -> dict[str, Any]:
-    return dict(value) if isinstance(value, dict) else {}
+def _as_schema(value: object) -> dict[str, object]:
+    return dict(value) if _is_string_dict(value) else {}
 
 
-def _schemas(step: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
+def _schemas(step: dict[str, object]) -> tuple[dict[str, object], dict[str, object]]:
     return _as_schema(step.get("input_schema")), _as_schema(step.get("output_schema"))
 
 
-def _step_ref(step: dict[str, Any], index: int) -> str:
+def _step_ref(step: dict[str, object], index: int) -> str:
     for key in ("ref", "operator_id", "motif_id", "id"):
         value = step.get(key)
         if value is not None and str(value).strip():
@@ -72,7 +84,7 @@ def _step_ref(step: dict[str, Any], index: int) -> str:
     return f"step:{index}"
 
 
-def _flatten_steps(steps: Any) -> list[dict[str, Any]] | ProjectionFailure:
+def _flatten_steps(steps: Any) -> list[dict[str, object]] | ProjectionFailure:
     """Flatten nested composed steps into one strictly ordered list."""
     if steps is None:
         return []
@@ -85,16 +97,17 @@ def _flatten_steps(steps: Any) -> list[dict[str, Any]] | ProjectionFailure:
             "composition_step_invalid",
             f"composition steps must be iterable, got {type(steps).__name__}",
         )
-    flat: list[dict[str, Any]] = []
+    flat: list[dict[str, object]] = []
     for index, step in enumerate(iterator):
-        if not isinstance(step, dict):
+        if not _is_string_dict(step):
             return _projection_failure(
                 "composition_step_invalid",
                 f"composition step must be a dict, got {type(step).__name__}",
                 index=index,
             )
-        nested = step.get("_composed_steps")
-        if step.get("_composed") is True and isinstance(nested, list):
+        nested_value = step.get("_composed_steps")
+        nested = nested_value if _is_object_list(nested_value) else None
+        if step.get("_composed") is True and nested is not None:
             nested_flat = _flatten_steps(nested)
             if isinstance(nested_flat, Failure):
                 return nested_flat

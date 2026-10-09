@@ -23,13 +23,20 @@ from .checksum import content_digest, require_hex64
 from .codecs import PayloadCodec, dataclass_codec
 from .contracts import OperationContract
 from .profiles import (
+    AuthorityProfileContent,
     AuthorityProfile,
     ContractProfileRef,
+    EffectProfileContent,
     EffectProfile,
+    FailureProfileContent,
     FailureProfile,
+    InterpreterProfileContent,
     InterpreterProfile,
+    ObservationProfileContent,
     ObservationProfile,
+    ResourceProfileContent,
     ResourceProfile,
+    SemanticProfileContent,
     SemanticProfile,
 )
 from .failure import (
@@ -104,7 +111,7 @@ def _fixture_profiles() -> tuple[
     InterpreterProfile,
     ObservationProfile,
 ]:
-    semantic_values = dict(
+    semantic_values = SemanticProfileContent(
         semantic_profile_id=f"{FIXTURE_OPERATION_KIND}.semantic",
         semantic_profile_version="1.0.0",
         reads=(),
@@ -115,7 +122,7 @@ def _fixture_profiles() -> tuple[
     )
     semantic = SemanticProfile(**semantic_values, profile_digest=content_digest(semantic_values))
 
-    effect_values = dict(
+    effect_values = EffectProfileContent(
         effect_profile_id=f"{FIXTURE_OPERATION_KIND}.effect",
         effect_profile_version="1.0.0",
         execution_class="PURE_TRANSFORM",
@@ -130,7 +137,7 @@ def _fixture_profiles() -> tuple[
     )
     effect = EffectProfile(**effect_values, profile_digest=content_digest(effect_values))
 
-    resource_values = dict(
+    resource_values = ResourceProfileContent(
         resource_profile_id=f"{FIXTURE_OPERATION_KIND}.resource",
         resource_profile_version="1.0.0",
         resource_classes=("cpu",),
@@ -146,7 +153,7 @@ def _fixture_profiles() -> tuple[
     )
     resource = ResourceProfile(**resource_values, profile_digest=content_digest(resource_values))
 
-    failure_values = dict(
+    failure_values = FailureProfileContent(
         failure_profile_id=f"{FIXTURE_OPERATION_KIND}.failure",
         failure_profile_version="1.0.0",
         typed_failures=("INVALID_INPUT",),
@@ -161,7 +168,7 @@ def _fixture_profiles() -> tuple[
     )
     failure = FailureProfile(**failure_values, profile_digest=content_digest(failure_values))
 
-    authority_values = dict(
+    authority_values = AuthorityProfileContent(
         authority_profile_id=f"{FIXTURE_OPERATION_KIND}.authority",
         authority_profile_version="1.0.0",
         grant_scopes=("project",),
@@ -174,7 +181,7 @@ def _fixture_profiles() -> tuple[
     )
     authority = AuthorityProfile(**authority_values, profile_digest=content_digest(authority_values))
 
-    interpreter_values = dict(
+    interpreter_values = InterpreterProfileContent(
         interpreter_profile_id=f"{FIXTURE_OPERATION_KIND}.interpreter",
         interpreter_profile_version="1.0.0",
         supported_contract_kinds=(FIXTURE_OPERATION_KIND,),
@@ -193,7 +200,7 @@ def _fixture_profiles() -> tuple[
         profile_digest=content_digest(interpreter_values),
     )
 
-    observation_values = dict(
+    observation_values = ObservationProfileContent(
         observation_profile_id=f"{FIXTURE_OPERATION_KIND}.observation",
         observation_profile_version="1.0.0",
         dimensions=("input_closure_digest", "output_closure_digest", "failure"),
@@ -210,7 +217,7 @@ def _fixture_profiles() -> tuple[
 @dataclass(frozen=True, slots=True)
 class FixtureCapabilityBundle:
     operation: OperationContract
-    codec: PayloadCodec
+    codec: PayloadCodec[EchoHexDigestInput]
 
 
 def build_fixture_capability_bundle() -> Annotated[

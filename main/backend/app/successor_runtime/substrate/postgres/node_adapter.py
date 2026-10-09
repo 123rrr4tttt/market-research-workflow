@@ -15,13 +15,13 @@ fails closed and leaves lease-expiry reconciliation as the recovery owner.
 
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping
+from collections.abc import Callable
 from dataclasses import replace
 from datetime import datetime, timedelta
 from typing import Any, Protocol, Self
 
 from sqlalchemy import MetaData, select, update
-from sqlalchemy.engine import Connection
+from sqlalchemy.engine import Connection, Engine, RowMapping
 
 from app.successor_runtime.runtime.assignments import AssignmentKind, canonical_digest
 from app.successor_runtime.runtime.claims import ClaimBinding
@@ -90,7 +90,8 @@ class ReceiptDigestUnavailable(NodeAdapterError):
 
 
 class _UnitOfWorkView(Protocol):
-    connection: Connection
+    @property
+    def connection(self) -> Connection: ...
 
     def __enter__(self) -> Self: ...
 
@@ -119,7 +120,7 @@ class _ClaimRepositoryView(Protocol):
         *,
         expected_revision: int,
         new_expiry: Any,
-    ) -> Mapping[str, Any]: ...
+    ) -> RowMapping: ...
 
     def release(
         self,
@@ -130,7 +131,7 @@ class _ClaimRepositoryView(Protocol):
         expected_revision: int,
         terminal_state: str,
         now: datetime | None = None,
-    ) -> Mapping[str, Any]: ...
+    ) -> RowMapping: ...
 
 
 class _LifecycleRepositoryView(Protocol):
@@ -167,7 +168,7 @@ class _ClaimStateReaderView(Protocol):
     def renewed_claim(
         self,
         previous: RuntimeClaim,
-        row: Mapping[str, Any],
+        row: RowMapping,
     ) -> RuntimeClaim: ...
 
     def claimed_lifecycle(
@@ -282,7 +283,7 @@ class _PostgresClaimStateReader:
     def renewed_claim(
         self,
         previous: RuntimeClaim,
-        row: Mapping[str, Any],
+        row: RowMapping,
     ) -> RuntimeClaim:
         assignment = validate_runtime_assignment_row(row)
         stored_claim = self._stored_claim(row)
@@ -337,7 +338,7 @@ class _PostgresClaimStateReader:
             or int(run["execution_epoch"]) != assignment.execution_epoch
         ):
             raise ExactBindingConflict("RuntimeClaim run binding drift")
-        scope = self._scope(run, control_scope.system_actor_id)
+        scope = self.scope(run, control_scope.system_actor_id)
 
         step_id = assignment.step_id
         reservation_id = claim.claim_binding.execution_reservation_ref
@@ -385,7 +386,7 @@ class _PostgresClaimStateReader:
         )
         return scope, lifecycle
 
-    def _scope(self, run: Mapping[str, Any], actor_id: str) -> RuntimeScope:
+    def scope(self, run: RowMapping, actor_id: str) -> RuntimeScope:
         resolver = ServerProjectScopeResolver(connection=self.connection)
         resolved = resolver.resolve_expected(
             str(run["project_key"]),
@@ -399,14 +400,14 @@ class _PostgresClaimStateReader:
             raise ExactBindingConflict("run project scope is no longer current")
         return RuntimeScope(project_scope=current, actor_id=actor_id)
 
-    def _work(self, project_key: str, work_item_id: str) -> Mapping[str, Any]:
+    def _work(self, project_key: str, work_item_id: str) -> RowMapping:
         return self._one(
             "runtime_work_items",
             project_key=project_key,
             work_item_id=work_item_id,
         )
 
-    def _one(self, table_name: str, **identity: object) -> Mapping[str, Any]:
+    def _one(self, table_name: str, **identity: object) -> RowMapping:
         table = runtime_table(table_name)
         statement = select(table)
         for name, value in identity.items():
@@ -418,7 +419,7 @@ class _PostgresClaimStateReader:
         return row
 
     @staticmethod
-    def _stored_claim(work: Mapping[str, Any]) -> ClaimBinding:
+    def _stored_claim(work: RowMapping) -> ClaimBinding:
         payload = work.get("claim_binding_json")
         if payload is None:
             raise ExactBindingConflict("claimed work row lacks ClaimBinding")
@@ -670,7 +671,7 @@ class PostgresRuntimeNodeAdapter:
                             raise RecordNotFound(
                                 f"runtime run not found: {claim.assignment.run_id}"
                             )
-                        scope = _PostgresClaimStateReader(uow.connection)._scope(
+                        scope = _PostgresClaimStateReader(uow.connection).scope(
                             run,
                             control_scope.system_actor_id,
                         )
@@ -937,11 +938,6 @@ class PostgresRuntimeNodeAdapter:
         authority_digest: str,
         observed_at: datetime,
     ) -> TerminalOutcome:
-        common: dict[str, object] = {
-            "claimed": claimed,
-            "authority_digest": authority_digest,
-            "observed_at": observed_at,
-        }
         if outcome.disposition is EffectDisposition.SUCCEEDED:
             receipt_digest = None
             if outcome.receipt_ref is not None:
@@ -959,7 +955,9 @@ class PostgresRuntimeNodeAdapter:
                     )
                 receipt_digest = candidate
             return TerminalOutcome(
-                **common,
+                claimed=claimed,
+                authority_digest=authority_digest,
+                observed_at=observed_at,
                 kind=EffectTerminalKind.SUCCEEDED,
                 output_digest=outcome.result_digest,
                 receipt_ref=outcome.receipt_ref,
@@ -974,14 +972,18 @@ class PostgresRuntimeNodeAdapter:
                 }
             )
             return TerminalOutcome(
-                **common,
+                claimed=claimed,
+                authority_digest=authority_digest,
+                observed_at=observed_at,
                 kind=EffectTerminalKind.FAILED,
                 failure_ref=f"failure-code:{outcome.failure_code}",
                 failure_digest=failure_digest,
             )
         if outcome.disposition is EffectDisposition.OUTCOME_UNKNOWN:
             return TerminalOutcome(
-                **common,
+                claimed=claimed,
+                authority_digest=authority_digest,
+                observed_at=observed_at,
                 kind=EffectTerminalKind.OUTCOME_UNKNOWN,
             )
         raise ValueError("InterpreterOutcome is not terminal")
@@ -1032,7 +1034,7 @@ class PostgresRuntimeNodeAdapter:
         )
 
 
-def runtime_uow_factory(engine: Any) -> UowFactory:
+def runtime_uow_factory(engine: Engine) -> UowFactory:
     """Return a fresh-UoW factory suitable for a RuntimeNode process."""
 
     return lambda: RuntimeUnitOfWork(engine=engine)

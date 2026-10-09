@@ -1,13 +1,19 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, TypeGuard
+
+from functorial_kit import Failure
 
 from .base import CrawlerDispatchRequest
-from .registry import _failure, _raise_contract_failure, get_provider
+from .registry import crawler_failure as _failure, get_provider, raise_crawler_contract_failure as _raise_contract_failure
 
 
-def _normalize(payload: Any) -> dict[str, Any]:
-    if isinstance(payload, dict):
+def _is_payload_dict(value: object) -> TypeGuard[dict[str, object]]:
+    return isinstance(value, dict)
+
+
+def _normalize(payload: object) -> dict[str, Any]:
+    if _is_payload_dict(payload):
         return payload
     if hasattr(payload, "__dict__"):
         return {k: v for k, v in vars(payload).items() if not k.startswith("_")}
@@ -44,6 +50,8 @@ def submit_crawler_job(
             priority=priority,
         )
     )
+    if isinstance(result, Failure):
+        _raise_contract_failure(result)
     return {
         "provider_status": result.provider_status,
         "provider_job_id": result.provider_job_id,

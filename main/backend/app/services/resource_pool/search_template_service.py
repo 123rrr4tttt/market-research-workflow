@@ -2,22 +2,26 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 import gzip
-import json
 import re
 import time
-from typing import Annotated, Any, NoReturn
-from urllib.parse import parse_qs, parse_qsl, urlencode, urljoin, urlsplit, urlunsplit, unquote
 import xml.etree.ElementTree as ET
+from collections.abc import Mapping
+from dataclasses import dataclass, field
+from typing import Annotated, Any, NoReturn, SupportsIndex, SupportsInt, cast
+from urllib.parse import parse_qs, parse_qsl, unquote, urlencode, urlsplit, urlunsplit
 
 from functorial_kit import Failure
+
 from mrw_functorial_kit.core.provider_port_failures import resource_pool_contract_failures
 
-from .http_port import HttpFetchError, fetch_html, make_html_parser
 from ..ingest.source_search_contract import build_query_url_from_contract, normalize_source_search_contract
-from .search_result_parser_service import parse_search_result_candidates
+from .http_port import HttpFetchError, fetch_html
 from .search_capabilities import SearchCapabilityScore, make_search_candidate, select_search_candidates
+from .search_result_parser_service import (
+    SearchResultParserDiagnostics,
+    parse_search_result_candidates,
+)
 from .url_utils import domain_from_url, normalize_url
 
 _TRACKING_QUERY_KEYS = {
@@ -93,131 +97,13 @@ def _raise_contract_failure(
         raise TypeError("resource pool failure lift context is incomplete or inconsistent")
     # kit:boundary owner=resource_pool.search_template_service.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=resource_pool.contract.failure witness=test:test_latest_service_b_resource_pool_failure_lifts
     raise exception_type(str(context["public_message"]))
-_SEARCH_RESULT_CONTAINER_SELECTORS = (
-    "article",
-    "[role='article']",
-    ".search-result",
-    ".search-results .search-result",
-    ".search-results .result-item",
-    ".search-results li",
-    ".search-results article",
-    ".results article",
-    ".results li",
-    ".result",
-    "[class*='search-item']",
-    "[class*='result-item']",
-    "[class*='news-item']",
-    "[class*='teaser']",
-    ".story",
-    ".post",
-    ".entry-item",
-    ".list-item",
-    ".content",
-    "main li",
-    "main article",
-)
-_STRUCTURED_RESULT_URL_ATTRIBUTES = (
-    "data-url",
-    "data-href",
-    "data-link",
-    "data-permalink",
-    "data-url-path",
-)
-_TITLE_SELECTORS = (
-    "h1",
-    "h2",
-    "h3",
-    "[role='heading']",
-    ".entry-title",
-    ".post-title",
-    ".story-title",
-    ".headline",
-    ".title",
-    "[class*='title']",
-)
-_SUMMARY_SELECTORS = (
-    ".excerpt",
-    ".summary",
-    ".dek",
-    ".intro",
-    ".description",
-    ".lead",
-    ".teaser__desc",
-    "[data-role='description']",
-    "p",
-    "span.description",
-)
-_LOW_VALUE_ANCHOR_TEXTS = {
-    "read more",
-    "continue reading",
-    "continue",
-    "more",
-    "learn more",
-    "view more",
-    "details",
-}
-_GLOBAL_ANCHOR_MIN_TEXT_LENGTH = 8
-_COMMERCIAL_OBSERVER_ARTICLE_PATH = re.compile(r"/20\d{2}/\d{2}/")
-_SITE_SPECIFIC_CONTAINER_SELECTORS: dict[str, tuple[str, ...]] = {
-    "commercialobserver.com": (
-        ".card-text",
-        ".large-card.card",
-        ".large-card-wrapper.card-wrap.rest-item",
-    ),
-}
-_SITE_SPECIFIC_TITLE_LINK_SELECTORS: dict[str, tuple[str, ...]] = {
-    "commercialobserver.com": (
-        "h2 a[href]",
-        "h3 a[href]",
-    ),
-}
-_LOW_VALUE_HREF_MARKERS = (
-    "/login",
-    "/signin",
-    "/sign-in",
-    "/signup",
-    "/register",
-    "/account",
-    "/pricing",
-    "/privacy",
-    "/terms",
-    "/cookie",
-    "/about",
-    "/contact",
-    "/newsletter",
-    "/subscribe",
-    "/advertis",
-    "/careers",
-    "/jobs",
-    "/authors",
-    "/author/",
-    "/tag/",
-    "/tags/",
-    "/category/",
-    "/categories/",
-    "/search",
-    "/wp-json",
-)
-_LOW_VALUE_HOST_MARKERS = (
-    "facebook.com",
-    "instagram.com",
-    "x.com",
-    "twitter.com",
-    "linkedin.com",
-    "youtube.com",
-    "tiktok.com",
-    "pinterest.com",
-    "discord.com",
-)
-
-
 @dataclass(frozen=True)
 class SearchTemplateRawCandidate:
     url: str
     text: str = ""
     title: str = ""
     summary: str = ""
-    extra: dict[str, Any] = field(default_factory=dict)
+    extra: dict[str, Any] = field(default_factory=dict[str, object])
 
 
 @dataclass(frozen=True)
@@ -228,17 +114,26 @@ class SearchTemplateExecutionResult:
     raw_candidates: list[SearchTemplateRawCandidate]
     selected_candidates: list[SearchCapabilityScore]
     used_term_fallback: bool
-    errors: list[dict[str, Any]] = field(default_factory=list)
-    diagnostics: dict[str, Any] = field(default_factory=dict)
+    errors: list[dict[str, Any]] = field(default_factory=list[dict[str, object]])
+    diagnostics: dict[str, Any] = field(default_factory=dict[str, object])
 
 
-def _resolve_search_service(params: dict[str, Any]) -> str:
+def _resolve_search_service(params: Mapping[object, object]) -> str:
     service = str(params.get("search_service") or "basic").strip().lower()
     return service if service in {"basic", "resilient"} else "basic"
 
 
 def _search_service_retries(service: str) -> int:
     return 2 if service == "resilient" else 1
+
+
+def _integer(value: object, default: int) -> int:
+    if not isinstance(value, (str, bytes, bytearray, SupportsInt, SupportsIndex)):
+        return default
+    try:
+        return int(value)
+    except Exception:
+        return default
 
 
 def _fallback_search_service(error: Exception | str, current_service: str, *, enabled: bool) -> str | None:
@@ -259,12 +154,9 @@ def normalize_search_template_placeholders(template: str | None) -> str:
     return tpl
 
 
-def resolve_search_template_pagination(params: dict[str, Any]) -> tuple[int, int]:
-    def _parse_int(value: Any, default: int, *, min_value: int, max_value: int) -> int:
-        try:
-            parsed = int(value)
-        except Exception:
-            parsed = int(default)
+def resolve_search_template_pagination(params: Mapping[object, object]) -> tuple[int, int]:
+    def _parse_int(value: object, default: int, *, min_value: int, max_value: int) -> int:
+        parsed = _integer(value, default)
         return max(min_value, min(max_value, parsed))
 
     start_page = _parse_int(params.get("page"), 1, min_value=1, max_value=10000)
@@ -315,7 +207,7 @@ def extract_link_candidates_with_diagnostics_from_html(
     base_url: str,
     entry_domain: str | None = None,
     parser_profile: str | None = None,
-) -> tuple[list[SearchTemplateRawCandidate], dict[str, Any]]:
+) -> tuple[list[SearchTemplateRawCandidate], SearchResultParserDiagnostics]:
     raw_candidates, diagnostics = parse_search_result_candidates(
         html,
         base_url=base_url,
@@ -329,7 +221,7 @@ def extract_link_candidates_with_diagnostics_from_html(
                 text=str(item.get("text") or "").strip(),
                 title=str(item.get("title") or "").strip(),
                 summary=str(item.get("summary") or "").strip(),
-                extra=dict(item.get("extra") or {}) if isinstance(item.get("extra"), dict) else {},
+                extra=dict(item["extra"]),
             )
             for item in raw_candidates
             if str(item.get("url") or "").strip()
@@ -338,278 +230,17 @@ def extract_link_candidates_with_diagnostics_from_html(
     )
 
 
-def _candidate_from_anchor(
-    node: Any,
-    *,
-    base_url: str,
-    context_text: str,
-    container: Any | None,
-    entry_domain: str | None,
-) -> SearchTemplateRawCandidate | None:
-    href = (node.attributes.get("href") or "").strip()
-    if not href:
+def _resolve_candidate_scoring_config(
+    params: Mapping[object, object] | dict[str, Any] | None,
+) -> dict[str, Any] | str | None:
+    if params is None:
         return None
-    candidate_url = normalize_candidate_url(urljoin(base_url, href))
-    if not candidate_url or _is_low_value_candidate_href(candidate_url, entry_domain=entry_domain):
-        return None
-    anchor_text = _node_text(node, max_chars=240)
-    title = str(node.attributes.get("title") or node.attributes.get("aria-label") or "").strip()
-    if not title and container is not None:
-        title = _extract_container_title(container)
-    if not title:
-        title = anchor_text
-    normalized_anchor_text = " ".join(anchor_text.lower().split())
-    if normalized_anchor_text in _LOW_VALUE_ANCHOR_TEXTS and title:
-        anchor_text = title
-    summary = _extract_container_summary(container) if container is not None else ""
-    text = " ".join(part for part in [anchor_text, summary, context_text] if part).strip()
-    return SearchTemplateRawCandidate(
-        url=candidate_url,
-        text=text[:800],
-        title=title[:240],
-        summary=summary[:400],
-    )
-
-
-def _node_text(node: Any, *, max_chars: int) -> str:
-    try:
-        text = str(node.text(separator=" ", strip=True) or "").strip()
-    except Exception:
-        text = ""
-    text = " ".join(text.split())
-    return text[:max_chars]
-
-
-def _is_low_value_candidate_href(url: str, *, entry_domain: str | None = None) -> bool:
-    parts = urlsplit(str(url or "").strip())
-    host = str(parts.netloc or "").lower()
-    path = str(parts.path or "").lower()
-    if any(marker in host for marker in _LOW_VALUE_HOST_MARKERS):
-        return True
-    if any(marker in path for marker in _LOW_VALUE_HREF_MARKERS):
-        return True
-    if path in {"", "/"}:
-        return True
-    if (entry_domain or "").strip().lower() == "commercialobserver.com" and not _COMMERCIAL_OBSERVER_ARTICLE_PATH.search(path):
-        return True
-    return False
-
-
-def _append_structured_candidates(
-    parser: Any,
-    *,
-    base_url: str,
-    entry_domain: str | None,
-    candidates: list[SearchTemplateRawCandidate],
-    seen_urls: set[str],
-    diagnostics: dict[str, int],
-) -> None:
-    for selector in _SEARCH_RESULT_CONTAINER_SELECTORS:
-        found = parser.css(selector)
-        if not found:
-            continue
-        for container in found[:20]:
-            container_text = _node_text(container, max_chars=600)
-            for attr_name in _STRUCTURED_RESULT_URL_ATTRIBUTES:
-                raw_url = str(container.attributes.get(attr_name) or "").strip()
-                if not raw_url:
-                    continue
-                candidate_url = normalize_candidate_url(urljoin(base_url, raw_url))
-                if not candidate_url or candidate_url in seen_urls or _is_low_value_candidate_href(candidate_url, entry_domain=entry_domain):
-                    diagnostics["candidate_rejected_low_value"] += 1
-                    continue
-                title = _extract_container_title(container)
-                summary = _extract_container_summary(container)
-                seen_urls.add(candidate_url)
-                candidates.append(
-                    SearchTemplateRawCandidate(
-                        url=candidate_url,
-                        text=" ".join(part for part in [title, summary, container_text] if part)[:800],
-                        title=title[:240],
-                        summary=summary[:400],
-                    )
-                )
-                diagnostics["structured_hit"] += 1
-
-
-def _append_json_ld_candidates(
-    parser: Any,
-    *,
-    base_url: str,
-    entry_domain: str | None,
-    candidates: list[SearchTemplateRawCandidate],
-    seen_urls: set[str],
-    diagnostics: dict[str, int],
-) -> None:
-    for node in parser.css("script[type='application/ld+json']"):
-        raw = _node_text(node, max_chars=20000)
-        if not raw:
-            continue
-        try:
-            payload = json.loads(raw)
-        except Exception:
-            continue
-        for item in _iter_json_ld_items(payload):
-            candidate = _candidate_from_json_ld_item(item, base_url=base_url, entry_domain=entry_domain)
-            if candidate is None or candidate.url in seen_urls:
-                continue
-            seen_urls.add(candidate.url)
-            candidates.append(candidate)
-            diagnostics["json_ld_hit"] += 1
-
-
-def _append_global_anchor_candidates(
-    parser: Any,
-    *,
-    base_url: str,
-    entry_domain: str | None,
-    candidates: list[SearchTemplateRawCandidate],
-    seen_urls: set[str],
-    diagnostics: dict[str, int],
-) -> None:
-    for node in parser.css("a"):
-        candidate = _candidate_from_anchor(
-            node,
-            base_url=base_url,
-            context_text="",
-            container=None,
-            entry_domain=entry_domain,
-        )
-        if candidate is None:
-            diagnostics["candidate_rejected_low_value"] += 1
-            continue
-        if candidate.url in seen_urls or not _is_high_signal_global_anchor(candidate):
-            continue
-        seen_urls.add(candidate.url)
-        candidates.append(candidate)
-        diagnostics["global_anchor_hit"] += 1
-
-
-def _iter_json_ld_items(payload: Any) -> list[dict[str, Any]]:
-    items: list[dict[str, Any]] = []
-
-    def _visit(value: Any) -> None:
-        if isinstance(value, dict):
-            items.append(value)
-            for key in ("@graph", "itemListElement", "mainEntity", "mainEntityOfPage"):
-                child = value.get(key)
-                if isinstance(child, list):
-                    for row in child:
-                        _visit(row)
-                elif child is not None:
-                    _visit(child)
-        elif isinstance(value, list):
-            for row in value:
-                _visit(row)
-
-    _visit(payload)
-    return items
-
-
-def _candidate_from_json_ld_item(
-    item: dict[str, Any],
-    *,
-    base_url: str,
-    entry_domain: str | None,
-) -> SearchTemplateRawCandidate | None:
-    raw_url = item.get("url") or item.get("@id")
-    child_item = item.get("item")
-    if not raw_url and isinstance(child_item, dict):
-        raw_url = child_item.get("url") or child_item.get("@id")
-    main_entity_of_page = item.get("mainEntityOfPage")
-    if not raw_url and isinstance(main_entity_of_page, dict):
-        raw_url = main_entity_of_page.get("@id") or main_entity_of_page.get("url")
-    raw_url = str(raw_url or "").strip()
-    if not raw_url:
-        return None
-    candidate_url = normalize_candidate_url(urljoin(base_url, raw_url))
-    if not candidate_url or _is_low_value_candidate_href(candidate_url, entry_domain=entry_domain):
-        return None
-    title = str(item.get("headline") or item.get("name") or "").strip()
-    if not title and isinstance(child_item, dict):
-        title = str(child_item.get("name") or child_item.get("headline") or "").strip()
-    text = str(item.get("description") or "").strip()
-    if not text and isinstance(child_item, dict):
-        text = str(child_item.get("description") or child_item.get("summary") or "").strip()
-    return SearchTemplateRawCandidate(
-        url=candidate_url,
-        text=text[:800],
-        title=title[:240],
-        summary=text[:400],
-    )
-
-
-def _extract_container_title(container: Any) -> str:
-    for selector in _TITLE_SELECTORS:
-        try:
-            title_nodes = container.css(selector)
-        except Exception:
-            title_nodes = []
-        if title_nodes:
-            title = _node_text(title_nodes[0], max_chars=240)
-            if title:
-                return title
-    return ""
-
-
-def _extract_container_summary(container: Any) -> str:
-    for selector in _SUMMARY_SELECTORS:
-        try:
-            nodes = container.css(selector)
-        except Exception:
-            nodes = []
-        for node in nodes:
-            text = _node_text(node, max_chars=400)
-            normalized = " ".join(text.lower().split())
-            if text and normalized not in _LOW_VALUE_ANCHOR_TEXTS:
-                return text
-    return ""
-
-
-def _is_high_signal_global_anchor(candidate: SearchTemplateRawCandidate) -> bool:
-    text = " ".join((candidate.title or candidate.text or "").split()).strip()
-    if len(text) < _GLOBAL_ANCHOR_MIN_TEXT_LENGTH:
-        return False
-    parts = urlsplit(candidate.url)
-    if parts.scheme not in {"http", "https"}:
-        return False
-    path = str(parts.path or "").strip("/")
-    if path.count("/") < 1:
-        return False
-    return True
-
-
-def _iter_container_anchor_nodes(container: Any, *, entry_domain: str) -> list[Any]:
-    selected: list[Any] = []
-    seen_ids: set[int] = set()
-    for selector in _SITE_SPECIFIC_TITLE_LINK_SELECTORS.get(entry_domain, ()):
-        try:
-            nodes = container.css(selector)
-        except Exception:
-            nodes = []
-        for node in nodes:
-            marker = id(node)
-            if marker in seen_ids:
-                continue
-            seen_ids.add(marker)
-            selected.append(node)
-    try:
-        generic_nodes = container.css("a")
-    except Exception:
-        generic_nodes = []
-    for node in generic_nodes:
-        marker = id(node)
-        if marker in seen_ids:
-            continue
-        seen_ids.add(marker)
-        selected.append(node)
-    return selected
-
-
-def _resolve_candidate_scoring_config(params: dict[str, Any] | None) -> dict[str, Any] | str | None:
-    if not isinstance(params, dict):
-        return None
-    return params.get("candidate_scoring_config") or params.get("candidate_selection_config")
+    raw = params.get("candidate_scoring_config") or params.get("candidate_selection_config")
+    if isinstance(raw, str):
+        return raw
+    if isinstance(raw, dict):
+        return cast(dict[str, Any], raw)
+    return None
 
 
 def _candidate_filter_state(
@@ -631,7 +262,11 @@ def _candidate_filter_state(
     return "selected_without_query_filter" if selected_count > 0 else "empty_without_query_filter"
 
 
-def build_search_template_urls(template: str, query_terms: list[str], params: dict[str, Any]) -> Annotated[
+def build_search_template_urls(
+    template: str,
+    query_terms: list[str],
+    params: Mapping[object, object],
+) -> Annotated[
     tuple[list[str], int],
     "kit:non-authoritative derived_as=view fact_source=search_template+query_terms+pagination_params witness=test:test_w03_ingest_ports_authority_metadata",
 ]:
@@ -670,7 +305,7 @@ def execute_search_template(
     *,
     template: str,
     query_terms: list[str],
-    params: dict[str, Any],
+    params: Mapping[object, object],
     probe_timeout: float,
     allow_term_fallback: bool,
     entry_domain: str | None = None,
@@ -684,7 +319,7 @@ def execute_search_template(
     active_service = _resolve_search_service(params)
     fallback_enabled = bool(params.get("enable_search_service_fallback", True))
     search_service_fallbacks = 0
-    parser_diagnostics_acc: dict[str, int] = {}
+    parser_diagnostics_acc: dict[str, object] = {}
 
     for search_url in search_urls:
         try:
@@ -756,7 +391,9 @@ def execute_search_template(
         for key, value in extracted_diagnostics.items():
             diagnostics_key = f"parser_{key}"
             if isinstance(value, int):
-                parser_diagnostics_acc[diagnostics_key] = int(parser_diagnostics_acc.get(diagnostics_key) or 0) + int(value or 0)
+                previous = parser_diagnostics_acc.get(diagnostics_key)
+                previous_count = previous if isinstance(previous, int) else 0
+                parser_diagnostics_acc[diagnostics_key] = previous_count + value
             else:
                 parser_diagnostics_acc[diagnostics_key] = value
         for candidate in extracted_candidates:
@@ -789,11 +426,11 @@ def execute_search_template(
         entry_domain=effective_domain,
         search_url=search_urls[0] if search_urls else normalized_template,
         allow_fallback=allow_term_fallback,
-        fallback_limit=int(params.get("fallback_limit") or 30),
+        fallback_limit=int(cast(Any, params.get("fallback_limit") or 30)),
         scoring_config=_resolve_candidate_scoring_config(params),
     )
 
-    diagnostics = {
+    diagnostics: dict[str, object] = {
         "entry_domain": effective_domain,
         "raw_candidates": len(merged_candidates),
         "selected_candidates": len(selected_candidates),
@@ -1012,7 +649,7 @@ def execute_feed_probe(
     query_terms: list[str],
     probe_timeout: float,
     allow_term_fallback: bool,
-    params: dict[str, Any] | None = None,
+    params: Mapping[object, object] | None = None,
 ) -> SearchTemplateExecutionResult:
     raw_candidates: list[SearchTemplateRawCandidate] = []
     errors: list[dict[str, Any]] = []

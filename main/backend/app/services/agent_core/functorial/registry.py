@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 import threading
 from pathlib import Path
-from typing import Any, NoReturn, TypeAlias
+from typing import Any, NoReturn, TypeAlias, TypeGuard
 
 from functorial_kit import Failure
 from mrw_functorial_kit.core.agent_service_semantics import (
@@ -19,6 +19,10 @@ from mrw_functorial_kit.core.agent_service_semantics import (
 _COLLECTIONS = ("operators", "motifs", "workflows")
 _FAILURE_WITNESS = "test:test_w02_functorial_projection_failure_lifts"
 ProjectionFailure: TypeAlias = Failure
+
+
+def _is_catalog_record(value: object) -> TypeGuard[dict[str, Any]]:
+    return isinstance(value, dict)
 
 
 class CatalogLoadError(RuntimeError):
@@ -70,26 +74,28 @@ class FunctorialCatalog:
                     if not line:
                         continue
                     try:
-                        item = json.loads(line)
+                        raw_item: object = json.loads(line)
                     except json.JSONDecodeError as exc:
                         return _projection_failure(
                             "catalog_record_malformed",
                             f"malformed functorial catalog line in {p}: {exc}",
                             collection=c,
                         )
-                    if not isinstance(item, dict):
+                    if not _is_catalog_record(raw_item):
                         return _projection_failure(
                             "catalog_record_malformed",
                             f"catalog record must be an object in {p}",
                             collection=c,
                         )
-                    key = str(
+                    item = raw_item
+                    key_value = (
                         item.get("id")
                         or item.get("operator_id")
                         or item.get("motif_id")
                         or item.get("workflow_id")
                         or ""
-                    ).strip()
+                    )
+                    key = str(key_value).strip()
                     if not key:
                         return _projection_failure(
                             "catalog_record_malformed",
@@ -99,13 +105,13 @@ class FunctorialCatalog:
                     self._store[c][key] = item
 
     def _upsert(
-        self, collection: str, record_id: str, spec: dict[str, Any]
+        self, collection: str, record_id: str, spec: object
     ) -> dict[str, Any] | ProjectionFailure:
         if collection not in _COLLECTIONS:
             return _projection_failure(
                 "ref_kind_unsupported", f"unknown collection: {collection}", collection=collection
             )
-        if not isinstance(spec, dict):
+        if not _is_catalog_record(spec):
             return _projection_failure(
                 "catalog_record_malformed",
                 "catalog record must be an object",

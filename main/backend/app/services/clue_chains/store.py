@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from copy import deepcopy
 from threading import RLock
-from typing import Annotated, Any, Mapping, Protocol
+from typing import Annotated, Mapping, Protocol, SupportsIndex, SupportsInt, TypedDict, TypeGuard
 
 from app.services.ingest_config.service import get_config as get_ingest_config
 from app.services.ingest_config.service import upsert_config as upsert_ingest_config
@@ -11,17 +11,34 @@ from app.services.projects import current_project_key
 from .contracts import CONFIG_KEY, CONFIG_TYPE, STATE_CONTRACT_VERSION
 
 
+class ClueChainRecord(TypedDict):
+    chain: dict[str, object]
+    hops: dict[str, dict[str, object]]
+    evidence: dict[str, dict[str, object]]
+    candidates: dict[str, dict[str, object]]
+    decisions: dict[str, dict[str, object]]
+    edges: dict[str, dict[str, object]]
+    alias_index: dict[str, str]
+    events: list[dict[str, object]]
+
+
+class ClueChainState(TypedDict):
+    contract_version: str
+    base_version: int
+    chains: dict[str, ClueChainRecord]
+
+
 class ClueChainStore(Protocol):
     @property
     def project_key(self) -> str | None: ...
 
-    def load_state(self) -> dict[str, Any]: ...
+    def load_state(self) -> ClueChainState: ...
 
-    def save_state(self, state: Mapping[str, Any]) -> dict[str, Any]: ...
+    def save_state(self, state: Mapping[str, object]) -> ClueChainState: ...
 
 
 class InMemoryClueChainStore:
-    def __init__(self, *, project_key: str = "demo_proj", initial_state: Mapping[str, Any] | None = None) -> None:
+    def __init__(self, *, project_key: str = "demo_proj", initial_state: Mapping[str, object] | None = None) -> None:
         self._project_key = project_key
         self._state = normalize_state(initial_state)
         self._lock = RLock()
@@ -30,11 +47,11 @@ class InMemoryClueChainStore:
     def project_key(self) -> str:
         return self._project_key
 
-    def load_state(self) -> dict[str, Any]:
+    def load_state(self) -> ClueChainState:
         with self._lock:
             return deepcopy(self._state)
 
-    def save_state(self, state: Mapping[str, Any]) -> dict[str, Any]:
+    def save_state(self, state: Mapping[str, object]) -> ClueChainState:
         with self._lock:
             self._state = normalize_state(state)
             return deepcopy(self._state)
@@ -49,14 +66,14 @@ class IngestConfigClueChainStore:
     def project_key(self) -> str:
         return self._project_key or current_project_key()
 
-    def load_state(self) -> dict[str, Any]:
+    def load_state(self) -> ClueChainState:
         cfg = get_ingest_config(self.project_key, self._config_key)
-        payload = cfg.get("payload") if isinstance(cfg, Mapping) else None
+        payload = cfg.get("payload") if cfg is not None else None
         return normalize_state(payload)
 
-    def save_state(self, state: Mapping[str, Any]) -> dict[str, Any]:
+    def save_state(self, state: Mapping[str, object]) -> ClueChainState:
         saved = upsert_ingest_config(self.project_key, self._config_key, CONFIG_TYPE, payload=deepcopy(dict(state)))
-        payload = saved.get("payload") if isinstance(saved, Mapping) else None
+        payload = saved.get("payload")
         return normalize_state(payload)
 
 
@@ -70,14 +87,15 @@ def build_clue_chain_store(
     return IngestConfigClueChainStore(project_key=project_key)
 
 
-def normalize_state(payload: Any) -> dict[str, Any]:
-    raw = payload if isinstance(payload, Mapping) else {}
-    raw_chains = raw.get("chains") if isinstance(raw.get("chains"), Mapping) else {}
-    chains: dict[str, dict[str, Any]] = {}
-    for raw_chain_id, raw_record in raw_chains.items():
+def normalize_state(payload: object) -> ClueChainState:
+    raw = _object_mapping_or_empty(payload)
+    raw_chains = _object_mapping_or_empty(raw.get("chains"))
+    chains: dict[str, ClueChainRecord] = {}
+    for raw_chain_id, raw_record_value in raw_chains.items():
         chain_id = str(raw_chain_id or "").strip()
-        if not chain_id or not isinstance(raw_record, Mapping):
+        if not chain_id or not _is_object_mapping(raw_record_value):
             continue
+        raw_record = raw_record_value
         chain = _dict_or_empty(raw_record.get("chain"))
         stored_chain_id = str(chain.get("chain_id") or chain_id).strip()
         if not stored_chain_id:
@@ -100,14 +118,14 @@ def normalize_state(payload: Any) -> dict[str, Any]:
     }
 
 
-def _record_map(raw: Any, id_field: str) -> dict[str, dict[str, Any]]:
-    out: dict[str, dict[str, Any]] = {}
-    if not isinstance(raw, Mapping):
+def _record_map(raw: object, id_field: str) -> dict[str, dict[str, object]]:
+    out: dict[str, dict[str, object]] = {}
+    if not _is_object_mapping(raw):
         return out
     for raw_key, raw_value in raw.items():
-        if not isinstance(raw_value, Mapping):
+        item = _string_object_mapping(raw_value)
+        if item is None:
             continue
-        item = dict(raw_value)
         item_id = str(item.get(id_field) or raw_key or "").strip()
         if not item_id:
             continue
@@ -116,15 +134,15 @@ def _record_map(raw: Any, id_field: str) -> dict[str, dict[str, Any]]:
     return out
 
 
-def _record_list(raw: Any) -> list[dict[str, Any]]:
-    if not isinstance(raw, list):
+def _record_list(raw: object) -> list[dict[str, object]]:
+    if not _is_object_list(raw):
         return []
-    return [dict(item) for item in raw if isinstance(item, Mapping)]
+    return [item for value in raw if (item := _string_object_mapping(value)) is not None]
 
 
-def _string_map(raw: Any) -> dict[str, str]:
+def _string_map(raw: object) -> dict[str, str]:
     out: dict[str, str] = {}
-    if not isinstance(raw, Mapping):
+    if not _is_object_mapping(raw):
         return out
     for key, value in raw.items():
         left = str(key or "").strip()
@@ -134,12 +152,41 @@ def _string_map(raw: Any) -> dict[str, str]:
     return out
 
 
-def _dict_or_empty(raw: Any) -> dict[str, Any]:
-    return dict(raw) if isinstance(raw, Mapping) else {}
+def _dict_or_empty(raw: object) -> dict[str, object]:
+    return _string_object_mapping(raw) or {}
 
 
-def _safe_int(value: Any, *, default: int) -> int:
+def _object_mapping_or_empty(raw: object) -> Mapping[object, object]:
+    return raw if _is_object_mapping(raw) else {}
+
+
+def _safe_int(value: object, *, default: int) -> int:
+    if not _is_int_convertible(value):
+        return default
     try:
         return int(value)
     except Exception:  # noqa: BLE001
         return default
+
+
+def _is_int_convertible(value: object) -> TypeGuard[str | bytes | bytearray | SupportsInt | SupportsIndex]:
+    return isinstance(value, (str, bytes, bytearray, SupportsInt, SupportsIndex))
+
+
+def _is_object_mapping(value: object) -> TypeGuard[Mapping[object, object]]:
+    return isinstance(value, Mapping)
+
+
+def _is_object_list(value: object) -> TypeGuard[list[object]]:
+    return isinstance(value, list)
+
+
+def _string_object_mapping(value: object) -> dict[str, object] | None:
+    if not _is_object_mapping(value):
+        return None
+    result: dict[str, object] = {}
+    for key, item in value.items():
+        if not isinstance(key, str):
+            return None
+        result[key] = item
+    return result

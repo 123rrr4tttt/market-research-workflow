@@ -1,14 +1,35 @@
 from __future__ import annotations
 
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 import json
 import re
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Iterable, Protocol, runtime_checkable, TypeGuard
 
 from ..llm.provider import get_chat_model
 
 _JSON_BLOCK_RE = re.compile(r"\{.*\}", re.DOTALL)
+
+
+def _is_string_key(value: object) -> bool:
+    return isinstance(value, str)
+
+
+@runtime_checkable
+class _StringKeyInspectable(Protocol):
+    def keys(self) -> Iterable[object]: ...
+
+
+def _has_only_string_keys(value: object) -> bool:
+    if not isinstance(value, _StringKeyInspectable):
+        return False
+    return all(map(_is_string_key, value.keys()))
+
+
+def _is_object_dict(value: object) -> TypeGuard[dict[str, object]]:
+    if not _has_only_string_keys(value):
+        return False
+    return isinstance(value, dict)
 
 
 @dataclass(frozen=True)
@@ -17,16 +38,16 @@ class DirtyReviewDecision:
     confidence: float
     category: str
     reason: str
-    raw: dict[str, Any]
+    raw: dict[str, object]
 
 
-def _extract_json(text: str) -> dict[str, Any] | None:
+def _extract_json(text: str) -> dict[str, object] | None:
     raw = str(text or "").strip()
     if not raw:
         return None
     try:
-        parsed = json.loads(raw)
-        if isinstance(parsed, dict):
+        parsed: object = json.loads(raw)
+        if _is_object_dict(parsed):
             return parsed
     except Exception:
         pass
@@ -35,7 +56,7 @@ def _extract_json(text: str) -> dict[str, Any] | None:
         return None
     try:
         parsed = json.loads(match.group(0))
-        if isinstance(parsed, dict):
+        if _is_object_dict(parsed):
             return parsed
     except Exception:
         return None
@@ -175,7 +196,7 @@ content_preview={content_preview}
 
         out: dict[int, DirtyReviewDecision] = {}
         with ThreadPoolExecutor(max_workers=workers) as executor:
-            future_map = {}
+            future_map: dict[Future[DirtyReviewDecision], int] = {}
             for row in candidates:
                 doc_id = int(row.get("doc_id") or 0)
                 future = executor.submit(
@@ -202,4 +223,3 @@ content_preview={content_preview}
                         raw={},
                     )
         return out
-

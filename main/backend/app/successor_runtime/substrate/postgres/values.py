@@ -170,7 +170,7 @@ class ValueRepository:
         if expected_revision != 0:
             raise ProjectCASConflict("new exact value requires expected revision 0")
         now = utcnow()
-        values = {
+        values: dict[str, object] = {
             "project_key": project_key,
             "value_id": value_id,
             "object_type": object_type,
@@ -265,7 +265,7 @@ class ReceiptRepository:
         if rows[0] is not None:
             return receipt_id
         now = utcnow()
-        values = {
+        values: dict[str, object] = {
             "project_key": project_key,
             "receipt_id": receipt_id,
             "receipt_digest": receipt_digest,

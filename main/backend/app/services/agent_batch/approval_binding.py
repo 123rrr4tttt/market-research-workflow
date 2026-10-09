@@ -5,11 +5,11 @@ import json
 import secrets
 import threading
 import time
-from typing import Any
+from typing import Any, TypeGuard
 
 from mrw_functorial_kit.core.agent_service_semantics import agent_batch_failures
 
-from .task_contract import _raise_legacy_agent_batch_failure
+from .task_contract import raise_legacy_agent_batch_failure
 
 
 _LOCK = threading.RLock()
@@ -23,6 +23,10 @@ REASON_APPROVAL_BINDING_MISMATCH = "approval_binding_mismatch"
 REASON_APPROVAL_NOT_APPROVED = "approval_not_approved"
 
 
+def _is_payload_dict(value: object) -> TypeGuard[dict[object, object]]:
+    return isinstance(value, dict)
+
+
 def _stable_json(value: Any) -> str:
     return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
 
@@ -34,7 +38,7 @@ def _normalize_binding(binding: dict[str, Any]) -> dict[str, Any]:
     argv_out = [str(x or "").strip() for x in (argv or []) if str(x or "").strip()]
     env = binding.get("env")
     env_out: dict[str, str] = {}
-    if isinstance(env, dict):
+    if _is_payload_dict(env):
         for k, v in env.items():
             key = str(k or "").strip()
             if key:
@@ -78,7 +82,7 @@ def request_approval(*, binding: dict[str, Any], ttl_seconds: int = 600) -> dict
 def approve_approval(*, approval_token: str) -> dict[str, Any]:
     token = str(approval_token or "").strip()
     if not token:
-        _raise_legacy_agent_batch_failure(
+        raise_legacy_agent_batch_failure(
             agent_batch_failures.fail("approval_token_required", "approval_token is required", {"approval_token": token})
         )
     now = int(time.time())
@@ -87,11 +91,11 @@ def approve_approval(*, approval_token: str) -> dict[str, Any]:
         if not payload:
             payload = _APPROVED.get(token)
         if not payload:
-            _raise_legacy_agent_batch_failure(
+            raise_legacy_agent_batch_failure(
                 agent_batch_failures.fail("approval_not_found", REASON_APPROVAL_NOT_FOUND, {"approval_token": token})
             )
         if int(payload.get("expires_at") or 0) < now:
-            _raise_legacy_agent_batch_failure(
+            raise_legacy_agent_batch_failure(
                 agent_batch_failures.fail("approval_expired", REASON_APPROVAL_EXPIRED, {"approval_token": token})
             )
         payload["approved"] = True

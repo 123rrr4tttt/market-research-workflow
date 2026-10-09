@@ -2,14 +2,15 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import json
-from typing import Any, Callable
-from urllib.parse import parse_qs, parse_qsl, urlencode, unquote, urljoin, urlsplit, urlunsplit
+from dataclasses import dataclass, field
+from typing import Callable, TypedDict, TypeGuard, cast
+from urllib.parse import parse_qs, parse_qsl, unquote, urlencode, urljoin, urlsplit, urlunsplit
+
+from selectolax.parser import HTMLParser, Node
 
 from .http_port import make_html_parser
-from .search_result_parser_profiles import SearchResultParserProfile
-from .search_result_parser_profiles import build_search_result_parser_profile
+from .search_result_parser_profiles import SearchResultParserProfile, build_search_result_parser_profile
 from .url_utils import domain_from_url, normalize_url
 
 _TRACKING_QUERY_KEYS = {
@@ -39,7 +40,48 @@ _TRACKING_QUERY_KEYS = {
 @dataclass(frozen=True)
 class SearchResultParserModule:
     module_id: str
-    parse: Callable[..., None]
+    parse: Callable[["_SearchResultParserState"], None]
+
+
+class SearchResultCandidate(TypedDict):
+    url: str
+    text: str
+    title: str
+    summary: str
+    extra: dict[str, str]
+
+
+class SearchResultParserDiagnostics(TypedDict):
+    parser_profile_resolved: str
+    parser_module_used: str
+    parser_modules_tried: list[str]
+    container_hit: int
+    structured_hit: int
+    json_ld_hit: int
+    global_anchor_hit: int
+    candidate_rejected_low_value: int
+
+
+def _is_string_object(value: object) -> TypeGuard[dict[str, object]]:
+    return isinstance(value, dict) and all(
+        isinstance(key, str) for key in cast(dict[object, object], value)
+    )
+
+
+def _is_object_list(value: object) -> TypeGuard[list[object]]:
+    return isinstance(value, list)
+
+
+def _empty_candidates() -> list[SearchResultCandidate]:
+    return []
+
+
+def _empty_string_set() -> set[str]:
+    return set()
+
+
+def _empty_string_list() -> list[str]:
+    return []
 
 
 def resolve_search_result_parser_profile(
@@ -56,7 +98,7 @@ def parse_search_result_candidates(
     base_url: str,
     entry_domain: str | None = None,
     parser_profile: str | None = None,
-) -> tuple[list[dict[str, str]], dict[str, Any]]:
+) -> tuple[list[SearchResultCandidate], SearchResultParserDiagnostics]:
     profile = resolve_search_result_parser_profile(
         entry_domain or domain_from_url(base_url),
         parser_profile=parser_profile,
@@ -65,7 +107,7 @@ def parse_search_result_candidates(
     state = _SearchResultParserState(profile=profile, parser=parser, base_url=base_url)
     for module in resolve_search_result_parser_modules(profile):
         module.parse(state)
-    diagnostics = {
+    diagnostics: SearchResultParserDiagnostics = {
         "parser_profile_resolved": profile.profile_key,
         "parser_module_used": state.module_trace[0] if state.module_trace else "",
         "parser_modules_tried": list(state.module_trace),
@@ -96,24 +138,20 @@ def resolve_search_result_parser_modules(profile: SearchResultParserProfile) -> 
 @dataclass
 class _SearchResultParserState:
     profile: SearchResultParserProfile
-    parser: Any
+    parser: HTMLParser
     base_url: str
-    candidates: list[dict[str, str]] = None  # type: ignore[assignment]
-    seen_urls: set[str] = None  # type: ignore[assignment]
-    diagnostics: dict[str, int] = None  # type: ignore[assignment]
-    module_trace: list[str] = None  # type: ignore[assignment]
-
-    def __post_init__(self) -> None:
-        self.candidates = []
-        self.seen_urls = set()
-        self.diagnostics = {
+    candidates: list[SearchResultCandidate] = field(default_factory=_empty_candidates)
+    seen_urls: set[str] = field(default_factory=_empty_string_set)
+    diagnostics: dict[str, int] = field(
+        default_factory=lambda: {
             "container_hit": 0,
             "structured_hit": 0,
             "json_ld_hit": 0,
             "global_anchor_hit": 0,
             "candidate_rejected_low_value": 0,
         }
-        self.module_trace = []
+    )
+    module_trace: list[str] = field(default_factory=_empty_string_list)
 
 
 def normalize_candidate_url(url: str) -> str | None:
@@ -139,12 +177,12 @@ def normalize_candidate_url(url: str) -> str | None:
 
 
 def _run_container_module(state: _SearchResultParserState) -> None:
-    container_nodes = []
+    container_nodes: list[Node] = []
     for selector in state.profile.container_selectors:
         found = state.parser.css(selector)
         if found:
             container_nodes.extend(found[:40])
-    deduped_container_nodes = []
+    deduped_container_nodes: list[Node] = []
     seen_container_ids: set[int] = set()
     for container in container_nodes:
         marker = id(container)
@@ -218,7 +256,7 @@ def _run_jsonld_module(state: _SearchResultParserState) -> None:
         if not raw:
             continue
         try:
-            payload = json.loads(raw)
+            payload: object = json.loads(raw)
         except Exception:
             continue
         for item in _iter_json_ld_items(payload):
@@ -255,13 +293,13 @@ def _run_global_anchor_module(state: _SearchResultParserState) -> None:
 
 
 def _candidate_from_anchor(
-    node: Any,
+    node: Node,
     *,
     base_url: str,
     context_text: str,
-    container: Any | None,
+    container: Node | None,
     profile: SearchResultParserProfile,
-) -> dict[str, str] | None:
+) -> SearchResultCandidate | None:
     href = (node.attributes.get("href") or "").strip()
     if not href:
         return None
@@ -289,17 +327,17 @@ def _candidate_from_anchor(
 
 
 def _candidate_from_json_ld_item(
-    item: dict[str, Any],
+    item: dict[str, object],
     *,
     base_url: str,
     profile: SearchResultParserProfile,
-) -> dict[str, str] | None:
+) -> SearchResultCandidate | None:
     raw_url = item.get("url") or item.get("@id")
     child_item = item.get("item")
-    if not raw_url and isinstance(child_item, dict):
+    if not raw_url and _is_string_object(child_item):
         raw_url = child_item.get("url") or child_item.get("@id")
     main_entity_of_page = item.get("mainEntityOfPage")
-    if not raw_url and isinstance(main_entity_of_page, dict):
+    if not raw_url and _is_string_object(main_entity_of_page):
         raw_url = main_entity_of_page.get("@id") or main_entity_of_page.get("url")
     raw_url = str(raw_url or "").strip()
     if not raw_url:
@@ -308,10 +346,10 @@ def _candidate_from_json_ld_item(
     if not candidate_url or _is_low_value_candidate_href(candidate_url, profile=profile):
         return None
     title = str(item.get("headline") or item.get("name") or "").strip()
-    if not title and isinstance(child_item, dict):
+    if not title and _is_string_object(child_item):
         title = str(child_item.get("name") or child_item.get("headline") or "").strip()
     text = str(item.get("description") or "").strip()
-    if not text and isinstance(child_item, dict):
+    if not text and _is_string_object(child_item):
         text = str(child_item.get("description") or child_item.get("summary") or "").strip()
     return {
         "url": candidate_url,
@@ -322,20 +360,20 @@ def _candidate_from_json_ld_item(
     }
 
 
-def _iter_json_ld_items(payload: Any) -> list[dict[str, Any]]:
-    items: list[dict[str, Any]] = []
+def _iter_json_ld_items(payload: object) -> list[dict[str, object]]:
+    items: list[dict[str, object]] = []
 
-    def _visit(value: Any) -> None:
-        if isinstance(value, dict):
+    def _visit(value: object) -> None:
+        if _is_string_object(value):
             items.append(value)
             for key in ("@graph", "itemListElement", "mainEntity", "mainEntityOfPage"):
                 child = value.get(key)
-                if isinstance(child, list):
+                if _is_object_list(child):
                     for row in child:
                         _visit(row)
                 elif child is not None:
                     _visit(child)
-        elif isinstance(value, list):
+        elif _is_object_list(value):
             for row in value:
                 _visit(row)
 
@@ -343,7 +381,7 @@ def _iter_json_ld_items(payload: Any) -> list[dict[str, Any]]:
     return items
 
 
-def _node_text(node: Any, *, max_chars: int) -> str:
+def _node_text(node: Node, *, max_chars: int) -> str:
     try:
         text = str(node.text(separator=" ", strip=True) or "").strip()
     except Exception:
@@ -351,7 +389,7 @@ def _node_text(node: Any, *, max_chars: int) -> str:
     return " ".join(text.split())[:max_chars]
 
 
-def _extract_container_title(container: Any, *, profile: SearchResultParserProfile) -> str:
+def _extract_container_title(container: Node, *, profile: SearchResultParserProfile) -> str:
     for selector in profile.title_selectors:
         try:
             title_nodes = container.css(selector)
@@ -364,7 +402,7 @@ def _extract_container_title(container: Any, *, profile: SearchResultParserProfi
     return ""
 
 
-def _extract_container_summary(container: Any, *, profile: SearchResultParserProfile) -> str:
+def _extract_container_summary(container: Node, *, profile: SearchResultParserProfile) -> str:
     for selector in profile.summary_selectors:
         try:
             nodes = container.css(selector)
@@ -395,7 +433,7 @@ def _is_low_value_candidate_href(url: str, *, profile: SearchResultParserProfile
     return False
 
 
-def _is_high_signal_global_anchor(candidate: dict[str, str], *, profile: SearchResultParserProfile) -> bool:
+def _is_high_signal_global_anchor(candidate: SearchResultCandidate, *, profile: SearchResultParserProfile) -> bool:
     text = " ".join((candidate.get("title") or candidate.get("text") or "").split()).strip()
     if len(text) < profile.global_anchor_min_text_length:
         return False
@@ -425,8 +463,8 @@ def _classify_candidate_route_kind(url: str, *, profile: SearchResultParserProfi
     return profile.default_route_kind
 
 
-def _iter_container_anchor_nodes(container: Any, *, title_link_selectors: tuple[str, ...]) -> list[Any]:
-    selected: list[Any] = []
+def _iter_container_anchor_nodes(container: Node, *, title_link_selectors: tuple[str, ...]) -> list[Node]:
+    selected: list[Node] = []
     seen_ids: set[int] = set()
     for selector in title_link_selectors:
         try:

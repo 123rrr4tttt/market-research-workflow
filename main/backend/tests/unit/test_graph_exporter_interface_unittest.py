@@ -28,7 +28,7 @@ class GraphExporterInterfaceUnitTestCase(unittest.TestCase):
                     type="MENTIONS_KEYWORD",
                     from_node=post,
                     to_node=keyword,
-                    properties={"weight": 1.0},
+                    properties={"weight": 1.0, "id": "edge-metadata"},
                 )
             ],
             schema_version="v1",
@@ -52,6 +52,7 @@ class GraphExporterInterfaceUnitTestCase(unittest.TestCase):
         self.assertEqual(edge["from"], {"type": "Post", "id": "p-1"})
         self.assertEqual(edge["to"], {"type": "Keyword", "id": "k-1"})
         self.assertEqual(edge["weight"], 1.0)
+        self.assertEqual(edge["id"], "edge-metadata")
 
     def test_export_to_json_uses_default_schema_version_when_empty(self):
         node = GraphNode(type="Entity", id="e-1", properties={})

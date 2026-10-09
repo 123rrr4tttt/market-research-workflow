@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, TypeGuard, TypeVar
 
 from fastapi import APIRouter, HTTPException, Query, Request
+from pydantic import BaseModel
 
 from ..contracts import ApiEnvelope, ErrorCode, error_response, success_response
 from ..contracts.schemas.clue_chains import (
@@ -36,20 +38,20 @@ ClueChainExpansionEnvelope = ApiEnvelope[ClueChainExpansionData]
 ClueChainDecisionEnvelope = ApiEnvelope[ClueChainDecisionResponseData]
 ClueChainCloseEnvelope = ApiEnvelope[ClueChainCloseData]
 
-_TEST_STORE: InMemoryClueChainStore | None = None
+_test_store: InMemoryClueChainStore | None = None
 _DEFAULT_EXTERNAL_FIXTURE = (
     Path(__file__).resolve().parents[2] / "tests" / "fixtures" / "clue_chains" / "external_search_results.json"
 )
 
 
 def reset_clue_chain_service_for_tests() -> None:
-    global _TEST_STORE
-    _TEST_STORE = InMemoryClueChainStore(project_key="demo_proj")
+    global _test_store
+    _test_store = InMemoryClueChainStore(project_key="demo_proj")
 
 
 def _service_for_project(project_key: str | None = None) -> ClueChainService:
-    if _TEST_STORE is not None:
-        return ClueChainService(store=_TEST_STORE)
+    if _test_store is not None:
+        return ClueChainService(store=_test_store)
     return ClueChainService(project_key=project_key)
 
 
@@ -73,8 +75,35 @@ def _project_key_from_request(request: Request, payload_project_key: str | None 
     return project_key
 
 
-def _serialize(model_type: type[Any], payload: dict[str, Any]) -> dict[str, Any]:
+_ModelT = TypeVar("_ModelT", bound=BaseModel)
+
+
+def _serialize(model_type: type[_ModelT], payload: Mapping[str, object]) -> dict[str, Any]:
     return model_type.model_validate(payload).model_dump()
+
+
+def _is_object_mapping(value: object) -> TypeGuard[Mapping[object, object]]:
+    return isinstance(value, Mapping)
+
+
+def _object_mapping(value: object) -> Mapping[object, object]:
+    return value if _is_object_mapping(value) else {}
+
+
+def _string_object_mapping(value: object) -> dict[str, object]:
+    return {key: item for key, item in _object_mapping(value).items() if isinstance(key, str)}
+
+
+def _is_object_list(value: object) -> TypeGuard[list[object]]:
+    return isinstance(value, list)
+
+
+def _object_list(value: object) -> list[object]:
+    return value if _is_object_list(value) else []
+
+
+def _string_list(value: object) -> list[str]:
+    return [item for item in _object_list(value) if isinstance(item, str)]
 
 
 def _map_service_error(exc: Exception) -> HTTPException:
@@ -90,9 +119,11 @@ def _map_service_error(exc: Exception) -> HTTPException:
     )
 
 
-def _chain_for_api(aggregate: Mapping[str, Any]) -> dict[str, Any]:
-    chain = dict(aggregate.get("chain") or aggregate or {})
-    metadata = dict(chain.get("metadata") or {})
+def _chain_for_api(aggregate: Mapping[str, object]) -> dict[str, Any]:
+    chain = _string_object_mapping(aggregate.get("chain")) or {
+        key: value for key, value in aggregate.items()
+    }
+    metadata = _string_object_mapping(chain.get("metadata"))
     metadata.setdefault("internal_status", chain.get("status"))
     metadata.setdefault("objective", chain.get("objective"))
     return {
@@ -102,12 +133,16 @@ def _chain_for_api(aggregate: Mapping[str, Any]) -> dict[str, Any]:
         "title": str(chain.get("title") or ""),
         "question": chain.get("objective"),
         "status": "closed" if chain.get("status") == "closed" else "open",
-        "root_node_ids": list(chain.get("seed_node_ids") or chain.get("root_node_ids") or []),
-        "frontier_node_ids": list(chain.get("frontier_node_ids") or []),
-        "hop_ids": [str(item.get("hop_id")) for item in aggregate.get("hops", []) if isinstance(item, Mapping)],
-        "candidate_count": len(aggregate.get("candidates") or []),
-        "evidence_count": len(aggregate.get("evidence") or []),
-        "decision_count": len(aggregate.get("decisions") or []),
+        "root_node_ids": _string_list(chain.get("seed_node_ids") or chain.get("root_node_ids")),
+        "frontier_node_ids": _string_list(chain.get("frontier_node_ids")),
+        "hop_ids": [
+            str(item_mapping.get("hop_id") or "")
+            for item in _object_list(aggregate.get("hops"))
+            if (item_mapping := _string_object_mapping(item))
+        ],
+        "candidate_count": len(_object_list(aggregate.get("candidates"))),
+        "evidence_count": len(_object_list(aggregate.get("evidence"))),
+        "decision_count": len(_object_list(aggregate.get("decisions"))),
         "created_at": str(chain.get("created_at") or chain.get("updated_at") or ""),
         "updated_at": str(chain.get("updated_at") or chain.get("created_at") or ""),
         "closed_at": chain.get("closed_at"),
@@ -116,11 +151,11 @@ def _chain_for_api(aggregate: Mapping[str, Any]) -> dict[str, Any]:
     }
 
 
-def _hop_for_api(hop: Mapping[str, Any]) -> dict[str, Any]:
+def _hop_for_api(hop: Mapping[str, object]) -> dict[str, Any]:
     query_json = hop.get("query_json")
     query = ""
-    if isinstance(query_json, Mapping):
-        query = str(query_json.get("query") or query_json.get("text") or "")
+    if (query_mapping := _object_mapping(query_json)):
+        query = str(query_mapping.get("query") or query_mapping.get("text") or "")
     elif query_json is not None:
         query = str(query_json)
     status = str(hop.get("status") or "planned")
@@ -131,20 +166,20 @@ def _hop_for_api(hop: Mapping[str, Any]) -> dict[str, Any]:
         "query": query or None,
         "status": _api_hop_status(status),
         "frontier_node_ids": [str(hop.get("input_node_id"))] if hop.get("input_node_id") else [],
-        "candidate_ids": list(hop.get("candidate_ids") or []),
-        "evidence_ids": list(hop.get("evidence_ids") or []),
+        "candidate_ids": _string_list(hop.get("candidate_ids")),
+        "evidence_ids": _string_list(hop.get("evidence_ids")),
         "created_at": str(hop.get("started_at") or ""),
         "completed_at": hop.get("finished_at"),
         "metadata": {
             "internal_status": status,
             "provider": hop.get("provider"),
-            "params": dict(hop.get("params") or {}),
-            "trace": dict(hop.get("trace") or {}),
+            "params": _string_object_mapping(hop.get("params")),
+            "trace": _string_object_mapping(hop.get("trace")),
         },
     }
 
 
-def _evidence_for_api(evidence: Mapping[str, Any], candidate_by_evidence: Mapping[str, str]) -> dict[str, Any]:
+def _evidence_for_api(evidence: Mapping[str, object], candidate_by_evidence: Mapping[str, str]) -> dict[str, Any]:
     evidence_id = str(evidence.get("evidence_id") or "")
     source_ref = evidence.get("source_ref")
     return {
@@ -160,7 +195,7 @@ def _evidence_for_api(evidence: Mapping[str, Any], candidate_by_evidence: Mappin
         "node_refs": [],
         "created_at": str(evidence.get("captured_at") or ""),
         "metadata": {
-            **dict(evidence.get("metadata") or {}),
+            **_string_object_mapping(evidence.get("metadata")),
             "provider": evidence.get("provider"),
             "query": evidence.get("query"),
             "internal_status": evidence.get("status"),
@@ -168,29 +203,32 @@ def _evidence_for_api(evidence: Mapping[str, Any], candidate_by_evidence: Mappin
     }
 
 
-def _candidate_for_api(candidate: Mapping[str, Any]) -> dict[str, Any]:
+def _candidate_for_api(candidate: Mapping[str, object]) -> dict[str, Any]:
     return {
         "candidate_id": str(candidate.get("candidate_id") or ""),
         "chain_id": str(candidate.get("chain_id") or ""),
         "hop_id": str(candidate.get("hop_id") or ""),
         "label": str(candidate.get("value") or candidate.get("label") or ""),
         "candidate_type": str(candidate.get("entity_type") or candidate.get("candidate_type") or "node"),
-        "aliases": list(candidate.get("aliases") or []),
+        "aliases": _string_list(candidate.get("aliases")),
         "confidence": candidate.get("score"),
         "status": _api_candidate_status(candidate.get("decision_status")),
-        "evidence_ids": list(candidate.get("evidence_ids") or []),
+        "evidence_ids": _string_list(candidate.get("evidence_ids")),
         "target_node_id": candidate.get("graph_node_id"),
         "edge": None,
         "metadata": {
-            **dict(candidate.get("metadata") or {}),
+            **_string_object_mapping(candidate.get("metadata")),
             "canonical_key": candidate.get("canonical_key"),
-            "properties": dict(candidate.get("properties") or {}),
+            "properties": _string_object_mapping(candidate.get("properties")),
             "internal_status": candidate.get("decision_status"),
         },
     }
 
 
-def _decision_for_api(decision: Mapping[str, Any], candidate: Mapping[str, Any] | None = None) -> dict[str, Any]:
+def _decision_for_api(
+    decision: Mapping[str, object],
+    candidate: Mapping[str, object] | None = None,
+) -> dict[str, Any]:
     action = str(decision.get("decision") or decision.get("action") or "defer")
     return {
         "decision_id": str(decision.get("decision_id") or ""),
@@ -198,42 +236,51 @@ def _decision_for_api(decision: Mapping[str, Any], candidate: Mapping[str, Any] 
         "candidate_id": str(decision.get("candidate_id") or ""),
         "action": action,
         "status": _api_candidate_status((candidate or {}).get("decision_status") or _status_for_action(action)),
-        "evidence_ids": list(decision.get("evidence_ids") or []),
+        "evidence_ids": _string_list(decision.get("evidence_ids")),
         "target_node_id": decision.get("graph_node_id"),
         "merge_candidate_id": decision.get("target_candidate_id"),
         "reason": decision.get("reason"),
         "decided_by": decision.get("actor"),
         "created_at": str(decision.get("created_at") or ""),
-        "metadata": dict(decision.get("metadata") or {}),
+        "metadata": _string_object_mapping(decision.get("metadata")),
     }
 
 
-def _detail_for_api(aggregate: Mapping[str, Any]) -> dict[str, Any]:
+def _detail_for_api(aggregate: Mapping[str, object]) -> dict[str, Any]:
     candidate_by_evidence: dict[str, str] = {}
-    for candidate in aggregate.get("candidates") or []:
-        if not isinstance(candidate, Mapping):
+    for candidate in _object_list(aggregate.get("candidates")):
+        candidate_mapping = _string_object_mapping(candidate)
+        if not candidate_mapping:
             continue
-        candidate_id = str(candidate.get("candidate_id") or "")
-        for evidence_id in candidate.get("evidence_ids") or []:
+        candidate_id = str(candidate_mapping.get("candidate_id") or "")
+        for evidence_id in _object_list(candidate_mapping.get("evidence_ids")):
             candidate_by_evidence.setdefault(str(evidence_id), candidate_id)
     candidates_by_id = {
-        str(candidate.get("candidate_id")): candidate
-        for candidate in aggregate.get("candidates") or []
-        if isinstance(candidate, Mapping)
+        str(candidate_mapping.get("candidate_id")): candidate_mapping
+        for candidate in _object_list(aggregate.get("candidates"))
+        if (candidate_mapping := _string_object_mapping(candidate))
     }
     return {
         "chain": _chain_for_api(aggregate),
-        "hops": [_hop_for_api(item) for item in aggregate.get("hops", []) if isinstance(item, Mapping)],
-        "candidates": [_candidate_for_api(item) for item in aggregate.get("candidates", []) if isinstance(item, Mapping)],
+        "hops": [
+            _hop_for_api(item_mapping)
+            for item in _object_list(aggregate.get("hops"))
+            if (item_mapping := _string_object_mapping(item))
+        ],
+        "candidates": [
+            _candidate_for_api(item_mapping)
+            for item in _object_list(aggregate.get("candidates"))
+            if (item_mapping := _string_object_mapping(item))
+        ],
         "evidence": [
-            _evidence_for_api(item, candidate_by_evidence)
-            for item in aggregate.get("evidence", [])
-            if isinstance(item, Mapping)
+            _evidence_for_api(item_mapping, candidate_by_evidence)
+            for item in _object_list(aggregate.get("evidence"))
+            if (item_mapping := _string_object_mapping(item))
         ],
         "decisions": [
-            _decision_for_api(item, candidates_by_id.get(str(item.get("candidate_id"))))
-            for item in aggregate.get("decisions", [])
-            if isinstance(item, Mapping)
+            _decision_for_api(item_mapping, candidates_by_id.get(str(item_mapping.get("candidate_id"))))
+            for item in _object_list(aggregate.get("decisions"))
+            if (item_mapping := _string_object_mapping(item))
         ],
     }
 
@@ -276,18 +323,19 @@ def _status_for_action(action: str) -> str:
     return {"promote": "promoted", "reject": "rejected", "merge": "merged"}.get(action, "pending")
 
 
-def _default_query(chain_detail: Mapping[str, Any], payload: ClueChainExpandRequest) -> str:
+def _default_query(chain_detail: Mapping[str, object], payload: ClueChainExpandRequest) -> str:
     if payload.query and payload.query.strip():
         return payload.query.strip()
-    chain = chain_detail.get("chain") if isinstance(chain_detail.get("chain"), Mapping) else {}
-    return str(chain.get("title") or chain.get("objective") or " ".join(chain.get("frontier_node_ids") or []) or "clue chain")
+    chain = _object_mapping(chain_detail.get("chain"))
+    frontier = _string_list(chain.get("frontier_node_ids"))
+    return str(chain.get("title") or chain.get("objective") or " ".join(frontier) or "clue chain")
 
 
-def _first_frontier_node(chain_detail: Mapping[str, Any], payload: ClueChainExpandRequest) -> str:
+def _first_frontier_node(chain_detail: Mapping[str, object], payload: ClueChainExpandRequest) -> str:
     if payload.frontier_node_ids:
         return str(payload.frontier_node_ids[0])
-    chain = chain_detail.get("chain") if isinstance(chain_detail.get("chain"), Mapping) else {}
-    frontier = list(chain.get("frontier_node_ids") or chain.get("seed_node_ids") or [])
+    chain = _object_mapping(chain_detail.get("chain"))
+    frontier = _string_list(chain.get("frontier_node_ids")) or _string_list(chain.get("seed_node_ids"))
     return str(frontier[0]) if frontier else ""
 
 
@@ -295,7 +343,7 @@ def _provider_payload(
     *,
     chain_id: str,
     project_key: str,
-    chain_detail: Mapping[str, Any],
+    chain_detail: Mapping[str, object],
     payload: ClueChainExpandRequest,
 ) -> dict[str, Any]:
     mode = payload.mode
@@ -336,20 +384,25 @@ def _source_library_record_payload(
     input_node_id: str,
     payload: ClueChainExpandRequest,
 ) -> dict[str, Any]:
-    options = dict(payload.provider_options or {})
-    source_items = options.get("source_library_items")
-    source_items = source_items if isinstance(source_items, list) else None
-    result = expand_source_library_hop(
+    options = _string_object_mapping(payload.provider_options)
+    raw_source_items = _object_list(options.get("source_library_items"))
+    source_items = [
+        _string_object_mapping(item)
+        for item in raw_source_items
+        if _is_object_mapping(item)
+    ] or None
+    raw_result: object = expand_source_library_hop(
         chain_id=chain_id,
         project_key=project_key,
         frontier_query=query,
         frontier={"node_id": input_node_id, "label": query},
         source_library_items=source_items,
-        domains=options.get("domains") if isinstance(options.get("domains"), list) else None,
+        domains=_string_list(options.get("domains")) or None,
         max_candidates=payload.limit,
     )
-    if not result.get("candidates") and source_items is None:
-        result = expand_source_library_hop(
+    result = _string_object_mapping(raw_result)
+    if not _object_list(result.get("candidates")) and source_items is None:
+        raw_result = expand_source_library_hop(
             chain_id=chain_id,
             project_key=project_key,
             frontier_query=query,
@@ -357,10 +410,20 @@ def _source_library_record_payload(
             source_library_items=[_source_library_fixture_item(query)],
             max_candidates=payload.limit,
         )
-    evidence = [_source_evidence_payload(item, result) for item in result.get("evidence") or []]
-    candidates = [_source_candidate_payload(item) for item in result.get("candidates") or []]
+        result = _string_object_mapping(raw_result)
+    evidence = [
+        _source_evidence_payload(item_mapping, result)
+        for item in _object_list(result.get("evidence"))
+        if (item_mapping := _string_object_mapping(item))
+    ]
+    candidates = [
+        _source_candidate_payload(item_mapping)
+        for item in _object_list(result.get("candidates"))
+        if (item_mapping := _string_object_mapping(item))
+    ]
+    hop = _object_mapping(result.get("hop"))
     return {
-        "hop_id": (result.get("hop") or {}).get("hop_id"),
+        "hop_id": hop.get("hop_id"),
         "mode": "source_library_search",
         "input_node_id": input_node_id,
         "query_json": {"query": query},
@@ -386,7 +449,7 @@ def _external_search_record_payload(
     input_node_id: str,
     payload: ClueChainExpandRequest,
 ) -> dict[str, Any]:
-    options = dict(payload.provider_options or {})
+    options = _string_object_mapping(payload.provider_options)
     request_payload: dict[str, Any] = {
         "chain_id": chain_id,
         "query": query,
@@ -404,15 +467,26 @@ def _external_search_record_payload(
     else:
         request_payload["injected_results"] = [_external_fixture_result(query)]
         request_payload["fixture_path"] = str(_DEFAULT_EXTERNAL_FIXTURE)
-    result = expand_external_search(request_payload)
-    evidence = [_external_evidence_payload(item, result) for item in result.get("evidence") or []]
-    candidates = [_external_candidate_payload(item) for item in result.get("candidates") or []]
+    raw_result: object = expand_external_search(request_payload)
+    result = _string_object_mapping(raw_result)
+    evidence = [
+        _external_evidence_payload(item_mapping, result)
+        for item in _object_list(result.get("evidence"))
+        if (item_mapping := _string_object_mapping(item))
+    ]
+    candidates = [
+        _external_candidate_payload(item_mapping)
+        for item in _object_list(result.get("candidates"))
+        if (item_mapping := _string_object_mapping(item))
+    ]
+    hop = _object_mapping(result.get("hop"))
+    trace = _object_mapping(result.get("trace"))
     return {
-        "hop_id": (result.get("hop") or {}).get("hop_id"),
+        "hop_id": hop.get("hop_id"),
         "mode": "external_search",
         "input_node_id": input_node_id,
         "query_json": {"query": query},
-        "provider": (result.get("trace") or {}).get("provider_name") or "fixture_external_search",
+        "provider": trace.get("provider_name") or "fixture_external_search",
         "status": "completed" if candidates else "blocked",
         "evidence": evidence,
         "candidates": candidates,
@@ -426,8 +500,11 @@ def _external_search_record_payload(
     }
 
 
-def _source_evidence_payload(evidence: Mapping[str, Any], result: Mapping[str, Any]) -> dict[str, Any]:
-    source_ref = evidence.get("source_ref") if isinstance(evidence.get("source_ref"), Mapping) else {}
+def _source_evidence_payload(
+    evidence: Mapping[str, object],
+    result: Mapping[str, object],
+) -> dict[str, Any]:
+    source_ref = _string_object_mapping(evidence.get("source_ref"))
     return {
         "evidence_id": evidence.get("evidence_id"),
         "source_kind": "source_library",
@@ -441,14 +518,15 @@ def _source_evidence_payload(evidence: Mapping[str, Any], result: Mapping[str, A
     }
 
 
-def _source_candidate_payload(candidate: Mapping[str, Any]) -> dict[str, Any]:
-    aliases = list(candidate.get("aliases") or [])
-    source_ref = candidate.get("source_ref") if isinstance(candidate.get("source_ref"), Mapping) else {}
+def _source_candidate_payload(candidate: Mapping[str, object]) -> dict[str, Any]:
+    aliases = _string_list(candidate.get("aliases"))
+    source_ref = _string_object_mapping(candidate.get("source_ref"))
     value = aliases[0] if aliases else str(source_ref.get("item_key") or candidate.get("query") or "source-library candidate")
     evidence_ids = [str(candidate.get("evidence_id"))] if candidate.get("evidence_id") else []
-    for merged in candidate.get("merged_from") or []:
-        if isinstance(merged, Mapping) and merged.get("evidence_id"):
-            evidence_ids.append(str(merged["evidence_id"]))
+    for merged in _object_list(candidate.get("merged_from")):
+        merged_mapping = _object_mapping(merged)
+        if merged_mapping.get("evidence_id"):
+            evidence_ids.append(str(merged_mapping["evidence_id"]))
     return {
         "candidate_id": candidate.get("candidate_id"),
         "entity_type": "SourceLibraryItem",
@@ -462,7 +540,7 @@ def _source_candidate_payload(candidate: Mapping[str, Any]) -> dict[str, Any]:
     }
 
 
-def _external_evidence_payload(evidence: Mapping[str, Any], result: Mapping[str, Any]) -> dict[str, Any]:
+def _external_evidence_payload(evidence: Mapping[str, object], result: Mapping[str, object]) -> dict[str, Any]:
     return {
         "evidence_id": evidence.get("evidence_id"),
         "source_kind": "external_search",
@@ -482,8 +560,8 @@ def _external_evidence_payload(evidence: Mapping[str, Any], result: Mapping[str,
     }
 
 
-def _external_candidate_payload(candidate: Mapping[str, Any]) -> dict[str, Any]:
-    aliases = list(candidate.get("aliases") or [])
+def _external_candidate_payload(candidate: Mapping[str, object]) -> dict[str, Any]:
+    aliases = _string_list(candidate.get("aliases"))
     value = str(candidate.get("title") or candidate.get("normalized_url") or (aliases[0] if aliases else "external candidate"))
     return {
         "candidate_id": candidate.get("candidate_id"),
@@ -491,7 +569,7 @@ def _external_candidate_payload(candidate: Mapping[str, Any]) -> dict[str, Any]:
         "value": value,
         "aliases": aliases or [value],
         "score": None,
-        "evidence_ids": list(candidate.get("evidence_refs") or []),
+        "evidence_ids": _string_list(candidate.get("evidence_refs")),
         "decision_status": "pending",
         "properties": {
             "normalized_url": candidate.get("normalized_url"),

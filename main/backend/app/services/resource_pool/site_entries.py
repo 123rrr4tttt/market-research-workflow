@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from typing import Any, NoReturn
 
+from functorial_kit import Failure
 from sqlalchemy import delete, func, select
 
-from functorial_kit import Failure
 from mrw_functorial_kit.core.provider_port_failures import resource_pool_contract_failures
 
 from ...models.base import SessionLocal
@@ -15,6 +15,7 @@ from ..projects import bind_project, bind_schema
 from .url_utils import domain_from_url, normalize_url
 
 ScopeType = str
+SiteEntryRow = ResourcePoolSiteEntry | SharedResourcePoolSiteEntry
 
 _RESOURCE_POOL_FAILURE_WITNESS = "test:test_latest_service_b_resource_pool_failure_lifts"
 _RESOURCE_POOL_FAILURE_CONTEXT_KEYS = frozenset(
@@ -31,26 +32,38 @@ _RESOURCE_POOL_FAILURE_CONTEXT_KEYS = frozenset(
 )
 
 
-def _contract_failure(code: str, message: str, *, operation: str, site: str) -> Failure:
+def resource_pool_contract_failure(
+    code: str,
+    message: str,
+    *,
+    operation: str,
+    site: str,
+    public_exception: type[Exception] = ValueError,
+    **details: Any,
+) -> Failure:
+    context: dict[str, Any] = {
+        "boundary_class": "PURE_CONTRACT_FAILURE",
+        "failure_family": resource_pool_contract_failures.name,
+        "operation": operation,
+        "owner": site,
+        "public_exception": public_exception.__name__,
+        "public_message": message,
+        "site": site,
+        "witness": _RESOURCE_POOL_FAILURE_WITNESS,
+    }
+    context.update(details)
     return resource_pool_contract_failures.fail(
         code,
         message,
-        {
-            "boundary_class": "PURE_CONTRACT_FAILURE",
-            "failure_family": resource_pool_contract_failures.name,
-            "operation": operation,
-            "owner": site,
-            "public_exception": "ValueError",
-            "public_message": message,
-            "site": site,
-            "witness": _RESOURCE_POOL_FAILURE_WITNESS,
-        },
+        context,
     )
 
 
-def _raise_contract_failure(
+def raise_resource_pool_contract_legacy(
     failure: Failure,
     exception_type: type[Exception] = ValueError,
+    *,
+    cause: BaseException | None = None,
 ) -> NoReturn:
     context = failure.context or {}
     if (
@@ -60,14 +73,20 @@ def _raise_contract_failure(
     ):
         # kit:boundary owner=resource_pool.site_entries.failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_latest_service_b_resource_pool_failure_lifts
         raise TypeError("resource pool failure lift context is incomplete or inconsistent")
+    message = str(context["public_message"])
+    if cause is None:
+        # kit:boundary owner=resource_pool.site_entries.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=resource_pool.contract.failure witness=test:test_latest_service_b_resource_pool_failure_lifts
+        raise exception_type(message)
     # kit:boundary owner=resource_pool.site_entries.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=resource_pool.contract.failure witness=test:test_latest_service_b_resource_pool_failure_lifts
-    raise exception_type(str(context["public_message"]))
+    raise exception_type(message) from cause
 
 
 def _row_to_item(
     row: ResourcePoolSiteEntry | SharedResourcePoolSiteEntry,
     scope: str,
 ) -> dict[str, Any]:
+    created_at = row.created_at
+    updated_at = row.updated_at
     return {
         "id": row.id,
         "site_url": row.site_url,
@@ -83,8 +102,8 @@ def _row_to_item(
         "project_key": getattr(row, "project_key", None),
         "extra": row.extra or {},
         "scope": scope,
-        "created_at": row.created_at.isoformat() if getattr(row, "created_at", None) else None,
-        "updated_at": row.updated_at.isoformat() if getattr(row, "updated_at", None) else None,
+        "created_at": created_at.isoformat() if created_at is not None else None,
+        "updated_at": updated_at.isoformat() if updated_at is not None else None,
     }
 
 
@@ -105,23 +124,20 @@ def list_site_entries(
     page_size = min(max(1, int(page_size)), 100)
     offset = (max(1, int(page)) - 1) * page_size
 
-    def _apply_filters(query, model):
-        if domain:
-            query = query.where(model.domain.ilike(f"%{domain}%"))
-        if entry_type:
-            query = query.where(model.entry_type == entry_type)
-        if enabled is not None:
-            query = query.where(model.enabled.is_(enabled))
-        return query
-
     if scope == "shared":
         with bind_schema("public"):
             with SessionLocal() as session:
-                query = _apply_filters(select(SharedResourcePoolSiteEntry), SharedResourcePoolSiteEntry)
-                count_query = _apply_filters(
-                    select(func.count(SharedResourcePoolSiteEntry.id)),
-                    SharedResourcePoolSiteEntry,
-                )
+                query = select(SharedResourcePoolSiteEntry)
+                count_query = select(func.count(SharedResourcePoolSiteEntry.id))
+                if domain:
+                    query = query.where(SharedResourcePoolSiteEntry.domain.ilike(f"%{domain}%"))
+                    count_query = count_query.where(SharedResourcePoolSiteEntry.domain.ilike(f"%{domain}%"))
+                if entry_type:
+                    query = query.where(SharedResourcePoolSiteEntry.entry_type == entry_type)
+                    count_query = count_query.where(SharedResourcePoolSiteEntry.entry_type == entry_type)
+                if enabled is not None:
+                    query = query.where(SharedResourcePoolSiteEntry.enabled.is_(enabled))
+                    count_query = count_query.where(SharedResourcePoolSiteEntry.enabled.is_(enabled))
                 total = session.execute(count_query).scalar() or 0
                 rows = (
                     session.execute(
@@ -137,8 +153,17 @@ def list_site_entries(
             return [], 0
         with bind_project(project_key):
             with SessionLocal() as session:
-                query = _apply_filters(select(ResourcePoolSiteEntry), ResourcePoolSiteEntry)
-                count_query = _apply_filters(select(func.count(ResourcePoolSiteEntry.id)), ResourcePoolSiteEntry)
+                query = select(ResourcePoolSiteEntry)
+                count_query = select(func.count(ResourcePoolSiteEntry.id))
+                if domain:
+                    query = query.where(ResourcePoolSiteEntry.domain.ilike(f"%{domain}%"))
+                    count_query = count_query.where(ResourcePoolSiteEntry.domain.ilike(f"%{domain}%"))
+                if entry_type:
+                    query = query.where(ResourcePoolSiteEntry.entry_type == entry_type)
+                    count_query = count_query.where(ResourcePoolSiteEntry.entry_type == entry_type)
+                if enabled is not None:
+                    query = query.where(ResourcePoolSiteEntry.enabled.is_(enabled))
+                    count_query = count_query.where(ResourcePoolSiteEntry.enabled.is_(enabled))
                 total = session.execute(count_query).scalar() or 0
                 rows = (
                     session.execute(
@@ -156,9 +181,14 @@ def list_site_entries(
     if project_key:
         with bind_project(project_key):
             with SessionLocal() as session:
-                query = _apply_filters(select(ResourcePoolSiteEntry), ResourcePoolSiteEntry).order_by(
-                    ResourcePoolSiteEntry.created_at.desc()
-                )
+                query = select(ResourcePoolSiteEntry)
+                if domain:
+                    query = query.where(ResourcePoolSiteEntry.domain.ilike(f"%{domain}%"))
+                if entry_type:
+                    query = query.where(ResourcePoolSiteEntry.entry_type == entry_type)
+                if enabled is not None:
+                    query = query.where(ResourcePoolSiteEntry.enabled.is_(enabled))
+                query = query.order_by(ResourcePoolSiteEntry.created_at.desc())
                 rows = session.execute(query).scalars().all()
                 for r in rows:
                     if r.site_url not in seen:
@@ -167,9 +197,14 @@ def list_site_entries(
 
     with bind_schema("public"):
         with SessionLocal() as session:
-            query = _apply_filters(select(SharedResourcePoolSiteEntry), SharedResourcePoolSiteEntry).order_by(
-                SharedResourcePoolSiteEntry.created_at.desc()
-            )
+            query = select(SharedResourcePoolSiteEntry)
+            if domain:
+                query = query.where(SharedResourcePoolSiteEntry.domain.ilike(f"%{domain}%"))
+            if entry_type:
+                query = query.where(SharedResourcePoolSiteEntry.entry_type == entry_type)
+            if enabled is not None:
+                query = query.where(SharedResourcePoolSiteEntry.enabled.is_(enabled))
+            query = query.order_by(SharedResourcePoolSiteEntry.created_at.desc())
             rows = session.execute(query).scalars().all()
             for r in rows:
                 if r.site_url not in seen:
@@ -198,8 +233,8 @@ def upsert_site_entry(
 ) -> dict[str, Any]:
     scope = (scope or "").strip()
     if scope not in {"shared", "project"}:
-        _raise_contract_failure(
-            _contract_failure(
+        raise_resource_pool_contract_legacy(
+            resource_pool_contract_failure(
                 "scope_invalid",
                 "scope must be 'shared' or 'project'",
                 operation="upsert_site_entry",
@@ -209,8 +244,8 @@ def upsert_site_entry(
 
     normalized_url = normalize_url(site_url)
     if not normalized_url:
-        _raise_contract_failure(
-            _contract_failure(
+        raise_resource_pool_contract_legacy(
+            resource_pool_contract_failure(
                 "site_url_required",
                 "site_url is required",
                 operation="upsert_site_entry",
@@ -246,8 +281,8 @@ def upsert_site_entry(
                 return _row_to_item(row, "shared")
 
     if not project_key:
-        _raise_contract_failure(
-            _contract_failure(
+        raise_resource_pool_contract_legacy(
+            resource_pool_contract_failure(
                 "project_key_required",
                 "project_key is required for project scope",
                 operation="upsert_site_entry",
@@ -341,28 +376,31 @@ def simplify_site_entries(
     - search_template / official_api merge only when template matches
     """
     if scope not in {"shared", "project"}:
-        _raise_contract_failure(
-            _contract_failure(
+        raise_resource_pool_contract_legacy(
+            resource_pool_contract_failure(
                 "scope_invalid",
                 "scope must be 'shared' or 'project'",
                 operation="simplify_site_entries",
                 site="resource_pool.site_entries.simplify_site_entries.scope",
             )
         )
-    if scope == "project" and not project_key:
-        _raise_contract_failure(
-            _contract_failure(
-                "project_key_required",
-                "project_key is required for project scope",
-                operation="simplify_site_entries",
-                site="resource_pool.site_entries.simplify_site_entries.project_key",
+    if scope == "project":
+        if not project_key:
+            raise_resource_pool_contract_legacy(
+                resource_pool_contract_failure(
+                    "project_key_required",
+                    "project_key is required for project scope",
+                    operation="simplify_site_entries",
+                    site="resource_pool.site_entries.simplify_site_entries.project_key",
+                )
             )
-        )
+        model = ResourcePoolSiteEntry
+        ctx = bind_project(project_key)
+    else:
+        model = SharedResourcePoolSiteEntry
+        ctx = bind_schema("public")
 
-    model = SharedResourcePoolSiteEntry if scope == "shared" else ResourcePoolSiteEntry
-    ctx = bind_schema("public") if scope == "shared" else bind_project(project_key)
-
-    def _group_key(row) -> tuple[str, ...]:
+    def _group_key(row: SiteEntryRow) -> tuple[str, ...]:
         d = (row.domain or "").strip().lower()
         et = (row.entry_type or "domain_root").strip().lower()
         if et in {"domain_root", "rss", "sitemap"}:
@@ -370,14 +408,15 @@ def simplify_site_entries(
         tpl = (row.template or "").strip()
         return (d, et, tpl or row.site_url)
 
-    def _row_score(row) -> tuple:
+    def _row_score(row: SiteEntryRow) -> tuple[int, int, int, int, int, int]:
         url = (row.site_url or "").lower()
+        updated_at = row.updated_at
         return (
             1 if bool(row.enabled) else 0,
             1 if url.startswith("https://") else 0,
             1 if (row.source or "") == "manual" else 0,
             1 if (row.entry_type or "") == "search_template" else 0,
-            int(getattr(row, "updated_at", None).timestamp()) if getattr(row, "updated_at", None) else 0,
+            int(updated_at.timestamp()) if updated_at is not None else 0,
             int(row.id or 0),
         )
 
@@ -387,7 +426,7 @@ def simplify_site_entries(
             if domain:
                 query = query.where(model.domain.ilike(f"%{domain}%"))
             rows = session.execute(query.order_by(model.created_at.desc())).scalars().all()
-            groups: dict[tuple[str, ...], list[Any]] = {}
+            groups: dict[tuple[str, ...], list[SiteEntryRow]] = {}
             for row in rows:
                 groups.setdefault(_group_key(row), []).append(row)
 
@@ -408,8 +447,8 @@ def simplify_site_entries(
 
                 merged_tags: list[str] = []
                 merged_urls: list[str] = []
-                merged_source_refs: list[Any] = []
-                merged_caps: dict[str, Any] = dict(keeper.capabilities or {})
+                merged_source_refs: list[object] = []
+                merged_caps: dict[str, object] = dict(keeper.capabilities or {})
                 for m in members:
                     for t in (m.tags or []):
                         if t not in merged_tags:
@@ -447,7 +486,7 @@ def simplify_site_entries(
                 keeper.source_ref = keeper.source_ref or {}
                 keeper.extra = extra
 
-                dup_ids = [d.id for d in dupes if d.id is not None]
+                dup_ids = [d.id for d in dupes]
                 if dup_ids:
                     session.execute(delete(model).where(model.id.in_(dup_ids)))
 

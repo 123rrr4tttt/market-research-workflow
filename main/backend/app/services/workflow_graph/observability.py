@@ -2,11 +2,10 @@ from __future__ import annotations
 
 from collections import Counter
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, Mapping, TypeGuard
 
 from app.models.base import SessionLocal
 from app.models.entities import WorkflowGraphEvent
-
 
 OBSERVABILITY_CONTRACT_VERSION = "workflow_graph.observability.v1"
 
@@ -32,7 +31,7 @@ def query_top_failure_reasons(limit: int = 20) -> dict[str, Any]:
 
     for row in rows:
         event_type = str(row.event_type or "")
-        payload = row.payload if isinstance(row.payload, dict) else {}
+        payload = _string_mapping(_runtime_value(row.payload)) or {}
         if event_type == "handoff.persisted":
             handoff_persisted += 1
             continue
@@ -77,7 +76,7 @@ def query_top_failure_reasons(limit: int = 20) -> dict[str, Any]:
     }
 
 
-def _resolve_reason_code(*, event_type: str, payload: dict[str, Any]) -> str:
+def _resolve_reason_code(*, event_type: str, payload: Mapping[str, object]) -> str:
     explicit = str(payload.get("reason_code") or "").strip().lower()
     if explicit:
         return explicit
@@ -105,3 +104,22 @@ def _to_iso(value: Any) -> str | None:
     if isinstance(value, datetime):
         return value.astimezone(timezone.utc).isoformat()
     return None
+
+
+def _runtime_value(value: object) -> object:
+    return value
+
+
+def _is_object_mapping(value: object) -> TypeGuard[Mapping[object, object]]:
+    return isinstance(value, Mapping)
+
+
+def _string_mapping(value: object) -> dict[str, object] | None:
+    if not _is_object_mapping(value):
+        return None
+    result: dict[str, object] = {}
+    for key, item in value.items():
+        if not isinstance(key, str):
+            return None
+        result[key] = item
+    return result

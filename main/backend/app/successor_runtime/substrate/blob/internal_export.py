@@ -16,11 +16,11 @@ import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Any, Protocol, TypeGuard
 
 from app.successor_runtime.language.object_contracts import OperationContractRef
 from app.successor_runtime.research.artifacts import DeliveryIntent, DeliveryReceiptRef
-from app.successor_runtime.research.codec import canonical_bytes
+from app.successor_runtime.research.codec import canonical_bytes, runtime_value
 from app.successor_runtime.runtime.assignments import canonical_digest, require_digest
 from app.successor_runtime.runtime.ports import RuntimeScope
 from app.successor_runtime.runtime.reconciliation import (
@@ -330,7 +330,7 @@ class InternalExportInterpreter:
             ):
                 return NonStartUnprovable(attempt_id, "EXPORT_BLOB_EXISTS")
             if marker is not None:
-                self._require_marker_binding(attempt, marker)
+                self.require_marker_binding(attempt, marker)
         elif isinstance(attempt, EffectAttemptObservation):
             locator = attempt.authoritative_readback_locator
             attempt_id = attempt.attempt_id
@@ -359,23 +359,28 @@ class InternalExportInterpreter:
             "marker_state": None if marker is None else marker.get("state"),
             "blob_exists": False,
         }
-        content = {
-            "attempt_id": attempt_id,
-            "interpreter_id": self.interpreter_id,
-            "interpreter_version": self.interpreter_version,
-            "provider_id": self.provider_id,
-            "provider_version": self.provider_version,
-            "external_idempotency_key": idempotency_key,
-            "authoritative_readback_locator": locator,
-            "authoritative_observation_digest": canonical_digest(observation),
-            "observed_at": observed_at,
-        }
         provisional = NonStartProof.model_construct(
-            **content,
+            attempt_id=attempt_id,
+            interpreter_id=self.interpreter_id,
+            interpreter_version=self.interpreter_version,
+            provider_id=self.provider_id,
+            provider_version=self.provider_version,
+            external_idempotency_key=idempotency_key,
+            authoritative_readback_locator=locator,
+            authoritative_observation_digest=canonical_digest(observation),
+            observed_at=observed_at,
             proof_digest="0" * 64,
         )
         return NonStartProof(
-            **content,
+            attempt_id=attempt_id,
+            interpreter_id=self.interpreter_id,
+            interpreter_version=self.interpreter_version,
+            provider_id=self.provider_id,
+            provider_version=self.provider_version,
+            external_idempotency_key=idempotency_key,
+            authoritative_readback_locator=locator,
+            authoritative_observation_digest=canonical_digest(observation),
+            observed_at=observed_at,
             proof_digest=canonical_digest(
                 provisional,
                 exclude_fields={"proof_digest"},
@@ -449,10 +454,10 @@ class InternalExportInterpreter:
                 os.link(temp, path)
             except FileExistsError:
                 existing = self._load_marker(request)
-                self._require_marker_binding(request, existing)
+                self.require_marker_binding(request, existing)
                 return existing
             if self.blob_store.fsync:
-                ProjectBlobStore._fsync_directory(path.parent)
+                ProjectBlobStore.fsync_directory(path.parent)
             return marker
         finally:
             temp.unlink(missing_ok=True)
@@ -460,7 +465,7 @@ class InternalExportInterpreter:
     def _write_marker_replace(
         self, request: InternalExportRequest, marker: dict[str, Any]
     ) -> None:
-        self._require_marker_binding(request, marker)
+        self.require_marker_binding(request, marker)
         path = self._marker_path(request)
         temp = path.with_name(f".{path.name}.{uuid.uuid4().hex}.tmp")
         encoded = canonical_bytes(marker)
@@ -471,11 +476,11 @@ class InternalExportInterpreter:
                 os.fsync(handle.fileno())
         os.replace(temp, path)
         if self.blob_store.fsync:
-            ProjectBlobStore._fsync_directory(path.parent)
+            ProjectBlobStore.fsync_directory(path.parent)
 
     def _load_marker(self, request: InternalExportRequest) -> dict[str, Any]:
         marker = _load_json(self._marker_path(request))
-        self._require_marker_binding(request, marker)
+        self.require_marker_binding(request, marker)
         return marker
 
     def _load_marker_locator(self, locator: str) -> dict[str, Any]:
@@ -495,7 +500,7 @@ class InternalExportInterpreter:
             raise InternalExportBindingConflict("delivery authority is absent")
 
     @staticmethod
-    def _require_marker_binding(
+    def require_marker_binding(
         request: InternalExportRequest, marker: dict[str, Any]
     ) -> None:
         expected = {
@@ -540,7 +545,7 @@ class InternalExportInterpreter:
         *,
         marker: dict[str, Any],
     ) -> InternalExportOutcome | None:
-        self._require_marker_binding(request, marker)
+        self.require_marker_binding(request, marker)
         try:
             self.blob_store.readback(
                 request.project_scope_digest,
@@ -612,7 +617,7 @@ class InternalExportReadbackFacade:
     ) -> InternalExportOutcome | AuthoritativeEffectReadback:
         """Observe exact marker/blob state and reconstruct a receipt if present."""
 
-        if not isinstance(request, InternalExportRequest):
+        if not isinstance(runtime_value(request), InternalExportRequest):
             raise TypeError("exact readback requires InternalExportRequest")
         if request.operation_contract_ref != self.operation_contract_ref:
             raise InternalExportBindingConflict("operation contract digest drift")
@@ -635,7 +640,7 @@ class InternalExportReadbackFacade:
                 "IDEMPOTENCY_MARKER_ABSENT",
                 {"attempt_id": request.attempt_id, "marker": "ABSENT"},
             )
-        InternalExportInterpreter._require_marker_binding(request, marker)
+        InternalExportInterpreter.require_marker_binding(request, marker)
         failed = _failed_readback_from_marker(request.attempt_id, marker)
         if failed is not None:
             return failed
@@ -792,20 +797,32 @@ def _failed_readback_from_marker(
     )
 
 
+def _is_object_dict(value: object) -> TypeGuard[dict[object, object]]:
+    return isinstance(value, dict)
+
+
+def _is_string_object_dict(
+    value: object,
+) -> TypeGuard[dict[str, object]]:
+    if not _is_object_dict(value):
+        return False
+    return all(isinstance(key, str) for key in value)
+
+
 def _load_json(path: Path) -> dict[str, Any]:
     try:
-        value = json.loads(path.read_text(encoding="utf-8"))
+        value = runtime_value(json.loads(path.read_text(encoding="utf-8")))
     except FileNotFoundError:
         raise
     except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise InternalExportReadbackUnavailable(
             f"invalid internal export marker: {path}"
         ) from exc
-    if not isinstance(value, dict):
+    if not _is_string_object_dict(value):
         raise InternalExportReadbackUnavailable(
             "internal export marker is not an object"
         )
-    return value
+    return dict(value)
 
 
 def _as_utc(value: datetime) -> datetime:

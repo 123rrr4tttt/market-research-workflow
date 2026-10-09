@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-from hashlib import sha256
 import json
 import re
-from typing import Any, Callable, Iterable, NoReturn
+from hashlib import sha256
+from typing import Any, Callable, Iterable, Mapping, NoReturn, TypeGuard
 
 from functorial_kit import Failure
+
 from mrw_functorial_kit.core.w04_service_semantics import clue_chain_failures
 
 from ..document_queries.writing_material_queries import query_source_library_material_rows
@@ -138,7 +139,11 @@ def try_expand_source_library_hop(
 
     evidence_rows: list[dict[str, Any]] = []
     candidate_rows: list[dict[str, Any]] = []
-    by_item_key = {str(item.get("item_key") or "").strip(): dict(item or {}) for item in raw_items if isinstance(item, dict)}
+    by_item_key = {
+        str(item.get("item_key") or "").strip(): dict(item)
+        for item_value in raw_items
+        if (item := _plain_string_dict(item_value)) is not None
+    }
     for index, ranked in enumerate(ranked_items, start=1):
         item_key = str(ranked.get("item_key") or "").strip()
         raw_item = by_item_key.get(item_key, {})
@@ -209,12 +214,11 @@ def try_expand_source_library_hop(
         )
 
     candidates = merge_candidate_aliases(candidate_rows)
-    selected_evidence_ids = set()
+    selected_evidence_ids: set[str] = set()
     for candidate in candidates:
         selected_evidence_ids.add(str(candidate.get("evidence_id") or ""))
-        for merged in candidate.get("merged_from") or []:
-            if isinstance(merged, dict):
-                selected_evidence_ids.add(str(merged.get("evidence_id") or ""))
+        for merged in _mapping_list(candidate.get("merged_from")):
+            selected_evidence_ids.add(str(merged.get("evidence_id") or ""))
     evidence = [row for row in evidence_rows if str(row.get("evidence_id") or "") in selected_evidence_ids]
 
     return {
@@ -280,11 +284,11 @@ def merge_candidate_aliases(candidates: Iterable[dict[str, Any]]) -> list[dict[s
             continue
 
         existing = merged[target_index]
-        existing["aliases"] = _dedupe_text([*list(existing.get("aliases") or []), *aliases])
+        existing["aliases"] = _dedupe_text([*_normalize_aliases(existing.get("aliases")), *aliases])
         existing["score"] = max(float(existing.get("score") or 0.0), float(row.get("score") or 0.0))
         existing["rank"] = min(int(existing.get("rank") or 999_999), int(row.get("rank") or 999_999))
-        existing.setdefault("merged_from", [])
-        existing["merged_from"].append(
+        merged_from = _mapping_list(existing.get("merged_from"))
+        merged_from.append(
             {
                 "candidate_id": row.get("candidate_id"),
                 "dedupe_key": row.get("dedupe_key"),
@@ -293,6 +297,7 @@ def merge_candidate_aliases(candidates: Iterable[dict[str, Any]]) -> list[dict[s
                 "score": row.get("score"),
             }
         )
+        existing["merged_from"] = merged_from
         for key in candidate_keys:
             index_by_key[key] = target_index
 
@@ -310,12 +315,20 @@ def _load_source_items(
     source_item_loader: SourceItemLoader | None,
 ) -> list[dict[str, Any]]:
     if source_library_items is not None:
-        return [dict(item or {}) for item in source_library_items if isinstance(item, dict)]
+        return [
+            dict(item)
+            for item_value in source_library_items
+            if (item := _plain_string_dict(item_value)) is not None
+        ]
     if source_item_loader is not None:
         loaded_items = source_item_loader(project_key, query)
     else:
         loaded_items = query_source_library_material_rows(project_key, query=query)
-    return [dict(item or {}) for item in loaded_items if isinstance(item, dict)]
+    return [
+        dict(item)
+        for item_value in loaded_items
+        if (item := _plain_string_dict(item_value)) is not None
+    ]
 
 
 def _resolve_query(*, frontier_query: str | None, frontier: dict[str, Any] | None) -> str | Failure:
@@ -350,7 +363,7 @@ def _normalize_limit(value: Any) -> int:
 def _normalize_domains(value: Any) -> list[str]:
     if isinstance(value, str):
         raw_values = [value]
-    elif isinstance(value, list):
+    elif _is_object_list(_runtime_value(value)):
         raw_values = value
     else:
         raw_values = []
@@ -377,8 +390,8 @@ def _build_source_ref(
     evidence_id: str,
 ) -> dict[str, Any]:
     item_key = str(item.get("item_key") or "").strip()
-    extra = item.get("extra") if isinstance(item.get("extra"), dict) else {}
-    params = item.get("params") if isinstance(item.get("params"), dict) else {}
+    extra = _mapping_or_empty(item.get("extra"))
+    params = _mapping_or_empty(item.get("params"))
     locator = _first_text(
         item_key,
         item.get("locator"),
@@ -405,9 +418,9 @@ def _build_source_ref(
 
 
 def _candidate_aliases(*, raw_item: dict[str, Any], ranked_item: dict[str, Any]) -> list[str]:
-    tags = raw_item.get("tags") if isinstance(raw_item.get("tags"), list) else []
-    params = raw_item.get("params") if isinstance(raw_item.get("params"), dict) else {}
-    aliases = [
+    tags = _object_list_or_empty(raw_item.get("tags"))
+    params = _mapping_or_empty(raw_item.get("params"))
+    aliases: list[object] = [
         ranked_item.get("item_key"),
         ranked_item.get("name"),
         raw_item.get("name"),
@@ -418,10 +431,10 @@ def _candidate_aliases(*, raw_item: dict[str, Any], ranked_item: dict[str, Any])
     return _normalize_aliases(aliases)
 
 
-def _normalize_aliases(values: Any) -> list[str]:
+def _normalize_aliases(values: object) -> list[str]:
     if isinstance(values, str):
         raw_values = [values]
-    elif isinstance(values, Iterable):
+    elif _is_object_iterable(values):
         raw_values = list(values)
     else:
         raw_values = []
@@ -444,7 +457,7 @@ def _dedupe_key(
 
 
 def _candidate_merge_keys(row: dict[str, Any], aliases: list[str]) -> list[str]:
-    keys = []
+    keys: list[str] = []
     dedupe_key = str(row.get("dedupe_key") or "").strip()
     if dedupe_key:
         keys.append(f"dedupe:{dedupe_key}")
@@ -500,6 +513,55 @@ def _first_text(*values: Any) -> str | None:
         if text:
             return text
     return None
+
+
+def _runtime_value(value: object) -> object:
+    return value
+
+
+def _is_object_list(value: object) -> TypeGuard[list[object]]:
+    return isinstance(value, list)
+
+
+def _is_object_iterable(value: object) -> TypeGuard[Iterable[object]]:
+    return isinstance(value, Iterable)
+
+
+def _is_object_mapping(value: object) -> TypeGuard[Mapping[object, object]]:
+    return isinstance(value, Mapping)
+
+
+def _string_object_mapping(value: object) -> dict[str, object] | None:
+    if not _is_object_mapping(value):
+        return None
+    result: dict[str, object] = {}
+    for key, item in value.items():
+        if not isinstance(key, str):
+            return None
+        result[key] = item
+    return result
+
+
+def _plain_string_dict(value: object) -> dict[str, object] | None:
+    """Keep the original runtime filter for provider rows while narrowing keys."""
+    value_object = _runtime_value(value)
+    if not isinstance(value_object, dict):
+        return None
+    return _string_object_mapping(value)
+
+
+def _mapping_or_empty(value: object) -> dict[str, object]:
+    return _string_object_mapping(value) or {}
+
+
+def _mapping_list(value: object) -> list[dict[str, object]]:
+    if not _is_object_list(value):
+        return []
+    return [item for raw in value if (item := _string_object_mapping(raw)) is not None]
+
+
+def _object_list_or_empty(value: object) -> list[object]:
+    return value if _is_object_list(value) else []
 
 
 def _dedupe_text(values: Iterable[str]) -> list[str]:

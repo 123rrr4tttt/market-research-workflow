@@ -2,13 +2,13 @@ from __future__ import annotations
 
 from typing import Any
 
-from .common_view import get_entities, get_extracted_data
+from .common_view import get_entities, get_extracted_data, is_payload_dict
 
 
 def get_market_data(doc: Any) -> dict[str, Any]:
     extracted = get_extracted_data(doc)
     market = extracted.get("market")
-    if isinstance(market, dict) and market:
+    if is_payload_dict(market) and market:
         return dict(market)
 
     fallback_state = (

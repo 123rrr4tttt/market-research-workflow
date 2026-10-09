@@ -11,7 +11,7 @@ import uuid
 from pathlib import Path
 from typing import Any
 
-from .registry import _failure, _raise_contract_failure
+from .registry import crawler_failure as _failure, raise_crawler_contract_failure as _raise_contract_failure
 from .scrapyd_client import ScrapydClient
 
 

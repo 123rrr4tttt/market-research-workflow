@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from copy import deepcopy
-from typing import Annotated, Any, Mapping
+from typing import Annotated, Iterable, Protocol, runtime_checkable, TypeGuard
 
 from .gate_reason_codes import normalize_reason_code
 from .metrics_payload import build_metrics_payload_for_result
@@ -14,6 +15,43 @@ LIVE_CANARY_EVIDENCE_CONTRACT_VERSION = "ingest.single_url_canary_handoff.live_e
 _LIVE_CANARY_EXECUTION_GAP = "demo_proj live canary execution has not been run against configured services"
 _METRIC_24H_READBACK_GAP = "24h rejection-rate and inserted-valid ratios have not been inspected"
 _PRODUCTION_STRICT_GATE_GAP = "production all-project strict-gate enablement remains operations-owned"
+
+
+def _is_string_key(value: object) -> bool:
+    return isinstance(value, str)
+
+
+@runtime_checkable
+class _StringKeyInspectable(Protocol):
+    def keys(self) -> Iterable[object]: ...
+
+
+def _has_only_string_keys(value: object) -> bool:
+    if not isinstance(value, _StringKeyInspectable):
+        return False
+    return all(map(_is_string_key, value.keys()))
+
+
+def _is_object_mapping(value: object) -> TypeGuard[Mapping[str, object]]:
+    if not _has_only_string_keys(value):
+        return False
+    return isinstance(value, Mapping)
+
+
+def _object_mapping(value: object) -> Mapping[str, object]:
+    return value if _is_object_mapping(value) else {}
+
+
+def _object_dict(value: object) -> dict[str, object]:
+    return dict(value) if _is_object_mapping(value) else {}
+
+
+def _is_object_list(value: object) -> TypeGuard[list[object]]:
+    return isinstance(value, list)
+
+
+def _object_list(value: object) -> list[object]:
+    return value if _is_object_list(value) else []
 
 REMAINING_LIVE_RUN_GAPS: tuple[str, ...] = (
     _LIVE_CANARY_EXECUTION_GAP,
@@ -29,27 +67,27 @@ REMAINING_POST_LIVE_CANARY_GAPS: tuple[str, ...] = (
 
 def build_single_url_canary_handoff(
     *,
-    ingress_envelope: Mapping[str, Any] | None,
-    postprocess_frontdoor: Mapping[str, Any] | None,
-    writer_result: Mapping[str, Any] | None = None,
-    metrics_payload: Mapping[str, Any] | None = None,
+    ingress_envelope: Mapping[str, object] | None,
+    postprocess_frontdoor: Mapping[str, object] | None,
+    writer_result: Mapping[str, object] | None = None,
+    metrics_payload: Mapping[str, object] | None = None,
     fallback_adapter: str = "source_library_frontdoor",
     live_canary_validated: bool | None = None,
     closure_claim: bool | None = None,
-    live_canary_evidence: Mapping[str, Any] | None = None,
+    live_canary_evidence: Mapping[str, object] | None = None,
 ) -> Annotated[
-    dict[str, Any],
+    dict[str, object],
     "kit:non-authoritative derived_as=view fact_source=ingress_envelope+postprocess_frontdoor+writer_result+metrics_payload+live_canary_evidence witness=test:test_w03_ingest_ports_authority_metadata",
 ]:
     ingress = dict(ingress_envelope or {})
     postprocess = dict(postprocess_frontdoor or {})
-    data = postprocess.get("data") if isinstance(postprocess.get("data"), dict) else {}
-    meta = postprocess.get("meta") if isinstance(postprocess.get("meta"), dict) else {}
-    source_ref = ingress.get("source_ref") if isinstance(ingress.get("source_ref"), dict) else {}
-    quality_assessment = data.get("quality_assessment") if isinstance(data.get("quality_assessment"), dict) else {}
-    quality_gates = data.get("quality_gates") if isinstance(data.get("quality_gates"), dict) else {}
-    gate_plus = quality_gates.get("gate_plus") if isinstance(quality_gates.get("gate_plus"), dict) else {}
-    gate_config = quality_gates.get("gate_config") if isinstance(quality_gates.get("gate_config"), dict) else {}
+    data = _object_mapping(postprocess.get("data"))
+    meta = _object_mapping(postprocess.get("meta"))
+    source_ref = _object_mapping(ingress.get("source_ref"))
+    quality_assessment = _object_mapping(data.get("quality_assessment"))
+    quality_gates = _object_mapping(data.get("quality_gates"))
+    gate_plus = _object_mapping(quality_gates.get("gate_plus"))
+    gate_config = _object_mapping(quality_gates.get("gate_config"))
     rollout = _extract_guardrail_rollout(quality_assessment, gate_config)
     resolved_writer = _resolve_writer_result(data, writer_result)
     reason_code = normalize_reason_code(meta.get("reason_code") or data.get("admission") or "ok", default="ok")
@@ -81,14 +119,14 @@ def build_single_url_canary_handoff(
         if live_canary_validated is not None
         else _live_canary_evidence_validated(evidence)
         or rollout.get("live_canary_validated")
-        or (metrics.get("guardrail_rollout") or {}).get("live_canary_validated")
+        or _object_mapping(metrics.get("guardrail_rollout")).get("live_canary_validated")
     )
     closed = bool(
         closure_claim
         if closure_claim is not None
         else (evidence.get("closure_claim") if evidence else False)
         or rollout.get("closure_claim")
-        or (metrics.get("guardrail_rollout") or {}).get("closure_claim")
+        or _object_mapping(metrics.get("guardrail_rollout")).get("closure_claim")
     )
     if not live_validated:
         closed = False
@@ -104,8 +142,8 @@ def build_single_url_canary_handoff(
             "source_mode": ingress.get("source_mode"),
             "project_key": ingress.get("project_key"),
             "source_url": source_ref.get("url") or source_ref.get("locator"),
-            "trace_id": meta.get("trace_id") or ((ingress.get("meta") or {}).get("trace_id") if isinstance(ingress.get("meta"), dict) else None),
-            "payload_hash": (ingress.get("meta") or {}).get("payload_hash") if isinstance(ingress.get("meta"), dict) else None,
+            "trace_id": meta.get("trace_id") or _object_mapping(ingress.get("meta")).get("trace_id"),
+            "payload_hash": _object_mapping(ingress.get("meta")).get("payload_hash"),
             "route_hint": source_ref.get("frontdoor_route_hint"),
             "fetch_strategy": source_ref.get("fetch_strategy"),
             "router_state": source_ref.get("router_state"),
@@ -129,7 +167,7 @@ def build_single_url_canary_handoff(
             "channel": _resolve_rollout_channel(rollout=rollout, strict_gate_source=strict_source),
             "rollout_mode": str(rollout.get("rollout_mode") or quality_assessment.get("guardrail_rollout_mode") or "unknown"),
             "project_key": rollout.get("project_key") or ingress.get("project_key"),
-            "canary_projects": list(rollout.get("canary_projects") or []),
+            "canary_projects": _object_list(rollout.get("canary_projects")),
             "canary_matched": bool(rollout.get("canary_matched") or quality_assessment.get("guardrail_canary_matched")),
             "global_default_enabled": bool(rollout.get("global_default_enabled")),
             "decision_contract_version": rollout.get("contract_version"),
@@ -146,10 +184,10 @@ def build_single_url_canary_handoff(
 
 
 def _extract_guardrail_rollout(
-    quality_assessment: Mapping[str, Any],
-    gate_config: Mapping[str, Any],
-) -> dict[str, Any]:
-    rollout = gate_config.get("guardrail_rollout") if isinstance(gate_config.get("guardrail_rollout"), dict) else {}
+    quality_assessment: Mapping[str, object],
+    gate_config: Mapping[str, object],
+) -> dict[str, object]:
+    rollout = _object_mapping(gate_config.get("guardrail_rollout"))
     out = dict(rollout or {})
     out.setdefault("enable_strict_gate", bool(gate_config.get("enable_strict_gate")))
     out.setdefault("strict_gate_source", str(gate_config.get("strict_gate_source") or quality_assessment.get("strict_gate_source") or "disabled"))
@@ -161,28 +199,27 @@ def _extract_guardrail_rollout(
 
 
 def _resolve_writer_result(
-    data: Mapping[str, Any],
-    writer_result: Mapping[str, Any] | None,
-) -> dict[str, Any]:
-    if isinstance(writer_result, Mapping):
+    data: Mapping[str, object],
+    writer_result: Mapping[str, object] | None,
+) -> dict[str, object]:
+    if writer_result is not None:
         return dict(writer_result)
-    embedded = data.get("writer_result") if isinstance(data.get("writer_result"), dict) else {}
-    return dict(embedded or {})
+    return _object_dict(data.get("writer_result"))
 
 
 def _build_metrics_snapshot(
     *,
-    postprocess: Mapping[str, Any],
-    writer_result: Mapping[str, Any],
-    rollout: Mapping[str, Any],
+    postprocess: Mapping[str, object],
+    writer_result: Mapping[str, object],
+    rollout: Mapping[str, object],
     fallback_adapter: str,
-    provided_metrics: Mapping[str, Any] | None,
-) -> dict[str, Any]:
-    if isinstance(provided_metrics, Mapping) and provided_metrics:
+    provided_metrics: Mapping[str, object] | None,
+) -> dict[str, object]:
+    if provided_metrics:
         payload = deepcopy(dict(provided_metrics))
     else:
-        data = postprocess.get("data") if isinstance(postprocess.get("data"), dict) else {}
-        meta = postprocess.get("meta") if isinstance(postprocess.get("meta"), dict) else {}
+        data = _object_mapping(postprocess.get("data"))
+        meta = _object_mapping(postprocess.get("meta"))
         admission = str(data.get("admission") or "").strip().lower()
         inserted_valid = _coerce_non_negative_int(writer_result.get("inserted"))
         rejected_count = 0 if admission in {"", "accept"} else 1
@@ -196,17 +233,17 @@ def _build_metrics_snapshot(
             },
             fallback_adapter=fallback_adapter,
         )
-    guardrail = payload.get("guardrail_rollout") if isinstance(payload.get("guardrail_rollout"), dict) else {}
+    guardrail = _object_dict(payload.get("guardrail_rollout"))
     return {
         "contract_version": CANARY_METRICS_SNAPSHOT_CONTRACT_VERSION,
         "metrics_payload_schema_version": payload.get("schema_version"),
         "sample_size": _coerce_non_negative_int(payload.get("sample_size")),
         "url_only_document_rate": _coerce_float(payload.get("url_only_document_rate")),
         "empty_body_rate": _coerce_float(payload.get("empty_body_rate")),
-        "reason_code_top_n": deepcopy(list(payload.get("reason_code_top_n") or [])),
-        "adapter_hit_rate": deepcopy(list(payload.get("adapter_hit_rate") or [])),
-        "guardrail_rollout": deepcopy(dict(guardrail or {})),
-        "counters": deepcopy(dict(payload.get("counters") or {})),
+        "reason_code_top_n": deepcopy(_object_list(payload.get("reason_code_top_n"))),
+        "adapter_hit_rate": deepcopy(_object_list(payload.get("adapter_hit_rate"))),
+        "guardrail_rollout": deepcopy(guardrail),
+        "counters": deepcopy(_object_dict(payload.get("counters"))),
     }
 
 
@@ -214,7 +251,7 @@ def _resolve_gate_state(
     *,
     strict_enabled: bool,
     admission: str,
-    gate_plus: Mapping[str, Any],
+    gate_plus: Mapping[str, object],
 ) -> str:
     if not strict_enabled:
         return "strict_disabled"
@@ -227,7 +264,7 @@ def _resolve_gate_state(
 
 def _resolve_rollout_channel(
     *,
-    rollout: Mapping[str, Any],
+    rollout: Mapping[str, object],
     strict_gate_source: str,
 ) -> str:
     source = str(strict_gate_source or "").strip().lower()
@@ -247,22 +284,28 @@ def _resolve_rollout_channel(
     return "unknown"
 
 
-def _coerce_non_negative_int(value: Any) -> int:
+def _coerce_non_negative_int(value: object) -> int:
+    candidate = value or 0
+    if not isinstance(candidate, (str, bytes, int, float)):
+        return 0
     try:
-        return max(0, int(value or 0))
-    except Exception:
+        return max(0, int(candidate))
+    except (OverflowError, TypeError, ValueError):
         return 0
 
 
-def _coerce_float(value: Any) -> float:
+def _coerce_float(value: object) -> float:
+    candidate = value or 0.0
+    if not isinstance(candidate, (str, bytes, int, float)):
+        return 0.0
     try:
-        return float(value or 0.0)
-    except Exception:
+        return float(candidate)
+    except (OverflowError, TypeError, ValueError):
         return 0.0
 
 
-def _normalize_live_canary_evidence(value: Mapping[str, Any] | None) -> dict[str, Any]:
-    if not isinstance(value, Mapping) or not value:
+def _normalize_live_canary_evidence(value: Mapping[str, object] | None) -> dict[str, object]:
+    if not value:
         return {}
     evidence = deepcopy(dict(value))
     evidence.setdefault("contract_version", LIVE_CANARY_EVIDENCE_CONTRACT_VERSION)
@@ -273,13 +316,13 @@ def _normalize_live_canary_evidence(value: Mapping[str, Any] | None) -> dict[str
     return evidence
 
 
-def _live_canary_evidence_validated(evidence: Mapping[str, Any] | None) -> bool:
-    if not isinstance(evidence, Mapping) or not evidence:
+def _live_canary_evidence_validated(evidence: Mapping[str, object] | None) -> bool:
+    if not evidence:
         return False
     if evidence.get("live_canary_validated") is True:
         return True
-    checks = evidence.get("validation_checks")
-    if not isinstance(checks, Mapping):
+    checks = _object_mapping(evidence.get("validation_checks"))
+    if not checks:
         return False
     required = {
         "api_runtime_validated",
@@ -292,13 +335,13 @@ def _live_canary_evidence_validated(evidence: Mapping[str, Any] | None) -> bool:
 
 
 def _apply_live_flags_to_metrics(
-    metrics: dict[str, Any],
+    metrics: dict[str, object],
     *,
     live_canary_validated: bool,
     closure_claim: bool,
 ) -> None:
     guardrail = metrics.get("guardrail_rollout")
-    if not isinstance(guardrail, dict):
+    if not _is_object_mapping(guardrail) or not isinstance(guardrail, dict):
         return
     guardrail["live_canary_validated"] = bool(live_canary_validated)
     guardrail["closure_claim"] = bool(closure_claim)

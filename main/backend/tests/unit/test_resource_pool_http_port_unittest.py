@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-import pytest
 from unittest.mock import patch
 
+import pytest
 from app.composition.resource_pool import (
     RequestHtmlSearchRequestPort,
     RequestsHttpFetchPort,
@@ -15,31 +15,31 @@ from app.services.search import web
 
 
 def test_FAILURE_PRESERVED__unconfigured_http_port_fails_closed() -> None:
-    original = http_port._HTTP_FETCH_PORT
-    http_port._HTTP_FETCH_PORT = None
+    original = http_port._http_fetch_port
+    http_port._http_fetch_port = None
     try:
         with pytest.raises(RuntimeError, match="HTTP fetch port is not configured"):
             http_port.fetch_html("https://example.com")
     finally:
-        http_port._HTTP_FETCH_PORT = original
+        http_port._http_fetch_port = original
 
 
 def test_FAILURE_PRESERVED__official_access_port_not_configured_fails_closed() -> None:
-    original = http_port._OFFICIAL_ACCESS_PORT
-    http_port._OFFICIAL_ACCESS_PORT = None
+    original = http_port._official_access_port
+    http_port._official_access_port = None
     try:
         with pytest.raises(RuntimeError, match="official-access port is not configured"):
             http_port.handle_official_access_api(
                 {"provider_key": "arxiv"}, project_key=None
             )
     finally:
-        http_port._OFFICIAL_ACCESS_PORT = original
+        http_port._official_access_port = original
 
 
 def test_INVARIANT__composition_registers_resource_pool_ports() -> None:
     configure_resource_pool_ports()
-    assert isinstance(http_port._HTTP_FETCH_PORT, RequestsHttpFetchPort)
-    assert isinstance(http_port._OFFICIAL_ACCESS_PORT, SourceLibraryOfficialAccessPort)
+    assert isinstance(http_port._http_fetch_port, RequestsHttpFetchPort)
+    assert isinstance(http_port._official_access_port, SourceLibraryOfficialAccessPort)
     assert isinstance(web._SEARCH_REQUEST_PORT, RequestHtmlSearchRequestPort)
 
 

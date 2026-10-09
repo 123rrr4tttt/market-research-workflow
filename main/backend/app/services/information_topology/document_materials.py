@@ -2,26 +2,30 @@
 
 from __future__ import annotations
 
-from dataclasses import replace
-from hashlib import sha256
 import json
 from collections.abc import Mapping
+from dataclasses import replace
+from hashlib import sha256
 from typing import TypeGuard
 
-from functorial_kit import Failure
-from sqlalchemy import func, select
-from sqlalchemy.orm import Session
-
 from app.models.entities import Material as Document
-from app.services.ingest.terminal_writer import persist_terminal_material_in_session
 from app.services.document_queries import (
     DocumentQueryJsonObject,
     DocumentQueryJsonValue,
     coerce_document_query_result_row,
 )
 from app.services.document_queries.identity import (
-    canonical_material_identity, document_identity, material_identity, material_revision as document_revision,
+    canonical_material_identity,
+    document_identity,
+    material_identity,
 )
+from app.services.document_queries.identity import (
+    material_revision as document_revision,
+)
+from app.services.ingest.terminal_writer import persist_terminal_material_in_session
+from functorial_kit import Failure
+from sqlalchemy import func, select
+from sqlalchemy.orm import Session
 
 from .contracts import BoundRef, Element, ElementRef, TopologyState, topology_failures, topology_state_codec
 from .modules.retrieval import PROFILE_ID_PREFIX, profile_from_state_payload
@@ -73,7 +77,7 @@ def resolve_document(session: Session, project_key: str, ref: ElementRef) -> Bou
         return None
     document = read_document(session, project_key, document_identity(ref.project_key, int(ref.local_id)))
     return (
-        BoundRef(ref, document_revision(document))
+        BoundRef(ref, _document_revision(document))
         if document
         else None
     )
@@ -262,7 +266,7 @@ def project_document_materials(
                 "source_uri": str(document.uri or ""),
                 "content_summary": str(document.summary or ""),
                 "source_status": str(document.status or ""),
-                "material_revision": document_revision(document),
+                "material_revision": _document_revision(document),
             }
             )
         )
@@ -275,3 +279,14 @@ def project_document_materials(
 bind_materials = bind_material_documents
 project_materials = project_document_materials
 resolve_material = resolve_document
+
+
+def _runtime_value(value: object) -> object:
+    return value
+
+
+def _document_revision(document: Document) -> str:
+    return document_revision({
+        "updated_at": _runtime_value(document.updated_at),
+        "text_hash": _runtime_value(document.text_hash),
+    })

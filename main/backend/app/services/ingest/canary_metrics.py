@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import asdict, dataclass
-from typing import Annotated, Any, Mapping
+from typing import Annotated, Iterable, Protocol, runtime_checkable, TypeGuard
 
 from .canary_handoff import CANARY_HANDOFF_CONTRACT_VERSION, CANARY_METRICS_SNAPSHOT_CONTRACT_VERSION
 
@@ -11,6 +12,52 @@ CONFIGURED_PROVIDER_CANARY_CONTRACT_VERSION = "ingest.configured_provider_canary
 SINGLE_URL_PROVIDER_EVIDENCE_CONTRACT_VERSION = "ingest.single_url_provider_evidence.v1"
 SINGLE_URL_PROVIDER_EVIDENCE_BOUNDARY_CONTRACT_VERSION = "ingest.single_url_provider_evidence_boundary.v1"
 _SINGLE_URL_FRONTDOOR_ENTRYPOINTS = ("ingest.url_pool", "ingest.url.single")
+
+
+def _is_string_key(value: object) -> bool:
+    return isinstance(value, str)
+
+
+@runtime_checkable
+class _StringKeyInspectable(Protocol):
+    def keys(self) -> Iterable[object]: ...
+
+
+def _has_only_string_keys(value: object) -> bool:
+    if not isinstance(value, _StringKeyInspectable):
+        return False
+    return all(map(_is_string_key, value.keys()))
+
+
+def _is_object_mapping(value: object) -> TypeGuard[Mapping[str, object]]:
+    if not _has_only_string_keys(value):
+        return False
+    return isinstance(value, Mapping)
+
+
+def _object_mapping(value: object) -> Mapping[str, object]:
+    return value if _is_object_mapping(value) else {}
+
+
+def _is_object_list(value: object) -> TypeGuard[list[object]]:
+    return isinstance(value, list)
+
+
+def _object_list(value: object) -> list[object]:
+    return value if _is_object_list(value) else []
+
+
+def _text_list(value: object) -> list[str]:
+    return [text for item in _object_list(value) if (text := str(item or "").strip())]
+
+
+def _coerce_float(value: object) -> float:
+    if not isinstance(value, (str, bytes, int, float)):
+        return 0.0
+    try:
+        return float(value)
+    except (OverflowError, TypeError, ValueError):
+        return 0.0
 
 LIVE_CANARY_EVIDENCE_FIELDS = (
     "demo_proj_live_canary_validated",
@@ -80,7 +127,7 @@ class IngestCanaryMetricsStage:
     gaps: list[str]
     evidence_required: list[str]
 
-    def to_dict(self) -> dict[str, Any]:
+    def to_dict(self) -> dict[str, object]:
         return asdict(self)
 
 
@@ -98,42 +145,45 @@ class IngestCanaryMetricsReadinessReport:
     metric_24h_readback_open: bool
     ready_for_live_canary: bool
     ready_for_24h_metric_readback: bool
-    metrics_snapshot: dict[str, Any]
-    configured_provider_canary_boundary: dict[str, Any]
+    metrics_snapshot: dict[str, object]
+    configured_provider_canary_boundary: dict[str, object]
     stages: list[IngestCanaryMetricsStage]
     remaining_live_gaps: list[str]
 
-    def to_dict(self) -> dict[str, Any]:
+    def to_dict(self) -> dict[str, object]:
         return asdict(self)
 
 
-def _get_path(payload: Mapping[str, Any], dotted_path: str) -> Any:
-    current: Any = payload
+def _get_path(payload: Mapping[str, object], dotted_path: str) -> object:
+    current: object = payload
     for segment in dotted_path.split("."):
-        if not isinstance(current, Mapping):
+        if not _is_object_mapping(current):
             return None
         current = current.get(segment)
     return current
 
 
-def _coerce_non_negative_int(value: Any) -> int:
+def _coerce_non_negative_int(value: object) -> int:
+    candidate = value or 0
+    if not isinstance(candidate, (str, bytes, int, float)):
+        return 0
     try:
-        return max(0, int(value or 0))
-    except Exception:
+        return max(0, int(candidate))
+    except (OverflowError, TypeError, ValueError):
         return 0
 
 
-def _clean_text(value: Any) -> str:
+def _clean_text(value: object) -> str:
     return str(value or "").strip()
 
 
-def _missing_evidence_fields(evidence: Mapping[str, Any] | None, fields: tuple[str, ...]) -> list[str]:
+def _missing_evidence_fields(evidence: Mapping[str, object] | None, fields: tuple[str, ...]) -> list[str]:
     if not evidence:
         return list(fields)
     return [field for field in fields if not bool(evidence.get(field))]
 
 
-def _missing_dotted_evidence_fields(evidence: Mapping[str, Any] | None, fields: tuple[str, ...]) -> list[str]:
+def _missing_dotted_evidence_fields(evidence: Mapping[str, object] | None, fields: tuple[str, ...]) -> list[str]:
     if not evidence:
         return list(fields)
     return [field for field in fields if not bool(_get_path(evidence, field))]
@@ -141,21 +191,21 @@ def _missing_dotted_evidence_fields(evidence: Mapping[str, Any] | None, fields: 
 
 def build_configured_provider_canary_boundary(
     *,
-    live_canary_evidence: Mapping[str, Any] | None,
+    live_canary_evidence: Mapping[str, object] | None,
     project_key: str = "demo_proj",
 ) -> Annotated[
-    dict[str, Any],
+    dict[str, object],
     "kit:non-authoritative derived_as=external_claim fact_source=live_canary_evidence+configured_provider_evidence witness=test:test_w03_ingest_ports_authority_metadata",
 ]:
     """Validate live canary evidence without starting external services."""
-    evidence = live_canary_evidence if isinstance(live_canary_evidence, Mapping) else {}
-    provider = evidence.get("configured_provider") if isinstance(evidence.get("configured_provider"), Mapping) else {}
-    readback = evidence.get("handoff_readback") if isinstance(evidence.get("handoff_readback"), Mapping) else {}
-    if not readback and isinstance(evidence.get("canary_handoff"), Mapping):
-        readback = evidence.get("canary_handoff")  # type: ignore[assignment]
-    frontdoor = evidence.get("frontdoor_run") if isinstance(evidence.get("frontdoor_run"), Mapping) else {}
-    if not frontdoor and isinstance(readback.get("frontdoor_run"), Mapping):
-        frontdoor = readback.get("frontdoor_run")  # type: ignore[assignment]
+    evidence = live_canary_evidence or {}
+    provider = _object_mapping(evidence.get("configured_provider"))
+    readback = _object_mapping(evidence.get("handoff_readback"))
+    if not readback:
+        readback = _object_mapping(evidence.get("canary_handoff"))
+    frontdoor = _object_mapping(evidence.get("frontdoor_run"))
+    if not frontdoor:
+        frontdoor = _object_mapping(readback.get("frontdoor_run"))
 
     normalized_project = _clean_text(project_key) or "demo_proj"
     provider_key = _clean_text(provider.get("provider_key") or provider.get("provider") or provider.get("name"))
@@ -248,15 +298,15 @@ def build_configured_provider_canary_boundary(
 
 def build_single_url_provider_evidence_boundary(
     *,
-    provider_evidence: Mapping[str, Any] | None,
+    provider_evidence: Mapping[str, object] | None,
 ) -> Annotated[
-    dict[str, Any],
+    dict[str, object],
     "kit:non-authoritative derived_as=external_claim fact_source=provider_evidence+source_record witness=test:test_w03_ingest_ports_authority_metadata",
 ]:
     """Validate explicit provider-account/quota evidence without claiming closure."""
-    evidence = provider_evidence if isinstance(provider_evidence, Mapping) else {}
-    source_record = evidence.get("source_record") if isinstance(evidence.get("source_record"), Mapping) else {}
-    providers = evidence.get("providers_validated") if isinstance(evidence.get("providers_validated"), list) else []
+    evidence = provider_evidence or {}
+    source_record = _object_mapping(evidence.get("source_record"))
+    providers = _object_list(evidence.get("providers_validated"))
     provider_keys = [
         str(provider).strip()
         for provider in providers
@@ -310,17 +360,17 @@ def build_single_url_provider_evidence_boundary(
     }
 
 
-def _build_metrics_snapshot(handoff: Mapping[str, Any]) -> dict[str, Any]:
-    metrics = handoff.get("metrics_snapshot") if isinstance(handoff.get("metrics_snapshot"), Mapping) else {}
-    guardrail = metrics.get("guardrail_rollout") if isinstance(metrics.get("guardrail_rollout"), Mapping) else {}
+def _build_metrics_snapshot(handoff: Mapping[str, object]) -> dict[str, object]:
+    metrics = _object_mapping(handoff.get("metrics_snapshot"))
+    guardrail = _object_mapping(metrics.get("guardrail_rollout"))
     return {
         "sample_size": _coerce_non_negative_int(metrics.get("sample_size")),
         "metrics_contract_version": metrics.get("contract_version"),
         "guardrail_sample_size": _coerce_non_negative_int(guardrail.get("sample_size")),
         "strict_enabled_samples": _coerce_non_negative_int(guardrail.get("strict_enabled_samples")),
         "canary_matched_samples": _coerce_non_negative_int(guardrail.get("canary_matched_samples")),
-        "strict_enabled_rate": float(guardrail.get("strict_enabled_rate") or 0.0),
-        "canary_matched_rate": float(guardrail.get("canary_matched_rate") or 0.0),
+        "strict_enabled_rate": _coerce_float(guardrail.get("strict_enabled_rate")),
+        "canary_matched_rate": _coerce_float(guardrail.get("canary_matched_rate")),
         "live_canary_validated": bool(guardrail.get("live_canary_validated")),
         "closure_claim": bool(guardrail.get("closure_claim")),
     }
@@ -328,15 +378,15 @@ def _build_metrics_snapshot(handoff: Mapping[str, Any]) -> dict[str, Any]:
 
 def _build_deterministic_stage(
     *,
-    handoff: Mapping[str, Any],
+    handoff: Mapping[str, object],
     project_key: str,
 ) -> IngestCanaryMetricsStage:
-    metrics = handoff.get("metrics_snapshot") if isinstance(handoff.get("metrics_snapshot"), Mapping) else {}
-    guardrail = metrics.get("guardrail_rollout") if isinstance(metrics.get("guardrail_rollout"), Mapping) else {}
-    frontdoor = handoff.get("frontdoor_run") if isinstance(handoff.get("frontdoor_run"), Mapping) else {}
-    rollout = handoff.get("rollout") if isinstance(handoff.get("rollout"), Mapping) else {}
-    strict_gate = handoff.get("strict_gate_state") if isinstance(handoff.get("strict_gate_state"), Mapping) else {}
-    gaps = handoff.get("remaining_live_run_gaps") if isinstance(handoff.get("remaining_live_run_gaps"), list) else []
+    metrics = _object_mapping(handoff.get("metrics_snapshot"))
+    guardrail = _object_mapping(metrics.get("guardrail_rollout"))
+    frontdoor = _object_mapping(handoff.get("frontdoor_run"))
+    rollout = _object_mapping(handoff.get("rollout"))
+    strict_gate = _object_mapping(handoff.get("strict_gate_state"))
+    gaps = _object_list(handoff.get("remaining_live_run_gaps"))
 
     checks = {
         "handoff_contract_version": handoff.get("contract_version") == CANARY_HANDOFF_CONTRACT_VERSION,
@@ -377,10 +427,10 @@ def _build_deterministic_stage(
 def _build_live_canary_stage(
     *,
     deterministic_ready: bool,
-    configured_provider_boundary: Mapping[str, Any],
+    configured_provider_boundary: Mapping[str, object],
     project_key: str,
 ) -> IngestCanaryMetricsStage:
-    evidence_required = list(CONFIGURED_PROVIDER_CANARY_EVIDENCE_FIELDS)
+    evidence_required: list[str] = list(CONFIGURED_PROVIDER_CANARY_EVIDENCE_FIELDS)
     if not deterministic_ready:
         return IngestCanaryMetricsStage(
             name="demo_proj_live_canary",
@@ -392,13 +442,9 @@ def _build_live_canary_stage(
             evidence_required=evidence_required,
         )
 
-    validation = (
-        configured_provider_boundary.get("validation")
-        if isinstance(configured_provider_boundary.get("validation"), Mapping)
-        else {}
-    )
-    missing = list(validation.get("missing_fields") or [])
-    failed_checks = list(validation.get("failed_checks") or [])
+    validation = _object_mapping(configured_provider_boundary.get("validation"))
+    missing = _text_list(validation.get("missing_fields"))
+    failed_checks = _text_list(validation.get("failed_checks"))
     evidence_present = configured_provider_boundary.get("evidence_present") is True
     if validation.get("passed") is True:
         return IngestCanaryMetricsStage(
@@ -446,9 +492,9 @@ def _build_metric_24h_stage(
     *,
     deterministic_ready: bool,
     live_canary_validated: bool,
-    metric_readback_evidence: Mapping[str, Any] | None,
+    metric_readback_evidence: Mapping[str, object] | None,
 ) -> IngestCanaryMetricsStage:
-    evidence_required = list(METRIC_24H_EVIDENCE_FIELDS)
+    evidence_required: list[str] = list(METRIC_24H_EVIDENCE_FIELDS)
     if not deterministic_ready:
         return IngestCanaryMetricsStage(
             name="metric_24h_readback",
@@ -517,10 +563,10 @@ def _build_metric_24h_stage(
 
 def build_ingest_canary_metrics_readiness(
     *,
-    handoff: Mapping[str, Any],
+    handoff: Mapping[str, object],
     project_key: str = "demo_proj",
-    live_canary_evidence: Mapping[str, Any] | None = None,
-    metric_readback_evidence: Mapping[str, Any] | None = None,
+    live_canary_evidence: Mapping[str, object] | None = None,
+    metric_readback_evidence: Mapping[str, object] | None = None,
 ) -> Annotated[
     IngestCanaryMetricsReadinessReport,
     "kit:non-authoritative derived_as=preflight fact_source=handoff+live_canary_evidence+metric_readback_evidence+contract_constants witness=test:test_w03_ingest_ports_authority_metadata",

@@ -14,7 +14,7 @@ import json
 from collections.abc import Collection, Mapping
 from dataclasses import dataclass, field
 from enum import StrEnum
-from typing import TYPE_CHECKING, Any, Literal, NoReturn, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Literal, NoReturn, Protocol, TypeGuard, runtime_checkable
 
 from functorial_kit import Failure
 
@@ -37,7 +37,7 @@ _EXCLUDE_FIELDS_MAPPING_REQUIRED = (
 
 
 def canonical_digest(
-    value: BaseModel | dict[str, object] | tuple[object, ...],
+    value: BaseModel | Mapping[str, object] | tuple[object, ...],
     *,
     exclude_fields: Collection[str] = (),
 ) -> str:
@@ -50,7 +50,7 @@ def canonical_digest(
             exclude_none=False,
         )
     else:
-        payload = value
+        payload = dict(value) if isinstance(value, Mapping) else value
         if exclude_fields:
             if not isinstance(payload, dict):
                 # kit:boundary owner=successor.runtime.canonical_digest class=PROGRAMMER_DEFECT failure_family=none witness=test:test_canonical_digest_rejects_exclude_fields_for_non_mapping
@@ -68,14 +68,44 @@ def canonical_digest(
 
 
 @runtime_checkable
+class _StepBindingLike(Protocol):
+    @property
+    def step_id(self) -> str: ...
+
+    @property
+    def run_id(self) -> str: ...
+
+    @property
+    def project_key(self) -> str: ...
+
+    @property
+    def binding_digest(self) -> str: ...
+
+    @property
+    def operation_kind(self) -> str: ...
+
+    @property
+    def operation_contract_digest(self) -> str: ...
+
+
+@runtime_checkable
 class _QualifiedPlanLike(Protocol):
     """Runtime shape needed by failure derivation without importing qualification."""
 
-    plan_digest: str
-    qualification_digest: str
-    awaiting_approval_steps: tuple[Any, ...]
-    denied_steps: tuple[Any, ...]
-    step_bindings: tuple[Any, ...]
+    @property
+    def plan_digest(self) -> str: ...
+
+    @property
+    def qualification_digest(self) -> str: ...
+
+    @property
+    def awaiting_approval_steps(self) -> tuple[str, ...]: ...
+
+    @property
+    def denied_steps(self) -> tuple[object, ...]: ...
+
+    @property
+    def step_bindings(self) -> tuple[_StepBindingLike, ...]: ...
 
 
 class FailurePolicyDerivationError(ValueError):
@@ -133,7 +163,16 @@ def _closed_failure(message: object, *, site: str) -> Failure:
 
 def _canonical_digest(value: object, *, exclude_fields: set[str]) -> str | Failure:
     try:
-        return canonical_digest(value, exclude_fields=exclude_fields)  # type: ignore[arg-type]
+        if isinstance(value, BaseModel):
+            return canonical_digest(value, exclude_fields=exclude_fields)
+        if _is_object_mapping(value):
+            return canonical_digest(value, exclude_fields=exclude_fields)
+        if _is_object_tuple(value):
+            return canonical_digest(value, exclude_fields=exclude_fields)
+        return _policy_failure(
+            "canonical digest input is not a model, mapping, or tuple",
+            site="successor_runtime.runtime.failure_policy.digest",
+        )
     except (TypeError, ValueError, OverflowError, KeyError, AttributeError) as exc:
         return _policy_failure(str(exc), site="successor_runtime.runtime.failure_policy.digest")
 
@@ -159,10 +198,10 @@ def _require_site(site: object) -> str | Failure:
 def _require_context(
     context: Mapping[str, object] | None, *, site: str
 ) -> dict[str, object] | Failure:
-    if context is not None and not isinstance(context, Mapping):
+    if context is not None and not isinstance(_runtime_value(context), Mapping):
         return _closed_failure("runtime failure context must be a mapping", site=site)
     supplied = dict(context or {})
-    if not all(isinstance(key, str) for key in supplied):
+    if not all(isinstance(_runtime_value(key), str) for key in supplied):
         return _closed_failure(
             "runtime failure context keys must be strings", site=site
         )
@@ -201,6 +240,51 @@ def _raise_programmer_type_error(
 
 def _raise_legacy_type_error(failure: Failure) -> NoReturn:
     _raise_programmer_type_error(failure.message)
+
+
+def _runtime_value(value: object) -> object:
+    return value
+
+
+def _is_object_mapping(value: object) -> TypeGuard[Mapping[str, object]]:
+    if not _is_unknown_key_mapping(value):
+        return False
+    return all(isinstance(key, str) for key in value)
+
+
+def _is_unknown_key_mapping(
+    value: object,
+) -> TypeGuard[Mapping[object, object]]:
+    return isinstance(value, Mapping)
+
+
+def _is_object_tuple(value: object) -> TypeGuard[tuple[object, ...]]:
+    return isinstance(value, tuple)
+
+
+_PUBLIC_EXCEPTION_TYPES: dict[str, type[Exception]] = {
+    "TypeError": TypeError,
+    "ValueError": ValueError,
+    "OverflowError": OverflowError,
+    "KeyError": KeyError,
+    "AttributeError": AttributeError,
+}
+
+
+def public_exception_type(
+    failure: Failure,
+    *,
+    default: type[Exception] = ValueError,
+    extensions: Mapping[str, type[Exception]] | None = None,
+) -> type[Exception]:
+    """Resolve the closed legacy exception name carried by a runtime failure."""
+
+    name = (failure.context or {}).get("public_exception")
+    if not isinstance(name, str):
+        return default
+    if extensions is not None and name in extensions:
+        return extensions[name]
+    return _PUBLIC_EXCEPTION_TYPES.get(name, default)
 
 
 def runtime_failure(
@@ -255,11 +339,11 @@ def raise_runtime_failure(
     checked_type = _require_exception_type(exception_type)
     if isinstance(checked_type, Failure):
         _raise_legacy_type_error(checked_type)
-    if not isinstance(failure, Failure):
+    if not isinstance(_runtime_value(failure), Failure):
         _raise_programmer_type_error(
             "runtime failure lift context is incomplete or inconsistent"
         )
-    if cause is not None and not isinstance(cause, BaseException):
+    if cause is not None and not isinstance(_runtime_value(cause), BaseException):
         _raise_programmer_type_error("runtime failure cause must be a BaseException")
     payload = failure.context or {}
     required = _RUNTIME_FAILURE_CONTEXT_KEYS
@@ -383,7 +467,7 @@ def _normalized_modes(
         )
     normalized: list[str] = []
     for raw in values:
-        if not isinstance(raw, str) or not raw.strip():
+        if not isinstance(_runtime_value(raw), str) or not raw.strip():
             return _policy_failure(
                 f"{owner} failure_modes contain a non-canonical value",
                 site="successor_runtime.runtime.failure_policy.modes",
@@ -418,17 +502,29 @@ def _profile_ref(value: object) -> FrozenFailureProfileRef | Failure:
         return FrozenFailureProfileRef("OPAQUE", value, None, None)
     if isinstance(value, ContractProfileRef):
         ref = value
-    elif isinstance(value, Mapping):
+    elif _is_object_mapping(value):
         if set(value) != {"profile_id", "profile_version", "profile_digest"}:
             return _policy_failure(
                 "failure_profile_ref mapping is not the exact frozen ref shape",
                 site="successor_runtime.runtime.failure_policy.profile_ref",
             )
+        profile_id = value["profile_id"]
+        profile_version = value["profile_version"]
+        profile_digest = value["profile_digest"]
+        if (
+            not isinstance(profile_id, str)
+            or not isinstance(profile_version, str)
+            or not isinstance(profile_digest, str)
+        ):
+            return _policy_failure(
+                "failure_profile_ref fields must be strings",
+                site="successor_runtime.runtime.failure_policy.profile_ref",
+            )
         try:
             ref = ContractProfileRef(
-                profile_id=value["profile_id"],
-                profile_version=value["profile_version"],
-                profile_digest=value["profile_digest"],
+                profile_id=profile_id,
+                profile_version=profile_version,
+                profile_digest=profile_digest,
             )
         except (TypeError, ValueError, OverflowError, KeyError, AttributeError):
             return _policy_failure(
@@ -558,7 +654,7 @@ def _require_qualified_closure(
     plan: ExecutionPlan,
     qualified_plan: _QualifiedPlanLike,
     steps: Mapping[str, CompiledStep],
-) -> dict[str, object] | Failure:
+) -> dict[str, _StepBindingLike] | Failure:
     qualification_digest = _canonical_digest(
         qualified_plan, exclude_fields={"qualification_digest"}
     )
@@ -660,12 +756,12 @@ def _derive_failure_policy_impl(
             "failure derivation requires step_id",
             site="successor_runtime.runtime.failure_policy.derive",
         )
-    if not isinstance(plan, ExecutionPlan):
+    if not isinstance(_runtime_value(plan), ExecutionPlan):
         return _policy_failure(
             "failure derivation requires an ExecutionPlan",
             site="successor_runtime.runtime.failure_policy.derive",
         )
-    if not isinstance(qualified_plan, _QualifiedPlanLike):
+    if not isinstance(_runtime_value(qualified_plan), _QualifiedPlanLike):
         return _policy_failure(
             "failure derivation requires a QualifiedPlan",
             site="successor_runtime.runtime.failure_policy.derive",

@@ -7,6 +7,7 @@ import logging
 
 from sqlalchemy import select
 from sqlalchemy.exc import ProgrammingError, SQLAlchemyError
+from sqlalchemy.orm import Session
 
 from ..models.base import SessionLocal, run_with_session_retry
 from ..models.entities import EtlJobRun
@@ -51,7 +52,7 @@ def start_job(
         event_source="etl_job_runs",
     )
 
-    def _op(session) -> int:
+    def _op(session: Session) -> int:
         job = EtlJobRun(
             job_type=stored_job_type,
             params=payload,
@@ -84,7 +85,7 @@ def complete_job(
     if int(job_id or 0) <= 0:
         return
 
-    def _op(session) -> None:
+    def _op(session: Session) -> None:
         job = session.get(EtlJobRun, job_id)
         if not job:
             return
@@ -132,7 +133,7 @@ def fail_job(
     if int(job_id or 0) <= 0:
         return
 
-    def _op(session) -> None:
+    def _op(session: Session) -> None:
         job = session.get(EtlJobRun, job_id)
         if not job:
             return
@@ -173,7 +174,7 @@ def update_job_tracking(
     error: str | None = None,
 ) -> None:
 
-    def _op(session) -> None:
+    def _op(session: Session) -> None:
         job = session.get(EtlJobRun, job_id)
         if not job:
             return

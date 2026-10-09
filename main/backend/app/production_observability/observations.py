@@ -8,26 +8,75 @@ import math
 from dataclasses import dataclass, field
 from datetime import datetime, UTC
 from types import MappingProxyType
-from typing import Any
-from collections.abc import Mapping
+from typing import Protocol, TypeGuard, runtime_checkable
+from collections.abc import Iterable, Iterator, Mapping, Sequence
 
 from .errors import ObservabilityTypeError, ObservabilityValueError
 from .contracts import SOURCE_CONTRACT_VERSIONS
 from .contracts import LabelBinding, MetricFamily
 
 
+def _empty_labels() -> dict[str, str]:
+    return {}
+
+
+def _is_metric_family(value: object) -> TypeGuard[MetricFamily]:
+    return isinstance(value, MetricFamily)
+
+
+def _is_positive_int(value: object) -> TypeGuard[int]:
+    return not isinstance(value, bool) and isinstance(value, int) and value > 0
+
+
+def _is_object_mapping(value: object) -> TypeGuard[Mapping[object, object]]:
+    return isinstance(value, Mapping)
+
+
+@runtime_checkable
+class _ObjectIterable(Protocol):
+    def __iter__(self) -> Iterator[object]: ...
+
+
+def _is_object_sequence(value: object) -> TypeGuard[Sequence[object]]:
+    return isinstance(value, Sequence)
+
+
+def _label_items(value: object) -> Iterable[tuple[object, object]]:
+    if value is None:
+        return ()
+    if _is_object_mapping(value):
+        return value.items()
+    if not isinstance(value, _ObjectIterable):
+        raise ObservabilityTypeError("labels must be a mapping, item pairs, or null")
+    items: list[tuple[object, object]] = []
+    for item in value:
+        if (
+            isinstance(item, (str, bytes))
+            or not _is_object_sequence(item)
+            or len(item) != 2
+        ):
+            raise ObservabilityTypeError("labels must contain key-value pairs")
+        items.append((item[0], item[1]))
+    return tuple(items)
+
+
 def utc_now() -> datetime:
     return datetime.now(UTC)
 
 
-def parse_observed_at(value: datetime | str) -> datetime:
-    parsed = datetime.fromisoformat(value.replace("Z", "+00:00")) if isinstance(value, str) else value
-    if not isinstance(parsed, datetime) or parsed.tzinfo is None:
+def parse_observed_at(value: object) -> datetime:
+    if isinstance(value, str):
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    elif isinstance(value, datetime):
+        parsed = value
+    else:
+        raise ObservabilityValueError("observed_at must be a datetime or ISO timestamp")
+    if parsed.tzinfo is None:
         raise ObservabilityValueError("observed_at must be timezone-aware")
     return parsed.astimezone(UTC)
 
 
-def _canonical_json(value: Any) -> str:
+def _canonical_json(value: object) -> str:
     return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"), default=str)
 
 
@@ -59,10 +108,14 @@ class Observation:
     value: float
     sample_count: int
     contract_version: str = "production.observability.core.v1"
-    labels: Mapping[str, str] = field(default_factory=dict)
+    labels: Mapping[str, str] = field(default_factory=_empty_labels)
 
     def __post_init__(self) -> None:
-        labels = {str(key).strip(): str(value).strip() for key, value in dict(self.labels or {}).items()}
+        raw_labels: object = self.labels
+        labels = {
+            str(key).strip(): str(value).strip()
+            for key, value in _label_items(raw_labels)
+        }
         binding = LabelBinding(self.domain, self.route, self.release_version).normalized()
         object.__setattr__(self, "labels", MappingProxyType(labels))
         object.__setattr__(self, "domain", binding.domain)
@@ -75,16 +128,13 @@ class Observation:
             raise ObservabilityValueError("source_contract_version is required")
         if self.source_contract_version not in SOURCE_CONTRACT_VERSIONS:
             raise ObservabilityValueError("source_contract_version must bind an existing canary contract")
-        if not isinstance(self.metric_family, MetricFamily):
+        if not _is_metric_family(self.metric_family):
             raise ObservabilityTypeError("metric_family is closed")
         if not self.domain or not self.route or not self.release_version:
             raise ObservabilityValueError("domain, route, and release_version labels are required")
         if not math.isfinite(self.value) or self.value < 0 or self.value > 1:
             raise ObservabilityValueError("metric value must be a finite ratio in [0, 1]")
-        sample_count_is_valid = (
-            not isinstance(self.sample_count, bool) and isinstance(self.sample_count, int) and self.sample_count > 0
-        )
-        if not sample_count_is_valid:
+        if not _is_positive_int(self.sample_count):
             raise ObservabilityValueError("sample_count must be a positive integer")
 
     @property
@@ -95,7 +145,7 @@ class Observation:
     def binding(self) -> LabelBinding:
         return LabelBinding(self.domain, self.route, self.release_version)
 
-    def to_dict(self) -> dict[str, Any]:
+    def to_dict(self) -> dict[str, object]:
         return {
             "contract_version": self.contract_version,
             "observation_id": self.observation_id,

@@ -14,7 +14,10 @@ from typing import Any, Callable, NoReturn, TypeAlias
 from functorial_kit import Failure
 
 from .algebra import ObjectType, canonical_digest
-from .object_contracts import _failure, _raise_failure
+from .object_contracts import (
+    language_failure as _failure,
+    raise_language_failure as _raise_failure,
+)
 
 
 class RegistryError(ValueError):
@@ -22,6 +25,7 @@ class RegistryError(ValueError):
 
 
 TransformResult: TypeAlias = "TransformRef | MergeRef | DiscriminatorRef | Failure"
+TransformReference: TypeAlias = "TransformRef | MergeRef | DiscriminatorRef"
 
 
 def _transform_failure(
@@ -128,7 +132,7 @@ def compute_pure_function_digest(
     preserves_value_ref: bool = False,
 ) -> str:
     source = inspect.getsource(func).strip()
-    binding = {
+    binding: dict[str, object] = {
         "source": source,
         "module": func.__module__,
         "qualname": func.__qualname__,

@@ -9,13 +9,14 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Any, Literal, NoReturn
+from typing import Any, Literal, NoReturn, NotRequired, TypedDict
 
 from functorial_kit import Failure
 
 from mrw_functorial_kit.core.w06_semantics import (
     projection_evidence_surface_failures,
 )
+from app.successor_runtime.research.codec import runtime_value
 
 AUTHORITY_KEYS: tuple[str, ...] = (
     "canonical_write",
@@ -35,6 +36,15 @@ DECISION_OWNER = (
 GuardDecision = Literal["admitted", "rejected", "missing"]
 _CREDENTIAL_MARKERS = ("secret", "token", "password", "api_key", "apikey")
 _FAILURE_WITNESS = "test:test_w06_projection_total_core_failure_lifts"
+
+
+class SourceLibraryWorkerObservationContent(TypedDict):
+    item_key: str
+    plan_mode: Literal["resolver", "runner", "sync", "review"]
+    phase: Literal["planned", "provider_dispatch_boundary", "completed_readback"]
+    guard_decision: GuardDecision
+    observed_at: str
+    source_ref: NotRequired[str]
 
 
 def _failure(
@@ -211,7 +221,9 @@ class SourceLibraryWorkerReadback:
 
 
 def project_source_library_worker_readback(
-    records: Iterable[SourceLibraryWorkerObservation],
+    records: Iterable[
+        SourceLibraryWorkerObservation | SourceLibraryWorkerObservationContent
+    ],
 ) -> SourceLibraryWorkerReadback:
     """Project typed observations without dispatching any provider."""
 
@@ -257,7 +269,8 @@ def project_source_library_matrix_row(
 ) -> dict[str, Any]:
     """Render the resource_source_library evidence-matrix row payload."""
 
-    if not isinstance(readback, SourceLibraryWorkerReadback):
+    raw_readback = runtime_value(readback)
+    if not isinstance(raw_readback, SourceLibraryWorkerReadback):
         _reject(
             "source-library matrix row requires typed readback",
             TypeError,

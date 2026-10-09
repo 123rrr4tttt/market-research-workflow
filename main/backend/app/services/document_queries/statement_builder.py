@@ -6,7 +6,7 @@ from typing import Annotated, TypeGuard
 
 from functorial_kit import Failure
 
-from sqlalchemy import Select, or_, select
+from sqlalchemy import SQLColumnExpression, Select, or_, select
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.sql.elements import ColumnElement
 
@@ -64,7 +64,16 @@ _SORT_MAP = {
     "relevance": Document.publish_date,
 }
 
-FieldExpression = ColumnElement[int] | ColumnElement[str] | ColumnElement[date] | ColumnElement[datetime]
+FieldExpression = (
+    SQLColumnExpression[int]
+    | SQLColumnExpression[int | None]
+    | SQLColumnExpression[str]
+    | SQLColumnExpression[str | None]
+    | SQLColumnExpression[date | None]
+    | SQLColumnExpression[datetime | None]
+    | SQLColumnExpression[dict[str, object] | None]
+    | ColumnElement[object]
+)
 
 
 def _is_str_object_mapping(value: object) -> TypeGuard[Mapping[str, object]]:
@@ -178,7 +187,7 @@ def _field_expression(field: str) -> FieldExpression | Failure:
         path = [part for part in cleaned.split(".")[1:] if part]
         if not path:
             return document_query_failure("statement_invalid", "extracted_data filter path is required", owner="document_queries.statement_builder.field")
-        expr: ColumnElement[object] | ColumnElement[str] = Document.extracted_data
+        expr: FieldExpression = Document.extracted_data
         for part in path:
             expr = expr[part]
         return expr.astext

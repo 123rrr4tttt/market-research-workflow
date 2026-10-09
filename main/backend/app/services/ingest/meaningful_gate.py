@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import dataclass
-from typing import Annotated, Any
+from typing import Annotated, Iterable, Protocol, runtime_checkable, TypeGuard
 from urllib.parse import urlparse
 
 from ...settings.config import settings
@@ -17,9 +17,9 @@ class GateDecision:
     blocked: bool
     reason: str
     quality_score: float
-    diagnostics: dict[str, Any]
+    diagnostics: dict[str, object]
 
-    def to_dict(self) -> dict[str, Any]:
+    def to_dict(self) -> dict[str, object]:
         reason_code = normalize_reason_code(self.reason, default="unknown_rejection_reason")
         return {
             "accepted": self.accepted,
@@ -58,20 +58,69 @@ _RSS_FEED_SHELL_MARKERS = (
 _MOJIBAKE_MARKERS = ("Ã", "Â", "�", "â€”", "â€œ", "â€", "è", "æ", "é©¾", "å·", "ç")
 
 
-def _parse_config_list(raw: Any, defaults: tuple[str, ...]) -> list[str]:
+def _is_string_key(value: object) -> bool:
+    return isinstance(value, str)
+
+
+@runtime_checkable
+class _StringKeyInspectable(Protocol):
+    def keys(self) -> Iterable[object]: ...
+
+
+def _has_only_string_keys(value: object) -> bool:
+    if not isinstance(value, _StringKeyInspectable):
+        return False
+    return all(map(_is_string_key, value.keys()))
+
+
+def _is_object_list(value: object) -> TypeGuard[list[object]]:
+    return isinstance(value, list)
+
+
+def _is_object_dict(value: object) -> TypeGuard[dict[str, object]]:
+    if not _has_only_string_keys(value):
+        return False
+    return isinstance(value, dict)
+
+
+def _object_dict(value: object) -> dict[str, object]:
+    return dict(value) if _is_object_dict(value) else {}
+
+
+def _text_list(value: object) -> list[str]:
+    if not _is_object_list(value):
+        return []
+    return [text for item in value if (text := str(item or "").strip())]
+
+
+def _safe_int(value: object, default: int) -> int:
+    try:
+        return int(value) if isinstance(value, (str, bytes, int, float)) else default
+    except (TypeError, ValueError):
+        return default
+
+
+def _safe_float(value: object, default: float) -> float:
+    try:
+        return float(value) if isinstance(value, (str, bytes, int, float)) else default
+    except (TypeError, ValueError):
+        return default
+
+
+def _parse_config_list(raw: object, defaults: tuple[str, ...]) -> list[str]:
     if raw is None:
         return list(defaults)
-    if isinstance(raw, list):
-        values = [str(x).strip() for x in raw if str(x or "").strip()]
+    if _is_object_list(raw):
+        values = _text_list(raw)
         return values or list(defaults)
     text = str(raw).strip()
     if not text:
         return list(defaults)
     if text.startswith("[") and text.endswith("]"):
         try:
-            parsed = json.loads(text)
-            if isinstance(parsed, list):
-                values = [str(x).strip() for x in parsed if str(x or "").strip()]
+            parsed: object = json.loads(text)
+            if _is_object_list(parsed):
+                values = _text_list(parsed)
                 return values or list(defaults)
         except Exception:
             pass
@@ -79,17 +128,18 @@ def _parse_config_list(raw: Any, defaults: tuple[str, ...]) -> list[str]:
     return values or list(defaults)
 
 
-def _resolve_gate_config(config: dict[str, Any] | None = None) -> dict[str, Any]:
+def _resolve_gate_config(config: dict[str, object] | None = None) -> dict[str, object]:
     cfg = dict(config or {})
+    settings_map: dict[str, object]
     try:
-        settings_map = settings.model_dump()
+        settings_map = _object_dict(settings.model_dump())
     except Exception:
         settings_map = {}
     strict_gate_default = bool(settings_map.get("ingest_enable_strict_gate", False))
     low_value_domains_default = settings_map.get("ingest_low_value_domains", ",".join(_DEFAULT_LOW_VALUE_DOMAINS))
     low_value_paths_default = settings_map.get("ingest_low_value_path_keywords", ",".join(_DEFAULT_LOW_VALUE_PATH_KEYWORDS))
     shell_signatures_default = settings_map.get("ingest_shell_signatures", ",".join(_DEFAULT_SHELL_SIGNATURES))
-    min_semantic_len_default = int(settings_map.get("ingest_min_semantic_len", 500))
+    min_semantic_len_default = _safe_int(settings_map.get("ingest_min_semantic_len"), 500)
     return {
         "enable_strict_gate": bool(cfg.get("enable_strict_gate", strict_gate_default)),
         "low_value_domains": [
@@ -101,7 +151,7 @@ def _resolve_gate_config(config: dict[str, Any] | None = None) -> dict[str, Any]
         "shell_signatures": [
             x.lower() for x in _parse_config_list(cfg.get("shell_signatures", shell_signatures_default), _DEFAULT_SHELL_SIGNATURES)
         ],
-        "min_semantic_len": int(cfg.get("min_semantic_len", min_semantic_len_default)),
+        "min_semantic_len": _safe_int(cfg.get("min_semantic_len"), min_semantic_len_default),
     }
 
 
@@ -127,10 +177,10 @@ def _is_api_status_wrapper(text: str) -> bool:
     if not raw.startswith("{") or not raw.endswith("}"):
         return False
     try:
-        payload = json.loads(raw)
+        payload: object = json.loads(raw)
     except Exception:
         return False
-    if not isinstance(payload, dict):
+    if not _is_object_dict(payload):
         return False
     if "url" not in payload or "status" not in payload:
         return False
@@ -143,7 +193,7 @@ def _js_template_hits(lower_text: str) -> int:
     return sum(lower_text.count(marker) for marker in _JS_TEMPLATE_MARKERS)
 
 
-def url_policy_check(uri: str, config: dict[str, Any] | None = None) -> GateDecision:
+def url_policy_check(uri: str, config: dict[str, object] | None = None) -> GateDecision:
     cfg = _resolve_gate_config(config)
     parsed = urlparse(str(uri or "").strip())
     domain = str(parsed.netloc or "").strip().lower()
@@ -157,7 +207,7 @@ def url_policy_check(uri: str, config: dict[str, Any] | None = None) -> GateDeci
             diagnostics={"domain": domain, "path": path},
         )
 
-    domain_hit = next((d for d in cfg["low_value_domains"] if domain == d or domain.endswith(f".{d}")), None)
+    domain_hit = next((d for d in _text_list(cfg["low_value_domains"]) if domain == d or domain.endswith(f".{d}")), None)
     if domain_hit:
         return GateDecision(
             accepted=False,
@@ -167,7 +217,7 @@ def url_policy_check(uri: str, config: dict[str, Any] | None = None) -> GateDeci
             diagnostics={"domain": domain, "path": path, "matched_domain": domain_hit},
         )
 
-    path_hit = next((kw for kw in cfg["low_value_path_keywords"] if kw and kw in path), None)
+    path_hit = next((kw for kw in _text_list(cfg["low_value_path_keywords"]) if kw and kw in path), None)
     if path_hit:
         return GateDecision(
             accepted=False,
@@ -190,9 +240,9 @@ def content_quality_check(
     uri: str,
     content: str,
     doc_type: str | None,
-    extraction_status: dict[str, Any] | str | None = None,
-    config: dict[str, Any] | None = None,
-    content_profile: dict[str, Any] | None = None,
+    extraction_status: dict[str, object] | str | None = None,
+    config: dict[str, object] | None = None,
+    content_profile: dict[str, object] | None = None,
 ) -> GateDecision:
     cfg = _resolve_gate_config(config)
     text = str(content or "")
@@ -200,7 +250,7 @@ def content_quality_check(
     lower = stripped.lower()
     semantic_len = _semantic_text_len(stripped)
     profile = dict(content_profile or {})
-    min_len = max(1, int(cfg["min_semantic_len"]))
+    min_len = max(1, _safe_int(cfg["min_semantic_len"], 500))
     if not cfg["enable_strict_gate"]:
         return GateDecision(
             accepted=True,
@@ -229,10 +279,10 @@ def content_quality_check(
         )
 
     page_family = str(profile.get("page_family") or "").strip().lower()
-    main_text_ratio = float(profile.get("main_text_ratio") or 0.0)
-    js_profile_hits = int(profile.get("js_template_hits") or 0)
-    shell_marker_hits = int(profile.get("shell_marker_hits") or 0)
-    duplicate_ratio = float(profile.get("duplicate_line_ratio") or 0.0)
+    main_text_ratio = _safe_float(profile.get("main_text_ratio"), 0.0)
+    js_profile_hits = _safe_int(profile.get("js_template_hits"), 0)
+    shell_marker_hits = _safe_int(profile.get("shell_marker_hits"), 0)
+    duplicate_ratio = _safe_float(profile.get("duplicate_line_ratio"), 0.0)
 
     if page_family == "support" and shell_marker_hits >= 3 and main_text_ratio < 0.55:
         return GateDecision(
@@ -270,7 +320,7 @@ def content_quality_check(
             },
         )
 
-    matched_sig = next((sig for sig in cfg["shell_signatures"] if sig and sig in lower), None)
+    matched_sig = next((sig for sig in _text_list(cfg["shell_signatures"]) if sig and sig in lower), None)
     if matched_sig:
         return GateDecision(
             accepted=False,
@@ -405,12 +455,12 @@ def build_gateplus_snapshot(
     *,
     url_gate: GateDecision | None = None,
     content_gate: GateDecision | None = None,
-    provenance_gate: dict[str, Any] | None = None,
+    provenance_gate: dict[str, object] | None = None,
 ) -> Annotated[
-    dict[str, Any],
+    dict[str, object],
     "kit:non-authoritative derived_as=view fact_source=url_gate+content_gate+provenance_gate witness=test:test_w03_ingest_ports_authority_metadata",
 ]:
-    checks: list[dict[str, Any]] = []
+    checks: list[dict[str, object]] = []
 
     if url_gate is not None:
         checks.append({"stage": "pre_fetch_url_gate", **url_gate.to_dict()})
@@ -428,7 +478,7 @@ def build_gateplus_snapshot(
                 "reason": reason,
                 "reason_code": normalize_reason_code(reason, default="provenance_rejected"),
                 "quality_score": 0.0 if blocked else 100.0,
-                "diagnostics": dict(provenance_gate.get("diagnostics") or {}),
+                "diagnostics": _object_dict(provenance_gate.get("diagnostics")),
             }
         )
 

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Annotated, Any, Mapping
+from typing import Annotated, Any, Mapping, NoReturn, TypeGuard
 from uuid import uuid4
 
 from .contracts import raise_workflow_graph_legacy, workflow_graph_failure
@@ -20,7 +20,7 @@ AUDIT_STATUSES = frozenset({"succeeded", "failed", "rejected"})
 HANDOFF_MODES = frozenset({"pull_prepared_evidence", "push_payload"})
 
 
-def _raise_governance_failure(message: str, *, cause: BaseException | None = None) -> None:
+def _raise_governance_failure(message: str, *, cause: BaseException | None = None) -> NoReturn:
     failure = workflow_graph_failure(
         "contract_invalid",
         message,
@@ -189,7 +189,7 @@ def build_handoff_audit_record(
         _raise_governance_failure(f"unsupported handoff_mode: {resolved_mode}")
 
     pack = dict(evidence_pack or {})
-    provenance = pack.get("provenance") if isinstance(pack.get("provenance"), Mapping) else {}
+    provenance = _string_mapping(pack.get("provenance")) or {}
     project_key = str(provenance.get("project_key") or "").strip() or None
 
     record = _base_audit_record(
@@ -271,3 +271,18 @@ def _non_negative_int(value: Any, field: str) -> int:
 
 def _utcnow() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def _is_object_mapping(value: object) -> TypeGuard[Mapping[object, object]]:
+    return isinstance(value, Mapping)
+
+
+def _string_mapping(value: object) -> dict[str, object] | None:
+    if not _is_object_mapping(value):
+        return None
+    result: dict[str, object] = {}
+    for key, item in value.items():
+        if not isinstance(key, str):
+            return None
+        result[key] = item
+    return result

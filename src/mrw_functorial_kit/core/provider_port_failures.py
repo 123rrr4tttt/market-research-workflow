@@ -62,6 +62,7 @@ CrawlerRuntimeFailureCode = Literal[
 ]
 IngestOperationFailureCode = Literal[
     "social_collect_result_invalid",
+    "extraction_payload_invalid",
     "canary_readback_not_object",
     "commodity_collection_failed",
     "ecom_collection_failed",

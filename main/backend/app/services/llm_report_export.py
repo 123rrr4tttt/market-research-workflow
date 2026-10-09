@@ -10,7 +10,7 @@ import zipfile
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from html import escape
-from typing import Annotated, Any, Literal, NoReturn
+from typing import Annotated, Any, Literal, Mapping, NoReturn, TypeGuard
 
 from functorial_kit import Failure
 from mrw_functorial_kit.core.application_failure_semantics import llm_report_request_failures
@@ -106,7 +106,15 @@ def mark_llm_report_export_token_used(payload: dict[str, Any]) -> None:
         mark_llm_report_export_token_used_persistent(payload)
 
 
-def _canonical_json_bytes(value: dict[str, Any]) -> bytes:
+def _is_payload_dict(value: object) -> TypeGuard[dict[str, object]]:
+    return isinstance(value, dict)
+
+
+def _is_payload_list(value: object) -> TypeGuard[list[object]]:
+    return isinstance(value, list)
+
+
+def _canonical_json_bytes(value: Mapping[str, object]) -> bytes:
     return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
 
 
@@ -152,7 +160,7 @@ def _parse_datetime(value: Any) -> datetime | None:
         return None
 
 
-def sign_llm_report_export_token(payload: dict[str, Any], *, token_secret: str | None) -> str:
+def sign_llm_report_export_token(payload: Mapping[str, object], *, token_secret: str | None) -> str:
     payload_part = _base64url_encode(_canonical_json_bytes(payload))
     signature = hmac.new(_token_secret(token_secret), payload_part.encode("ascii"), hashlib.sha256).digest()
     return f"llmrpt-v1.{payload_part}.{_base64url_encode(signature)}"
@@ -178,10 +186,13 @@ def build_llm_report_export_artifact(
     "kit:non-authoritative derived_as=generated_evidence fact_source=llm.report_export witness=test:test_w01_meta",
 ]:
     digest = markdown_sha256(markdown)
-    hard_failures = gate.get("hard_failures") if isinstance(gate.get("hard_failures"), list) else []
-    soft_failures = gate.get("soft_failures") if isinstance(gate.get("soft_failures"), list) else []
-    missing_items = gate.get("missing_items") if isinstance(gate.get("missing_items"), list) else []
-    artifact_seed = {
+    hard_failures_value = gate.get("hard_failures")
+    soft_failures_value = gate.get("soft_failures")
+    missing_items_value = gate.get("missing_items")
+    hard_failures = hard_failures_value if _is_payload_list(hard_failures_value) else []
+    soft_failures = soft_failures_value if _is_payload_list(soft_failures_value) else []
+    missing_items = missing_items_value if _is_payload_list(missing_items_value) else []
+    artifact_seed: dict[str, object] = {
         "trace_id": trace_id,
         "request_id": request_id,
         "project_key": project_key,
@@ -196,17 +207,18 @@ def build_llm_report_export_artifact(
     issued_at_text = _isoformat_utc(issued_at_dt)
     expires_at_text = _isoformat_utc(expires_at_dt)
     normalized_actor_id = _normalize_actor_id(actor_id)
-    token_payload = {
+    token_gate: dict[str, object] = {
+        "decision": str(gate.get("decision") or "fail").strip().lower() or "fail",
+        "gate_version": gate.get("gate_version"),
+        "hard_failures": hard_failures,
+        "soft_failures": soft_failures,
+        "missing_items": missing_items,
+    }
+    token_payload: dict[str, object] = {
         "contract_version": "llm_report.export_artifact_token.v1",
         "artifact_id": artifact_id,
         "markdown_sha256": digest,
-        "gate": {
-            "decision": str(gate.get("decision") or "fail").strip().lower() or "fail",
-            "gate_version": gate.get("gate_version"),
-            "hard_failures": hard_failures,
-            "soft_failures": soft_failures,
-            "missing_items": missing_items,
-        },
+        "gate": token_gate,
         "gate_mode": str(gate_mode or "strict").strip().lower() or "strict",
         "trace_id": trace_id,
         "request_id": request_id,
@@ -225,7 +237,7 @@ def build_llm_report_export_artifact(
         "artifact_sha256": digest,
         "markdown_sha256": digest,
         "markdown_size_bytes": len(str(markdown or "").encode("utf-8")),
-        "gate_decision": token_payload["gate"]["decision"],
+        "gate_decision": token_gate["decision"],
         "gate_mode": token_payload["gate_mode"],
         "trace_id": trace_id,
         "request_id": request_id,
@@ -289,7 +301,7 @@ def verify_llm_report_export_token(
             ),
             cause=exc,
         )
-    if not isinstance(payload, dict):
+    if not _is_payload_dict(payload):
         _raise_report_export_failure(
             _report_export_failure(
                 "invalid_export_token_payload",
@@ -374,13 +386,17 @@ def verify_llm_report_export_token(
 
 
 def export_gate_from_token_payload(payload: dict[str, Any]) -> dict[str, Any]:
-    gate = payload.get("gate") if isinstance(payload.get("gate"), dict) else {}
+    gate_value = payload.get("gate")
+    gate = gate_value if _is_payload_dict(gate_value) else {}
+    hard_failures = gate.get("hard_failures")
+    soft_failures = gate.get("soft_failures")
+    missing_items = gate.get("missing_items")
     return {
         "decision": str(gate.get("decision") or "fail").strip().lower() or "fail",
         "gate_version": gate.get("gate_version"),
-        "hard_failures": gate.get("hard_failures") if isinstance(gate.get("hard_failures"), list) else [],
-        "soft_failures": gate.get("soft_failures") if isinstance(gate.get("soft_failures"), list) else [],
-        "missing_items": gate.get("missing_items") if isinstance(gate.get("missing_items"), list) else [],
+        "hard_failures": hard_failures if _is_payload_list(hard_failures) else [],
+        "soft_failures": soft_failures if _is_payload_list(soft_failures) else [],
+        "missing_items": missing_items if _is_payload_list(missing_items) else [],
     }
 
 
@@ -576,23 +592,6 @@ def _parse_markdown_blocks(markdown: str) -> list[MarkdownBlock]:
     return blocks
 
 
-def _plain_text_from_markdown(markdown: str) -> list[str]:
-    lines: list[str] = []
-    for block in _parse_markdown_blocks(markdown):
-        if block.kind == "heading":
-            lines.append(block.text)
-        elif block.kind in {"paragraph", "quote"}:
-            lines.append(block.text)
-        elif block.kind == "list":
-            for item_index, item in enumerate(block.items, start=1):
-                marker = f"{item_index}." if block.ordered else "-"
-                lines.append(f"{marker} {item}")
-        elif block.kind == "table":
-            for row in block.rows:
-                lines.append(" | ".join(row))
-    return lines
-
-
 def _wrap_pdf_text(text: str, *, max_chars: int = 92) -> list[str]:
     words = str(text or "").split()
     if not words:
@@ -609,10 +608,6 @@ def _wrap_pdf_text(text: str, *, max_chars: int = 92) -> list[str]:
     if current:
         lines.append(current)
     return lines
-
-
-def _pdf_escape(text: str) -> str:
-    return str(text).replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
 
 
 def _pdf_text(text: str) -> str:
@@ -736,7 +731,7 @@ def render_markdown_to_pdf_bytes(
                 current_ops.append(_pdf_rect_fill_op(margin_left, y - row_height + 8.0, table_width, row_height, gray=0.92))
             current_ops.extend(["q 0.70 0.74 0.79 RG 0.4 w", _pdf_line_op(margin_left, y + 3.0, page_width - margin_right, y + 3.0), "Q"])
             for line_number in range(row_line_count):
-                cells = []
+                cells: list[str] = []
                 for lines in cell_lines:
                     cell = lines[line_number] if line_number < len(lines) else ""
                     cells.append(cell[:cell_chars].ljust(cell_chars))
@@ -881,7 +876,7 @@ def _docx_table(rows: tuple[tuple[str, ...], ...]) -> str:
     table_rows: list[str] = []
     for row_index, raw_row in enumerate(rows):
         row = tuple(raw_row) + tuple("" for _ in range(column_count - len(raw_row)))
-        cells = []
+        cells: list[str] = []
         for cell in row:
             cells.append(
                 "<w:tc>"

@@ -14,7 +14,14 @@ from app.services.crawlers_mgmt.workbench import (
     workbench_module,
 )
 
-from .contracts import AgentCoreRequest, CoreToolCall, CoreToolResult, CoreToolSpec
+from .contracts import (
+    AgentCoreRequest,
+    CoreToolCall,
+    CoreToolResult,
+    CoreToolSpec,
+    ToolRisk,
+    json_object,
+)
 from .host_authorization import current_verified_host_authorization, validate_verified_host_authorization
 from .macro_tools import FacilityBinding
 from .tool_contribution import ProjectToolAuthorSource, compile_project_tool_native, ProjectToolAssemblyContext
@@ -24,6 +31,18 @@ WORKBENCH_SKILL_ID = "concept-workbench-project-wiring"
 WORKBENCH_TOOL_PREFIX = "concept_workbench."
 _HOST_AUTHORITY = "agent_core.host_authorization"
 _TEXT = {"type": "string", "minLength": 1, "maxLength": 2048}
+
+
+def _tool_risk(value: object) -> ToolRisk:
+    if value == "read_only":
+        return "read_only"
+    if value == "write_shared":
+        return "write_shared"
+    if value == "write_external":
+        return "write_external"
+    if value == "privileged":
+        return "privileged"
+    raise ValueError("unsupported Concept Workbench tool risk")
 
 
 def _operation_schema(operation: str) -> dict[str, Any]:
@@ -62,7 +81,11 @@ def _handler(operation: str):
             return CoreToolResult(
                 call_id=call.call_id, tool_name=call.tool_name, status="failed",
                 model_summary=checked.message,
-                error={"code": checked.code, "message": checked.message, "context": dict(checked.context or {})},
+                error=json_object({
+                    "code": checked.code,
+                    "message": checked.message,
+                    "context": dict(checked.context or {}),
+                }),
             )
         try:
             if operation == "module":
@@ -72,7 +95,11 @@ def _handler(operation: str):
             elif operation == "method":
                 if set(call.arguments) - {"method_id", "relative_path"}:
                     raise ValueError("Unknown method read arguments.")
-                result = read_workbench_method(**dict(call.arguments))
+                method_id = call.arguments.get("method_id")
+                relative_path = call.arguments.get("relative_path", "SKILL.md")
+                if not isinstance(method_id, str) or not isinstance(relative_path, str):
+                    raise ValueError("Workbench method arguments must be strings.")
+                result = read_workbench_method(method_id, relative_path)
             else:
                 result = run_workbench(operation, dict(call.arguments), str(request.project_key))
         except (ValueError, OSError) as exc:
@@ -120,7 +147,7 @@ def workbench_tool_sources() -> tuple[ProjectToolAuthorSource, ...]:
                 "may execute code; sync/init write project files. Preserve original CLI reports and exit codes."
             ),
             input_schema=schema, output_schema={"type": "object", "additionalProperties": True},
-            source="project", risk=risk, permission="allow", concurrency="serial", timeout_seconds=310,
+            source="project", risk=_tool_risk(risk), permission="allow", concurrency="serial", timeout_seconds=310,
             project_service_id=name, metadata={
                 "contract_version": "concept_workbench.agent_facility.v1",
                 "uses_existing_frontdoor": _HOST_AUTHORITY,
@@ -136,7 +163,7 @@ def workbench_tool_sources() -> tuple[ProjectToolAuthorSource, ...]:
 
 
 def workbench_facilities() -> tuple[FacilityBinding, ...]:
-    bindings = []
+    bindings: list[FacilityBinding] = []
     for source in workbench_tool_sources():
         native = compile_project_tool_native(source)
         if isinstance(native, Failure):

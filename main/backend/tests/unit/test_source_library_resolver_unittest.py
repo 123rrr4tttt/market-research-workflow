@@ -5,6 +5,7 @@ import unittest
 from collections import UserDict
 from dataclasses import replace
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import pytest
@@ -27,6 +28,21 @@ class SourceLibraryResolverUnitTestCase(unittest.TestCase):
     def setUpClass(cls):
         if _IMPORT_ERROR is not None:
             raise unittest.SkipTest(f"source_library resolver unit tests require backend dependencies: {_IMPORT_ERROR}")
+
+    def test_invalid_runner_payload_uses_typed_routing_failure_lift(self):
+        with self.assertRaisesRegex(TypeError, "source-library routing value is not a runner object"):
+            resolver._as_runner_object({"result": object()})
+
+    def test_valid_runner_payload_preserves_recursive_runner_abi(self):
+        payload = {"result": {"records": [{"url": "https://example.com"}], "errors": []}}
+
+        normalized = resolver._as_runner_object(payload)
+
+        self.assertEqual(normalized, payload)
+
+    def test_invalid_nested_runner_payload_uses_typed_routing_failure_lift(self):
+        with self.assertRaisesRegex(TypeError, "source-library routing value is not a runner object"):
+            resolver._as_runner_object({"result": {7: "non-string runner key"}})
 
     def test_url_pool_item_routes_urls_back_to_url_pool_channel_by_default(self):
         item = {"item_key": "url_pool.default", "channel_key": "url_pool"}
@@ -1075,6 +1091,49 @@ class SourceLibraryResolverUnitTestCase(unittest.TestCase):
         )
         self.assertEqual(result["url_routing_parallelism"], 1)
 
+    def test_url_routing_projects_prefetch_rejection_errors_without_fetch(self):
+        item = {"item_key": "url_pool.default", "channel_key": "url_pool"}
+        params = {"urls": ["http://127.0.0.1/admin"]}
+        channel_map = {
+            "url_pool": {
+                "channel_key": "url_pool",
+                "enabled": True,
+                "provider_type": "native",
+                "provider": "url_pool",
+                "kind": "urls",
+                "default_params": {},
+            },
+        }
+        customization = SimpleNamespace(get_channel_handlers=lambda: {})
+
+        with (
+            patch(
+                "app.services.source_library.runner.get_project_customization",
+                return_value=customization,
+            ),
+            patch("app.services.source_library.adapters.url_pool.fetch_html") as fetch_html,
+            patch("app.services.source_library.adapters.url_pool.list_urls") as list_urls,
+            patch(
+                "app.services.source_library.adapters.url_pool._materialize_pdf_artifact"
+            ) as materialize_pdf,
+        ):
+            result = resolver.run_item_with_url_routing(
+                item=item,
+                params=params,
+                project_key=None,
+                channel_map=channel_map,
+            )
+
+        fetch_html.assert_not_called()
+        list_urls.assert_not_called()
+        materialize_pdf.assert_not_called()
+        self.assertEqual(result["records"], [])
+        adapter_errors = result["by_url"][0]["result"]["errors"]
+        self.assertTrue(adapter_errors)
+        self.assertTrue(all("cannot target localhost" in error for error in adapter_errors))
+        self.assertEqual(result["errors"], adapter_errors)
+        self.assertEqual(result["stats"]["errors"], len(adapter_errors))
+
     def test_run_item_payload_resolves_urls_to_url_execution(self):
         item = {
             "item_key": "handler.cluster.news",
@@ -1245,28 +1304,71 @@ class SourceLibraryResolverUnitTestCase(unittest.TestCase):
         self.assertTrue(taxonomy["site_search_authoritative"])
 
     def test_run_item_payload_preserves_opaque_mapping_defaults_and_override(self):
-        default_value, item_value, override_value, extra_value = (object() for _ in range(4))
+        (
+            default_value,
+            item_value,
+            override_value,
+            extra_value,
+            default_scalar_value,
+            item_scalar_value,
+            override_scalar_value,
+            default_nested_value,
+            item_nested_value,
+            override_nested_value,
+        ) = (object() for _ in range(10))
         item = {
             "item_key": "opaque.params",
             "channel_key": "rss.opaque",
             "enabled": True,
-            "params": {"opaque": item_value},
+            "params": {
+                "opaque": item_value,
+                12: item_scalar_value,
+                "nested": {22: item_nested_value},
+            },
             "extra": {"opaque_extra": extra_value},
         }
         channels = [{
             "channel_key": "rss.opaque", "enabled": True,
-            "default_params": UserDict({"default_opaque": default_value, "opaque": default_value}),
+            "default_params": UserDict({
+                "default_opaque": default_value,
+                "opaque": default_value,
+                11: default_scalar_value,
+                "nested": {21: default_nested_value},
+            }),
         }]
         with patch("app.services.source_library.resolver.run_channel", return_value={"records": []}) as run:
             payload = resolver.run_item_payload(
-                item=item, channels=channels, override_params={"opaque": override_value},
+                item=item,
+                channels=channels,
+                override_params={
+                    "opaque": override_value,
+                    13: override_scalar_value,
+                    "nested": {23: override_nested_value},
+                },
             )
         effective = run.call_args.kwargs["params"]
         self.assertIs(effective["default_opaque"], default_value)
         self.assertIs(effective["opaque"], override_value)
+        self.assertIs(effective[11], default_scalar_value)
+        self.assertIs(effective[12], item_scalar_value)
+        self.assertIs(effective[13], override_scalar_value)
+        self.assertIs(effective["nested"][21], default_nested_value)
+        self.assertIs(effective["nested"][22], item_nested_value)
+        self.assertIs(effective["nested"][23], override_nested_value)
         self.assertIs(effective["_source_library_item"]["extra"]["opaque_extra"], extra_value)
         self.assertIs(payload["params"]["opaque"], override_value)
+        self.assertIs(payload["params"][11], default_scalar_value)
+        self.assertIs(payload["params"][12], item_scalar_value)
+        self.assertIs(payload["params"][13], override_scalar_value)
+        self.assertIs(payload["params"]["nested"][21], default_nested_value)
+        self.assertIs(payload["params"]["nested"][22], item_nested_value)
+        self.assertIs(payload["params"]["nested"][23], override_nested_value)
         self.assertIs(payload["result"]["execution_request"]["params"]["opaque"], override_value)
+        self.assertNotIn(11, payload["result"]["execution_request"]["params"])
+        self.assertIs(payload["result"]["execution_request"]["params"][12], item_scalar_value)
+        self.assertIs(payload["result"]["execution_request"]["params"][13], override_scalar_value)
+        self.assertIs(payload["result"]["execution_request"]["params"]["nested"][22], item_nested_value)
+        self.assertIs(payload["result"]["execution_request"]["params"]["nested"][23], override_nested_value)
 
         protocol = resolver._build_frontdoor_protocol(item=item, params=item["params"], project_key=None)
         open_protocol = replace(protocol, concurrency_plan={"opaque": default_value})
@@ -1290,7 +1392,7 @@ class SourceLibraryResolverUnitTestCase(unittest.TestCase):
         self.assertIs(run.call_args.kwargs["params"]["_source_library_item"]["extra"][7], extra_value)
         self.assertIs(run.call_args.kwargs["params"]["opaque"], item_value)
 
-        for invalid_defaults in ({7: default_value}, [("opaque", default_value)], default_value):
+        for invalid_defaults in ([("opaque", default_value)], default_value):
             with self.subTest(default_type=type(invalid_defaults).__name__):
                 invalid_channels = [{**channels[0], "default_params": invalid_defaults}]
                 with patch("app.services.source_library.resolver.run_channel") as run:

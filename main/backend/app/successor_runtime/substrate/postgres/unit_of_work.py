@@ -13,9 +13,8 @@ import re
 from dataclasses import dataclass
 from typing import Any, Callable, TypeVar
 
-from sqlalchemy import text
-from sqlalchemy.engine import Connection, Engine
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.engine import Connection, Engine, Transaction
+from sqlalchemy.orm import Session, SessionTransaction, sessionmaker
 
 from app.successor_runtime.runtime.ports import ProjectScopeRef
 
@@ -76,7 +75,7 @@ class RuntimeUnitOfWork:
         self,
         *,
         engine: Engine | None = None,
-        session_factory: sessionmaker | None = None,
+        session_factory: sessionmaker[Session] | None = None,
         connection: Connection | None = None,
     ) -> None:
         sources = sum(
@@ -91,12 +90,12 @@ class RuntimeUnitOfWork:
         self._session_factory = session_factory
         self._caller_connection = connection
         self._connection: Connection | None = None
-        self._session: Any = None
-        self._transaction: Any = None
+        self._session: Session | None = None
+        self._transaction: Transaction | SessionTransaction | None = None
         self._owns_connection = False
         self._owns_session = False
         self._terminal = False
-        self._bound: list[Any] = []
+        self._bound: list[object] = []
 
     def __enter__(self) -> "RuntimeUnitOfWork":
         if self._terminal:
@@ -148,7 +147,7 @@ class RuntimeUnitOfWork:
         return self._transaction is not None and not self._terminal
 
     @property
-    def bound_repositories(self) -> tuple[Any, ...]:
+    def bound_repositories(self) -> tuple[object, ...]:
         return tuple(self._bound)
 
     def public_handle(self) -> ConnectionHandle:
@@ -215,9 +214,9 @@ class RuntimeUnitOfWork:
 
     def __exit__(
         self,
-        exc_type: Any,
-        exc: Any,
-        traceback: Any,
+        exc_type: object,
+        exc: object,
+        tb: object,
     ) -> None:
         if not self._terminal and self._transaction is not None:
             self.rollback()

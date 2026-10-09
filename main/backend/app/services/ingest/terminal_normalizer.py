@@ -1,17 +1,50 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from typing import Annotated, Any
+from typing import Annotated, Iterable, Protocol, runtime_checkable, TypeGuard
+
+
+def _is_string_key(value: object) -> bool:
+    return isinstance(value, str)
+
+
+@runtime_checkable
+class _StringKeyInspectable(Protocol):
+    def keys(self) -> Iterable[object]: ...
+
+
+def _has_only_string_keys(value: object) -> bool:
+    if not isinstance(value, _StringKeyInspectable):
+        return False
+    return all(map(_is_string_key, value.keys()))
+
+
+def _is_object_dict(value: object) -> TypeGuard[dict[str, object]]:
+    if not _has_only_string_keys(value):
+        return False
+    return isinstance(value, dict)
+
+
+def _object_dict(value: object) -> dict[str, object]:
+    return dict(value) if _is_object_dict(value) else {}
+
+
+def _is_object_list(value: object) -> TypeGuard[list[object]]:
+    return isinstance(value, list)
+
+
+def _copy_or_empty(value: object) -> object:
+    return deepcopy(value) if value else {}
 
 
 def build_terminal_ingest_payload(
     *,
-    document_candidate: dict[str, Any],
-    ingress_envelope: dict[str, Any],
-    extraction_outcome: dict[str, Any],
-    terminal_context: dict[str, Any] | None = None,
+    document_candidate: dict[str, object],
+    ingress_envelope: dict[str, object],
+    extraction_outcome: dict[str, object],
+    terminal_context: dict[str, object] | None = None,
 ) -> Annotated[
-    dict[str, Any],
+    dict[str, object],
     "kit:non-authoritative derived_as=view fact_source=document_candidate+ingress_envelope+extraction_outcome+terminal_context witness=test:test_w03_ingest_ports_authority_metadata",
 ]:
     candidate = dict(document_candidate or {})
@@ -19,8 +52,8 @@ def build_terminal_ingest_payload(
     extraction = dict(extraction_outcome or {})
     context = dict(terminal_context or {})
 
-    extracted_data = dict(candidate.get("extracted_data_base") or {})
-    domains = dict(extraction.get("domains") or {})
+    extracted_data = _object_dict(candidate.get("extracted_data_base"))
+    domains = _object_dict(extraction.get("domains"))
     extracted_data.update(domains)
 
     structured_status = _normalize_extraction_status(
@@ -32,8 +65,8 @@ def build_terminal_ingest_payload(
     quality_score = _safe_float(context.get("quality_score"), default=_safe_float(extracted_data.get("quality_score"), default=0.0))
     degradation_flags = _normalize_flags(context.get("degradation_flags") or extracted_data.get("degradation_flags"))
 
-    source_ref = dict(extracted_data.get("source_ref") or {})
-    source_ref.update(ingress.get("source_ref") if isinstance(ingress.get("source_ref"), dict) else {})
+    source_ref = _object_dict(extracted_data.get("source_ref"))
+    source_ref.update(_object_dict(ingress.get("source_ref")))
     if candidate.get("uri") and "url" not in source_ref:
         source_ref["url"] = candidate.get("uri")
 
@@ -54,22 +87,22 @@ def build_terminal_ingest_payload(
         "reason": str(structured_reason or "").strip() or None,
         "error": extraction.get("error"),
         "extractor_version": str(extraction.get("extractor_version") or "unified.structured.v1"),
-        "model_profile": deepcopy(extraction.get("model_profile") or {}),
-        "prompt_profile": deepcopy(extraction.get("prompt_profile") or {}),
+        "model_profile": _copy_or_empty(extraction.get("model_profile")),
+        "prompt_profile": _copy_or_empty(extraction.get("prompt_profile")),
         "structured_output_mode": str(extraction.get("structured_output_mode") or "unknown"),
         "quality_score": quality_score,
         "degradation_flags": degradation_flags,
         "http_status": _safe_int(context.get("http_status")),
-        "capability_profile": deepcopy(context.get("capability_profile") or {}),
-        "light_filter": deepcopy(context.get("light_filter") or {}),
-        "summary": deepcopy(extraction.get("summary") or {}),
+        "capability_profile": _copy_or_empty(context.get("capability_profile")),
+        "light_filter": _copy_or_empty(context.get("light_filter")),
+        "summary": _copy_or_empty(extraction.get("summary")),
     }
     extracted_data["terminal"] = {
         "ingestion_entrypoint": extracted_data["ingestion_entrypoint"],
         "source_mode": extracted_data["source_mode"],
         "ingress_type": str(ingress.get("ingress_type") or "unknown"),
         "project_key": ingress.get("project_key"),
-        "trace_id": ((ingress.get("meta") or {}).get("trace_id") if isinstance(ingress.get("meta"), dict) else None),
+        "trace_id": _object_dict(ingress.get("meta")).get("trace_id"),
     }
     extracted_data["domains"] = {
         "policy": deepcopy(domains.get("policy") if isinstance(domains.get("policy"), dict) else extracted_data.get("policy")),
@@ -107,7 +140,7 @@ def build_terminal_ingest_payload(
     }
 
 
-def _normalize_extraction_status(value: Any) -> str:
+def _normalize_extraction_status(value: object) -> str:
     raw = str(value or "").strip().lower()
     if raw in {"ok", "partial", "failed", "skipped"}:
         return raw
@@ -116,14 +149,13 @@ def _normalize_extraction_status(value: Any) -> str:
     return "skipped"
 
 
-def _normalize_flags(value: Any) -> list[str]:
+def _normalize_flags(value: object) -> list[str]:
     if not value:
         return []
-    if not isinstance(value, list):
-        value = [value]
+    values = value if _is_object_list(value) else [value]
     out: list[str] = []
     seen: set[str] = set()
-    for item in value:
+    for item in values:
         text = str(item or "").strip()
         if not text or text in seen:
             continue
@@ -132,17 +164,21 @@ def _normalize_flags(value: Any) -> list[str]:
     return out
 
 
-def _safe_float(value: Any, *, default: float) -> float:
+def _safe_float(value: object, *, default: float) -> float:
+    if not isinstance(value, (str, bytes, int, float)):
+        return float(default)
     try:
         return float(value)
-    except Exception:
+    except (OverflowError, TypeError, ValueError):
         return float(default)
 
 
-def _safe_int(value: Any) -> int | None:
+def _safe_int(value: object) -> int | None:
+    if not isinstance(value, (str, bytes, int, float)):
+        return None
     try:
         return int(value)
-    except Exception:
+    except (OverflowError, TypeError, ValueError):
         return None
 
 

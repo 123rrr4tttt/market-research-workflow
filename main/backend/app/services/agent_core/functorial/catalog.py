@@ -15,7 +15,7 @@ from .registry import catalog
 _COLLECTION = "operators"
 
 
-def upsert_operator(spec: OperatorSpec) -> dict[str, Any]:
+def upsert_operator(spec: object) -> dict[str, Any]:
     if not isinstance(spec, OperatorSpec):
         # kit:boundary owner=catalog.py class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w02_programmer_defect_boundary
         raise TypeError("spec must be an OperatorSpec")

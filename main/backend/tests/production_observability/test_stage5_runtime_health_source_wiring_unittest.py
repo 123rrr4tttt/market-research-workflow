@@ -133,11 +133,18 @@ class Stage5RuntimeHealthSourceWiringTestCase(unittest.TestCase):
             capability=capability,
             task_id="run:authority:test",
         )
+        mapped = production_health.runtime_authority_read_signal_from_rows(
+            scope=vars(scope),
+            step=vars(normal_step),
+            capability=vars(capability),
+            task_id="run:authority:test",
+        )
 
         self.assertEqual(normal.read_status, RuntimeAuthorityReadStatus.OBSERVED)
         self.assertEqual(mismatched.read_status, RuntimeAuthorityReadStatus.MISMATCH)
         self.assertEqual(mismatched.mismatch_fields, ("epoch",))
         self.assertEqual(recovered.read_status, RuntimeAuthorityReadStatus.OBSERVED)
+        self.assertEqual(mapped.read_status, RuntimeAuthorityReadStatus.OBSERVED)
 
     def test_task_authority_without_identity_is_not_observed(self) -> None:
         signal = production_health.authority_not_observed(

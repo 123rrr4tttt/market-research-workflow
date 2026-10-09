@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, TypeGuard
 from uuid import uuid4
 
 from sqlalchemy import or_, select
+from sqlalchemy.orm import Session
 
 from ..models.base import run_with_session_retry
 from ..models.llm_report_export_audit import LlmReportExportAuditEvent
@@ -57,8 +58,12 @@ def _parse_recorded_at(value: Any) -> datetime:
     return datetime.now(timezone.utc)
 
 
-def _as_mapping(value: Any) -> dict[str, Any]:
-    return dict(value) if isinstance(value, dict) else {}
+def _is_payload_dict(value: object) -> TypeGuard[dict[str, object]]:
+    return isinstance(value, dict)
+
+
+def _as_mapping(value: object) -> dict[str, object]:
+    return dict(value) if _is_payload_dict(value) else {}
 
 
 def _nested_ui_read_only_context_value(payload: dict[str, Any], key: str) -> Any:
@@ -210,8 +215,8 @@ def _normalized_governance_fields(payload: dict[str, Any], *, trace_id: str, out
     }
 
 
-def _normalize_event(record: dict[str, Any]) -> dict[str, Any]:
-    payload = record if isinstance(record, dict) else {}
+def _normalize_event(record: object) -> dict[str, Any]:
+    payload = _as_mapping(record)
     trace_id = _as_str_or_none(payload.get("trace_id"), max_length=128)
     if not trace_id:
         source = _as_str_or_none(payload.get("source_trace_id") or payload.get("artifact_id"), max_length=72) or "export"
@@ -311,7 +316,7 @@ def _row_to_record(row: LlmReportExportAuditEvent) -> dict[str, Any]:
 
 
 def _persist_export_audit_event(record: dict[str, Any]) -> bool:
-    def _operation(session):
+    def _operation(session: Session):
         row = None
         trace_id = _as_str_or_none(record.get("trace_id"), max_length=128)
         if trace_id:
@@ -402,7 +407,7 @@ def _load_database_export_audit_events(
     export_format: str | None,
     outcome: str | None,
 ) -> tuple[list[dict[str, Any]], bool]:
-    def _operation(session):
+    def _operation(session: Session):
         query = select(LlmReportExportAuditEvent)
         if project_key:
             query = query.where(LlmReportExportAuditEvent.project_key == project_key)
@@ -493,7 +498,7 @@ def _load_database_export_audit_events_by_trace_id(
     limit: int,
     project_key: str | None,
 ) -> tuple[list[dict[str, Any]], bool]:
-    def _operation(session):
+    def _operation(session: Session):
         query = select(LlmReportExportAuditEvent).where(
             or_(
                 LlmReportExportAuditEvent.trace_id == trace_id,

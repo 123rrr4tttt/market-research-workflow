@@ -6,14 +6,16 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 BACKEND_DIR="${ROOT_DIR}/main/backend"
 OPTIONAL_ENHANCEMENTS_SCRIPT="${ROOT_DIR}/scripts/optional-enhancements.sh"
+LOCAL_SERVICE_CONTROL_SCRIPT="${ROOT_DIR}/scripts/local-service-control.sh"
 WORKER_PID_FILE="/tmp/celery-local-worker.pid"
 WORKER_LAUNCHD_LABEL="com.mrw.local-worker"
 
 usage() {
   cat <<USAGE
-Usage: $(basename "$0") {start|stop|restart|preflight|status|health} [extra args...]
+Usage: $(basename "$0") {prepare|start|stop|restart|preflight|status|health} [extra args...]
 
 Commands:
+  prepare    Prepare only Python/frontend/WebUI dependencies in this source root
   start      Start pure-local stack via backend/start-local.sh
   stop       Stop pure-local stack via backend/stop-local.sh
   restart    Restart pure-local stack
@@ -22,8 +24,11 @@ Commands:
   health     Check local backend health endpoints
 
 Examples:
+  local-deploy.sh prepare
+  MRW_DEPENDENCY_SOURCE_ROOT=/absolute/source/root local-deploy.sh prepare
   local-deploy.sh start --with-searxng --with-yacy --with-lancedb
   local-deploy.sh start --backend-only
+  local-deploy.sh start --provision
   local-deploy.sh stop --local-only
 USAGE
 }
@@ -38,12 +43,14 @@ require_backend_dir() {
 resolve_backend_python() {
   if [[ -n "${PYTHON:-}" ]]; then
     printf '%s\n' "${PYTHON}"
+  elif [[ -x "${BACKEND_DIR}/.venv311/bin/python" ]]; then
+    printf '%s\n' "${BACKEND_DIR}/.venv311/bin/python"
+  elif [[ -x "${BACKEND_DIR}/.venv/bin/python" ]]; then
+    printf '%s\n' "${BACKEND_DIR}/.venv/bin/python"
   elif [[ -x "/Users/wangyiliang/.local/bin/python3.11" ]]; then
     printf '%s\n' "/Users/wangyiliang/.local/bin/python3.11"
   elif command -v python3.11 >/dev/null 2>&1; then
     command -v python3.11
-  elif [[ -x "${BACKEND_DIR}/.venv/bin/python" ]]; then
-    printf '%s\n' "${BACKEND_DIR}/.venv/bin/python"
   else
     printf '%s\n' "python3"
   fi
@@ -328,6 +335,7 @@ shift
 ENHANCEMENT_ARGS=()
 START_LOCAL_ARGS=()
 STOP_LOCAL_ARGS=()
+LOCAL_STOP_ONLY=0
 HELP_REQUESTED=0
 for arg in "$@"; do
   case "$arg" in
@@ -349,6 +357,11 @@ for arg in "$@"; do
     --backend-only)
       START_LOCAL_ARGS+=(--backend-only)
       ;;
+    --local-only)
+      START_LOCAL_ARGS+=("$arg")
+      STOP_LOCAL_ARGS+=("$arg")
+      LOCAL_STOP_ONLY=1
+      ;;
     *)
       START_LOCAL_ARGS+=("$arg")
       STOP_LOCAL_ARGS+=("$arg")
@@ -357,6 +370,18 @@ for arg in "$@"; do
 done
 
 case "$cmd" in
+  prepare)
+    require_backend_dir
+    if [[ ${#ENHANCEMENT_ARGS[@]} -gt 0 ]]; then
+      echo "❌ prepare does not start optional enhancements" >&2
+      exit 2
+    fi
+    cd "${BACKEND_DIR}"
+    if [[ ${#START_LOCAL_ARGS[@]} -gt 0 ]]; then
+      exec ./start-local.sh --prepare-dependencies "${START_LOCAL_ARGS[@]}"
+    fi
+    exec ./start-local.sh --prepare-dependencies
+    ;;
   start)
     require_backend_dir
     run_security_preflight_fail_fast
@@ -374,7 +399,12 @@ case "$cmd" in
     exec ./start-local.sh
     ;;
   stop)
-    "${OPTIONAL_ENHANCEMENTS_SCRIPT}" stop || true
+    if [[ "${LOCAL_STOP_ONLY}" -eq 1 ]]; then
+      exec "${LOCAL_SERVICE_CONTROL_SCRIPT}" local-stop
+    fi
+    if [[ "${LOCAL_STOP_ONLY}" -eq 0 ]]; then
+      "${OPTIONAL_ENHANCEMENTS_SCRIPT}" stop || true
+    fi
     require_backend_dir
     cd "${BACKEND_DIR}"
     if [[ ${#STOP_LOCAL_ARGS[@]} -gt 0 ]]; then

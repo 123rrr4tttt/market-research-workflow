@@ -9,9 +9,9 @@ those bytes before publishing the corresponding EFFECT/ADMISSION activation.
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field, replace
-from typing import Any, Literal, cast
+from typing import Any, Literal, TypeGuard
 
 from functorial_kit import Failure
 
@@ -64,6 +64,38 @@ from .failure_policy import raise_runtime_failure, runtime_failure
 
 
 ValueEncoder = Callable[[ObjectType, object], bytes]
+
+
+def _runtime_value(value: object) -> object:
+    return value
+
+
+def _is_object_sequence(value: object) -> TypeGuard[tuple[object, ...] | list[object]]:
+    return isinstance(value, (tuple, list))
+
+
+def _is_string_object_mapping(value: object) -> TypeGuard[Mapping[str, object]]:
+    if not _is_object_mapping(value):
+        return False
+    return all(isinstance(key, str) for key in value)
+
+
+def _is_object_mapping(value: object) -> TypeGuard[Mapping[object, object]]:
+    return isinstance(value, Mapping)
+
+
+def _storage_kind(
+    value: object,
+) -> Literal["project_value_ref", "runtime_blob_ref", "artifact_ref", "canonical_ref"] | None:
+    if value == "project_value_ref":
+        return "project_value_ref"
+    if value == "runtime_blob_ref":
+        return "runtime_blob_ref"
+    if value == "artifact_ref":
+        return "artifact_ref"
+    if value == "canonical_ref":
+        return "canonical_ref"
+    return None
 
 
 def encode_language_value(object_type: ObjectType, value: object) -> bytes:
@@ -673,7 +705,7 @@ def _traversal_materialization_descriptor(
         traversal_input.value_ref.object_type,
     ):
         return _activation_failure("TraverseOrdered input ValueRef type mismatch")
-    if not isinstance(traversal_input.value, (tuple, list)):
+    if not _is_object_sequence(traversal_input.value):
         return _activation_failure("TraverseOrdered input must be a finite sequence")
 
     elements = tuple(traversal_input.value)
@@ -698,8 +730,14 @@ def _traversal_materialization_descriptor(
     static_shape_digest: str | None = None
     static_element_count: int | None = None
     if node.traversal_policy == "STATIC_SHAPE":
-        static_shape_digest = metadata.get("traversal_shape_digest")
-        static_element_count = metadata.get("traversal_element_count")
+        raw_shape_digest = metadata.get("traversal_shape_digest")
+        raw_element_count = metadata.get("traversal_element_count")
+        static_shape_digest = raw_shape_digest if isinstance(raw_shape_digest, str) else None
+        static_element_count = (
+            raw_element_count
+            if isinstance(raw_element_count, int) and not isinstance(raw_element_count, bool)
+            else None
+        )
         if static_shape_digest != shape_digest or static_element_count != len(elements):
             return _activation_failure("STATIC_SHAPE traversal input drift")
     elif node.traversal_policy != "MATERIALIZED_SHAPE":
@@ -870,9 +908,9 @@ def _completed_values(
             except (TypeError, ValueError, OverflowError) as exc:
                 return _activation_failure(str(exc))
         if isinstance(output, SettledTraversalValue):
-            count = cast(object, output.materialization.element_count)
+            count = _runtime_value(output.materialization.element_count)
             raw_value: object = output.value
-            sequence = cast(tuple[object, ...] | list[object], raw_value) if isinstance(raw_value, (tuple, list)) else None
+            sequence = raw_value if _is_object_sequence(raw_value) else None
             if (not isinstance(count, int) or isinstance(count, bool) or count < 0
                     or sequence is None or len(sequence) != count):
                 return _activation_failure("settled traversal output cardinality drift")
@@ -1200,6 +1238,12 @@ def _activation_descriptor(
 ) -> ReadyActivation | Failure:
     if step.operation_id is None:
         return _activation_failure("effect/admission step lacks operation_id")
+    if step.step_kind == "EFFECT":
+        step_kind: Literal["EFFECT", "ADMISSION"] = "EFFECT"
+    elif step.step_kind == "ADMISSION":
+        step_kind = "ADMISSION"
+    else:
+        return _activation_failure("activation descriptor requires effect/admission step kind")
     dependency_refs = tuple(item.value_ref for item in dependencies)
     static_refs = atom.operation.input_refs
     payload_ref = atom.operation.payload_ref
@@ -1208,7 +1252,7 @@ def _activation_descriptor(
         if isinstance(value_ref_check, Failure):
             return value_ref_check
     return finalize_activation_descriptor(plan, ReadyActivation(
-        step_id=step.step_id, step_kind=step.step_kind, operation_id=step.operation_id,
+        step_id=step.step_id, step_kind=step_kind, operation_id=step.operation_id,
         ordered_dependency_refs=dependency_refs, static_atom_input_refs=static_refs,
         payload_ref=payload_ref, input_closure_digest="0" * 64, activation_digest="0" * 64,
     ))
@@ -1256,14 +1300,24 @@ def _unique_embedded_value_ref(value: object, *, project_key: str) -> ValueRef |
     found: list[ValueRef] = []
 
     def visit(item: object) -> Failure | None:
-        if isinstance(item, dict):
+        if _is_string_object_mapping(item):
             if _VALUE_REF_FIELDS <= item.keys():
                 object_value = item["object_type"]
-                if not isinstance(object_value, dict):
+                if not _is_string_object_mapping(object_value):
                     return _activation_failure("embedded ValueRef object_type is malformed")
                 from app.successor_runtime.research.object_types import ObjectType
 
                 try:
+                    byte_size = item["byte_size"]
+                    storage_kind = _storage_kind(item["storage_kind"])
+                    if (
+                        not isinstance(byte_size, int)
+                        or isinstance(byte_size, bool)
+                        or storage_kind is None
+                    ):
+                        return _activation_failure(
+                            "embedded ValueRef storage fields are malformed"
+                        )
                     ref = ValueRef(
                         value_id=str(item["value_id"]),
                         project_key=str(item["project_key"]),
@@ -1277,11 +1331,11 @@ def _unique_embedded_value_ref(value: object, *, project_key: str) -> ValueRef |
                         ),
                         codec_id=str(item["codec_id"]),
                         content_digest=str(item["content_digest"]),
-                        storage_kind=item["storage_kind"],  # type: ignore[arg-type]
+                        storage_kind=storage_kind,
                         store_id=str(item["store_id"]),
                         store_version=str(item["store_version"]),
                         storage_ref=str(item["storage_ref"]),
-                        byte_size=int(item["byte_size"]),
+                        byte_size=byte_size,
                         provenance_digest=str(item["provenance_digest"]),
                     )
                 except (KeyError, TypeError, ValueError, OverflowError) as exc:
@@ -1295,7 +1349,7 @@ def _unique_embedded_value_ref(value: object, *, project_key: str) -> ValueRef |
                 result = visit(child)
                 if isinstance(result, Failure):
                     return result
-        elif isinstance(item, list):
+        elif _is_object_sequence(item):
             for child in item:
                 result = visit(child)
                 if isinstance(result, Failure):

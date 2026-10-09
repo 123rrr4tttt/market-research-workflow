@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
-from typing import Annotated, Any
+from typing import Annotated
 
 from sqlalchemy import insert, select, update
-from sqlalchemy.engine import Connection
+from sqlalchemy.engine import Connection, RowMapping
 
 from app.successor_runtime.capabilities.first_specimen_delivery_gate import (
     DeliveryAssignmentRequest,
@@ -16,6 +15,9 @@ from app.successor_runtime.runtime.assignments import (
     AssignmentKind,
     CompiledStepRole,
     HandlerBindingKind,
+    InterpreterBinding,
+    RecoveryBinding,
+    ReturnContractBinding,
     RuntimeAssignment,
     canonical_digest,
 )
@@ -50,11 +52,19 @@ class PostgresDeliveryRuntimePort:
 
     def admit_delivery(
         self, scope: object, packet: DeliveryReadyPacket
-    ) -> Mapping[str, Any]:
+    ) -> RowMapping:
         self._require_scope(scope)
+        if not isinstance(packet.assignment, RuntimeAssignment):
+            raise ExactBindingConflict("delivery packet lacks a typed RuntimeAssignment")
         assignment = RuntimeAssignment.model_validate(
             packet.assignment.model_dump(mode="json", exclude_none=False)
         )
+        recovery_binding = packet.recovery_binding
+        if not isinstance(recovery_binding, RecoveryBinding):
+            raise ExactBindingConflict("delivery packet lacks a typed RecoveryBinding")
+        operation_contract = assignment.operation_contract_ref
+        if operation_contract is None:
+            raise ExactBindingConflict("delivery assignment lacks an operation contract")
         if (
             assignment.assignment_kind is not AssignmentKind.INTERPRET
             or assignment.project_key != self.scope.project_scope.project_key
@@ -144,9 +154,9 @@ class PostgresDeliveryRuntimePort:
             resource_class=packet.resource_class,
             resource_units=packet.resource_units,
             concurrency_key=packet.concurrency_key,
-            recovery_binding=packet.recovery_binding,
+            recovery_binding=recovery_binding,
             authoritative_readback_profile_ref=(
-                packet.recovery_binding.authoritative_readback_profile_ref
+                recovery_binding.authoritative_readback_profile_ref
             ),
         )
         now = packet.ready_at
@@ -154,7 +164,7 @@ class PostgresDeliveryRuntimePort:
         if existing_step is not None and existing_work is not None:
             expected = {
                 "state": "READY",
-                "operation_kind": assignment.operation_contract_ref.kind,
+                "operation_kind": operation_contract.kind,
                 "input_digest": assignment.input_closure_digest,
                 "claim_authority_epoch": assignment.claim_authority_epoch,
                 "claim_policy_digest": assignment.claim_policy_digest,
@@ -162,8 +172,7 @@ class PostgresDeliveryRuntimePort:
             if any(existing_step[key] != value for key, value in expected.items()):
                 raise ExactBindingConflict("existing delivery step drift")
             if (
-                existing_work is None
-                or existing_work["assignment_digest"] != assignment.assignment_digest
+                existing_work["assignment_digest"] != assignment.assignment_digest
                 or existing_work["state"] != "READY"
             ):
                 raise ExactBindingConflict("existing delivery work drift")
@@ -173,8 +182,8 @@ class PostgresDeliveryRuntimePort:
                 run_id=assignment.run_id,
                 step_id=assignment.step_id,
                 operation_id="delivery.internal_export",
-                operation_kind=assignment.operation_contract_ref.kind,
-                operation_version=assignment.operation_contract_ref.contract_version,
+                operation_kind=operation_contract.kind,
+                operation_version=operation_contract.contract_version,
                 state="READY",
                 revision=assignment.expected_step_revision or 0,
                 execution_epoch=assignment.execution_epoch,
@@ -273,14 +282,17 @@ class PostgresDeliveryRuntimePort:
         )
         if getattr(updated, "rowcount", None) != 1:
             raise StaleRevisionError("delivery event allocator CAS failed")
-        return one_mapping(
+        persisted = one_mapping(
             self.connection.execute(
                 select(work).where(
                     work.c.project_key == assignment.project_key,
                     work.c.work_item_id == assignment.work_item_id,
                 )
             )
-        ) or {}
+        )
+        if persisted is None:
+            raise ExactBindingConflict("delivery work insert readback is absent")
+        return persisted
 
     def _require_scope(self, scope: object) -> None:
         if scope != self.scope:
@@ -298,6 +310,13 @@ def build_delivery_runtime_assignment(
 
     params = request.parameters
     handler = params.handler_binding
+    if not isinstance(handler, InterpreterBinding):
+        raise ExactBindingConflict("delivery assignment requires InterpreterBinding")
+    return_contract = params.return_contract_binding
+    if return_contract is not None and not isinstance(
+        return_contract, ReturnContractBinding
+    ):
+        raise ExactBindingConflict("delivery assignment return contract is untyped")
     return RuntimeAssignment(
         runtime_protocol_version=params.runtime_protocol_version,
         work_item_id=params.work_item_id,
@@ -309,7 +328,7 @@ def build_delivery_runtime_assignment(
         capability_id=params.capability_id,
         operation_contract_ref=params.operation_contract_ref,
         operation_contract_digest=params.operation_contract_ref.contract_digest,
-        return_contract_binding=params.return_contract_binding,
+        return_contract_binding=return_contract,
         handler_binding_kind=HandlerBindingKind.INTERPRETER,
         handler_binding_ref=f"handler-binding:sha256:{handler.binding_digest}",
         handler_binding_digest=handler.binding_digest,

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Annotated, Any, Mapping
+from typing import Annotated, Any, Mapping, Iterable, Protocol, runtime_checkable, TypeGuard
 
 from .gate_reason_codes import normalize_reason_code, reason_category
 
@@ -14,6 +14,27 @@ ROUTER_STATES: tuple[str, ...] = (
     "unsupported",
     "blocked",
 )
+
+
+def _is_string_key(value: object) -> bool:
+    return isinstance(value, str)
+
+
+@runtime_checkable
+class _StringKeyInspectable(Protocol):
+    def keys(self) -> Iterable[object]: ...
+
+
+def _has_only_string_keys(value: object) -> bool:
+    if not isinstance(value, _StringKeyInspectable):
+        return False
+    return all(map(_is_string_key, value.keys()))
+
+
+def _is_string_object_mapping(value: object) -> TypeGuard[Mapping[str, object]]:
+    if not _has_only_string_keys(value):
+        return False
+    return isinstance(value, Mapping)
 
 
 def _as_bool(value: Any, default: bool = False) -> bool:
@@ -155,7 +176,7 @@ def router_contract_from_profile(profile: Mapping[str, Any] | None) -> dict[str,
     if not isinstance(profile, Mapping):
         return None
     existing = profile.get("router_contract")
-    if isinstance(existing, Mapping):
+    if _is_string_object_mapping(existing):
         return dict(existing)
     return build_frontdoor_fetch_router_contract(
         route_hint=_clean_text(profile.get("route_hint")),

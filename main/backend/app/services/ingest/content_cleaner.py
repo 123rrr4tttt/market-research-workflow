@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import re
-from typing import Any
 
 from .content_extraction import is_declared_prepared_text_body
 
@@ -224,7 +223,7 @@ def normalize_content_for_ingest(content: str, *, max_chars: int = 50000) -> str
     return normalized[:max_chars]
 
 
-def clean_frontdoor_document_candidate(document_candidate: dict[str, Any] | None) -> tuple[dict[str, Any], dict[str, Any]]:
+def clean_frontdoor_document_candidate(document_candidate: dict[str, object] | None) -> tuple[dict[str, object], dict[str, object]]:
     candidate = dict(document_candidate or {})
     original_title = str(candidate.get("title") or "")
     original_summary = str(candidate.get("summary") or "")

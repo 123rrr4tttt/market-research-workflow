@@ -21,11 +21,13 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+from collections.abc import Mapping
 from dataclasses import dataclass, field
-from typing import Any, Literal, NoReturn
+from typing import Any, Literal, NoReturn, TypeGuard
 
 from functorial_kit import Failure
 from mrw_functorial_kit.core.w06_semantics import quality_promotion_contract_failures
+from app.successor_runtime.research.codec import runtime_value
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 __all__ = [
@@ -99,6 +101,10 @@ LIVE_PROVIDER_QUALITY_REPLAY_TYPE = "live_provider_quality_replay"
 CRITIC_SCORE_SOURCE = "search_critic.score"
 
 _SENSITIVE_QUERY_KEYS = frozenset({"password", "pass", "pwd", "token", "secret", "access_token"})
+
+
+def _is_object_mapping(value: object) -> TypeGuard[Mapping[object, object]]:
+    return isinstance(value, Mapping)
 
 
 def _as_bool(value: Any, name: str) -> bool:
@@ -256,10 +262,7 @@ class BoundedRetryReadback:
         object.__setattr__(
             self,
             "observations",
-            tuple(
-                item if isinstance(item, RetryBoundaryObservation) else RetryBoundaryObservation(**item)
-                for item in self.observations
-            ),
+            tuple(_retry_boundary_observation(item) for item in self.observations),
         )
         object.__setattr__(self, "enabled", _as_bool(self.enabled, "enabled"))
         object.__setattr__(
@@ -306,9 +309,11 @@ class FixtureQualityReadback:
             "case_count",
             _as_int(self.case_count, "case_count", minimum=0),
         )
-        if not isinstance(self.critic, CriticScoreReadback):
+        raw_critic = runtime_value(self.critic)
+        if not isinstance(raw_critic, CriticScoreReadback):
             _reject("FixtureQualityReadback.critic must be typed", TypeError, code="evidence_type_invalid")
-        if not isinstance(self.retry, BoundedRetryReadback):
+        raw_retry = runtime_value(self.retry)
+        if not isinstance(raw_retry, BoundedRetryReadback):
             _reject("FixtureQualityReadback.retry must be typed", TypeError, code="evidence_type_invalid")
         object.__setattr__(
             self,
@@ -469,6 +474,64 @@ class LiveProviderRowEvidence:
         )
 
 
+def _retry_boundary_observation(value: object) -> RetryBoundaryObservation:
+    if isinstance(value, RetryBoundaryObservation):
+        return value
+    if not _is_object_mapping(value):
+        _reject(
+            "retry observation must be typed or an object",
+            TypeError,
+            code="evidence_type_invalid",
+        )
+    return RetryBoundaryObservation(
+        case_id=_as_text(value.get("case_id"), "case_id"),
+        expected_decision=_as_text(
+            value.get("expected_decision"), "expected_decision"
+        ),
+        decision=_as_text(value.get("decision"), "decision"),
+        critic_score=_as_float(
+            value.get("critic_score", 0.0),
+            "critic_score",
+            minimum=0.0,
+            maximum=1.0,
+        ),
+        replay_score_is_observational=_as_bool(
+            value.get("replay_score_is_observational", True),
+            "replay_score_is_observational",
+        ),
+    )
+
+
+def _live_provider_row(value: object) -> LiveProviderRowEvidence:
+    if isinstance(value, LiveProviderRowEvidence):
+        return value
+    if not _is_object_mapping(value):
+        _reject(
+            "provider row must be typed or an object",
+            TypeError,
+            code="provider_replay_invalid",
+        )
+    return LiveProviderRowEvidence(
+        provider=_as_text(value.get("provider"), "provider"),
+        replay_status=_as_text(value.get("replay_status"), "replay_status"),
+        result_count=_as_int(value.get("result_count", 0), "result_count"),
+        source_domains=_as_tuple(value.get("source_domains", ()), "source_domains"),
+        relevance_score=_as_float(value.get("relevance_score", 0.0), "relevance_score"),
+        freshness_score=_as_float(value.get("freshness_score", 0.0), "freshness_score"),
+        duplicate_rate=_as_float(value.get("duplicate_rate", 0.0), "duplicate_rate"),
+        timeout_rate=_as_float(value.get("timeout_rate", 0.0), "timeout_rate"),
+        p95_latency_ms=_as_float(value.get("p95_latency_ms", 0.0), "p95_latency_ms"),
+        review_sample_count=_as_int(
+            value.get("review_sample_count", 0), "review_sample_count"
+        ),
+        review_visible_sample_count=_as_int(
+            value.get("review_visible_sample_count", 0),
+            "review_visible_sample_count",
+        ),
+        trace_success=_as_bool(value.get("trace_success", False), "trace_success"),
+    )
+
+
 @dataclass(frozen=True, slots=True)
 class LiveProviderReplayReadback:
     """Explicit post-run live provider replay artifact and threshold rows."""
@@ -489,10 +552,7 @@ class LiveProviderReplayReadback:
         object.__setattr__(
             self,
             "provider_rows",
-            tuple(
-                item if isinstance(item, LiveProviderRowEvidence) else LiveProviderRowEvidence(**item)
-                for item in self.provider_rows
-            ),
+            tuple(_live_provider_row(item) for item in self.provider_rows),
         )
         object.__setattr__(
             self,
@@ -685,17 +745,23 @@ class QualityGateEvidence:
     thresholds: LiveQualityThresholds = field(default_factory=LiveQualityThresholds)
 
     def __post_init__(self) -> None:
-        if self.fixture_replay is not None and not isinstance(self.fixture_replay, FixtureQualityReadback):
+        fixture_replay = runtime_value(self.fixture_replay)
+        if fixture_replay is not None and not isinstance(fixture_replay, FixtureQualityReadback):
             _reject("fixture_replay must be typed or None", code="evidence_type_invalid")
-        if self.executor_health is not None and not isinstance(self.executor_health, ExecutorHealthEvidence):
+        executor_health = runtime_value(self.executor_health)
+        if executor_health is not None and not isinstance(executor_health, ExecutorHealthEvidence):
             _reject("executor_health must be typed or None", code="executor_health_invalid")
-        if self.live_replay is not None and not isinstance(self.live_replay, LiveProviderReplayReadback):
+        live_replay = runtime_value(self.live_replay)
+        if live_replay is not None and not isinstance(live_replay, LiveProviderReplayReadback):
             _reject("live_replay must be typed or None", code="provider_replay_invalid")
-        if self.rollout_policy is not None and not isinstance(self.rollout_policy, ProviderRolloutPolicyEvidence):
+        rollout_policy = runtime_value(self.rollout_policy)
+        if rollout_policy is not None and not isinstance(rollout_policy, ProviderRolloutPolicyEvidence):
             _reject("rollout_policy must be typed or None", code="evidence_type_invalid")
-        if self.input_promotion_claim is not None and not isinstance(self.input_promotion_claim, InputPromotionClaim):
+        promotion_claim = runtime_value(self.input_promotion_claim)
+        if promotion_claim is not None and not isinstance(promotion_claim, InputPromotionClaim):
             _reject("input_promotion_claim must be typed or None", code="evidence_type_invalid")
-        if not isinstance(self.thresholds, LiveQualityThresholds):
+        thresholds = runtime_value(self.thresholds)
+        if not isinstance(thresholds, LiveQualityThresholds):
             _reject("thresholds must be typed", TypeError, code="evidence_type_invalid")
 
 

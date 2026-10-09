@@ -49,7 +49,6 @@ from app.successor_runtime.runtime.node import (
     DefiniteInterpreterFailure,
     MaterializerCommitOutcome,
     RuntimeExecutionContext,
-    RuntimeHandler,
 )
 from app.successor_runtime.runtime.ports import RuntimeScope
 
@@ -274,7 +273,7 @@ def materialize_gap_successor(
     )
 
 
-class PostgresGapSuccessorHandler(RuntimeHandler):
+class PostgresGapSuccessorHandler:
     """Exact RuntimeNode realization of one MaterializerBinding."""
 
     interpreter_profile_digest = None

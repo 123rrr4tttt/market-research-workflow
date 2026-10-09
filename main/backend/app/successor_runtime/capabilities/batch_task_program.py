@@ -54,7 +54,7 @@ def exact_contract_ref(
 ) -> OperationContractRef:
     result = try_exact_contract_ref(catalog, kind=kind)
     if isinstance(result, Failure):
-        batch_task._raise_contract_failure(result)
+        batch_task.raise_agent_batch_contract_failure(result)
     return result
 
 
@@ -65,7 +65,7 @@ def try_exact_contract_ref(
 ) -> OperationContractRef | Failure:
     ref = catalog.lookup(kind)
     if ref is None:
-        return batch_task._failure(
+        return batch_task.agent_batch_contract_failure(
             "catalog_contract_invalid",
             f"contract {kind} missing from catalog {catalog.catalog_id}",
             site="program/exact_contract_ref",
@@ -93,7 +93,7 @@ def payload_value_ref(
         value_suffix=value_suffix,
     )
     if isinstance(result, Failure):
-        batch_task._raise_contract_failure(result)
+        batch_task.raise_agent_batch_contract_failure(result)
     return result
 
 
@@ -114,7 +114,9 @@ def try_payload_value_ref(
     exact_bytes = exact_text.encode("utf-8")
     content_digest_hex = sha256_hex(exact_bytes)
     payload_digest = str(getattr(payload, "payload_digest", "") or "")
-    digest_failure = batch_task._hex64_failure(payload_digest, "payload payload_digest")
+    digest_failure = batch_task.agent_batch_hex64_failure(
+        payload_digest, "payload payload_digest"
+    )
     if digest_failure is not None:
         return digest_failure
     value_id = f"{program_id}:payload:{value_suffix}"
@@ -147,7 +149,7 @@ def try_payload_value_ref(
 
 def _payload_value_ref_failure(payload: Any, *, project_key: str) -> Failure | None:
     if getattr(payload, "project_key", None) != project_key:
-        return batch_task._failure(
+        return batch_task.agent_batch_contract_failure(
             "scope_contract_invalid",
             "payload project scope drift",
             site="program/payload_value_ref/project_key",
@@ -163,19 +165,19 @@ def _batch_task_program_scope_failure(
     project_scope_digest: str,
 ) -> Failure | None:
     if getattr(payload, "project_key", None) != project_key:
-        return batch_task._failure(
+        return batch_task.agent_batch_contract_failure(
             "scope_contract_invalid",
             "payload project_key does not match Program project_key",
             site="program/scope/project_key",
         )
     if getattr(payload, "registry_revision", None) != project_registry_revision:
-        return batch_task._failure(
+        return batch_task.agent_batch_contract_failure(
             "scope_contract_invalid",
             "payload registry revision does not match Program registry revision",
             site="program/scope/registry_revision",
         )
     if getattr(payload, "scope_digest", None) != project_scope_digest:
-        return batch_task._failure(
+        return batch_task.agent_batch_contract_failure(
             "scope_contract_invalid",
             "payload scope digest does not match Program scope digest",
             site="program/scope/scope_digest",
@@ -211,7 +213,7 @@ def _build_batch_task_program(
         project_scope_digest=project_scope_digest,
     )
     if failure is not None:
-        batch_task._raise_contract_failure(failure)
+        batch_task.raise_agent_batch_contract_failure(failure)
     ref = exact_contract_ref(catalog, kind=kind)
     value_ref = payload_value_ref(
         payload,
@@ -410,13 +412,16 @@ def build_batch_business_program(
 ) -> Annotated[ProgramSpec, 'kit:non-authoritative derived_as=program fact_source=ordered_batch_dispatch_and_business_contracts witness=test:test_post_waits_for_real_business_outputs_in_input_order']:
     """Ordered item dispatch followed by the actual business terminal readback."""
     if not payloads:
-        batch_task._raise_contract_failure(batch_task._failure(
+        batch_task.raise_agent_batch_contract_failure(batch_task.agent_batch_contract_failure(
             "schema_contract_invalid", "business program requires at least one payload",
             site="program/business/payloads",
         ))
     wait = exact_contract_ref(catalog, kind=batch_business.BUSINESS_WAIT_KIND)
-    roots: list[ProgramNode] = []
-    for index, payload in enumerate(payloads):
+
+    def build_item(
+        index: int,
+        payload: batch_task.BatchTaskSingleDispatchPayload,
+    ) -> tuple[ProgramSpec, ProgramNode]:
         item = build_batch_task_single_dispatch_program(
             payload=payload, catalog=catalog, program_id=f"{program_id}:{index}",
             project_key=project_key, project_registry_revision=project_registry_revision,
@@ -435,7 +440,14 @@ def build_batch_business_program(
             payload_ref=dispatch.operation.payload_ref, allowed_overrides=freeze_json_object({}),
         ), input_type=batch_task.DISPATCH_SINGLE_ACK_TYPE,
             output_type=batch_business.BUSINESS_WAIT_RESULT_TYPE)
-        roots.append(then_node(dispatch, waiter))
+        return item, then_node(dispatch, waiter)
+
+    first_payload, *remaining_payloads = payloads
+    item, first_root = build_item(0, first_payload)
+    roots = [first_root]
+    for index, payload in enumerate(remaining_payloads, start=1):
+        item, root = build_item(index, payload)
+        roots.append(root)
     seq = sequence_object_type(batch_business.BUSINESS_WAIT_RESULT_TYPE, version="2")
     registry = TransformRegistry()
     pair, append = _register_ordered_dispatch_merges(

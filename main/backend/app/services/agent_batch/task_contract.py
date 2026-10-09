@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from copy import deepcopy
 import re
-from typing import Annotated, Any, NoReturn
+from typing import Annotated, Any, NoReturn, TypeGuard
 
 from functorial_kit import Failure
 from mrw_functorial_kit.core.agent_service_semantics import agent_batch_failures
@@ -95,7 +95,7 @@ _RUNTIME_PARAM_ALIASES_BY_CHANNEL = {
 }
 
 
-def _raise_legacy_agent_batch_failure(failure: Failure) -> NoReturn:
+def raise_legacy_agent_batch_failure(failure: Failure) -> NoReturn:
     """Lift one closed core failure into the legacy public exception ABI."""
     if not agent_batch_failures.matches(failure):
         # kit:boundary owner=agent_batch.public_abi class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w02_abi_lift_rejects_non_agent_batch_failure_as_programmer_defect
@@ -116,6 +116,31 @@ def _raise_legacy_agent_batch_failure(failure: Failure) -> NoReturn:
         raise (KeyError(message) if failure.code == "channel_unknown" else ValueError(message))
     # kit:boundary owner=agent_batch.public_abi class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w02_abi_lift_rejects_non_agent_batch_failure_as_programmer_defect
     raise TypeError(f"unsupported agent batch failure code: {failure.code}")
+
+
+def _raise_legacy_agent_batch_failure(failure: Failure) -> NoReturn:
+    raise_legacy_agent_batch_failure(failure)
+
+
+def _is_object_dict(value: object) -> TypeGuard[dict[str, object]]:
+    return isinstance(value, dict)
+
+
+def _is_object_list(value: object) -> TypeGuard[list[object]]:
+    return isinstance(value, list)
+
+
+def _object_dict_or_empty(value: object) -> dict[str, object]:
+    return dict(value) if _is_object_dict(value) else {}
+
+
+def _int_or_default(value: Any, default: int) -> int:
+    if value is None:
+        return default
+    try:
+        return int(value)
+    except Exception:
+        return default
 
 _RETRY_ACTION_ALLOWED_VALUES = [
     "expand_query_terms",
@@ -696,7 +721,7 @@ def _normalize_retry_rewrite_value(field: str, value: Any) -> Any:
     if field == "days_back":
         return normalize_days_back(value)
     if field == "override_params":
-        return dict(value or {}) if isinstance(value, dict) else None
+        return dict(value) if _is_object_dict(value) else None
     text = str(value or "").strip()
     return text or None
 
@@ -719,9 +744,10 @@ def validate_retry_action_payload(
     if action != "stop" and channel not in _REWRITE_ELIGIBLE_FIELDS_BY_CHANNEL:
         return None, "retry_action_channel_invalid", {"channel": channel}
 
-    raw_rewrite = raw.get("rewrite") or {}
-    if not isinstance(raw_rewrite, dict):
+    raw_rewrite_value: object = raw.get("rewrite") or {}
+    if not _is_object_dict(raw_rewrite_value):
         return None, "retry_action_rewrite_invalid", {"action": action}
+    raw_rewrite = raw_rewrite_value
 
     allowed_fields = set(get_retry_action_allowed_fields(action, channel))
     required_fields = set(get_retry_action_required_fields(action, channel))
@@ -884,10 +910,10 @@ def normalize_days_back(value: Any) -> int | None:
 
 
 def normalize_query_terms(value: Any) -> list[str]:
-    raw = value
+    raw: object = value
     if isinstance(raw, str):
         raw = [raw]
-    if not isinstance(raw, list):
+    if not _is_object_list(raw):
         return []
     out: list[str] = []
     for item in raw:
@@ -898,7 +924,7 @@ def normalize_query_terms(value: Any) -> list[str]:
 
 
 def normalize_string_list(value: Any) -> list[str]:
-    if not isinstance(value, list):
+    if not _is_object_list(value):
         return []
     out: list[str] = []
     for item in value:
@@ -914,13 +940,13 @@ def normalize_agent_batch_task(task: dict[str, Any], *, idx: int, default_langua
     if spec is None:
         return {}
 
-    defaults = dict(spec.get("defaults") or {})
-    max_items_default = int(defaults.get("max_items") or 20)
+    defaults = _object_dict_or_empty(spec.get("defaults"))
+    max_items_default = _int_or_default(defaults.get("max_items"), 20)
     provider_default = str(defaults.get("provider") or "auto").strip() or "auto"
     source_mode_default = str(defaults.get("source_mode") or "").strip() or None
 
     try:
-        max_items = int(task.get("max_items") if task.get("max_items") is not None else max_items_default)
+        max_items = _int_or_default(task.get("max_items"), max_items_default)
     except Exception:
         max_items = max_items_default
     max_items = max(1, min(100, max_items))
@@ -938,7 +964,7 @@ def normalize_agent_batch_task(task: dict[str, Any], *, idx: int, default_langua
         "scope": str(task.get("scope") or "").strip() or None,
         "platforms": normalize_string_list(task.get("platforms")) or None,
         "source_mode": str(task.get("source_mode") or source_mode_default or "").strip() or None,
-        "override_params": dict(task.get("override_params") or {}),
+        "override_params": _object_dict_or_empty(task.get("override_params")),
     }
 
 
@@ -1057,9 +1083,9 @@ def _resolve_search_brief_days_back(*, tasks: list[dict[str, Any]]) -> int | Non
 def _resolve_time_strategy_mode(*, tasks: list[dict[str, Any]], retrieval_mode: str) -> str:
     if retrieval_mode == _RETRIEVAL_MODE_SOURCE_ONLY:
         return "source_only"
-    if any(isinstance(task.get("days_back"), int) and int(task.get("days_back")) <= 30 for task in tasks):
+    if any(isinstance(days_back := task.get("days_back"), int) and days_back <= 30 for task in tasks):
         return "recent"
-    if any(isinstance(task.get("days_back"), int) and int(task.get("days_back")) > 30 for task in tasks):
+    if any(isinstance(days_back := task.get("days_back"), int) and days_back > 30 for task in tasks):
         return "historical_window"
     return "recent"
 
@@ -1071,8 +1097,8 @@ def _expand_tasks_with_limited_branching(
     retrieval_mode: str,
     enable_limited_branching: bool,
     command: str,
-) -> tuple[list[dict[str, Any]], dict[str, Any]]:
-    branching = {
+) -> tuple[list[dict[str, Any]], dict[str, object]]:
+    branching: dict[str, object] = {
         "default_enabled": False,
         "enabled": False,
         "branch_count": 1,
@@ -1278,14 +1304,14 @@ def infer_agent_batch_channel(task: dict[str, Any] | None) -> str | None:
         return "source_library"
 
     nested = raw.get("input")
-    if isinstance(nested, dict):
+    if _is_object_dict(nested):
         nested_item_key = str(nested.get("item_key") or nested.get("source_id") or "").strip()
         if nested_item_key:
             return "source_library"
 
     if normalize_query_terms(raw.get("query_terms")):
         return "search.market"
-    if isinstance(nested, dict) and normalize_query_terms(nested.get("query_terms")):
+    if _is_object_dict(nested) and normalize_query_terms(nested.get("query_terms")):
         return "search.market"
     return None
 
@@ -1303,14 +1329,15 @@ def is_agent_batch_task_executable(task: dict[str, Any]) -> bool:
     spec = get_agent_batch_task_contract_spec(channel, include_internal=True)
     if spec is None:
         return False
-    execution = dict(spec.get("execution") or {})
-    required_non_empty_keys = list(execution.get("required_non_empty_keys") or [])
+    execution = _object_dict_or_empty(spec.get("execution"))
+    required_non_empty_keys = normalize_string_list(execution.get("required_non_empty_keys"))
     return all(_has_required_value(task, key) for key in required_non_empty_keys)
 
 
 def resolve_agent_batch_lane(channel: str, priority: int | None) -> str:
     spec = get_agent_batch_task_contract_spec(channel, include_internal=True)
-    default_lane = str(((spec or {}).get("execution") or {}).get("default_lane") or "main").strip() or "main"
+    execution = _object_dict_or_empty((spec or {}).get("execution"))
+    default_lane = str(execution.get("default_lane") or "main").strip() or "main"
     if default_lane != "main":
         return default_lane
     if isinstance(priority, int) and priority >= 8:
@@ -1328,9 +1355,10 @@ def build_agent_batch_dispatch_payload(channel: str, payload: dict[str, Any]) ->
         _raise_legacy_agent_batch_failure(
             agent_batch_failures.fail("channel_unknown", f"unknown agent batch channel: {channel}", {"channel": str(channel or "")})
         )
-    dispatch = dict(((spec.get("execution") or {}).get("dispatch") or {}))
-    fields = list(dispatch.get("payload_fields") or [])
-    out = {"channel": str(channel or "").strip().lower()}
+    execution = _object_dict_or_empty(spec.get("execution"))
+    dispatch = _object_dict_or_empty(execution.get("dispatch"))
+    fields = normalize_string_list(dispatch.get("payload_fields"))
+    out: dict[str, Any] = {"channel": str(channel or "").strip().lower()}
     for field in fields:
         if field == "channel":
             continue
@@ -1349,7 +1377,8 @@ def build_agent_batch_dispatch_invocation(channel: str, payload: dict[str, Any],
         _raise_legacy_agent_batch_failure(
             agent_batch_failures.fail("channel_unknown", f"unknown agent batch channel: {channel}", {"channel": str(channel or "")})
         )
-    dispatch = dict(((spec.get("execution") or {}).get("dispatch") or {}))
+    execution = _object_dict_or_empty(spec.get("execution"))
+    dispatch = _object_dict_or_empty(execution.get("dispatch"))
     skill_id = str(dispatch.get("skill_id") or "").strip()
     required_permission = str(dispatch.get("required_permission") or "").strip()
     consumer = str(dispatch.get("consumer") or skill_id).strip() or skill_id
@@ -1382,8 +1411,9 @@ def build_agent_batch_approval_argv(channel: str, payload: dict[str, Any]) -> An
         _raise_legacy_agent_batch_failure(
             agent_batch_failures.fail("channel_unknown", f"unknown agent batch channel: {channel}", {"channel": str(channel or "")})
         )
-    approval_binding = dict(((spec.get("execution") or {}).get("approval_binding") or {}))
-    argv = [str(item) for item in list(approval_binding.get("argv_prefix") or []) if str(item or "").strip()]
+    execution = _object_dict_or_empty(spec.get("execution"))
+    approval_binding = _object_dict_or_empty(execution.get("approval_binding"))
+    argv = [str(item) for item in normalize_string_list(approval_binding.get("argv_prefix")) if str(item or "").strip()]
     value_field = str(approval_binding.get("value_field") or "").strip()
     value_mode = str(approval_binding.get("value_mode") or "append").strip().lower() or "append"
     value = (payload or {}).get(value_field)
@@ -1494,3 +1524,10 @@ def parse_business_runtime_params(channel: str, override_params: dict[str, Any] 
 
 def parse_source_library_runtime_params(override_params: dict[str, Any] | None) -> dict[str, Any]:
     return parse_business_runtime_params("source_library", override_params)
+
+
+# Public spellings make the policy helpers available to non-test consumers while
+# retaining the historical private imports used by the focused compatibility tests.
+build_search_brief = _build_search_brief
+expand_tasks_with_limited_branching = _expand_tasks_with_limited_branching
+apply_retry_action = _apply_retry_action

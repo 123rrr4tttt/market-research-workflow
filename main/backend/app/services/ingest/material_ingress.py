@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date
 from hashlib import sha256
-from typing import Annotated, Any, Mapping
+from typing import Annotated, Mapping
 
 from .material_input import PreparedMaterial
 
@@ -27,11 +27,11 @@ class MaterialTargetSpec:
     title: str | None
     summary: str | None
     publish_date: date | None
-    state: str | None
+    state: object | None
     extraction_enabled: bool
     extraction_mode: str
     chunks: tuple[str, ...]
-    extraction_flags: Mapping[str, Any]
+    extraction_flags: Mapping[str, object]
 
 
 def build_material_frontdoor_payload(
@@ -39,14 +39,14 @@ def build_material_frontdoor_payload(
     *,
     target: MaterialTargetSpec,
     source: MaterialSourceContext,
-    extracted_data_base: Mapping[str, Any] | None = None,
+    extracted_data_base: Mapping[str, object] | None = None,
 ) -> Annotated[
-    dict[str, dict[str, Any]],
+    dict[str, dict[str, object]],
     "kit:non-authoritative derived_as=view fact_source=prepared_material+target_spec+source_context+extracted_data_base witness=test:test_frontdoor_payload_is_pure_and_uses_target_and_source_decisions",
 ]:
     """Build deterministic consumer fields; performs no fetch or persistence."""
 
-    candidate = {
+    candidate: dict[str, object] = {
         "source_name": source.source_name,
         "source_kind": source.source_kind,
         "source_base_url": None,
@@ -61,7 +61,7 @@ def build_material_frontdoor_payload(
         "status": None,
         "extracted_data_base": dict(extracted_data_base or {}),
     }
-    terminal_context = {
+    terminal_context: dict[str, object] = {
         "platform": source.platform,
         "ingestion_entrypoint": source.entrypoint,
         "source_mode": source.source_mode,
@@ -71,7 +71,7 @@ def build_material_frontdoor_payload(
         "capability_profile": {},
         "light_filter": {},
     }
-    extraction_plan = {
+    extraction_plan: dict[str, object] = {
         "enabled": target.extraction_enabled,
         "mode": target.extraction_mode,
         "chunks": list(target.chunks),

@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any
+from typing import Any, TypeGuard
 
 from sqlalchemy import MetaData, select
 from sqlalchemy.engine import Connection
 
-from app.successor_runtime.research.codec import canonical_bytes
+from app.successor_runtime.research.codec import canonical_bytes, runtime_value
 from app.successor_runtime.runtime.failure_policy import (
     FailurePolicyDecision,
     FailurePolicyDerivationError,
@@ -23,6 +23,18 @@ from .runtime_journal import ExactBindingConflict, validate_qualification_row
 
 class PersistedFailurePolicyError(ExactBindingConflict):
     """Persisted evidence is absent, cross-scoped, or digest-inconsistent."""
+
+
+def _is_object_mapping(value: object) -> TypeGuard[Mapping[object, object]]:
+    return isinstance(value, Mapping)
+
+
+def _is_string_object_mapping(
+    value: object,
+) -> TypeGuard[Mapping[str, object]]:
+    if not _is_object_mapping(value):
+        return False
+    return all(isinstance(key, str) for key in value)
 
 
 def _one(result: Any, *, label: str) -> Mapping[str, Any]:
@@ -189,8 +201,8 @@ class PostgresFailurePolicyLoader:
             raise PersistedFailurePolicyError(
                 "public/project ExecutionPlan ref drift: " + ", ".join(drift)
             )
-        raw_plan = project_plan.get("plan_json")
-        if not isinstance(raw_plan, Mapping):
+        raw_plan = runtime_value(project_plan.get("plan_json"))
+        if not _is_string_object_mapping(raw_plan):
             raise PersistedFailurePolicyError(
                 "project ExecutionPlan lacks canonical plan_json"
             )
@@ -283,7 +295,9 @@ class PostgresFailurePolicyLoader:
 
         try:
             decision = derive_failure_policy(
-                exact_plan, qualification.qualified_plan, step_id
+                exact_plan,
+                qualification.qualified_plan,
+                step_id,
             )
         except FailurePolicyDerivationError as exc:
             raise PersistedFailurePolicyError(

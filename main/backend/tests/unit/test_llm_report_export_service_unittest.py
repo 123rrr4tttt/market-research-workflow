@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 import sys
 import unittest
 import zipfile
 from io import BytesIO
 from pathlib import Path
+from typing import Any
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
@@ -22,17 +24,72 @@ from app.services.llm_report_export import (
 )
 
 
+class _TokenStateRowResult:
+    def __init__(self, row: Any | None) -> None:
+        self._row = row
+
+    def scalar_one_or_none(self) -> Any | None:
+        return self._row
+
+
+class _IsolatedTokenStateSession:
+    def __init__(self) -> None:
+        self.rows: dict[str, Any] = {}
+        self._pending: list[Any] = []
+
+    def execute(self, statement: Any) -> _TokenStateRowResult:
+        artifact_id = self._artifact_id_from_statement(statement)
+        return _TokenStateRowResult(self.rows.get(artifact_id) if artifact_id else None)
+
+    def add(self, row: Any) -> None:
+        self._pending.append(row)
+
+    def flush(self) -> None:
+        for row in self._pending:
+            self.rows[row.artifact_id] = row
+        self._pending.clear()
+
+    @staticmethod
+    def _artifact_id_from_statement(statement: Any) -> str | None:
+        params: dict[str, Any] = dict(statement.compile().params)
+        value = next(
+            (value for key, value in params.items() if key.startswith("artifact_id")),
+            None,
+        )
+        return value if isinstance(value, str) else None
+
+
+class _IsolatedTokenStateStore:
+    def __init__(self) -> None:
+        self.session = _IsolatedTokenStateSession()
+
+    def run_with_session_retry(
+        self,
+        operation: Callable[[_IsolatedTokenStateSession], Any],
+        **_kwargs: Any,
+    ) -> Any:
+        return operation(self.session)
+
+
 class LlmReportExportServiceTestCase(unittest.TestCase):
-    def setUp(self):
+    def setUp(self) -> None:
+        self._token_state_store = _IsolatedTokenStateStore()
+        self._token_state_store_patch = patch(
+            "app.services.llm_report_export_token_state.run_with_session_retry",
+            side_effect=self._token_state_store.run_with_session_retry,
+        )
+        self._token_state_store_patch.start()
+        self.addCleanup(self._token_state_store_patch.stop)
+        self.addCleanup(reset_llm_report_export_token_state)
         reset_llm_report_export_token_state()
 
-    def _artifact(self, **overrides):
-        params = {
+    def _artifact(self, **overrides: Any) -> dict[str, Any]:
+        params: dict[str, Any] = {
             "markdown": "# Report\n\nEvidence.",
             "gate": {"decision": "pass", "gate_version": "test", "hard_failures": [], "soft_failures": []},
             "gate_mode": "strict",
-            "trace_id": "trace-1",
-            "request_id": "request-1",
+            "trace_id": f"trace-{self._testMethodName}",
+            "request_id": f"request-{self._testMethodName}",
             "project_key": "demo_proj",
             "job_id": 100,
             "topic": "report",
@@ -60,7 +117,7 @@ class LlmReportExportServiceTestCase(unittest.TestCase):
             ]
         )
 
-    def _reset_telemetry_boundary_context(self) -> dict:
+    def _reset_telemetry_boundary_context(self) -> dict[str, Any]:
         return {
             "scope": "ui_read_only_evidence_context",
             "source": "business_lines.evidence_matrix.async_task_readback_extension",
@@ -108,17 +165,16 @@ class LlmReportExportServiceTestCase(unittest.TestCase):
 
     def test_token_verification_enforces_persisted_revocation_after_memory_reset(self):
         artifact = self._artifact()
-        with patch(
-            "app.services.llm_report_export.is_llm_report_export_token_revoked",
-            return_value=True,
-        ):
-            with self.assertRaisesRegex(LlmReportExportTokenError, "export_token_revoked"):
-                verify_llm_report_export_token(
-                    artifact["artifact_token"],
-                    markdown="# Report\n\nEvidence.",
-                    token_secret="secret-" * 8,
-                    actor_id="analyst",
-                )
+        revoke_llm_report_export_token(artifact["artifact_id"])
+        reset_llm_report_export_token_state()
+
+        with self.assertRaisesRegex(LlmReportExportTokenError, "export_token_revoked"):
+            verify_llm_report_export_token(
+                artifact["artifact_token"],
+                markdown="# Report\n\nEvidence.",
+                token_secret="secret-" * 8,
+                actor_id="analyst",
+            )
 
     def test_token_verification_enforces_persisted_used_state_after_memory_reset(self):
         artifact = self._artifact()
@@ -131,17 +187,13 @@ class LlmReportExportServiceTestCase(unittest.TestCase):
         mark_llm_report_export_token_used(payload)
         reset_llm_report_export_token_state()
 
-        with patch(
-            "app.services.llm_report_export.is_llm_report_export_token_used",
-            return_value=True,
-        ):
-            with self.assertRaisesRegex(LlmReportExportTokenError, "export_token_already_used"):
-                verify_llm_report_export_token(
-                    artifact["artifact_token"],
-                    markdown="# Report\n\nEvidence.",
-                    token_secret="secret-" * 8,
-                    actor_id="analyst",
-                )
+        with self.assertRaisesRegex(LlmReportExportTokenError, "export_token_already_used"):
+            verify_llm_report_export_token(
+                artifact["artifact_token"],
+                markdown="# Report\n\nEvidence.",
+                token_secret="secret-" * 8,
+                actor_id="analyst",
+            )
 
     def test_render_pdf_fidelity_contract_includes_template_metadata_and_export_marker(self):
         pdf_bytes = render_markdown_to_pdf_bytes(self._complex_markdown())

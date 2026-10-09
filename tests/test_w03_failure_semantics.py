@@ -80,6 +80,7 @@ _EXPECTED_CODES: dict[str, tuple[str, ...]] = {
     "crawler.registry.contract_failure": ("provider_key_required",),
     "ingest.operation.failure": (
         "social_collect_result_invalid",
+        "extraction_payload_invalid",
         "canary_readback_not_object",
         "commodity_collection_failed",
         "ecom_collection_failed",

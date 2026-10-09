@@ -21,9 +21,10 @@ from typing import Annotated, Any, Callable, Final, TypeVar
 
 from functorial_kit import Failure
 
-from app.successor_runtime.research.codec import canonical_bytes, sha256_hex
+from app.successor_runtime.research.codec import canonical_bytes, runtime_value, sha256_hex
 from app.successor_runtime.runtime.resources import FairSharePolicy
 from app.successor_runtime.runtime.failure_policy import (
+    public_exception_type,
     raise_runtime_failure,
     runtime_failure,
 )
@@ -81,14 +82,11 @@ def _try_capacity(call: Callable[[], _T], *, site: str) -> _T | Failure:
 
 
 def raise_capacity_failure(failure: Failure) -> None:
-    name = (failure.context or {}).get("public_exception")
-    exception_type = CapacityContractError if name == "CapacityContractError" else {
-        "TypeError": TypeError,
-        "ValueError": ValueError,
-        "OverflowError": OverflowError,
-        "KeyError": KeyError,
-        "AttributeError": AttributeError,
-    }.get(name, CapacityContractError)
+    exception_type = public_exception_type(
+        failure,
+        default=CapacityContractError,
+        extensions={"CapacityContractError": CapacityContractError},
+    )
     raise_runtime_failure(failure, exception_type)
 
 
@@ -100,7 +98,10 @@ def nearest_rank(samples: Iterable[float], percentile: float) -> float:
     artifacts do not silently change with a statistics-library upgrade.
     """
 
-    if isinstance(percentile, bool) or not isinstance(percentile, (int, float)):
+    percentile_value = runtime_value(percentile)
+    if isinstance(percentile_value, bool) or not isinstance(
+        percentile_value, (int, float)
+    ):
         # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
         raise CapacityContractError("percentile must be a number between 0 and 100")
     if not math.isfinite(float(percentile)) or not 0 <= float(percentile) <= 100:

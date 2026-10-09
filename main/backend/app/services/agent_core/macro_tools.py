@@ -622,7 +622,7 @@ def macro_registration_package_readback_facility(service: AgentSessionService) -
         result = read_registration_package(service, session_id=request.session_id, project_key=project_key, package_id=str(call.arguments.get("package_id") or "").strip(), package_version=str(call.arguments.get("package_version") or "").strip() or None)
         if isinstance(result, Failure):
             return _failed(call, result, summary="Registration package readback failed.")
-        return CoreToolResult(call_id=call.call_id, tool_name=call.tool_name, status="completed", model_summary="Verified macro registration package readback.", structured_content=result)
+        return CoreToolResult(call_id=call.call_id, tool_name=call.tool_name, status="completed", model_summary="Verified macro registration package readback.", structured_content=json_object(result))
 
     return FacilityBinding(
         binding_id="facility.agent_macro.registration_package.readback", version="1", tool_spec=spec, handler=handler,
@@ -701,7 +701,7 @@ def macro_registration_package_activate_facility(service: AgentSessionService) -
         return CoreToolResult(
             call_id=call.call_id, tool_name=call.tool_name, status="completed",
             model_summary=f"Activated macro registration package {package['package_id']}@{package['package_version']} in the current AgentCore scope.",
-            structured_content=result,
+            structured_content=json_object(result),
         )
 
     return FacilityBinding(

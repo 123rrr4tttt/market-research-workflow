@@ -20,6 +20,7 @@ from app.successor_runtime.capabilities.retrieval_common import (
     RetrievalFlowSource, assemble_retrieval_flow_definition, lower_retrieval_flow_source,
 )
 from app.successor_runtime.research.object_types import ObjectType
+from app.successor_runtime.research.codec import runtime_value
 
 if TYPE_CHECKING:
     from app.successor_runtime.assembly.base import CellBinding
@@ -110,7 +111,8 @@ def lower_macro_cell_definition(definition: MacroCellDefinition) -> MacroCellDef
     issues: list[dict[str, str]] = []
 
     def required(value: str, path: str) -> None:
-        if not isinstance(value, str) or not value.strip():
+        raw_value = runtime_value(value)
+        if not isinstance(raw_value, str) or not raw_value.strip():
             issues.append({"path": path, "message": "nonempty owner reference required"})
 
     def references(values: tuple[str, ...], path: str) -> None:
@@ -215,8 +217,9 @@ def assemble_macro_cell_definition(
     from app.successor_runtime.assembly.base import CellBinding
 
     cell = context.cell_binding
+    raw_cell = runtime_value(cell)
     if (
-        not isinstance(cell, CellBinding)
+        not isinstance(raw_cell, CellBinding)
         or cell.cell_id != definition.cell_id or cell.family_id != definition.family_id
         or cell.status != "INSTALLED"
         or cell.operation_contract_refs != (definition.operation.operation_id,)

@@ -11,12 +11,17 @@ from __future__ import annotations
 from collections import deque
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
+from datetime import UTC, datetime
 import difflib
 import json
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, TypeGuard
+
+from sqlalchemy import select
 
 from functorial_kit import Failure
 
+from app.models.base import SessionLocal
+from app.models.entities import Material, Source
 from app.services.agent_sessions.service import AgentSessionService
 from app.services.projects import bind_project
 from app.services.skill_runtime import invoke_skill
@@ -59,7 +64,31 @@ from .tool_support import (
 from .tool_contribution import ProjectToolAuthorSource
 
 if TYPE_CHECKING:
-    from app.successor_runtime.capabilities.acquisition_url import UrlSingleUrlRequest
+    from app.successor_runtime.capabilities.acquisition_url import UrlSingleUrlOutcome, UrlSingleUrlRequest
+    from app.successor_runtime.capabilities.checksum import CanonicalJsonValue
+
+
+@dataclass(frozen=True, slots=True)
+class _UrlPoolRuntimeEvidence:
+    run: JSONObject
+    outcome: JSONObject | None = None
+    document: JSONObject | None = None
+    failure_rows: tuple[JSONObject, ...] = ()
+    error: JSONObject | None = None
+    pending: bool = False
+    verified: bool = False
+
+
+def _is_object_list(value: object) -> TypeGuard[list[object]]:
+    return isinstance(value, list)
+
+
+def _is_object_dict(value: object) -> TypeGuard[dict[object, object]]:
+    return isinstance(value, dict)
+
+
+def _is_string_key_dict(value: object) -> TypeGuard[dict[str, object]]:
+    return _is_object_dict(value) and all(isinstance(key, str) for key in value)
 
 
 def _session_artifacts(service: AgentSessionService, session_id: str) -> list[JSONObject]:
@@ -1188,6 +1217,365 @@ def _ingest_url_pool_status_spec() -> CoreToolSpec:
     )
 
 
+def _url_pool_runtime_error(code: str, message: str, **details: JSONValue) -> _UrlPoolRuntimeEvidence:
+    return _UrlPoolRuntimeEvidence(
+        run={},
+        error=json_object({"code": code, "message": message, **details}),
+    )
+
+
+def _canonical_json_value(value: object) -> CanonicalJsonValue:
+    if value is None or isinstance(value, bool | int | float | str):
+        return value
+    if _is_object_list(value):
+        return [_canonical_json_value(item) for item in value]
+    if _is_string_key_dict(value):
+        return {key: _canonical_json_value(item) for key, item in value.items()}
+    raise TypeError("runtime output is not canonical JSON")
+
+
+def _decode_url_outcome_bytes(exact: bytes) -> UrlSingleUrlOutcome:
+    from app.successor_runtime.capabilities.acquisition_url import (
+        build_url_single_url_contract,
+        build_url_single_url_outcome_codec,
+    )
+    from app.successor_runtime.capabilities.checksum import CanonicalJsonObject
+
+    raw_value: object = json.loads(exact)
+    canonical_root = _canonical_json_value(raw_value)
+    if not _is_string_key_dict(canonical_root):
+        raise TypeError("URL runtime output root is not an object")
+    payload: CanonicalJsonObject = {
+        key: _canonical_json_value(item) for key, item in canonical_root.items()
+    }
+    contract = build_url_single_url_contract()
+    return build_url_single_url_outcome_codec(contract.ref).decode_payload(payload)
+
+
+def _read_url_pool_document(project_key: str, document_id: int, url: str) -> JSONObject | None:
+    with bind_project(project_key), SessionLocal() as session:
+        row = session.execute(
+            select(Material.id, Material.uri, Material.extracted_data, Source.base_url)
+            .join(Source, Material.source_id == Source.id, isouter=True)
+            .where(Material.id == document_id)
+        ).first()
+    if row is None:
+        return None
+    document_url = str(row.uri or "").strip()
+    source_url = str(row.base_url or "").strip()
+    extracted_data = row.extracted_data if _is_string_key_dict(row.extracted_data) else {}
+    source_ref_value = extracted_data.get("source_ref")
+    source_ref = source_ref_value if _is_string_key_dict(source_ref_value) else {}
+    persisted_request_urls = {
+        str(source_ref.get(key) or "").strip()
+        for key in ("url", "locator")
+        if str(source_ref.get(key) or "").strip()
+    }
+    if url != document_url and url not in persisted_request_urls:
+        return None
+    match_kind = "material_uri" if url == document_url else "persisted_source_ref"
+    return {
+        "project_key": project_key,
+        "document_id": int(row.id),
+        "uri": document_url,
+        "source_base_url": source_url,
+        "matched_url": url,
+        "match_kind": match_kind,
+    }
+
+
+def _read_url_pool_runtime_url(
+    *,
+    runtime_engine: object,
+    project_key: str,
+    actor_id: str,
+    run_id: str,
+) -> str:
+    from sqlalchemy.engine import Engine
+
+    from app.composition.production import read_installed_program_input_bindings
+    from app.successor_runtime.capabilities.acquisition_url import (
+        URL_SINGLE_URL_REQUEST_TYPE,
+        build_url_single_url_contract,
+        build_url_single_url_request_codec,
+    )
+
+    if not isinstance(runtime_engine, Engine):
+        raise TypeError("URL runtime engine is unavailable")
+    static_inputs, _started_inputs = read_installed_program_input_bindings(
+        engine=runtime_engine,
+        project_key=project_key,
+        actor_id=actor_id,
+        run_id=run_id,
+        static_input_type=URL_SINGLE_URL_REQUEST_TYPE,
+    )
+    if len(static_inputs) != 1:
+        raise ValueError("URL runtime run does not have one exact request input")
+    _request_ref, exact = static_inputs[0]
+    raw_value: object = json.loads(exact)
+    canonical_root = _canonical_json_value(raw_value)
+    if not _is_string_key_dict(canonical_root):
+        raise TypeError("URL runtime request root is not an object")
+    contract = build_url_single_url_contract()
+    request = build_url_single_url_request_codec(contract.ref).decode_payload(
+        {key: _canonical_json_value(item) for key, item in canonical_root.items()}
+    )
+    request_url = request.url.strip()
+    if request.project_key != project_key or not request_url:
+        raise ValueError("URL runtime request identity does not match the project")
+    return request_url
+
+
+def _url_pool_capability_grant_is_current(
+    *,
+    runtime_engine: object,
+    project_key: str,
+    actor_id: str,
+    capability_id: str,
+) -> bool:
+    from sqlalchemy.engine import Engine
+
+    from app.successor_runtime.runtime.ports import RuntimeScope
+    from app.successor_runtime.substrate.postgres.authority import AuthorityGrantRepository
+    from app.successor_runtime.substrate.postgres.session import ServerProjectScopeResolver
+
+    if not isinstance(runtime_engine, Engine):
+        return False
+    with runtime_engine.connect() as connection:
+        project_scope = ServerProjectScopeResolver(connection=connection).resolve(project_key)
+        scope = RuntimeScope(project_scope=project_scope, actor_id=actor_id)
+        return bool(
+            AuthorityGrantRepository(connection, scope).current_for(
+                actor_id=actor_id,
+                capability_id=capability_id,
+                at=datetime.now(UTC),
+            )
+        )
+
+
+def _url_pool_runtime_evidence(
+    *,
+    submission: JSONObject,
+    project_key: str,
+    session_id: str,
+    url: str,
+    tool_name: str,
+) -> _UrlPoolRuntimeEvidence:
+    submission_project = str(submission.get("project_key") or "").strip()
+    if submission_project and submission_project != project_key:
+        return _url_pool_runtime_error(
+            "url_pool_submission_project_mismatch",
+            "URL-pool submission belongs to another project",
+            submission_project=submission_project,
+            project_key=project_key,
+        )
+
+    from .host_authorization import current_verified_host_authorization
+
+    authorization = current_verified_host_authorization()
+    actor = authorization.actor_context if authorization is not None else None
+    if (
+        authorization is None
+        or authorization.tool_name != tool_name
+        or authorization.context.project_key != project_key
+        or authorization.context.session_id != session_id
+        or actor is None
+        or not actor.actor_trusted
+        or not str(actor.actor_id or "").strip()
+    ):
+        return _url_pool_runtime_error(
+            "url_pool_runtime_actor_required",
+            "URL-pool canonical runtime readback requires a verified same-session trusted actor",
+        )
+
+    runtime_ref = str(
+        submission.get("runtime_run_ref")
+        or json_object(submission.get("dispatch_result")).get("runtime_run_ref")
+        or ""
+    ).strip()
+    if not runtime_ref.startswith("runtime-run:") or len(runtime_ref) <= len("runtime-run:"):
+        return _url_pool_runtime_error(
+            "url_pool_runtime_run_ref_missing",
+            "async URL-pool submission has no exact runtime run reference",
+            runtime_run_ref=runtime_ref,
+        )
+    run_id = runtime_ref.removeprefix("runtime-run:")
+
+    try:
+        from app.composition.production import (
+            read_installed_program,
+            read_installed_program_failures,
+            read_installed_program_outputs,
+        )
+        from app.models.base import engine as runtime_engine
+        from app.successor_runtime.capabilities.acquisition_url import (
+            URL_SINGLE_URL_KIND,
+            URL_SINGLE_URL_OWNER,
+        )
+
+        if not _url_pool_capability_grant_is_current(
+            runtime_engine=runtime_engine,
+            project_key=project_key,
+            actor_id=actor.actor_id,
+            capability_id=URL_SINGLE_URL_OWNER,
+        ):
+            return _url_pool_runtime_error(
+                "url_pool_runtime_capability_grant_required",
+                "URL-pool canonical runtime readback requires a current capability grant",
+                capability_id=URL_SINGLE_URL_OWNER,
+            )
+
+        run, steps, _events = read_installed_program(
+            engine=runtime_engine,
+            project_key=project_key,
+            actor_id=actor.actor_id,
+            run_id=run_id,
+        )
+        run_view = json_object(run)
+        if str(run_view.get("run_id") or "") != run_id or str(run_view.get("project_key") or "") != project_key:
+            return _UrlPoolRuntimeEvidence(
+                run=run_view,
+                error=json_object({
+                    "code": "url_pool_runtime_identity_mismatch",
+                    "message": "canonical URL runtime run identity does not match the submission",
+                }),
+            )
+
+        runtime_url = _read_url_pool_runtime_url(
+            runtime_engine=runtime_engine,
+            project_key=project_key,
+            actor_id=actor.actor_id,
+            run_id=run_id,
+        )
+        if runtime_url != url:
+            return _UrlPoolRuntimeEvidence(
+                run=run_view,
+                error=json_object({
+                    "code": "url_pool_runtime_request_mismatch",
+                    "message": "canonical URL runtime request does not match the selected submission",
+                    "submission_url": url,
+                    "runtime_url": runtime_url,
+                }),
+            )
+
+        state = str(run_view.get("state") or "").strip().upper()
+        if state in {"READY", "RUNNING", "WAITING", "RECONCILING", "CANCELLING"}:
+            return _UrlPoolRuntimeEvidence(run=run_view, pending=True)
+        if state in {"FAILED", "CANCELLED", "SUPERSEDED"}:
+            failure_rows = tuple(
+                json_object({
+                    "sequence": sequence,
+                    "failure_family": row.domain_failure.family if row.domain_failure is not None else None,
+                    "failure_code": row.failure_code,
+                    "reason": row.domain_failure.message if row.domain_failure is not None else row.failure_code,
+                    "attempt_id": row.attempt_id,
+                    "failure_digest": row.failure_digest,
+                })
+                for sequence, row in read_installed_program_failures(
+                    engine=runtime_engine,
+                    project_key=project_key,
+                    actor_id=actor.actor_id,
+                    run_id=run_id,
+                )
+            )
+            if state == "FAILED" and not failure_rows:
+                return _UrlPoolRuntimeEvidence(
+                    run=run_view,
+                    failure_rows=failure_rows,
+                    error=json_object({
+                        "code": "url_pool_runtime_failure_rows_missing",
+                        "message": "failed canonical URL runtime run has no exact EffectFailed rows",
+                        "state": state,
+                    }),
+                )
+            return _UrlPoolRuntimeEvidence(
+                run=run_view,
+                failure_rows=failure_rows,
+                error=json_object({
+                    "code": {
+                        "FAILED": "url_pool_runtime_failed",
+                        "CANCELLED": "url_pool_runtime_cancelled",
+                        "SUPERSEDED": "url_pool_runtime_superseded",
+                    }[state],
+                    "message": f"canonical URL runtime run is {state}",
+                    "state": state,
+                    "failure_count": len(failure_rows),
+                }),
+            )
+        if state != "COMPLETED":
+            return _UrlPoolRuntimeEvidence(
+                run=run_view,
+                error=json_object({
+                    "code": "url_pool_runtime_state_unknown",
+                    "message": f"canonical URL runtime run has unverified state {state or 'UNKNOWN'}",
+                    "state": state or "UNKNOWN",
+                }),
+            )
+
+        outputs = read_installed_program_outputs(
+            engine=runtime_engine,
+            project_key=project_key,
+            actor_id=actor.actor_id,
+            run_id=run_id,
+        )
+        url_step_ids = {
+            str(step.get("step_id") or "")
+            for step in steps
+            if str(step.get("operation_kind") or "") == URL_SINGLE_URL_KIND
+        }
+        exact_outputs = [item for item in outputs if item[0] in url_step_ids]
+        if len(url_step_ids) != 1 or len(exact_outputs) != 1:
+            return _UrlPoolRuntimeEvidence(
+                run=run_view,
+                error=json_object({
+                    "code": "url_pool_runtime_output_identity_invalid",
+                    "message": "completed URL runtime run does not have one exact URL outcome",
+                    "url_step_count": len(url_step_ids),
+                    "output_count": len(exact_outputs),
+                }),
+            )
+
+        _step_id, _value_ref, exact = exact_outputs[0]
+        outcome = _decode_url_outcome_bytes(exact)
+        outcome_view = json_object({
+            "status": outcome.status,
+            "inserted": outcome.inserted,
+            "updated": outcome.updated,
+            "skipped": outcome.skipped,
+            "document_id": outcome.document_id,
+            "error": outcome.error,
+            "task_id": outcome.task_id,
+        })
+        document_id = outcome_view.get("document_id")
+        if str(outcome_view.get("status") or "") != "completed" or not isinstance(document_id, int) or document_id <= 0:
+            return _UrlPoolRuntimeEvidence(
+                run=run_view,
+                outcome=outcome_view,
+                error=json_object({
+                    "code": "url_pool_runtime_output_incomplete",
+                    "message": "completed URL runtime run did not decode to a completed document outcome",
+                }),
+            )
+        document = _read_url_pool_document(project_key, document_id, url)
+        if document is None:
+            return _UrlPoolRuntimeEvidence(
+                run=run_view,
+                outcome=outcome_view,
+                error=json_object({
+                    "code": "url_pool_document_readback_mismatch",
+                    "message": "decoded URL document is absent or does not match the submitted project URL",
+                    "document_id": document_id,
+                }),
+            )
+        return _UrlPoolRuntimeEvidence(run=run_view, outcome=outcome_view, document=document, verified=True)
+    except Exception as exc:  # noqa: BLE001
+        return _url_pool_runtime_error(
+            "url_pool_runtime_readback_failed",
+            f"URL-pool canonical runtime readback failed: {exc}",
+            exception=exc.__class__.__name__,
+        )
+
+
 def _ingest_url_pool_status_handler(
     service: AgentSessionService,
     searcher: StructuredDataSearcher,
@@ -1214,19 +1602,47 @@ def _ingest_url_pool_status_handler(
             None,
         )
         artifact_content = json_object((artifact or {}).get("content_json"))
-        submissions = [json_object(item) for item in json_list(artifact_content.get("submissions"))]
+        all_submissions = [
+            json_object(item) for item in json_list(artifact_content.get("submissions"))
+        ]
+        submissions = list(all_submissions)
         if explicit_url:
             submissions = [
                 item for item in submissions if str(item.get("url") or "").strip() == explicit_url
-            ] or submissions
+            ]
         if explicit_task_id:
             submissions = [
                 item for item in submissions if explicit_task_id in json.dumps(item, ensure_ascii=False, default=str)
-            ] or submissions
+            ]
         latest_submission = submissions[-1] if submissions else {}
         url = explicit_url or str(latest_submission.get("url") or "").strip()
         dispatch = json_object(latest_submission.get("dispatch_result"))
         task_id = explicit_task_id or str(dispatch.get("task_id") or latest_submission.get("task_id") or "").strip()
+        runtime_ref = str(
+            latest_submission.get("runtime_run_ref") or dispatch.get("runtime_run_ref") or ""
+        ).strip()
+        runtime_evidence: _UrlPoolRuntimeEvidence | None = None
+        if (explicit_url or explicit_task_id) and all_submissions and not submissions:
+            runtime_evidence = _url_pool_runtime_error(
+                "url_pool_submission_not_found",
+                "no URL-pool submission matches the requested URL or task identity",
+                url=explicit_url,
+                task_id=explicit_task_id,
+            )
+        elif bool(latest_submission.get("async_mode")):
+            if not url:
+                runtime_evidence = _url_pool_runtime_error(
+                    "url_pool_submission_url_missing",
+                    "async URL-pool status readback requires the submitted URL",
+                )
+            else:
+                runtime_evidence = _url_pool_runtime_evidence(
+                    submission=latest_submission,
+                    project_key=project_key,
+                    session_id=request.session_id,
+                    url=url,
+                    tool_name=tool_spec.name,
+                )
         task_event_artifact = next(
             (
                 item
@@ -1283,21 +1699,49 @@ def _ingest_url_pool_status_handler(
                 }
 
         evidence_items = json_list(stored_result.get("items"))
-        verified = bool(evidence_items)
+        legacy_evidence_verified = runtime_evidence is None and bool(evidence_items)
+        verified = (runtime_evidence.verified if runtime_evidence is not None else False) or legacy_evidence_verified
         latest_job_status = str((job_matches[0] if job_matches else {}).get("status") or "").strip().lower()
-        pending = (
-            not verified
-            and latest_task_event_status not in {"failed", "canceled", "cancelled"}
-            and (
-                latest_task_event_status != "completed"
-                and (bool(task_id) or latest_job_status in {"", "queued", "running", "pending", "started"})
+        if runtime_evidence is not None:
+            pending = runtime_evidence.pending
+        else:
+            pending = (
+                not verified
+                and latest_task_event_status not in {"failed", "canceled", "cancelled"}
+                and (
+                    latest_task_event_status != "completed"
+                    and (bool(task_id) or latest_job_status in {"", "queued", "running", "pending", "started"})
+                )
             )
-        )
         if verified:
             next_gate = "verified_evidence_ready_for_writing"
             writing_guidance = (
                 "Verified project evidence is available; writing may replace pending language with cited evidence."
             )
+        elif runtime_evidence is not None and runtime_evidence.pending:
+            next_gate = "wait_for_canonical_url_runtime_completion"
+            writing_guidance = "The canonical URL runtime run is still active; keep writing evidence pending."
+        elif runtime_evidence is not None:
+            error = runtime_evidence.error or {}
+            runtime_error_code = str(error.get("code") or "unknown")
+            if runtime_error_code == "url_pool_runtime_cancelled":
+                next_gate = "url_pool_canonical_runtime_cancelled"
+                writing_guidance = (
+                    "The canonical URL runtime run was cancelled; keep writing evidence pending "
+                    "and use its cancellation observation before deciding on a new submission."
+                )
+            elif runtime_error_code == "url_pool_runtime_superseded":
+                next_gate = "url_pool_canonical_runtime_superseded"
+                writing_guidance = (
+                    "The canonical URL runtime run was superseded; keep writing evidence pending "
+                    "and follow the replacement runtime identity recorded by the canonical run."
+                )
+            else:
+                next_gate = "url_pool_canonical_runtime_failed"
+                writing_guidance = (
+                    f"Canonical URL runtime readback is not verified ({runtime_error_code}); "
+                    "keep writing evidence pending and inspect the runtime, decoded output, and document readback."
+                )
         elif latest_task_event_status == "failed":
             next_gate = "url_pool_ingest_failed_review_error_or_retry"
             writing_guidance = "The URL-pool ingest task failed; keep writing language pending and inspect the task error before retrying."
@@ -1315,6 +1759,7 @@ def _ingest_url_pool_status_handler(
             "project_key": project_key,
             "url": url,
             "task_id": task_id,
+            "runtime_run_ref": runtime_ref,
             "artifact_name": artifact_name,
             "submission": compact_json_value(latest_submission, max_items=20, max_depth=5),
             "artifact_found": bool(artifact),
@@ -1323,6 +1768,37 @@ def _ingest_url_pool_status_handler(
             "task_event_artifact_found": bool(task_event_artifact),
             "job_matches": compact_json_value(job_matches[:limit], max_items=limit, max_depth=4),
             "job_error": job_error,
+            "runtime_readback": compact_json_value(
+                runtime_evidence.run if runtime_evidence is not None else {},
+                max_items=20,
+                max_depth=5,
+            ),
+            "runtime_output": compact_json_value(
+                runtime_evidence.outcome if runtime_evidence is not None else None,
+                max_items=16,
+                max_depth=4,
+            ),
+            "runtime_failures": compact_json_value(
+                list(runtime_evidence.failure_rows if runtime_evidence is not None else ()),
+                max_items=8,
+                max_depth=4,
+            ),
+            "document_readback": compact_json_value(
+                runtime_evidence.document if runtime_evidence is not None else None,
+                max_items=12,
+                max_depth=4,
+            ),
+            "runtime_error": compact_json_value(
+                runtime_evidence.error if runtime_evidence is not None else None,
+                max_items=12,
+                max_depth=4,
+            ),
+            "causal_evidence": {
+                "runtime_run": runtime_evidence.run if runtime_evidence is not None else {},
+                "runtime_output": runtime_evidence.outcome if runtime_evidence is not None else None,
+                "document": runtime_evidence.document if runtime_evidence is not None else None,
+                "runtime_failures": list(runtime_evidence.failure_rows if runtime_evidence is not None else ()),
+            },
             "stored_evidence": compact_json_value(stored_result, max_items=20, max_depth=5),
             "verified": verified,
             "pending": pending,
@@ -2456,7 +2932,7 @@ def _writing_document_insert_paragraph_handler() -> Callable[
                 tool_name=tool_call.tool_name,
                 status="failed",
                 model_summary=f"Writing document version conflict: current version is {exc.current_version}.",
-                structured_content={"conflict": exc.server_snapshot},
+                structured_content={"conflict": json_object(exc.server_snapshot)},
                 error={"code": "writing_version_conflict", "message": str(exc), "current_version": exc.current_version},
                 retry_hint="Read the document again and retry against the current version.",
             )

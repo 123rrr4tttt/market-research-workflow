@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import hashlib
 from enum import StrEnum
-from typing import Any, Callable, Literal, TypeVar
+from typing import Any, Callable, Literal, TypeGuard, TypeVar
 
 from functorial_kit import Failure
 
@@ -18,9 +18,13 @@ from .assignments import (
     FrozenContract,
     canonical_digest,
 )
-from .failure_policy import raise_runtime_failure, runtime_failure
+from .failure_policy import public_exception_type, raise_runtime_failure, runtime_failure
 
 _T = TypeVar("_T")
+
+
+def _is_object_sequence(value: object) -> TypeGuard[tuple[object, ...] | list[object]]:
+    return isinstance(value, (tuple, list))
 
 
 def _admission_failure(
@@ -48,14 +52,7 @@ def _try_admission(call: Callable[[], _T], *, site: str, code: str) -> _T | Fail
 
 def raise_admission_failure(failure: Failure, exception_type: type[Exception] = ValueError) -> None:
     if exception_type is ValueError:
-        name = (failure.context or {}).get("public_exception")
-        exception_type = {
-            "TypeError": TypeError,
-            "ValueError": ValueError,
-            "OverflowError": OverflowError,
-            "KeyError": KeyError,
-            "AttributeError": AttributeError,
-        }.get(name, ValueError)
+        exception_type = public_exception_type(failure)
     raise_runtime_failure(failure, exception_type)
 
 
@@ -128,7 +125,7 @@ class VerificationBinding(ContentAddressedBinding):
         ):
             # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
             raise ValueError("ordered event digests are derived from payloads")
-        if not isinstance(payloads, (tuple, list)) or not payloads:
+        if not _is_object_sequence(payloads) or not payloads:
             # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
             raise ValueError("ordered_event_payloads must be a non-empty sequence")
         digests = tuple(event_payload_digest(payload) for payload in payloads)

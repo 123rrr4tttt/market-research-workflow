@@ -26,7 +26,6 @@ from app.successor_runtime.runtime.node import (
     DefiniteInterpreterFailure,
     InterpreterOutcome,
     RuntimeExecutionContext,
-    RuntimeHandler,
 )
 from app.successor_runtime.runtime.ports import ProjectScopeRef, RuntimeScope
 from app.successor_runtime.substrate.postgres.models import project_tables
@@ -47,7 +46,7 @@ Input = TypeVar("Input")
 Output = TypeVar("Output")
 
 
-class PersistentOperationHandler(RuntimeHandler, Generic[Input, Output]):
+class PersistentOperationHandler(Generic[Input, Output]):
     """Execute one installed typed kernel from exact project-owned values."""
 
     def __init__(

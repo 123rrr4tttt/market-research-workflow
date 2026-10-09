@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from enum import StrEnum
-from typing import Annotated, Literal, TypeAlias
+from typing import Annotated, Generic, Literal, TypeAlias, TypeVar
 
 from functorial_kit import Failure
 from pydantic import Field, TypeAdapter, model_validator
@@ -41,7 +41,10 @@ class WorkItemWaitReason(StrEnum):
     SCHEDULE_NOT_DUE = "SCHEDULE_NOT_DUE"
 
 
-class WorkItemRoot(FrozenContract):
+AssignmentKindT = TypeVar("AssignmentKindT", bound=AssignmentKind, covariant=True)
+
+
+class WorkItemRoot(FrozenContract, Generic[AssignmentKindT]):
     """One generic runtime work item plus its exact runtime assignment."""
 
     schema_version: Literal["mrw.runtime.work_item.v1"] = WORK_ITEM_SCHEMA_VERSION
@@ -49,7 +52,7 @@ class WorkItemRoot(FrozenContract):
     project_key: str = Field(min_length=1)
     run_id: str = Field(min_length=1)
     step_id: str | None = None
-    assignment_kind: AssignmentKind
+    assignment_kind: AssignmentKindT
     assignment: RuntimeAssignment
     state: WorkItemState = WorkItemState.PENDING
     wait_reason: WorkItemWaitReason | None = None
@@ -68,7 +71,7 @@ class WorkItemRoot(FrozenContract):
     last_failure_ref: str | None = None
 
     @model_validator(mode="after")
-    def validate_assignment_identity(self) -> "WorkItemRoot":
+    def validate_assignment_identity(self) -> "WorkItemRoot[AssignmentKindT]":
         if self.work_item_id != self.assignment.work_item_id:
             # kit:boundary owner=successor.runtime.work_items.identity class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_runtime_non_start_proof_negative
             raise ValueError("work item id does not match assignment")
@@ -98,37 +101,39 @@ class WorkItemRoot(FrozenContract):
         return self.assignment.handler_binding_digest
 
 
-class CompileWorkItemRoot(WorkItemRoot):
+class CompileWorkItemRoot(WorkItemRoot[Literal[AssignmentKind.COMPILE]]):
     assignment_kind: Literal[AssignmentKind.COMPILE] = AssignmentKind.COMPILE
 
 
-class QualifyWorkItemRoot(WorkItemRoot):
+class QualifyWorkItemRoot(WorkItemRoot[Literal[AssignmentKind.QUALIFY]]):
     assignment_kind: Literal[AssignmentKind.QUALIFY] = AssignmentKind.QUALIFY
 
 
-class InterpretWorkItemRoot(WorkItemRoot):
+class InterpretWorkItemRoot(WorkItemRoot[Literal[AssignmentKind.INTERPRET]]):
     assignment_kind: Literal[AssignmentKind.INTERPRET] = AssignmentKind.INTERPRET
 
 
-class VerifyAdmitWorkItemRoot(WorkItemRoot):
+class VerifyAdmitWorkItemRoot(WorkItemRoot[Literal[AssignmentKind.VERIFY_ADMIT]]):
     assignment_kind: Literal[AssignmentKind.VERIFY_ADMIT] = AssignmentKind.VERIFY_ADMIT
 
 
-class ProjectWorkItemRoot(WorkItemRoot):
+class ProjectWorkItemRoot(WorkItemRoot[Literal[AssignmentKind.PROJECT]]):
     assignment_kind: Literal[AssignmentKind.PROJECT] = AssignmentKind.PROJECT
 
 
-class ReconcileWorkItemRoot(WorkItemRoot):
+class ReconcileWorkItemRoot(WorkItemRoot[Literal[AssignmentKind.RECONCILE]]):
     assignment_kind: Literal[AssignmentKind.RECONCILE] = AssignmentKind.RECONCILE
 
 
-class MaterializeSuccessorWorkItemRoot(WorkItemRoot):
+class MaterializeSuccessorWorkItemRoot(
+    WorkItemRoot[Literal[AssignmentKind.MATERIALIZE_SUCCESSOR]]
+):
     assignment_kind: Literal[AssignmentKind.MATERIALIZE_SUCCESSOR] = (
         AssignmentKind.MATERIALIZE_SUCCESSOR
     )
 
 
-WORK_ITEM_KIND_INDEX: dict[AssignmentKind, type[WorkItemRoot]] = {
+WORK_ITEM_KIND_INDEX: dict[AssignmentKind, type[WorkItemRoot[AssignmentKind]]] = {
     AssignmentKind.COMPILE: CompileWorkItemRoot,
     AssignmentKind.QUALIFY: QualifyWorkItemRoot,
     AssignmentKind.INTERPRET: InterpretWorkItemRoot,
@@ -138,7 +143,7 @@ WORK_ITEM_KIND_INDEX: dict[AssignmentKind, type[WorkItemRoot]] = {
     AssignmentKind.MATERIALIZE_SUCCESSOR: MaterializeSuccessorWorkItemRoot,
 }
 
-WORK_ITEM_ROOT_MEMBERS: tuple[type[WorkItemRoot], ...] = tuple(
+WORK_ITEM_ROOT_MEMBERS: tuple[type[WorkItemRoot[AssignmentKind]], ...] = tuple(
     WORK_ITEM_KIND_INDEX.values()
 )
 
@@ -156,7 +161,7 @@ WorkItemRootUnion: TypeAlias = Annotated[
 # Port-facing name used by ``runtime.ports.WorkItemPort``.
 WorkItemRecord: TypeAlias = WorkItemRootUnion
 
-_WORK_ITEM_ADAPTER = TypeAdapter(WorkItemRootUnion)
+_WORK_ITEM_ADAPTER: TypeAdapter[WorkItemRootUnion] = TypeAdapter(WorkItemRootUnion)
 
 
 def _public_exception_type(exc: Exception) -> type[Exception]:
@@ -187,14 +192,14 @@ def try_validate_work_item(value: object) -> WorkItemRecord | Failure:
         return _work_item_failure(str(exc), site="work_items.validate", exception_type=_public_exception_type(exc))
 
 
-def try_work_item_root(**content: object) -> WorkItemRoot | Failure:
+def try_work_item_root(**content: object) -> WorkItemRoot[AssignmentKind] | Failure:
     try:
-        return WorkItemRoot(**content)
+        return _WORK_ITEM_ADAPTER.validate_python(content)
     except (TypeError, ValueError, OverflowError, KeyError, AttributeError) as exc:
         return _work_item_failure(str(exc), site="work_items.root", exception_type=_public_exception_type(exc))
 
 
-def try_build_work_item(**content: object) -> WorkItemRoot | Failure:
+def try_build_work_item(**content: object) -> WorkItemRoot[AssignmentKind] | Failure:
     return try_work_item_root(**content)
 
 

@@ -7,10 +7,14 @@ OUT_PATH="${2:-${TARGET_DIR}/artifacts/gates/launcher_first/launcher-first-dry-r
 mkdir -p "$(dirname "$OUT_PATH")"
 
 python3 - "$TARGET_DIR" "$OUT_PATH" <<'PY'
+import hashlib
 import json
+import os
 import platform
+import shutil
 import subprocess
 import sys
+import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -29,6 +33,114 @@ def has_all(text: str, needles: list[str]) -> bool:
     return all(needle in text for needle in needles)
 
 
+def sha256_file(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def snapshot_files(base: Path) -> dict[str, str]:
+    return {
+        path.relative_to(base).as_posix(): sha256_file(path)
+        for path in sorted(base.rglob("*"))
+        if path.is_file()
+    }
+
+
+def run_prepare_failure_fixture(kind: str) -> dict[str, object]:
+    with tempfile.TemporaryDirectory(prefix=f"mrw-launcher-prepare-{kind}-") as raw:
+        fixture = Path(raw)
+        candidate = fixture / "candidate"
+        dependency_source = fixture / "dependency-source"
+        copied = (
+            Path("scripts/local-deploy.sh"),
+            Path("main/backend/start-local.sh"),
+            Path("main/backend/requirements.txt"),
+            Path("main/frontend-modern/package-lock.json"),
+            Path("main/ops/codex-webui/pnpm-lock.yaml"),
+        )
+        for relative in copied:
+            target = candidate / relative
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(root / relative, target)
+        for relative in copied[2:]:
+            target = dependency_source / relative
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(root / relative, target)
+
+        source_backend = dependency_source / "main/backend/.venv311"
+        source_frontend = dependency_source / "main/frontend-modern/node_modules"
+        source_webui = dependency_source / "main/ops/codex-webui/node_modules"
+        for dependency_dir in (source_backend, source_frontend, source_webui):
+            dependency_dir.mkdir(parents=True)
+            (dependency_dir / "source-sentinel").write_text(kind + "\n", encoding="utf-8")
+        requirements_hash = sha256_file(candidate / "main/backend/requirements.txt")
+        (source_backend / ".requirements.sha256").write_text(requirements_hash + "\n", encoding="utf-8")
+
+        candidate_backend = candidate / "main/backend/.venv311"
+        candidate_frontend = candidate / "main/frontend-modern/node_modules"
+        candidate_webui = candidate / "main/ops/codex-webui/node_modules"
+        conflict_sentinel = candidate_backend / "candidate-sentinel"
+        fake_ln_log = fixture / "fake-ln.log"
+        env = os.environ.copy()
+        env["MRW_DEPENDENCY_SOURCE_ROOT"] = str(dependency_source)
+
+        if kind == "existing-conflict":
+            candidate_backend.mkdir()
+            conflict_sentinel.write_text("preserve\n", encoding="utf-8")
+        elif kind == "link-failure":
+            fake_bin = fixture / "fake-bin"
+            fake_bin.mkdir()
+            fake_ln = fake_bin / "ln"
+            fake_ln.write_text(
+                '#!/bin/sh\nprintf "%s\\n" "$*" >> "$MRW_FAKE_LN_LOG"\nexit 73\n',
+                encoding="utf-8",
+            )
+            fake_ln.chmod(0o755)
+            env["MRW_FAKE_LN_LOG"] = str(fake_ln_log)
+            env["PATH"] = f"{fake_bin}:{env.get('PATH', '')}"
+        else:
+            raise ValueError(f"unknown prepare fixture: {kind}")
+
+        source_before = snapshot_files(dependency_source)
+        result = subprocess.run(
+            [str(candidate / "scripts/local-deploy.sh"), "prepare"],
+            cwd=candidate,
+            env=env,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            timeout=20,
+            check=False,
+        )
+        stdout = result.stdout.decode("utf-8", errors="replace")
+        source_after = snapshot_files(dependency_source)
+        later_dependencies_absent = not candidate_frontend.exists() and not candidate_webui.exists()
+        if kind == "existing-conflict":
+            branch_witness = (
+                conflict_sentinel.read_text(encoding="utf-8") == "preserve\n"
+                and candidate_backend.resolve() != source_backend.resolve()
+            )
+        else:
+            branch_witness = (
+                fake_ln_log.is_file()
+                and fake_ln_log.read_text(encoding="utf-8").startswith("-s ")
+                and not candidate_backend.exists()
+                and "✅ 复用 backend venv" not in stdout
+            )
+        return {
+            "kind": kind,
+            "command": "scripts/local-deploy.sh prepare",
+            "returncode": result.returncode,
+            "passed": (
+                result.returncode != 0
+                and branch_witness
+                and later_dependencies_absent
+                and source_before == source_after
+            ),
+            "branch_witness": branch_witness,
+            "later_dependencies_absent": later_dependencies_absent,
+            "dependency_source_unchanged": source_before == source_after,
+        }
+
+
 files = {
     "platform_macos": "scripts/platform-macos.sh",
     "docker_launcher_ui": "scripts/docker-launcher-ui.sh",
@@ -42,8 +154,13 @@ files = {
     "local_deploy": "scripts/local-deploy.sh",
     "local_service_control": "scripts/local-service-control.sh",
     "start_local": "main/backend/start-local.sh",
+    "stop_local": "main/backend/stop-local.sh",
+    "webui_start": "main/ops/codex-webui/start.sh",
 }
 contents = {key: read_rel(path) for key, path in files.items()}
+prepare_function = ""
+if "prepare_dependencies_only() {" in contents["start_local"]:
+    prepare_function = contents["start_local"].split("prepare_dependencies_only() {", 1)[1].split("\n}", 1)[0]
 
 checks = [
     {
@@ -166,6 +283,145 @@ checks = [
         "evidence": f"{files['local_deploy']} + {files['start_local']} + {files['local_service_control']}",
     },
     {
+        "name": "local_python_prefers_backend_runtime_venv",
+        "passed": (
+            contents["local_deploy"].index('.venv311/bin/python')
+            < contents["local_deploy"].index("/Users/wangyiliang/.local/bin/python3.11")
+        ),
+        "evidence": files["local_deploy"],
+    },
+    {
+        "name": "local_start_defaults_to_existing_runtime",
+        "passed": has_all(
+            contents["start_local"],
+            ["PROVISION=0", "--provision", "ensure_runtime_dependencies_ready || exit 1"],
+        )
+        and 'if [ "$PROVISION" = "1" ]; then\n    ensure_db_migrated_and_seeded' in contents["start_local"],
+        "evidence": files["start_local"],
+    },
+    {
+        "name": "local_dependency_prepare_is_explicit_and_exits_before_runtime",
+        "passed": has_all(
+            contents["local_deploy"] + contents["start_local"],
+            [
+                "prepare)",
+                "--prepare-dependencies",
+                "PREPARE_DEPENDENCIES=0",
+                "prepare_dependencies_only",
+            ],
+        )
+        and contents["start_local"].index('if [ "$PREPARE_DEPENDENCIES" = "1" ]; then\n    prepare_dependencies_only')
+        < contents["start_local"].index('if [ ! -f ".env" ]; then'),
+        "evidence": f"{files['local_deploy']} + {files['start_local']}",
+    },
+    {
+        "name": "local_dependency_prepare_is_lock_bound_and_side_effect_bounded",
+        "passed": has_all(
+            prepare_function,
+            ["npm ci", "pnpm install --frozen-lockfile", "verify_candidate_source_imports"],
+        )
+        and all(
+            forbidden not in prepare_function
+            for forbidden in (
+                "ensure_db_migrated_and_seeded",
+                "docker compose",
+                "compose up",
+                "brew install",
+                "source \".env\"",
+                "uvicorn app.main:app",
+            )
+        ),
+        "evidence": files["start_local"],
+    },
+    {
+        "name": "fresh_root_dependency_reuse_keeps_candidate_source_authority",
+        "passed": has_all(
+            contents["start_local"],
+            [
+                "MRW_DEPENDENCY_SOURCE_ROOT",
+                'cmp -s "$REQ_FILE"',
+                'cmp -s "$FRONTEND_DIR/package-lock.json"',
+                'cmp -s "$WEBUI_DIR/pnpm-lock.yaml"',
+                '"app": root / "main" / "backend" / "app" / "__init__.py"',
+                '"mrw_functorial_kit": root / "src" / "mrw_functorial_kit" / "__init__.py"',
+                'export PYTHONPATH="$SCRIPT_DIR:$REPO_DIR/src:$REPO_DIR"',
+                "backend runtime must be Python 3.11",
+                "当前根已有不同依赖目录（$label）",
+            ],
+        ),
+        "evidence": files["start_local"],
+    },
+    {
+        "name": "local_frontend_defaults_to_built_preview",
+        "passed": has_all(
+            contents["start_local"] + contents["local_service_control"],
+            [
+                'FRONTEND_MODE="${FRONTEND_MODE:-preview}"',
+                'FRONTEND_MODE="preview"',
+                'npm run "$FRONTEND_MODE"',
+                "dist/index.html",
+                "--strictPort",
+            ],
+        )
+        and "npm run dev --" not in contents["start_local"] + contents["local_service_control"],
+        "evidence": f"{files['start_local']} + {files['local_service_control']}",
+    },
+    {
+        "name": "local_stop_is_launchd_and_path_aware",
+        "passed": has_all(
+            contents["stop_local"] + contents["local_service_control"],
+            [
+                "com.mrw.successor-backend",
+                "stop_owned_port_listener",
+                "pid_cwd",
+                "terminate_pid_gracefully",
+            ],
+        )
+        and "lsof -ti:8000 | xargs kill -9" not in contents["stop_local"] + contents["local_service_control"],
+        "evidence": f"{files['stop_local']} + {files['local_service_control']}",
+    },
+    {
+        "name": "fresh_root_direct_control_requires_launchd_opt_in",
+        "passed": has_all(
+            contents["local_deploy"] + contents["local_service_control"],
+            [
+                'FRONTEND_USE_LAUNCHD="${FRONTEND_USE_LAUNCHD:-0}"',
+                'WORKER_USE_LAUNCHD="${WORKER_USE_LAUNCHD:-0}"',
+                'BACKEND_USE_LAUNCHD="${BACKEND_USE_LAUNCHD:-0}"',
+                'exec "${LOCAL_SERVICE_CONTROL_SCRIPT}" local-stop',
+                "stop_owned_port_listener 8000 \"$BACKEND_DIR\"",
+            ],
+        ),
+        "evidence": f"{files['local_deploy']} + {files['local_service_control']}",
+    },
+    {
+        "name": "webui_start_rejects_foreign_port_owner",
+        "passed": has_all(
+            contents["webui_start"],
+            [
+                "webui_port_has_foreign_owner",
+                "port $PORT is owned by another process",
+                "webui_launchd_has_foreign_owner",
+                "launchd label $LABEL belongs to another source root",
+            ],
+        )
+        and "launchctl print \"$DOMAIN/$LABEL\" 2>&1 | tail" not in contents["webui_start"],
+        "evidence": files["webui_start"],
+    },
+    {
+        "name": "webui_skill_source_is_current_candidate_root",
+        "passed": has_all(
+            contents["webui_start"],
+            [
+                'candidate_skill_root = (Path(root).parents[1] / "backend" / "skills").resolve()',
+                "skill_source_root != candidate_skill_root",
+                '"MRW_SKILL_SOURCE_ROOT": str(skill_source_root)',
+            ],
+        )
+        and 'host_environment.get("MRW_SKILL_SOURCE_ROOT")' not in contents["webui_start"],
+        "evidence": files["webui_start"],
+    },
+    {
         "name": "docker_launcher_help_and_build_are_guarded",
         "passed": has_all(
             contents["docker_launcher_ui"],
@@ -184,6 +440,19 @@ checks = [
     },
 ]
 
+prepare_failure_evidence = [
+    run_prepare_failure_fixture("existing-conflict"),
+    run_prepare_failure_fixture("link-failure"),
+]
+checks.extend(
+    {
+        "name": f"local_dependency_prepare_propagates_{item['kind']}",
+        "passed": item["passed"],
+        "evidence": "temporary fixed-root scripts/local-deploy.sh prepare fixture",
+    }
+    for item in prepare_failure_evidence
+)
+
 try:
     git_head = subprocess.check_output(["git", "-C", str(root), "rev-parse", "HEAD"], text=True).strip()
 except Exception:
@@ -196,6 +465,7 @@ artifact = {
     "dry_run": True,
     "destructive_actions": [],
     "checks": checks,
+    "functional_evidence": {"dependency_prepare_failures": prepare_failure_evidence},
     "runtime_fingerprint": {
         "generated_at_utc": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
         "python_version": platform.python_version(),

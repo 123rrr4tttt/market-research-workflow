@@ -5,12 +5,14 @@ from datetime import datetime, timedelta, timezone
 import json
 from pathlib import Path
 import threading
-from typing import Any, Callable, Mapping, Sequence
+from typing import Any, Callable, Mapping, Protocol, Sequence, TypeGuard, TypedDict
 from uuid import uuid4
 
 from functorial_kit import Failure
+from app.services.agent_sessions.service import AgentSessionService
+from app.services.llm.codex_macro_binding import NativeAgentBinding
 
-from .contracts import AgentCoreRequest, CoreToolCall
+from .contracts import AgentCoreRequest, CoreEvent, CoreToolCall, json_object
 from app.services.request_identity import RequestActorContext
 from .host_authorization import TrustedHostContext, canonical_arguments_sha256
 from .macro_environment import (
@@ -22,9 +24,52 @@ from .macro_environment import (
     select_active_macro_identity,
 )
 from .project_tools import build_project_core_tool_registry
+from .registry import CoreToolRegistry
 
 
 ProjectChecker = Callable[[str], bool]
+
+
+class _DispatchCacheEntry(TypedDict):
+    tool: str
+    args_digest: str
+    response: dict[str, object]
+
+
+def _is_object_mapping(value: object) -> TypeGuard[Mapping[object, object]]:
+    return isinstance(value, Mapping)
+
+
+def _is_string_mapping(value: object) -> TypeGuard[Mapping[str, object]]:
+    return _is_object_mapping(value) and all(isinstance(key, str) for key in value)
+
+
+def _is_object_sequence(value: object) -> TypeGuard[list[object]]:
+    return isinstance(value, list)
+
+
+def _is_string_sequence(value: object) -> TypeGuard[list[str]]:
+    if not _is_object_sequence(value):
+        return False
+    return all(isinstance(item, str) and bool(item.strip()) for item in value)
+
+
+def _ignore_core_event(_event: CoreEvent) -> None:
+    return None
+
+
+class MacroEnvironmentOwner(Protocol):
+    def resolve(
+        self,
+        *,
+        project_key: str,
+        binding_id: str,
+        phase: str,
+        package_id: str | None = None,
+        package_version: str | None = None,
+    ) -> object: ...
+
+    def assemble(self, environment: MacroEnvironment, context: TrustedHostContext) -> object: ...
 
 
 class MacroHostError(Exception):
@@ -49,19 +94,19 @@ class MacroSkillDescriptor:
 @dataclass(frozen=True, slots=True)
 class MacroEnvironment:
     environment_digest: str
-    dynamic_tools: tuple[Mapping[str, Any], ...]
+    dynamic_tools: tuple[Mapping[str, object], ...]
     skills: tuple[MacroSkillDescriptor, ...]
     skill_roots: tuple[str, ...]
-    descriptor: Mapping[str, Any]
+    descriptor: Mapping[str, object]
     status: str
     package_digest: str | None = None
-    resolved: Any | None = None
+    resolved: ResolvedMacroEnvironment | None = None
 
 
 @dataclass(frozen=True, slots=True)
 class MacroNativeBinding:
-    native_binding: Any
-    registry: Any
+    native_binding: NativeAgentBinding
+    registry: CoreToolRegistry
     package_digest: str | None
 
     def logical_tool_name(self, *, namespace: str | None, name: str) -> str | None:
@@ -81,10 +126,10 @@ class MacroNativeBinding:
 class DefaultMacroEnvironmentOwner:
     """Wire B's exact activated package and the existing base registry."""
 
-    def __init__(self, *, service: Any, source_roots: Sequence[str | Path]) -> None:
+    def __init__(self, *, service: AgentSessionService, source_roots: Sequence[str | Path]) -> None:
         self.service = service
         self.source_roots = tuple(source_roots)
-        self._registry: Any | None = None
+        self._registry: CoreToolRegistry | None = None
 
     def resolve(
         self,
@@ -168,7 +213,7 @@ class DefaultMacroEnvironmentOwner:
             resolved=resolved,
         )
 
-    def _base_registry(self) -> Any:
+    def _base_registry(self) -> CoreToolRegistry:
         if self._registry is None:
             self._registry = build_project_core_tool_registry(service=self.service)
         return self._registry
@@ -186,16 +231,24 @@ class MacroHostBinding:
     status: str = "prepared"
     thread_id: str | None = None
     session_id: str | None = None
-    turn_contexts: dict[str, TrustedHostContext] = field(default_factory=dict)
-    turn_bindings: dict[str, MacroNativeBinding] = field(default_factory=dict)
-    dispatch_cache: dict[str, dict[str, Any]] = field(default_factory=dict)
-    ended_turns: set[str] = field(default_factory=set)
+    turn_contexts: dict[str, TrustedHostContext] = field(
+        default_factory=lambda: dict[str, TrustedHostContext]()
+    )
+    turn_bindings: dict[str, MacroNativeBinding] = field(
+        default_factory=lambda: dict[str, MacroNativeBinding]()
+    )
+    dispatch_cache: dict[str, _DispatchCacheEntry] = field(
+        default_factory=lambda: dict[str, _DispatchCacheEntry]()
+    )
+    ended_turns: set[str] = field(default_factory=lambda: set[str]())
 
 
 @dataclass(slots=True)
 class _BindingStoreState:
-    bindings: dict[str, MacroHostBinding] = field(default_factory=dict)
-    threads: dict[str, str] = field(default_factory=dict)
+    bindings: dict[str, MacroHostBinding] = field(
+        default_factory=lambda: dict[str, MacroHostBinding]()
+    )
+    threads: dict[str, str] = field(default_factory=lambda: dict[str, str]())
 
 
 def _utcnow() -> datetime:
@@ -208,7 +261,7 @@ def _actor_identity(actor: RequestActorContext | None) -> tuple[str, str, str, b
     return actor.actor_id, actor.actor_source, actor.actor_auth_mode, actor.actor_trusted
 
 
-def _required_str(value: Any, *, label: str) -> str:
+def _required_str(value: object, *, label: str) -> str:
     result = str(value or "").strip()
     if not result:
         raise MacroHostError("invalid_input", f"{label} is required")
@@ -222,8 +275,8 @@ class AgentMacroHostService:
         self,
         *,
         project_checker: ProjectChecker,
-        agent_session_service: Any,
-        environment_owner: Any | None = None,
+        agent_session_service: AgentSessionService,
+        environment_owner: MacroEnvironmentOwner | None = None,
         prepared_binding_ttl_seconds: int = 900,
         clock: Callable[[], datetime] = _utcnow,
     ) -> None:
@@ -306,11 +359,9 @@ class AgentMacroHostService:
         )
         if isinstance(session, Failure):
             raise MacroHostError("agent_session_unavailable", session.message, status_code=503)
-        if isinstance(session, Mapping):
-            session_record = session.get("session") if isinstance(session.get("session"), Mapping) else session
-            session_value = session_record.get("session_id")
-        else:
-            session_value = getattr(session, "session_id", None)
+        embedded_session = session.get("session")
+        session_record = embedded_session if _is_string_mapping(embedded_session) else session
+        session_value = session_record.get("session_id")
         session_id = _required_str(session_value, label="agent sessionId")
         now = self.clock()
         with self._lock:
@@ -390,7 +441,7 @@ class AgentMacroHostService:
                 raise MacroHostError("host_actor_mismatch", "recorded turn belongs to another authenticated actor", status_code=403)
             binding.turn_contexts[normalized_turn] = context
             binding.turn_bindings[normalized_turn] = turn_binding
-        message_id = message.get("message_id") if isinstance(message, Mapping) else getattr(message, "message_id", None)
+        message_id = message.get("message_id")
         return {
             "recorded": True,
             "role": "user",
@@ -429,7 +480,7 @@ class AgentMacroHostService:
         )
         if isinstance(outcome, Failure):
             raise MacroHostError("host_confirmation_rejected", outcome.message, status_code=403)
-        message_id = outcome.get("message_id") if isinstance(outcome, Mapping) else getattr(outcome, "message_id", None)
+        message_id = outcome.get("message_id")
         return {
             "confirmed": True,
             "actionId": normalized_action,
@@ -459,7 +510,7 @@ class AgentMacroHostService:
         call_id: str,
         namespace: str | None,
         tool: str,
-        arguments: Mapping[str, Any],
+        arguments: Mapping[str, object],
         actor_context: RequestActorContext | None = None,
     ) -> dict[str, Any]:
         normalized_thread = _required_str(thread_id, label="threadId")
@@ -511,7 +562,7 @@ class AgentMacroHostService:
 
             tool_call = CoreToolCall(
                 tool_name=logical_name,
-                arguments=dict(arguments),
+                arguments=json_object(arguments),
                 call_id=normalized_call,
                 reason="codex_webui_macro_host",
             )
@@ -545,13 +596,14 @@ class AgentMacroHostService:
                         "environment_status": binding.environment.status,
                     },
                 ),
-                emit=lambda _event: None,
+                emit=_ignore_core_event,
                 trusted_context=context,
                 authorization_service=self.agent_session_service,
                 package_digest=package_digest,
             )
-            projection = result.to_dict() if hasattr(result, "to_dict") else result
-            structured = dict(projection.get("structured_content") or {})
+            projection = result.to_dict()
+            structured_value = projection.get("structured_content")
+            structured = json_object(structured_value)
             status = str(projection.get("status") or "")
             self._record_dispatch_event(
                 binding=binding,
@@ -573,7 +625,7 @@ class AgentMacroHostService:
                     "threadId": normalized_thread,
                     "turnId": normalized_turn,
                 }
-            response = {
+            response: dict[str, object] = {
                 "success": status == "completed",
                 "resultProjection": projection,
                 "pendingAction": pending_action,
@@ -599,17 +651,15 @@ class AgentMacroHostService:
         logical_name: str,
         arguments_digest: str,
         status: str,
-        structured: Mapping[str, Any],
+        structured: Mapping[str, object],
     ) -> None:
-        store = getattr(self.agent_session_service, "store", None)
-        append = getattr(store, "append_event", None)
-        if not callable(append) or not binding.session_id:
+        if not binding.session_id:
             return
         try:
-            append(
+            self.agent_session_service.store.append_event(
                 binding.session_id,
                 event_type="macro_host.tool.dispatched",
-                payload={
+                payload=json_object({
                     "project_key": binding.project_key,
                     "session_id": binding.session_id,
                     "thread_id": binding.thread_id,
@@ -621,7 +671,7 @@ class AgentMacroHostService:
                     "environment_digest": binding.environment.environment_digest,
                     "status": status,
                     "structured_content": dict(structured or {}),
-                },
+                }),
             )
         except Exception:
             # Event persistence is best-effort; the dispatch result remains authoritative.
@@ -636,11 +686,8 @@ class AgentMacroHostService:
         package_id: str | None,
         package_version: str | None,
     ) -> MacroEnvironment:
-        resolve = getattr(self.environment_owner, "resolve", None)
-        if not callable(resolve):
-            raise MacroHostError("macro_environment_unavailable", "macro environment owner is unavailable", status_code=503)
         try:
-            raw = resolve(
+            raw = self.environment_owner.resolve(
                 project_key=project_key,
                 binding_id=binding_id,
                 phase=phase,
@@ -654,11 +701,8 @@ class AgentMacroHostService:
         return raw if isinstance(raw, MacroEnvironment) else self._read_environment(raw)
 
     def _assemble_turn(self, environment: MacroEnvironment, context: TrustedHostContext) -> MacroNativeBinding:
-        assemble = getattr(self.environment_owner, "assemble", None)
-        if not callable(assemble):
-            raise MacroHostError("macro_environment_unavailable", "macro environment owner is unavailable", status_code=503)
         try:
-            native = assemble(environment, context)
+            native = self.environment_owner.assemble(environment, context)
         except MacroHostError:
             raise
         except Exception as exc:
@@ -668,30 +712,45 @@ class AgentMacroHostService:
         return native
 
     @staticmethod
-    def _read_environment(raw: Any) -> MacroEnvironment:
-        if not isinstance(raw, Mapping):
+    def _read_environment(raw: object) -> MacroEnvironment:
+        if not _is_string_mapping(raw):
             raise MacroHostError("macro_environment_unavailable", "macro environment owner is unavailable", status_code=503)
-        tools = raw.get("dynamic_tools") or raw.get("dynamicTools")
-        raw_skills = raw.get("skills") or []
-        roots = raw.get("skill_roots") or raw.get("skillRoots")
-        if not isinstance(tools, list) or not isinstance(raw_skills, list):
+        tools_value = raw.get("dynamic_tools") or raw.get("dynamicTools")
+        raw_skills_value = raw.get("skills")
+        if raw_skills_value is None:
+            raw_skills_value = list[object]()
+        roots_value = raw.get("skill_roots") or raw.get("skillRoots")
+        if not _is_object_sequence(tools_value) or not _is_object_sequence(raw_skills_value):
             raise MacroHostError("macro_environment_invalid", "macro environment descriptor is invalid")
+        tools = tuple(
+            item
+            for item in tools_value
+            if _is_string_mapping(item)
+        )
+        if len(tools) != len(tools_value):
+            raise MacroHostError("macro_environment_invalid", "macro dynamic tool descriptor is invalid")
+        skills_raw = tuple(item for item in raw_skills_value if _is_string_mapping(item))
+        if len(skills_raw) != len(raw_skills_value):
+            raise MacroHostError("macro_environment_invalid", "macro skill descriptor is invalid")
         skills = tuple(
             MacroSkillDescriptor(
-                _required_str(item.get("name"), label="skill name"),
-                _required_str(item.get("path"), label="skill path"),
-                _required_str(item.get("content_digest") or item.get("contentDigest"), label="skill digest"),
-                str(item.get("source_root") or item.get("sourceRoot") or "").strip() or None,
-                str(item.get("relative_path") or item.get("relativePath") or "").strip() or None,
+                _required_str(skill.get("name"), label="skill name"),
+                _required_str(skill.get("path"), label="skill path"),
+                _required_str(skill.get("content_digest") or skill.get("contentDigest"), label="skill digest"),
+                str(skill.get("source_root") or skill.get("sourceRoot") or "").strip() or None,
+                str(skill.get("relative_path") or skill.get("relativePath") or "").strip() or None,
             )
-            for item in raw_skills
-            if isinstance(item, Mapping)
+            for skill in skills_raw
         )
-        if roots is None:
+        if roots_value is None:
             roots = sorted({str(Path(item.path).parent.parent) for item in skills})
+        elif _is_string_sequence(roots_value):
+            roots = roots_value
+        else:
+            raise MacroHostError("macro_environment_invalid", "macro skill roots descriptor is invalid")
         return MacroEnvironment(
             environment_digest=_required_str(raw.get("environment_digest") or raw.get("environmentDigest"), label="environment digest"),
-            dynamic_tools=tuple(tools),
+            dynamic_tools=tools,
             skills=skills,
             skill_roots=tuple(sorted(set(roots))),
             descriptor=raw,
@@ -731,16 +790,13 @@ class AgentMacroHostService:
                 raise MacroHostError("invalid_input", "bindingId or threadId is required")
         if binding is None:
             if normalized_thread:
-                store = getattr(self.agent_session_service, "store", None)
-                find = getattr(store, "find_session_by_native_thread_id", None)
-                if callable(find):
-                    found = find(normalized_thread)
-                    if isinstance(found, Failure) or found is not None:
-                        raise MacroHostError(
-                            "rebind_required",
-                            "macro host binding was lost; rebind required",
-                            status_code=409,
-                        )
+                found = self.agent_session_service.store.find_session_by_native_thread_id(normalized_thread)
+                if isinstance(found, Failure) or found is not None:
+                    raise MacroHostError(
+                        "rebind_required",
+                        "macro host binding was lost; rebind required",
+                        status_code=409,
+                    )
             raise MacroHostError("binding_not_found", "macro host binding not found", status_code=404)
         return binding
 

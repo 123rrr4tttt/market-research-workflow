@@ -2,18 +2,18 @@
 from __future__ import annotations
 
 import logging
-from typing import Optional
 from datetime import datetime
 
 from ....models.entities import Document
 from ..models import NormalizedMarketData
-from ...extraction.numeric import normalize_market_payload
+from ...extraction.numeric import normalize_market_payload, normalize_numeric_scalar
 from ...document_views import (
     get_document_source_label,
     get_market_data,
     get_market_entities,
     has_structured_data,
 )
+from ..mapping import normalize_graph_json_object
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 class MarketAdapter:
     """市场数据适配器"""
     
-    def to_normalized(self, doc: Document) -> Optional[NormalizedMarketData]:
+    def to_normalized(self, doc: Document) -> NormalizedMarketData | None:
         """
         将市场文档转换为规范化格式
         
@@ -40,11 +40,13 @@ class MarketAdapter:
         if not has_structured_data(doc):
             return None
         
-        market = get_market_data(doc)
+        market: dict[str, object] = dict(get_market_data(doc))
         
         # 提取基础字段
-        state = market.get("state") or doc.state or ""
-        game = market.get("game")
+        raw_state = market.get("state")
+        state = raw_state if isinstance(raw_state, str) else (doc.state or "")
+        raw_game = market.get("game")
+        game = raw_game if isinstance(raw_game, str) else None
         
         # 处理日期
         date = None
@@ -91,12 +93,12 @@ class MarketAdapter:
             state=state,
             game=game,
             date=date,
-            sales_volume=market.get("sales_volume"),
-            revenue=market.get("revenue"),
-            jackpot=market.get("jackpot"),
-            ticket_price=market.get("ticket_price"),
+            sales_volume=normalize_numeric_scalar(market.get("sales_volume")),
+            revenue=normalize_numeric_scalar(market.get("revenue")),
+            jackpot=normalize_numeric_scalar(market.get("jackpot")),
+            ticket_price=normalize_numeric_scalar(market.get("ticket_price")),
             source_name=source_name,
             source_uri=doc.uri,
             title=doc.title,
-            entities=entities or [],
+            entities=[normalize_graph_json_object(entity) for entity in entities],
         )

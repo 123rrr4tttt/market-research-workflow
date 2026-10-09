@@ -243,6 +243,39 @@ class TestRawImportDocumentBranch:
         assert result["error_count"] == 1
         assert completed[0][:2] == (88, "completed")
 
+    def test_bad_doc_type_records_error_and_continues_valid_batch(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ):
+        raw_import, session, _envelopes, completed, failed = self._install_runtime(
+            monkeypatch,
+            writer_results=[
+                {"data": {"writer_result": {"inserted": 1, "doc_id": 42}}},
+            ],
+        )
+
+        result = raw_import.run_raw_import_documents(
+            {
+                "items": [
+                    {"title": "bad", "text": "bad", "doc_type": 7},
+                    {"title": "valid", "text": "valid", "doc_type": "raw_note"},
+                ],
+                "enable_extraction": False,
+            },
+            "demo",
+        )
+
+        assert result["inserted"] == 1
+        assert result["error_count"] == 1
+        assert result["errors"] == [
+            {"index": 0, "error": "doc_type must be a string or null"}
+        ]
+        assert result["items"][0]["index"] == 1
+        assert result["items"][0]["status"] == "ok"
+        assert completed == [(88, "completed", result)]
+        assert failed == []
+        assert session.committed
+
     def _install_sqlite_runtime(self, monkeypatch):
         from app.models.entities import Document, Source
         from app.services.ingest import raw_import, terminal_writer

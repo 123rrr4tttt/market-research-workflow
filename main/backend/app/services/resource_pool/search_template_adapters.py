@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from typing import Any
 
 from .search_result_parser_profiles import resolve_parser_profile_capability

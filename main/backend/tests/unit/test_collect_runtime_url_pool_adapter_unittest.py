@@ -381,6 +381,74 @@ class CollectRuntimeUrlPoolAdapterUnitTestCase(unittest.TestCase):
                 incarnation="url-incarnation-no-effect",
             )
 
+    def test_single_url_contract_versions_preserve_legacy_identity(self) -> None:
+        from app.successor_runtime.capabilities import acquisition_url as url
+        from app.successor_runtime.runtime.assignments import RecoveryBinding
+
+        legacy = url.build_url_single_url_legacy_contract()
+        legacy_profiles = url.build_url_single_url_legacy_profiles()
+        current = url.build_url_single_url_contract()
+        current_profiles = url.build_url_single_url_profiles()
+        legacy_recovery = RecoveryBinding.from_content(
+            recovery_handler_id=f"{legacy.ref.kind}.readback",
+            recovery_handler_version="1",
+            interpreter_profile_digest=legacy_profiles.interpreter.profile_digest,
+            authoritative_readback_profile_ref=(
+                legacy.observation_profile_ref.profile_id
+            ),
+        )
+
+        self.assertEqual(legacy.ref.contract_version, "1.0.0")
+        self.assertEqual(
+            legacy.ref.contract_digest,
+            "080a25603e9ccb8b3ec42d6e64b06c9451663955b66e1badfd671baa4dc388fd",
+        )
+        self.assertEqual(
+            legacy_profiles.failure.profile_digest,
+            "684a900d29c01194cb7e909031e08d96a859d199bbb2fd62a33851241d2063c4",
+        )
+        self.assertEqual(
+            legacy_profiles.interpreter.profile_digest,
+            "2f4ab643a5ac0db0c1a3169083d911fe203b535c69124597f0d57111feaa1111",
+        )
+        self.assertEqual(
+            legacy_recovery.binding_digest,
+            "39f88ee99336802162c7d822df624909ac1224d883acf0ee2a9b06b7c75d3945",
+        )
+        self.assertEqual(current.ref.contract_version, "1.1.0")
+        self.assertNotEqual(current.ref, legacy.ref)
+        self.assertTrue(current_profiles.failure.unknown_outcome_supported)
+        self.assertEqual(
+            current_profiles.failure.readback_or_compensation,
+            "readback",
+        )
+        self.assertEqual(
+            current_profiles.failure.readback_profile_ref,
+            url.URL_SINGLE_URL_OBSERVATION_PROFILE,
+        )
+        self.assertFalse(current_profiles.failure.retryable)
+        self.assertEqual(current_profiles.failure.retryable_failure_kinds, ())
+        self.assertIsNone(current_profiles.failure.compensation_profile_ref)
+        self.assertEqual(
+            current_profiles.interpreter.authoritative_readback_profile_ref,
+            url.URL_SINGLE_URL_OBSERVATION_PROFILE,
+        )
+        self.assertEqual(current_profiles.failure.profile_version, "1.1.0")
+        self.assertEqual(current_profiles.interpreter.profile_version, "1.1.0")
+        self.assertEqual(
+            url.build_url_single_url_request_codec(current.ref).codec_version,
+            "1",
+        )
+        self.assertEqual(
+            url.build_url_single_url_outcome_codec(current.ref).codec_version,
+            "1",
+        )
+        for family in ("semantic", "effect", "resource", "authority", "observation"):
+            self.assertEqual(
+                getattr(current_profiles, family).ref,
+                getattr(legacy_profiles, family).ref,
+            )
+
     def test_url_single_url_input_validation_preserves_typed_scope_and_capability_failures(
         self,
     ) -> None:

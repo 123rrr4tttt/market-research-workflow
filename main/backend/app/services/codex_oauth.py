@@ -10,7 +10,7 @@ import time
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Annotated, Any, Iterator, NoReturn
+from typing import Annotated, Any, Generator, NoReturn, TypeGuard
 from urllib.parse import urlparse, urlencode
 
 import httpx
@@ -114,6 +114,22 @@ _STATE_LOCK = threading.RLock()
 _TOKEN_SINK_LOCK = threading.RLock()
 _PENDING_STATES: dict[str, dict[str, Any]] = {}
 _ACTIVE_SESSIONS: dict[str, CodexSession] = {}
+
+
+def _is_object_dict(value: object) -> TypeGuard[dict[object, object]]:
+    return isinstance(value, dict)
+
+
+def _is_string_object_dict(value: object) -> TypeGuard[dict[str, object]]:
+    return isinstance(value, dict)
+
+
+def _string_object_dict(value: object) -> dict[str, object]:
+    return value if _is_string_object_dict(value) else {}
+
+
+def _is_object_list(value: object) -> TypeGuard[list[object]]:
+    return isinstance(value, list)
 
 
 class TokenSinkPathSecurityError(PermissionError):
@@ -307,8 +323,8 @@ async def exchange_code_to_session(*, code: str, state: str) -> tuple[CodexSessi
     if response.status_code >= 400:
         reason = f"token_exchange_failed:{response.status_code}"
         try:
-            payload = response.json() if response.content else {}
-            if isinstance(payload, dict):
+            payload = _string_object_dict(response.json()) if response.content else {}
+            if payload:
                 error_code = str(payload.get("error") or "").strip()
                 error_desc = str(payload.get("error_description") or payload.get("message") or "").strip()
                 if error_code and error_desc:
@@ -328,7 +344,7 @@ async def exchange_code_to_session(*, code: str, state: str) -> tuple[CodexSessi
             ValueError,
         )
 
-    data = response.json() if response.content else {}
+    data = _string_object_dict(response.json()) if response.content else {}
     access_token = str(data.get("access_token") or "").strip() or None
     token_type = str(data.get("token_type") or "").strip() or None
     scope = str(data.get("scope") or "").strip() or cfg["scope"]
@@ -444,7 +460,7 @@ def persist_token_sink(payload: dict[str, Any]) -> None:
             if isinstance(existing_payload, dict):
                 existing = existing_payload
 
-            profiles = existing.get("profiles") if isinstance(existing.get("profiles"), dict) else {}
+            profiles = _string_object_dict(existing.get("profiles"))
             profile_payload = {
                 "provider": str(payload.get("provider") or _oauth_provider()).strip() or "openai",
                 "access_token": str(payload.get("access_token") or "").strip() or None,
@@ -471,10 +487,10 @@ def read_token_sink() -> dict[str, Any] | None:
     if not isinstance(payload, dict):
         return None
 
-    profiles = payload.get("profiles") if isinstance(payload.get("profiles"), dict) else {}
+    profiles = _string_object_dict(payload.get("profiles"))
     active_profile = _active_token_sink_profile(payload)
     profile_payload = profiles.get(active_profile)
-    if not isinstance(profile_payload, dict):
+    if not _is_string_object_dict(profile_payload):
         return None
     return profile_payload
 
@@ -507,9 +523,9 @@ def revoke_token_sink_profile(*, profile_name: str | None = None) -> dict[str, A
 
             if not target_profile:
                 target_profile = _active_token_sink_profile(payload)
-            profiles = payload.get("profiles") if isinstance(payload.get("profiles"), dict) else {}
+            profiles = _string_object_dict(payload.get("profiles"))
             profile_payload = profiles.get(target_profile)
-            if not isinstance(profile_payload, dict):
+            if not _is_string_object_dict(profile_payload):
                 return _token_sink_profile_revoke_result(
                     revoked=False,
                     reason="profile_missing",
@@ -547,11 +563,11 @@ def _select_valid_token_sink_profile() -> TokenSinkProfileSelection | None:
     if not isinstance(payload, dict):
         return None
 
-    profiles = payload.get("profiles") if isinstance(payload.get("profiles"), dict) else {}
+    profiles = _string_object_dict(payload.get("profiles"))
     active_profile = _active_token_sink_profile(payload)
     active_payload = profiles.get(active_profile)
     now = int(time.time())
-    if _is_valid_token_sink_profile(active_payload, now=now):
+    if _is_string_object_dict(active_payload) and _is_valid_token_sink_profile(active_payload, now=now):
         return TokenSinkProfileSelection(
             payload=active_payload,
             profile_name=active_profile,
@@ -577,7 +593,7 @@ def _select_valid_token_sink_profile() -> TokenSinkProfileSelection | None:
     for profile_name, profile_payload in profile_items:
         if not profile_name or profile_name == active_profile:
             continue
-        if _is_valid_token_sink_profile(profile_payload, now=now):
+        if _is_string_object_dict(profile_payload) and _is_valid_token_sink_profile(profile_payload, now=now):
             return TokenSinkProfileSelection(
                 payload=profile_payload,
                 profile_name=profile_name,
@@ -587,8 +603,8 @@ def _select_valid_token_sink_profile() -> TokenSinkProfileSelection | None:
     return None
 
 
-def _is_valid_token_sink_profile(payload: Any, *, now: int) -> bool:
-    if not isinstance(payload, dict):
+def _is_valid_token_sink_profile(payload: object, *, now: int) -> bool:
+    if not _is_string_object_dict(payload):
         return False
     if _is_revoked_token_sink_profile(payload):
         return False
@@ -597,7 +613,7 @@ def _is_valid_token_sink_profile(payload: Any, *, now: int) -> bool:
     return bool(token and expires_at > now + 30)
 
 
-def _is_revoked_token_sink_profile(payload: dict[str, Any]) -> bool:
+def _is_revoked_token_sink_profile(payload: dict[str, object]) -> bool:
     if payload.get("revoked") is True:
         return True
 
@@ -667,7 +683,7 @@ def _read_token_sink_file(*, lock: bool = True) -> dict[str, Any] | None:
         return None
     try:
         payload = json.loads(sink_path.read_text(encoding="utf-8"))
-        if not isinstance(payload, dict):
+        if not _is_string_object_dict(payload):
             return None
     except Exception:
         return None
@@ -675,7 +691,7 @@ def _read_token_sink_file(*, lock: bool = True) -> dict[str, Any] | None:
 
 
 @contextmanager
-def _token_sink_file_lock(*, exclusive: bool) -> Iterator[None]:
+def _token_sink_file_lock(*, exclusive: bool) -> Generator[None, None, None]:
     if fcntl is None:
         yield
         return
@@ -736,6 +752,11 @@ def _is_safe_token_sink_path(path: Path, *, for_write: bool) -> bool:
         return True
     except TokenSinkPathSecurityError:
         return False
+
+
+def is_safe_token_sink_path(path: Path, *, for_write: bool) -> bool:
+    """Return whether the token sink path satisfies the canonical path policy."""
+    return _is_safe_token_sink_path(path, for_write=for_write)
 
 
 def _raise_token_sink_path_failure(
@@ -942,7 +963,7 @@ def decode_id_token_claims(id_token: str | None) -> dict[str, Any]:
         obj = json.loads(raw.decode("utf-8"))
     except Exception:
         return {}
-    if not isinstance(obj, dict):
+    if not _is_string_object_dict(obj):
         return {}
 
     return _sanitize_id_token_claims(obj)
@@ -960,12 +981,12 @@ def _decode_id_token_header(id_token: str | None) -> dict[str, Any]:
         obj = json.loads(raw.decode("utf-8"))
     except Exception:
         return {}
-    if not isinstance(obj, dict):
+    if not _is_string_object_dict(obj):
         return {}
     return _sanitize_id_token_claims(obj)
 
 
-def _sanitize_id_token_claims(obj: dict[str, Any]) -> dict[str, Any]:
+def _sanitize_id_token_claims(obj: dict[str, object]) -> dict[str, Any]:
     claims: dict[str, Any] = {}
     for key, value in obj.items():
         clean_key = str(key or "").strip()
@@ -973,13 +994,13 @@ def _sanitize_id_token_claims(obj: dict[str, Any]) -> dict[str, Any]:
             continue
         if isinstance(value, (str, int, float, bool)) or value is None:
             claims[clean_key] = value
-        elif isinstance(value, list):
+        elif _is_object_list(value):
             claims[clean_key] = [
                 item
                 for item in value[:20]
                 if isinstance(item, (str, int, float, bool)) or item is None
             ]
-        elif isinstance(value, dict):
+        elif _is_object_dict(value):
             claims[clean_key] = {
                 str(child_key): child_value
                 for child_key, child_value in list(value.items())[:20]
@@ -1043,7 +1064,7 @@ def _verify_id_token_signature(id_token: str | None, *, expected: dict[str, Any]
             )
         except Exception:
             continue
-        if isinstance(decoded, dict):
+        if _is_string_object_dict(decoded):
             return _sanitize_id_token_claims(decoded)
     return {}
 
@@ -1077,7 +1098,7 @@ def _configured_id_token_jwks(expected: dict[str, Any]) -> list[dict[str, Any]]:
         getattr(settings, "codex_oauth_id_token_jwk", ""),
     ):
         obj = _json_config_object(value)
-        if isinstance(obj, dict):
+        if _is_string_object_dict(obj):
             configured.append(obj)
 
     for value in (
@@ -1085,19 +1106,19 @@ def _configured_id_token_jwks(expected: dict[str, Any]) -> list[dict[str, Any]]:
         getattr(settings, "codex_oauth_id_token_jwks", ""),
     ):
         obj = _json_config_object(value)
-        if isinstance(obj, dict):
+        if _is_string_object_dict(obj):
             raw_keys = obj.get("keys")
-        elif isinstance(obj, list):
+        elif _is_object_list(obj):
             raw_keys = obj
         else:
             raw_keys = []
-        if isinstance(raw_keys, list):
-            configured.extend(item for item in raw_keys if isinstance(item, dict))
+        if _is_object_list(raw_keys):
+            configured.extend(item for item in raw_keys if _is_string_object_dict(item))
     return configured
 
 
-def _json_config_object(value: Any) -> Any:
-    if isinstance(value, (dict, list)):
+def _json_config_object(value: object) -> object:
+    if _is_object_dict(value) or _is_object_list(value):
         return value
     raw = str(value or "").strip()
     if not raw:
@@ -1116,8 +1137,11 @@ def _jwk_verification_key(jwk: dict[str, Any], *, header: dict[str, Any], alg: s
     jwk_alg = str(jwk.get("alg") or "").strip().upper()
     if jwk_alg and jwk_alg != alg:
         return None
+    jwt_module = jwt
+    if jwt_module is None:
+        return None
     try:
-        pyjwk = jwt.PyJWK.from_dict(jwk)
+        pyjwk = jwt_module.PyJWK.from_dict(jwk)
         return pyjwk.key
     except Exception:
         return None
@@ -1144,7 +1168,7 @@ def _id_token_audience_matches(audience: Any, expected_audience: str) -> bool:
         return False
     if isinstance(audience, str):
         return audience == expected_audience
-    if isinstance(audience, list):
+    if _is_object_list(audience):
         return any(isinstance(item, str) and item == expected_audience for item in audience)
     return False
 
@@ -1368,10 +1392,10 @@ def _has_valid_codex_cli_auth() -> bool:
         payload = json.loads(path.read_text(encoding="utf-8"))
     except Exception:
         return False
-    if not isinstance(payload, dict):
+    if not _is_string_object_dict(payload):
         return False
     tokens = payload.get("tokens")
-    if not isinstance(tokens, dict):
+    if not _is_string_object_dict(tokens):
         return False
     access_token = str(tokens.get("access_token") or "").strip()
     if not access_token:
@@ -1394,9 +1418,12 @@ def _jwt_exp(token: str) -> int | None:
         obj = json.loads(raw.decode("utf-8"))
     except Exception:
         return None
-    if not isinstance(obj, dict):
+    if not _is_string_object_dict(obj):
+        return None
+    expires_at = obj.get("exp")
+    if not isinstance(expires_at, (str, int, float, bytes, bytearray)):
         return None
     try:
-        return int(obj.get("exp"))
+        return int(expires_at)
     except Exception:
         return None

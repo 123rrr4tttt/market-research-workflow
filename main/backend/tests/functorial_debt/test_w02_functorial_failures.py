@@ -36,6 +36,7 @@ def test_w02_compose_invalid_step_is_closed_failure_and_public_lift() -> None:
         ("operator:known", "ref_unresolved"),
         ("plain", "ref_invalid_format"),
         ("skill:known", "ref_kind_unsupported"),
+        (["operator:known"], "ref_invalid_format"),
     ),
 )
 def test_w02_motif_ref_producers_are_closed(
@@ -85,6 +86,14 @@ def test_w02_registry_malformed_record_and_ref_validation(tmp_path: Path) -> Non
     catalog = FunctorialCatalog(data_root=tmp_path / "other")
     _assert_failure(catalog._upsert("unknown", "id", {}), "ref_kind_unsupported")
     _assert_failure(catalog._upsert("operators", "", {}), "ref_id_missing")
+    _assert_failure(
+        catalog._upsert("operators", "pairs", [("name", "value")]),
+        "catalog_record_malformed",
+    )
+    _assert_failure(
+        catalog._upsert("operators", "none", None),
+        "catalog_record_malformed",
+    )
 
 
 def test_w02_functorial_projection_failure_lifts() -> None:

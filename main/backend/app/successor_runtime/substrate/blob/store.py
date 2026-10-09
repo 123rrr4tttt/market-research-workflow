@@ -158,7 +158,7 @@ class ProjectBlobStore:
             prepared.temp_path.unlink()
         else:
             os.replace(prepared.temp_path, prepared.final_path)
-            self._fsync_directory(prepared.final_path.parent)
+            self.fsync_directory(prepared.final_path.parent)
         return BlobRef(
             scope_digest=prepared.scope_digest,
             digest=prepared.digest,
@@ -216,7 +216,7 @@ class ProjectBlobStore:
         return removed
 
     @staticmethod
-    def _fsync_directory(path: Path) -> None:
+    def fsync_directory(path: Path) -> None:
         if os.name == "nt":
             return
         try:

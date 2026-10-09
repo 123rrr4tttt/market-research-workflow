@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 import hashlib
+from collections.abc import Mapping
 from datetime import datetime, timezone
-from typing import Any, NoReturn
+from typing import Any, NoReturn, SupportsIndex, SupportsInt, TypeGuard
 
 from functorial_kit import Failure
+from sqlalchemy.orm import Session
+
 from mrw_functorial_kit.core.w04_service_semantics import writing_failures
 
 from ...models.base import SessionLocal, run_with_session_retry
@@ -22,7 +25,13 @@ from ..document_views import (
 
 
 class WritingVersionConflictError(ValueError):
-    def __init__(self, *, expected_version: int | None, current_version: int, server_snapshot: dict[str, Any]) -> None:
+    def __init__(
+        self,
+        *,
+        expected_version: int | None,
+        current_version: int,
+        server_snapshot: dict[str, object],
+    ) -> None:
         super().__init__("writing document version conflict")
         self.expected_version = expected_version
         self.current_version = current_version
@@ -32,6 +41,29 @@ class WritingVersionConflictError(ValueError):
 _WRITING_FAILURE_CONTEXT_KEYS = frozenset({"owner", "public_exception", "public_message"})
 
 
+def _version_value(value: object, *, optional: bool = False) -> tuple[bool, int | None]:
+    if value is None and optional:
+        return True, None
+    if isinstance(value, (str, bytes, bytearray, SupportsInt, SupportsIndex)):
+        try:
+            return True, int(value)
+        except Exception:
+            return False, None
+    return False, None
+
+
+def _is_object_mapping(value: object) -> TypeGuard[Mapping[object, object]]:
+    return isinstance(value, Mapping)
+
+
+def _snapshot_value(value: object) -> tuple[bool, dict[str, object]]:
+    if not value:
+        return True, {}
+    if not _is_object_mapping(value) or any(not isinstance(key, str) for key in value):
+        return False, {}
+    return True, {key: item for key, item in value.items() if isinstance(key, str)}
+
+
 def _writing_failure(
     code: str,
     message: str,
@@ -39,7 +71,7 @@ def _writing_failure(
     owner: str,
     public_exception: type[Exception] | str,
     public_message: str | None = None,
-    **details: Any,
+    **details: object,
 ) -> Failure:
     return writing_failures.fail(
         code,
@@ -71,10 +103,19 @@ def _raise_writing_legacy(failure: Failure, *, cause: BaseException | None = Non
         # kit:boundary owner=writing.document_service.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=writing.failure witness=test:test_w04_writing_failure_core
         raise KeyError(message) from cause
     if public_exception == "WritingVersionConflictError" and failure.code == "version_conflict":
+        expected_ok, expected_version = _version_value(
+            context.get("expected_version"),
+            optional=True,
+        )
+        current_ok, current_version = _version_value(context.get("current_version", 0))
+        snapshot_ok, server_snapshot = _snapshot_value(context.get("server_snapshot"))
+        if not expected_ok or not current_ok or current_version is None or not snapshot_ok:
+            # kit:boundary owner=writing.document_service.failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w04_writing_failure_core
+            raise TypeError("writing failure version conflict context is invalid")
         conflict = WritingVersionConflictError(
-            expected_version=context.get("expected_version"),
-            current_version=int(context.get("current_version", 0)),
-            server_snapshot=dict(context.get("server_snapshot") or {}),
+            expected_version=expected_version,
+            current_version=current_version,
+            server_snapshot=server_snapshot,
         )
         if cause is None:
             # kit:boundary owner=writing.document_service.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=writing.failure witness=test:test_w04_writing_failure_core
@@ -128,7 +169,7 @@ def create_document(
     updated_by_user_id: str | None = None,
     metadata_json: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    def _op(session) -> dict[str, Any]:
+    def _op(session: Session) -> dict[str, Any]:
         row = WritingDocument(
             project_key=project_key,
             title=str(title or "").strip() or "Untitled",
@@ -174,7 +215,7 @@ def get_document(*, doc_id: int, project_key: str) -> dict[str, Any]:
 
 
 def try_delete_document(*, doc_id: int, project_key: str, updated_by_user_id: str | None = None) -> dict[str, Any] | Failure:
-    def _op(session) -> dict[str, Any] | Failure:
+    def _op(session: Session) -> dict[str, Any] | Failure:
         row = fetch_active_document(session, doc_id=doc_id, project_key=project_key)
         if row is None:
             return _writing_failure(
@@ -213,7 +254,7 @@ def try_save_document_with_conflict(
     updated_by_user_id: str | None = None,
     metadata_json: dict[str, Any] | None = None,
 ) -> dict[str, Any] | Failure:
-    def _op(session) -> dict[str, Any] | Failure:
+    def _op(session: Session) -> dict[str, Any] | Failure:
         row = fetch_active_document(session, doc_id=doc_id, project_key=project_key)
         if row is None:
             return _writing_failure(
@@ -298,7 +339,7 @@ def try_save_draft_autosave(
     request_id: str | None = None,
     selection_snapshot: dict[str, Any] | None = None,
 ) -> dict[str, Any] | Failure:
-    def _op(session) -> dict[str, Any] | Failure:
+    def _op(session: Session) -> dict[str, Any] | Failure:
         document = fetch_active_document(session, doc_id=doc_id, project_key=project_key)
         if document is None:
             return _writing_failure(

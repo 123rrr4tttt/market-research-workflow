@@ -15,9 +15,9 @@ from app.successor_runtime.language.object_contracts import (
 )
 from app.successor_runtime.research.codec import (
     CanonicalCodecError,
-    _failure as research_failure,
     canonical_json,
     dataclass_to_json,
+    research_failure,
 )
 from mrw_functorial_kit.core.w07_semantics import language_failures, research_failures
 

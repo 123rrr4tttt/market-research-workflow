@@ -1,7 +1,8 @@
 """HTTP transport for project-scoped information-topology operations."""
 from __future__ import annotations
 
-from typing import Any, Mapping
+from collections.abc import Mapping
+from typing import Any, TypeGuard
 
 from fastapi import APIRouter, HTTPException, Request
 
@@ -56,15 +57,23 @@ def _failure(result: Any, project_key: str) -> Any:
     raise _error(status, code, result.message, dict(result.context or {}), project_key)
 
 
-def _check_project_refs(value: Any, project_key: str) -> None:
-    if isinstance(value, Mapping):
+def _is_object_mapping(value: object) -> TypeGuard[Mapping[object, object]]:
+    return isinstance(value, Mapping)
+
+
+def _is_object_sequence(value: object) -> TypeGuard[list[object] | tuple[object, ...]]:
+    return isinstance(value, (list, tuple))
+
+
+def _check_project_refs(value: object, project_key: str) -> None:
+    if _is_object_mapping(value):
         candidate = value.get("project_key")
         if candidate is not None and candidate != project_key:
             raise _error(404, "UNRESOLVABLE_REFERENCE", "reference is outside the active project",
                          {"project_key": candidate}, project_key)
         for child in value.values():
             _check_project_refs(child, project_key)
-    elif isinstance(value, (list, tuple)):
+    elif _is_object_sequence(value):
         for child in value:
             _check_project_refs(child, project_key)
 

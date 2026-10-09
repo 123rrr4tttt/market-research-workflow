@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from typing import Any
+from typing import TypedDict, TypeGuard
 from uuid import uuid4
 
 from ..extraction.application import ExtractionApplicationService
@@ -24,8 +24,49 @@ from ...settings.config import settings
 
 _EXTRACTION_APP = ExtractionApplicationService()
 
+PostprocessObject = dict[str, object]
 
-def _coerce_bool(value: Any, default: bool = False) -> bool:
+
+class PostprocessDispatchPlan(TypedDict):
+    run_extraction: bool
+    run_writer: bool
+
+
+class PostprocessData(TypedDict):
+    admission: str
+    cleaning: PostprocessObject
+    cleanup_execution: PostprocessObject
+    content_extraction: PostprocessObject
+    quality_assessment: PostprocessObject
+    quality_gates: PostprocessObject
+    canary_handoff: PostprocessObject
+    cleanup_actions: list[str]
+    normalized_payload: PostprocessObject
+    raw_snapshot_ref: str | None
+    rollback_token: str | None
+    dispatch_plan: PostprocessDispatchPlan
+    writer_result: PostprocessObject | None
+    ingress_payload: PostprocessObject
+
+
+class PostprocessMeta(TypedDict, total=False):
+    trace_id: str | None
+    ingest_id: str
+    attempt: int
+    reason_code: str
+    retryable: bool
+    stages: list[str]
+    retry_observability: object
+
+
+class PostprocessEnvelope(TypedDict):
+    status: str
+    data: PostprocessData
+    error: PostprocessObject | None
+    meta: PostprocessMeta
+
+
+def _coerce_bool(value: object, default: bool = False) -> bool:
     if isinstance(value, bool):
         return value
     if isinstance(value, str):
@@ -39,11 +80,44 @@ def _coerce_bool(value: Any, default: bool = False) -> bool:
     return bool(value)
 
 
-def _frontdoor_gate_config(*, terminal_context: dict[str, Any] | None = None) -> dict[str, Any]:
-    context = terminal_context if isinstance(terminal_context, dict) else {}
-    request_gate_config = context.get("meaningful_gate_config")
-    if not isinstance(request_gate_config, dict):
-        request_gate_config = {}
+def _is_object_dict(value: object) -> TypeGuard[dict[object, object]]:
+    return isinstance(value, dict)
+
+
+def _is_object_list(value: object) -> TypeGuard[list[object]]:
+    return isinstance(value, list)
+
+
+def _object_view(value: object) -> PostprocessObject:
+    if not _is_object_dict(value):
+        return {}
+    view: PostprocessObject = {}
+    for key, item in value.items():
+        view[str(key)] = deepcopy(item)
+    return view
+
+
+def _string_list(value: object) -> list[str]:
+    if not _is_object_list(value):
+        return []
+    return [str(item) for item in value]
+
+
+def _object_list(value: object) -> list[object]:
+    if not _is_object_list(value):
+        return []
+    return list(value)
+
+
+def _optional_str(value: object) -> str | None:
+    if value is None:
+        return None
+    return str(value)
+
+
+def _frontdoor_gate_config(*, terminal_context: dict[str, object] | None = None) -> dict[str, object]:
+    context = _object_view(terminal_context)
+    request_gate_config = _object_view(context.get("meaningful_gate_config"))
 
     settings_enabled = bool(getattr(settings, "ingest_enable_strict_gate", False))
     request_enabled = _coerce_bool(request_gate_config.get("enable_strict_gate"), False)
@@ -52,7 +126,7 @@ def _frontdoor_gate_config(*, terminal_context: dict[str, Any] | None = None) ->
     project_key = str(context.get("project_key") or "").strip() or None
     source_mode = str(context.get("source_mode") or "").strip().lower()
     entrypoint = str(context.get("ingestion_entrypoint") or "").strip().lower()
-    capability_profile = context.get("capability_profile") if isinstance(context.get("capability_profile"), dict) else {}
+    capability_profile = _object_view(context.get("capability_profile"))
     rollout_eligible = bool(
         source_mode == "url_execution"
         or entrypoint in {"ingest.url_pool", "ingest.source_library.run"}
@@ -66,21 +140,24 @@ def _frontdoor_gate_config(*, terminal_context: dict[str, Any] | None = None) ->
         rollout_eligible=rollout_eligible,
     )
 
-    raw_min_len = request_gate_config.get("min_semantic_len", getattr(settings, "ingest_min_semantic_len", 500))
+    raw_min_len = request_gate_config.get(
+        "min_semantic_len",
+        getattr(settings, "ingest_min_semantic_len", 500),
+    )
     return {
         "enable_strict_gate": bool(rollout_decision.enable_strict_gate),
         "strict_gate_source": str(rollout_decision.strict_gate_source),
-        "min_semantic_len": int(raw_min_len or 500),
+        "min_semantic_len": _safe_int(raw_min_len) or 500,
         "guardrail_rollout": rollout_decision.to_dict(),
     }
 
 
 def run_postprocess_frontdoor(
     *,
-    ingress_envelope: dict[str, Any],
+    ingress_envelope: object,
     run_writer: bool | None = None,
-) -> dict[str, Any]:
-    envelope = {
+) -> PostprocessEnvelope:
+    envelope: PostprocessEnvelope = {
         "status": "ok",
         "data": {
             "admission": "reject",
@@ -99,7 +176,7 @@ def run_postprocess_frontdoor(
                 "run_writer": False,
             },
             "writer_result": None,
-            "ingress_payload": deepcopy(ingress_envelope if isinstance(ingress_envelope, dict) else {}),
+            "ingress_payload": _object_view(ingress_envelope),
         },
         "error": None,
         "meta": {
@@ -116,24 +193,25 @@ def run_postprocess_frontdoor(
     if error is not None:
         return _fail(envelope, reason_code="invalid_ingress", error=error, retryable=False)
 
-    ingress = dict(ingress_envelope or {})
-    envelope["meta"]["trace_id"] = ((ingress.get("meta") or {}).get("trace_id") if isinstance(ingress.get("meta"), dict) else None)
-    envelope["meta"]["reason_code"] = str(((ingress.get("meta") or {}).get("reason_code") if isinstance(ingress.get("meta"), dict) else "ok") or "ok")
-    envelope["meta"]["retryable"] = bool(((ingress.get("meta") or {}).get("retryable")) if isinstance(ingress.get("meta"), dict) else False)
+    ingress = _object_view(ingress_envelope)
+    ingress_meta = _object_view(ingress.get("meta"))
+    envelope["meta"]["trace_id"] = _optional_str(ingress_meta.get("trace_id"))
+    envelope["meta"]["reason_code"] = str(ingress_meta.get("reason_code") or "ok")
+    envelope["meta"]["retryable"] = bool(ingress_meta.get("retryable"))
     _stage(envelope, "contract_validated")
 
-    collection_payload = ingress.get("collection_payload") if isinstance(ingress.get("collection_payload"), dict) else {}
-    document_candidate = collection_payload.get("document_candidate") if isinstance(collection_payload.get("document_candidate"), dict) else {}
-    dispatch_plan = collection_payload.get("dispatch_plan") if isinstance(collection_payload.get("dispatch_plan"), dict) else {}
-    records = collection_payload.get("records") if isinstance(collection_payload.get("records"), list) else []
-    extraction_plan = collection_payload.get("extraction_plan") if isinstance(collection_payload.get("extraction_plan"), dict) else {}
+    collection_payload = _object_view(ingress.get("collection_payload"))
+    document_candidate = _object_view(collection_payload.get("document_candidate"))
+    dispatch_plan = _object_view(collection_payload.get("dispatch_plan"))
+    records = collection_payload.get("records")
+    extraction_plan = _object_view(collection_payload.get("extraction_plan"))
     effective_run_writer = bool(dispatch_plan.get("run_writer", True if run_writer is None else run_writer))
     effective_run_extraction = bool(dispatch_plan.get("run_extraction", True))
     admission = "accept"
     if document_candidate:
         if not str(document_candidate.get("uri") or "").strip() and not str(document_candidate.get("content") or "").strip():
             admission = "reject"
-    elif records:
+    elif isinstance(records, list) and records:
         admission = "defer"
         effective_run_writer = False
         effective_run_extraction = False
@@ -147,32 +225,31 @@ def run_postprocess_frontdoor(
         "run_extraction": effective_run_extraction,
         "run_writer": effective_run_writer,
     }
-    envelope["data"]["raw_snapshot_ref"] = str(((ingress.get("meta") or {}).get("payload_hash")) if isinstance(ingress.get("meta"), dict) else "") or None
+    envelope["data"]["raw_snapshot_ref"] = str(ingress_meta.get("payload_hash") or "") or None
     _stage(envelope, "admission_decided")
 
     if admission != "accept":
         envelope["meta"]["reason_code"] = "deferred" if admission == "defer" else "rejected"
         return envelope
 
-    terminal_context = collection_payload.get("terminal_context") if isinstance(collection_payload.get("terminal_context"), dict) else {}
-    terminal_context = dict(terminal_context or {})
+    terminal_context = _object_view(collection_payload.get("terminal_context"))
     if ingress.get("project_key") and not terminal_context.get("project_key"):
         terminal_context["project_key"] = ingress.get("project_key")
     document_candidate, extraction_profile = apply_main_content_extraction(document_candidate)
-    terminal_context["content_extraction"] = dict(extraction_profile)
+    terminal_context["content_extraction"] = _object_view(extraction_profile)
     envelope["data"]["content_extraction"] = deepcopy(extraction_profile)
     _stage(envelope, "content_extracted")
     document_candidate, cleaning_result = clean_frontdoor_document_candidate(document_candidate)
-    terminal_context["frontdoor_cleaning"] = dict(cleaning_result)
+    terminal_context["frontdoor_cleaning"] = _object_view(cleaning_result)
     envelope["data"]["cleaning"] = deepcopy(cleaning_result)
     _stage(envelope, "cleaned")
     quality_result = _evaluate_quality_frontdoor(
         document_candidate=document_candidate,
         terminal_context=terminal_context,
     )
-    envelope["data"]["quality_assessment"] = deepcopy(quality_result["quality_assessment"])
-    envelope["data"]["quality_gates"] = deepcopy(quality_result["quality_gates"])
-    envelope["data"]["cleanup_actions"] = list(quality_result["cleanup_actions"])
+    envelope["data"]["quality_assessment"] = _object_view(quality_result["quality_assessment"])
+    envelope["data"]["quality_gates"] = _object_view(quality_result["quality_gates"])
+    envelope["data"]["cleanup_actions"] = _string_list(quality_result["cleanup_actions"])
     _stage(envelope, "quality_evaluated")
 
     admission = str(quality_result["admission"] or admission)
@@ -185,14 +262,14 @@ def run_postprocess_frontdoor(
         )
         envelope["data"]["cleanup_execution"] = deepcopy(cleanup_execution)
         if cleanup_execution.get("recovered") and cleanup_execution.get("quality_result"):
-            document_candidate = dict(cleanup_execution.get("document_candidate") or document_candidate)
-            terminal_context = dict(cleanup_execution.get("terminal_context") or terminal_context)
-            quality_result = dict(cleanup_execution.get("quality_result") or quality_result)
-            envelope["data"]["content_extraction"] = deepcopy((terminal_context.get("content_extraction") or {}))
-            envelope["data"]["cleaning"] = deepcopy((terminal_context.get("frontdoor_cleaning") or {}))
-            envelope["data"]["quality_assessment"] = deepcopy(quality_result["quality_assessment"])
-            envelope["data"]["quality_gates"] = deepcopy(quality_result["quality_gates"])
-            envelope["data"]["cleanup_actions"] = list(quality_result["cleanup_actions"])
+            document_candidate = _object_view(cleanup_execution.get("document_candidate")) or document_candidate
+            terminal_context = _object_view(cleanup_execution.get("terminal_context")) or terminal_context
+            quality_result = _object_view(cleanup_execution.get("quality_result")) or quality_result
+            envelope["data"]["content_extraction"] = _object_view(terminal_context.get("content_extraction"))
+            envelope["data"]["cleaning"] = _object_view(terminal_context.get("frontdoor_cleaning"))
+            envelope["data"]["quality_assessment"] = _object_view(quality_result["quality_assessment"])
+            envelope["data"]["quality_gates"] = _object_view(quality_result["quality_gates"])
+            envelope["data"]["cleanup_actions"] = _string_list(quality_result["cleanup_actions"])
             admission = str(quality_result["admission"] or admission)
             envelope["data"]["admission"] = admission
         if admission == "accept":
@@ -227,7 +304,7 @@ def run_postprocess_frontdoor(
         quality_result=quality_result,
     )
 
-    extraction_outcome = collection_payload.get("extraction_outcome") if isinstance(collection_payload.get("extraction_outcome"), dict) else {}
+    extraction_outcome: PostprocessObject = _object_view(collection_payload.get("extraction_outcome"))
     if effective_run_extraction and bool(extraction_plan.get("enabled", True)):
         if extraction_outcome:
             extraction_outcome = _normalize_existing_extraction_outcome(extraction_outcome)
@@ -263,7 +340,9 @@ def run_postprocess_frontdoor(
         extraction_outcome=extraction_outcome,
         terminal_context=terminal_context,
     )
-    normalized_payload["extracted_data"] = apply_terminal_compat(normalized_payload.get("extracted_data") if isinstance(normalized_payload.get("extracted_data"), dict) else {})
+    normalized_payload["extracted_data"] = apply_terminal_compat(
+        _object_view(normalized_payload.get("extracted_data"))
+    )
     envelope["data"]["normalized_payload"] = normalized_payload
     _stage(envelope, "normalized")
 
@@ -279,8 +358,8 @@ def run_frontdoor_extraction(
     *,
     title: str | None,
     content: str | None,
-    extraction_plan: dict[str, Any] | None = None,
-) -> dict[str, Any]:
+    extraction_plan: dict[str, object] | None = None,
+) -> dict[str, object]:
     return _run_extraction_plan(
         document_candidate={
             "title": title,
@@ -300,7 +379,7 @@ def run_unified_structured_extraction(
     include_company: bool = True,
     include_product: bool = True,
     include_operation: bool = True,
-) -> dict[str, Any]:
+) -> dict[str, object]:
     payload = "\n\n".join([segment for segment in [str(title or "").strip(), str(content or "").strip()] if segment]).strip()
     result = extract_structured_enriched_safe(
         extraction_app=_EXTRACTION_APP,
@@ -335,8 +414,8 @@ def run_unified_structured_extraction(
     }
 
 
-def _validate_ingress(ingress_envelope: Any) -> str | None:
-    if not isinstance(ingress_envelope, dict):
+def _validate_ingress(ingress_envelope: object) -> str | None:
+    if not _is_object_dict(ingress_envelope):
         return "ingress_envelope must be dict"
     if str(ingress_envelope.get("contract_version") or "").strip() != INGRESS_CONTRACT_VERSION:
         return "invalid contract_version"
@@ -349,22 +428,20 @@ def _validate_ingress(ingress_envelope: Any) -> str | None:
 
 def _attach_canary_handoff(
     *,
-    envelope: dict[str, Any],
-    ingress: dict[str, Any],
+    envelope: PostprocessEnvelope,
+    ingress: PostprocessObject,
 ) -> None:
-    data = envelope.get("data") if isinstance(envelope.get("data"), dict) else {}
-    writer_result = data.get("writer_result") if isinstance(data.get("writer_result"), dict) else {}
-    data["canary_handoff"] = build_single_url_canary_handoff(
+    envelope["data"]["canary_handoff"] = build_single_url_canary_handoff(
         ingress_envelope=ingress,
         postprocess_frontdoor=envelope,
-        writer_result=writer_result,
+        writer_result=_object_view(envelope["data"]["writer_result"]),
     )
 
 
-def _normalize_existing_extraction_outcome(extraction_outcome: dict[str, Any]) -> dict[str, Any]:
+def _normalize_existing_extraction_outcome(extraction_outcome: dict[str, object]) -> dict[str, object]:
     normalized = dict(extraction_outcome or {})
     if "domains" not in normalized:
-        normalized["domains"] = dict(normalized.get("data") or {})
+        normalized["domains"] = _object_view(normalized.get("data"))
     normalized.setdefault("extractor_version", "unified.structured.v1")
     normalized.setdefault("model_profile", {})
     normalized.setdefault("prompt_profile", {})
@@ -374,7 +451,7 @@ def _normalize_existing_extraction_outcome(extraction_outcome: dict[str, Any]) -
     return normalized
 
 
-def _normalize_extraction_plan(extraction_plan: dict[str, Any]) -> dict[str, bool]:
+def _normalize_extraction_plan(extraction_plan: dict[str, object]) -> dict[str, bool]:
     plan = dict(extraction_plan or {})
     return {
         "include_policy": bool(plan.get("include_policy", True)),
@@ -388,14 +465,14 @@ def _normalize_extraction_plan(extraction_plan: dict[str, Any]) -> dict[str, boo
 
 def _run_extraction_plan(
     *,
-    document_candidate: dict[str, Any],
-    extraction_plan: dict[str, Any],
-) -> dict[str, Any]:
+    document_candidate: dict[str, object],
+    extraction_plan: dict[str, object],
+) -> dict[str, object]:
     resolved_plan = _normalize_extraction_plan(extraction_plan)
-    chunks = extraction_plan.get("chunks") if isinstance(extraction_plan.get("chunks"), list) else None
-    title = document_candidate.get("title")
+    chunks = _string_list(extraction_plan.get("chunks"))
+    title = _optional_str(document_candidate.get("title"))
     if chunks:
-        outcomes: list[dict[str, Any]] = []
+        outcomes: list[dict[str, object]] = []
         for chunk in chunks:
             text = str(chunk or "").strip()
             if not text:
@@ -431,17 +508,15 @@ def _run_extraction_plan(
 
 def _merge_extraction_outcomes(
     *,
-    outcomes: list[dict[str, Any]],
+    outcomes: list[dict[str, object]],
     extraction_mode: str,
     chunks_used: int,
-) -> dict[str, Any]:
-    merged_domains: dict[str, Any] = {}
+) -> dict[str, object]:
+    merged_domains: dict[str, object] = {}
     statuses: list[str] = []
     reasons: list[str] = []
     errors: list[str] = []
     for outcome in outcomes:
-        if not isinstance(outcome, dict):
-            continue
         statuses.append(str(outcome.get("status") or "failed").strip().lower())
         reason = str(outcome.get("reason") or "").strip()
         error = str(outcome.get("error") or "").strip()
@@ -478,41 +553,45 @@ def _merge_extraction_outcomes(
     }
 
 
-def _merge_domain_payloads(base: dict[str, Any], incoming: Any) -> dict[str, Any]:
-    out = dict(base or {})
-    if not isinstance(incoming, dict):
+def _merge_domain_payloads(base: dict[str, object], incoming: object) -> dict[str, object]:
+    out = _object_view(base)
+    incoming_view = _object_view(incoming)
+    if not incoming_view:
         return out
-    for key, value in incoming.items():
-        if key == "entities_relations" and isinstance(value, dict):
-            current = out.get("entities_relations") if isinstance(out.get("entities_relations"), dict) else {}
-            entities = list(current.get("entities") or [])
-            relations = list(current.get("relations") or [])
-            _merge_unique_list_of_dicts(entities, value.get("entities") or [], ("text", "type"))
-            _merge_unique_list_of_dicts(relations, value.get("relations") or [], ("subject", "predicate", "object"))
+    for key, value in incoming_view.items():
+        if key == "entities_relations":
+            current = _object_view(out.get("entities_relations"))
+            relation_payload = _object_view(value)
+            entities = _object_list(current.get("entities"))
+            relations = _object_list(current.get("relations"))
+            _merge_unique_list_of_dicts(entities, _object_list(relation_payload.get("entities")), ("text", "type"))
+            _merge_unique_list_of_dicts(relations, _object_list(relation_payload.get("relations")), ("subject", "predicate", "object"))
             out["entities_relations"] = {"entities": entities[:50], "relations": relations[:50]}
             continue
-        if key == "entities" and isinstance(value, list):
-            entities = list(out.get("entities") or [])
-            _merge_unique_list_of_dicts(entities, value, ("text", "type"))
+        if key == "entities":
+            entities = _object_list(out.get("entities"))
+            _merge_unique_list_of_dicts(entities, _object_list(value), ("text", "type"))
             out["entities"] = entities[:50]
             continue
-        if isinstance(value, dict) and isinstance(out.get(key), dict):
-            merged = dict(out.get(key) or {})
-            merged.update(value)
+        value_view = _object_view(value)
+        current_view = _object_view(out.get(key))
+        if value_view and current_view:
+            merged = current_view
+            merged.update(value_view)
             out[key] = merged
             continue
         out[key] = deepcopy(value)
     return out
 
 
-def _merge_unique_list_of_dicts(target: list[Any], incoming: list[Any], keys: tuple[str, ...]) -> None:
+def _merge_unique_list_of_dicts(target: list[object], incoming: list[object], keys: tuple[str, ...]) -> None:
     seen = {
         tuple(str((item or {}).get(key) or "").strip().lower() for key in keys)
         for item in target
-        if isinstance(item, dict)
+        if _is_object_dict(item)
     }
     for item in incoming:
-        if not isinstance(item, dict):
+        if not _is_object_dict(item):
             continue
         signature = tuple(str(item.get(key) or "").strip().lower() for key in keys)
         if not any(signature):
@@ -525,25 +604,25 @@ def _merge_unique_list_of_dicts(target: list[Any], incoming: list[Any], keys: tu
 
 def _evaluate_quality_frontdoor(
     *,
-    document_candidate: dict[str, Any],
-    terminal_context: dict[str, Any],
-) -> dict[str, Any]:
-    candidate = dict(document_candidate or {})
-    context = dict(terminal_context or {})
+    document_candidate: dict[str, object],
+    terminal_context: dict[str, object],
+) -> dict[str, object]:
+    candidate = _object_view(document_candidate)
+    context = _object_view(terminal_context)
     uri = str(candidate.get("uri") or "").strip()
     title = str(candidate.get("title") or "").strip()
     summary = str(candidate.get("summary") or "").strip()
     content = str(candidate.get("content") or "")
     source_base_url = str(candidate.get("source_base_url") or "").strip().lower()
-    capability_profile = context.get("capability_profile") if isinstance(context.get("capability_profile"), dict) else {}
-    content_profile = context.get("content_extraction") if isinstance(context.get("content_extraction"), dict) else {}
+    capability_profile = _object_view(context.get("capability_profile"))
+    content_profile = _object_view(context.get("content_extraction"))
     entry_type = str(capability_profile.get("entry_type") or "").strip().lower()
     http_status = _safe_int(context.get("http_status")) or 0
     existing_quality_score = _safe_float(context.get("quality_score"))
 
-    existing_light_filter = context.get("light_filter") if isinstance(context.get("light_filter"), dict) else {}
+    existing_light_filter = _object_view(context.get("light_filter"))
     if "filter_decision" in existing_light_filter:
-        light_filter = dict(existing_light_filter)
+        light_filter = existing_light_filter
     else:
         light_filter_options = normalize_light_filter_options(existing_light_filter)
         if is_extracted_pdf_body(candidate):
@@ -559,7 +638,7 @@ def _evaluate_quality_frontdoor(
         )
 
     light_reason = normalize_reason_code(light_filter.get("filter_reason_code"), default="ok")
-    light_score = float(light_filter.get("filter_score") or 0)
+    light_score = _safe_float(light_filter.get("filter_score")) or 0.0
     if str(light_filter.get("filter_decision") or "").strip().lower() == "reject":
         retry_observability = build_retry_observability({"reason_code": "light_filter_rejected"})
         return {
@@ -568,7 +647,7 @@ def _evaluate_quality_frontdoor(
             "retryable": bool(retry_observability.get("retryable")),
             "retry_observability": retry_observability,
             "cleanup_actions": [],
-            "cleaning": dict(context.get("frontdoor_cleaning") or {}),
+            "cleaning": _object_view(context.get("frontdoor_cleaning")),
             "quality_assessment": {
                 "quality_score": light_score,
                 "meaningful": False,
@@ -576,11 +655,11 @@ def _evaluate_quality_frontdoor(
                 "content_ok": False,
             },
             "quality_gates": {
-                "light_filter": dict(light_filter),
+                "light_filter": light_filter,
                 "gate_plus": {"checks": [], "blocked": True, "blocked_stage": "light_filter", "blocked_reason": light_reason},
             },
             "degradation_flags": ["light_filter_rejected", f"light_filter_rejected:{light_reason}"],
-            "light_filter": dict(light_filter),
+            "light_filter": light_filter,
             "gate_plus": {"checks": [], "blocked": True, "blocked_stage": "light_filter", "blocked_reason": light_reason},
         }
 
@@ -631,7 +710,7 @@ def _evaluate_quality_frontdoor(
             0.0,
             float(
                 min(
-                    light_score or 100.0,
+                    light_score if light_score else 100.0,
                     (url_gate.quality_score if url_gate is not None else 100.0),
                     content_gate.quality_score,
                 )
@@ -639,18 +718,14 @@ def _evaluate_quality_frontdoor(
         ),
     )
     quality_score = max(existing_quality_score if existing_quality_score is not None else 0.0, computed_quality_score)
-    guardrail_rollout = (
-        gate_cfg.get("guardrail_rollout")
-        if isinstance(gate_cfg.get("guardrail_rollout"), dict)
-        else {}
-    )
+    guardrail_rollout = _object_view(gate_cfg.get("guardrail_rollout"))
     return {
         "admission": admission,
         "reason_code": reason_code,
         "retryable": bool(retry_observability.get("retryable")),
         "retry_observability": retry_observability,
         "cleanup_actions": cleanup_actions,
-        "cleaning": dict(context.get("frontdoor_cleaning") or {}),
+        "cleaning": _object_view(context.get("frontdoor_cleaning")),
         "quality_assessment": {
             "quality_score": quality_score,
             "meaningful": bool(provenance_ok and content_ok),
@@ -665,7 +740,7 @@ def _evaluate_quality_frontdoor(
             "guardrail_closure_claim": bool(guardrail_rollout.get("closure_claim")),
         },
         "quality_gates": {
-            "light_filter": dict(light_filter),
+            "light_filter": light_filter,
             "url_gate": (url_gate.to_dict() if url_gate is not None else None),
             "content_gate": content_gate.to_dict(),
             "gate_plus": gate_plus,
@@ -673,45 +748,49 @@ def _evaluate_quality_frontdoor(
             "gate_config": {
                 "enable_strict_gate": bool(gate_cfg.get("enable_strict_gate")),
                 "strict_gate_source": str(gate_cfg.get("strict_gate_source") or "disabled"),
-                "min_semantic_len": int(gate_cfg.get("min_semantic_len") or 500),
-                "guardrail_rollout": deepcopy(guardrail_rollout),
+                "min_semantic_len": _safe_int(gate_cfg.get("min_semantic_len")) or 500,
+                "guardrail_rollout": guardrail_rollout,
             },
         },
         "degradation_flags": degradation_flags,
-        "light_filter": dict(light_filter),
+        "light_filter": light_filter,
         "gate_plus": gate_plus,
     }
 
 
 def _merge_terminal_context(
     *,
-    terminal_context: dict[str, Any],
-    quality_result: dict[str, Any],
-) -> dict[str, Any]:
-    context = dict(terminal_context or {})
-    context["quality_score"] = float((quality_result.get("quality_assessment") or {}).get("quality_score") or 0.0)
-    context["degradation_flags"] = list(quality_result.get("degradation_flags") or [])
-    context["light_filter"] = dict(quality_result.get("light_filter") or {})
-    context["gate_plus"] = deepcopy(quality_result.get("gate_plus") or {})
-    context["frontdoor_cleaning"] = deepcopy(quality_result.get("cleaning") or {})
-    context["content_extraction"] = deepcopy((quality_result.get("quality_gates") or {}).get("content_profile") or {})
+    terminal_context: dict[str, object],
+    quality_result: dict[str, object],
+) -> dict[str, object]:
+    context = _object_view(terminal_context)
+    quality_assessment = _object_view(quality_result.get("quality_assessment"))
+    context["quality_score"] = _safe_float(quality_assessment.get("quality_score")) or 0.0
+    context["degradation_flags"] = _string_list(quality_result.get("degradation_flags"))
+    context["light_filter"] = _object_view(quality_result.get("light_filter"))
+    context["gate_plus"] = _object_view(quality_result.get("gate_plus"))
+    context["frontdoor_cleaning"] = _object_view(quality_result.get("cleaning"))
+    quality_gates = _object_view(quality_result.get("quality_gates"))
+    context["content_extraction"] = _object_view(quality_gates.get("content_profile"))
     return context
 
 
 def _merge_document_candidate(
     *,
-    document_candidate: dict[str, Any],
-    quality_result: dict[str, Any],
-) -> dict[str, Any]:
-    candidate = dict(document_candidate or {})
-    extracted_data_base = dict(candidate.get("extracted_data_base") or {})
+    document_candidate: dict[str, object],
+    quality_result: dict[str, object],
+) -> dict[str, object]:
+    candidate = _object_view(document_candidate)
+    extracted_data_base = _object_view(candidate.get("extracted_data_base"))
     extracted_data_base.setdefault("_quality_frontdoor", {})
     extracted_data_base["_quality_frontdoor"] = {
-        "cleaning": deepcopy(quality_result.get("cleaning") or {}),
-        "quality_assessment": deepcopy(quality_result.get("quality_assessment") or {}),
-        "cleanup_actions": list(quality_result.get("cleanup_actions") or []),
-        "gate_plus": deepcopy(quality_result.get("gate_plus") or {}),
-        "content_extraction": deepcopy((quality_result.get("quality_gates") or {}).get("content_profile") or {}),
+        "cleaning": _object_view(quality_result.get("cleaning")),
+        "quality_assessment": _object_view(quality_result.get("quality_assessment")),
+        "cleanup_actions": _string_list(quality_result.get("cleanup_actions")),
+        "gate_plus": _object_view(quality_result.get("gate_plus")),
+        "content_extraction": _object_view(
+            _object_view(quality_result.get("quality_gates")).get("content_profile")
+        ),
     }
     candidate["extracted_data_base"] = extracted_data_base
     return candidate
@@ -737,13 +816,13 @@ def _cleanup_actions_for_reason(reason_code: str) -> list[str]:
 
 def _maybe_execute_cleanup(
     *,
-    document_candidate: dict[str, Any],
-    terminal_context: dict[str, Any],
-    quality_result: dict[str, Any],
-) -> dict[str, Any]:
+    document_candidate: dict[str, object],
+    terminal_context: dict[str, object],
+    quality_result: dict[str, object],
+) -> dict[str, object]:
     if str(quality_result.get("admission") or "") != "return_for_cleanup":
         return {"executed": False, "recovered": False}
-    cleanup_actions = list(quality_result.get("cleanup_actions") or [])
+    cleanup_actions = _string_list(quality_result.get("cleanup_actions"))
     if not cleanup_actions:
         return {"executed": False, "recovered": False}
     if "specialized_extractor_required" in cleanup_actions:
@@ -756,45 +835,62 @@ def _maybe_execute_cleanup(
     if not cleanup_execution.get("recovered"):
         return cleanup_execution
     rerun_quality = _evaluate_quality_frontdoor(
-        document_candidate=dict(cleanup_execution.get("document_candidate") or document_candidate),
-        terminal_context=dict(cleanup_execution.get("terminal_context") or terminal_context),
+        document_candidate=_object_view(cleanup_execution.get("document_candidate")) or document_candidate,
+        terminal_context=_object_view(cleanup_execution.get("terminal_context")) or terminal_context,
     )
     cleanup_execution["quality_result"] = rerun_quality
     cleanup_execution["recovered"] = str(rerun_quality.get("admission") or "") == "accept"
     return cleanup_execution
 
 
-def _derive_publish_date_from_domains(domains: Any) -> str | None:
-    if not isinstance(domains, dict):
+def _derive_publish_date_from_domains(domains: object) -> str | None:
+    domain_view = _object_view(domains)
+    if not domain_view:
         return None
-    policy = domains.get("policy")
-    if isinstance(policy, dict):
-        effective_date = str(policy.get("effective_date") or "").strip()
-        if effective_date:
-            return effective_date
-    market = domains.get("market")
-    if isinstance(market, dict):
-        report_date = str(market.get("report_date") or "").strip()
-        if report_date:
-            return report_date
+    policy = _object_view(domain_view.get("policy"))
+    effective_date = str(policy.get("effective_date") or "").strip()
+    if effective_date:
+        return effective_date
+    market = _object_view(domain_view.get("market"))
+    report_date = str(market.get("report_date") or "").strip()
+    if report_date:
+        return report_date
     return None
 
 
-def _safe_int(value: Any) -> int | None:
-    try:
+def _safe_int(value: object) -> int | None:
+    if isinstance(value, bool):
         return int(value)
-    except Exception:
-        return None
+    if isinstance(value, int):
+        return value
+    if isinstance(value, str):
+        try:
+            return int(value)
+        except ValueError:
+            return None
+    return None
 
 
-def _safe_float(value: Any) -> float | None:
-    try:
+def _safe_float(value: object) -> float | None:
+    if isinstance(value, bool):
         return float(value)
-    except Exception:
-        return None
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, str):
+        try:
+            return float(value)
+        except ValueError:
+            return None
+    return None
 
 
-def _fail(envelope: dict[str, Any], *, reason_code: str, error: str, retryable: bool) -> dict[str, Any]:
+def _fail(
+    envelope: PostprocessEnvelope,
+    *,
+    reason_code: str,
+    error: str,
+    retryable: bool,
+) -> PostprocessEnvelope:
     envelope["status"] = "error"
     envelope["error"] = {"message": error}
     envelope["meta"]["reason_code"] = reason_code
@@ -802,10 +898,8 @@ def _fail(envelope: dict[str, Any], *, reason_code: str, error: str, retryable: 
     return envelope
 
 
-def _stage(envelope: dict[str, Any], stage: str) -> None:
-    stages = envelope["meta"].setdefault("stages", [])
-    if isinstance(stages, list):
-        stages.append(str(stage))
+def _stage(envelope: PostprocessEnvelope, stage: str) -> None:
+    envelope["meta"].setdefault("stages", []).append(stage)
 
 
 __all__ = ["run_postprocess_frontdoor"]

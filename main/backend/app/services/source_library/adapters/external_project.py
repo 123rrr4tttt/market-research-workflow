@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import json
-from typing import Any
+from collections.abc import Mapping
+from typing import Protocol, TypeGuard, TypedDict
 from urllib.parse import urlsplit
 
 from ...http.client import default_http_client
@@ -16,38 +17,63 @@ from ..external_project import (
 from ..external_project_registry import resolve_external_project_provider_binding
 
 
-_RUNNER_BY_PROVIDER_KEY = {
-    "external_project.rss_feed": lambda *, manifest, params: _run_rss_feed_manifest(manifest=manifest, params=params),
-    "external_project.sitemap": lambda *, manifest, params: _run_sitemap_manifest(manifest=manifest, params=params),
-    "external_project.http_api": lambda *, manifest, params: _run_http_api_manifest(manifest=manifest, params=params),
-    "external_project.article_extractor": lambda *, manifest, params: _run_article_extractor_manifest(manifest=manifest, params=params),
-    "external_project.python_library": lambda *, manifest, params: _run_python_library_manifest(manifest=manifest, params=params),
-    "external_project.cli_or_container": lambda *, manifest, params: _run_cli_or_container_manifest(manifest=manifest, params=params),
-}
 
-_PYTHON_LIBRARY_RUNNERS = {
-    "source_library.fixture_records.v1": lambda *, manifest, params, runtime, runtime_config: _run_fixture_records(
-        manifest=manifest,
-        runtime=runtime,
-        runtime_config=runtime_config,
-        source="python_library",
-    ),
-}
-
-_CLI_OR_CONTAINER_RUNNERS = {
-    "source_library.fixture_json.v1": lambda *, manifest, params, runtime, runtime_config: _run_fixture_json_output(
-        manifest=manifest,
-        runtime=runtime,
-        runtime_config=runtime_config,
-    ),
-}
+class ManifestRunner(Protocol):
+    def __call__(self, *, manifest: dict[str, object], params: Mapping[object, object]) -> dict[str, object]: ...
 
 
-def handle_external_project_manifest(params: dict[str, Any], project_key: str | None) -> dict[str, Any]:
+class RegisteredRunner(Protocol):
+    def __call__(
+        self,
+        *,
+        manifest: dict[str, object],
+        params: Mapping[object, object],
+        runtime: RuntimeInputs,
+        runtime_config: dict[str, object],
+    ) -> dict[str, object]: ...
+
+
+class RuntimeInputs(TypedDict):
+    query_terms: list[str]
+    urls: list[str]
+    domains: list[str]
+    max_items: int
+    date_from: str | None
+    date_to: str | None
+    request_timeout_ms: int
+
+
+def _is_object(value: object) -> TypeGuard[dict[str, object]]:
+    return isinstance(value, dict)
+
+
+def _object(value: object) -> dict[str, object]:
+    return dict(value) if _is_object(value) else {}
+
+
+def _object_list(value: object) -> list[object]:
+    return list(value) if _is_object_list(value) else []
+
+
+def _is_object_list(value: object) -> TypeGuard[list[object]]:
+    return isinstance(value, list)
+
+
+def _string_map(value: object) -> dict[str, str]:
+    source = _object(value)
+    return {str(key): str(item) for key, item in source.items()}
+
+
+def _nullable_str(value: object) -> str | None:
+    text = str(value).strip() if value is not None else ""
+    return text or None
+
+
+def handle_external_project_manifest(params: Mapping[object, object], project_key: str | None) -> dict[str, object]:
     _ = project_key
-    item = params.get("_source_library_item") if isinstance(params.get("_source_library_item"), dict) else {}
+    item = _object(params.get("_source_library_item"))
     manifest = get_external_project_manifest(
-        item.get("extra") if isinstance(item.get("extra"), dict) else {},
+        _object(item.get("extra")),
         item_key=str(item.get("item_key") or "").strip() or None,
         display_name=str(item.get("name") or "").strip() or None,
     )
@@ -72,7 +98,7 @@ def handle_external_project_manifest(params: dict[str, Any], project_key: str | 
     return result
 
 
-def _run_rss_feed_manifest(*, manifest: dict[str, Any], params: dict[str, Any]) -> dict[str, Any]:
+def _run_rss_feed_manifest(*, manifest: dict[str, object], params: Mapping[object, object]) -> dict[str, object]:
     runtime = _resolve_runtime_inputs(manifest=manifest, params=params)
     feed_url = resolve_runner_url(
         manifest,
@@ -103,17 +129,17 @@ def _run_rss_feed_manifest(*, manifest: dict[str, Any], params: dict[str, Any]) 
         manifest=manifest,
         runtime=runtime,
         records=records,
-        errors=execution.errors,
+        errors=[dict(entry) for entry in execution.errors],
         diagnostics={
             "feed_url": feed_url,
             "pages_scanned": execution.pages_scanned,
             "used_term_fallback": execution.used_term_fallback,
-            "probe": dict(execution.diagnostics or {}),
+            "probe": _object(execution.diagnostics),
         },
     )
 
 
-def _run_sitemap_manifest(*, manifest: dict[str, Any], params: dict[str, Any]) -> dict[str, Any]:
+def _run_sitemap_manifest(*, manifest: dict[str, object], params: Mapping[object, object]) -> dict[str, object]:
     runtime = _resolve_runtime_inputs(manifest=manifest, params=params)
     sitemap_url = resolve_runner_url(
         manifest,
@@ -127,8 +153,8 @@ def _run_sitemap_manifest(*, manifest: dict[str, Any], params: dict[str, Any]) -
         sitemap_url=sitemap_url,
         query_terms=runtime["query_terms"],
         probe_timeout=float(runtime["request_timeout_ms"]) / 1000.0,
-        max_depth=int(params.get("max_depth") or 2),
-        max_sitemaps=int(params.get("max_sitemaps") or 30),
+        max_depth=_to_optional_int(params.get("max_depth")) or 2,
+        max_sitemaps=_to_optional_int(params.get("max_sitemaps")) or 30,
         allow_term_fallback=bool(params.get("allow_term_fallback", True)),
     )
     records = [
@@ -146,21 +172,21 @@ def _run_sitemap_manifest(*, manifest: dict[str, Any], params: dict[str, Any]) -
         manifest=manifest,
         runtime=runtime,
         records=records,
-        errors=execution.errors,
+        errors=[dict(entry) for entry in execution.errors],
         diagnostics={
             "sitemap_url": sitemap_url,
             "pages_scanned": execution.pages_scanned,
             "used_term_fallback": execution.used_term_fallback,
-            "probe": dict(execution.diagnostics or {}),
+            "probe": _object(execution.diagnostics),
         },
     )
 
 
-def _run_http_api_manifest(*, manifest: dict[str, Any], params: dict[str, Any]) -> dict[str, Any]:
+def _run_http_api_manifest(*, manifest: dict[str, object], params: Mapping[object, object]) -> dict[str, object]:
     runtime = _resolve_runtime_inputs(manifest=manifest, params=params)
-    runtime_config = manifest.get("runtime_config") if isinstance(manifest.get("runtime_config"), dict) else {}
+    runtime_config = _object(manifest.get("runtime_config"))
     method = str(runtime_config.get("method") or "GET").strip().upper() or "GET"
-    request_headers = dict(runtime_config.get("headers") or {})
+    request_headers = _string_map(runtime_config.get("headers"))
     url = resolve_runner_url(
         manifest,
         query_terms=runtime["query_terms"],
@@ -172,8 +198,8 @@ def _run_http_api_manifest(*, manifest: dict[str, Any], params: dict[str, Any]) 
     request_params = _build_http_api_params(runtime=runtime, runtime_config=runtime_config)
     timeout_seconds = float(runtime["request_timeout_ms"]) / 1000.0
     if method == "POST":
-        payload = _render_json_template(runtime_config.get("json_body") or {}, runtime=runtime)
-        response = default_http_client.post_json(
+        payload = _render_json_template(_object(runtime_config.get("json_body")), runtime=runtime)
+        response: object = default_http_client.post_json(
             url,
             json=payload,
             params=request_params,
@@ -181,15 +207,15 @@ def _run_http_api_manifest(*, manifest: dict[str, Any], params: dict[str, Any]) 
             timeout=timeout_seconds,
         )
     else:
-        response = default_http_client.get_json(
+        response: object = default_http_client.get_json(
             url,
             params=request_params,
             headers=request_headers,
             timeout=timeout_seconds,
         )
-    rows = _extract_http_api_rows(response, records_path=runtime_config.get("records_path"))
-    record_mapping = runtime_config.get("record_mapping") if isinstance(runtime_config.get("record_mapping"), dict) else {}
-    records = []
+    rows = _extract_http_api_rows(response, records_path=_nullable_str(runtime_config.get("records_path")))
+    record_mapping = _string_map(runtime_config.get("record_mapping"))
+    records: list[dict[str, object]] = []
     for index, row in enumerate(rows):
         if len(records) >= runtime["max_items"]:
             break
@@ -215,14 +241,14 @@ def _run_http_api_manifest(*, manifest: dict[str, Any], params: dict[str, Any]) 
     )
 
 
-def _run_article_extractor_manifest(*, manifest: dict[str, Any], params: dict[str, Any]) -> dict[str, Any]:
+def _run_article_extractor_manifest(*, manifest: dict[str, object], params: Mapping[object, object]) -> dict[str, object]:
     runtime = _resolve_runtime_inputs(manifest=manifest, params=params)
-    runtime_config = manifest.get("runtime_config") if isinstance(manifest.get("runtime_config"), dict) else {}
-    request_headers = dict(runtime_config.get("headers") or {})
+    runtime_config = _object(manifest.get("runtime_config"))
+    request_headers = _string_map(runtime_config.get("headers"))
     timeout_seconds = float(runtime["request_timeout_ms"]) / 1000.0
     parser_capability = _build_parser_capability(manifest=manifest, runtime_config=runtime_config)
 
-    target_urls = list(runtime.get("urls") or [])[: runtime["max_items"]]
+    target_urls = runtime["urls"][: runtime["max_items"]]
     if not target_urls:
         target_urls = [
             resolve_runner_url(
@@ -235,9 +261,9 @@ def _run_article_extractor_manifest(*, manifest: dict[str, Any], params: dict[st
             )
         ]
 
-    records: list[dict[str, Any]] = []
-    errors: list[dict[str, Any]] = []
-    fallback_states: list[dict[str, Any]] = []
+    records: list[dict[str, object]] = []
+    errors: list[object] = []
+    fallback_states: list[dict[str, object]] = []
     for index, url in enumerate(target_urls):
         try:
             html = default_http_client.get_text(
@@ -247,7 +273,7 @@ def _run_article_extractor_manifest(*, manifest: dict[str, Any], params: dict[st
                 follow_redirects=True,
             )
         except Exception as exc:  # noqa: BLE001 - runner diagnostics must preserve fallback state.
-            state = {
+            state: dict[str, object] = {
                 "url": url,
                 "state": "fetch_error_fallback",
                 "error": str(exc),
@@ -269,7 +295,7 @@ def _run_article_extractor_manifest(*, manifest: dict[str, Any], params: dict[st
         extraction = extract_article_content_from_html(html=html, url=url, title=None)
         content_text = str(getattr(extraction, "content", "") or "").strip()
         state_name = "article_body_extracted" if content_text else "metadata_only_fallback"
-        state = {
+        state: dict[str, object] = {
             "url": url,
             "state": state_name,
             "extractor": str(getattr(extraction, "extractor", "") or parser_capability["parser"]),
@@ -307,9 +333,9 @@ def _run_article_extractor_manifest(*, manifest: dict[str, Any], params: dict[st
     )
 
 
-def _run_python_library_manifest(*, manifest: dict[str, Any], params: dict[str, Any]) -> dict[str, Any]:
+def _run_python_library_manifest(*, manifest: dict[str, object], params: Mapping[object, object]) -> dict[str, object]:
     runtime = _resolve_runtime_inputs(manifest=manifest, params=params)
-    runtime_config = manifest.get("runtime_config") if isinstance(manifest.get("runtime_config"), dict) else {}
+    runtime_config = _object(manifest.get("runtime_config"))
     runner_id = _resolve_registered_runner_id(
         manifest=manifest,
         runtime_config=runtime_config,
@@ -321,9 +347,9 @@ def _run_python_library_manifest(*, manifest: dict[str, Any], params: dict[str, 
     return runner(manifest=manifest, params=params, runtime=runtime, runtime_config=runtime_config)
 
 
-def _run_cli_or_container_manifest(*, manifest: dict[str, Any], params: dict[str, Any]) -> dict[str, Any]:
+def _run_cli_or_container_manifest(*, manifest: dict[str, object], params: Mapping[object, object]) -> dict[str, object]:
     runtime = _resolve_runtime_inputs(manifest=manifest, params=params)
-    runtime_config = manifest.get("runtime_config") if isinstance(manifest.get("runtime_config"), dict) else {}
+    runtime_config = _object(manifest.get("runtime_config"))
     runner_id = _resolve_registered_runner_id(
         manifest=manifest,
         runtime_config=runtime_config,
@@ -337,13 +363,13 @@ def _run_cli_or_container_manifest(*, manifest: dict[str, Any], params: dict[str
 
 def _run_fixture_records(
     *,
-    manifest: dict[str, Any],
-    runtime: dict[str, Any],
-    runtime_config: dict[str, Any],
+    manifest: dict[str, object],
+    runtime: RuntimeInputs,
+    runtime_config: dict[str, object],
     source: str,
-) -> dict[str, Any]:
-    rows = runtime_config.get("fixture_records") if isinstance(runtime_config.get("fixture_records"), list) else []
-    record_mapping = runtime_config.get("record_mapping") if isinstance(runtime_config.get("record_mapping"), dict) else {}
+) -> dict[str, object]:
+    rows = _object_list(runtime_config.get("fixture_records"))
+    record_mapping = _string_map(runtime_config.get("record_mapping"))
     records = _build_mapped_records(
         rows=rows,
         manifest=manifest,
@@ -370,13 +396,13 @@ def _run_fixture_records(
 
 def _run_fixture_json_output(
     *,
-    manifest: dict[str, Any],
-    runtime: dict[str, Any],
-    runtime_config: dict[str, Any],
-) -> dict[str, Any]:
+    manifest: dict[str, object],
+    runtime: RuntimeInputs,
+    runtime_config: dict[str, object],
+) -> dict[str, object]:
     payload = _load_fixture_output_json(runtime_config.get("fixture_output_json"))
-    rows = _extract_http_api_rows(payload, records_path=runtime_config.get("records_path"))
-    record_mapping = runtime_config.get("record_mapping") if isinstance(runtime_config.get("record_mapping"), dict) else {}
+    rows = _extract_http_api_rows(payload, records_path=_nullable_str(runtime_config.get("records_path")))
+    record_mapping = _string_map(runtime_config.get("record_mapping"))
     records = _build_mapped_records(
         rows=rows,
         manifest=manifest,
@@ -401,15 +427,63 @@ def _run_fixture_json_output(
     )
 
 
-def _resolve_runtime_inputs(*, manifest: dict[str, Any], params: dict[str, Any]) -> dict[str, Any]:
-    accepted = manifest.get("accepted_inputs") if isinstance(manifest.get("accepted_inputs"), dict) else {}
-    limits = manifest.get("limits") if isinstance(manifest.get("limits"), dict) else {}
+_RUNNER_BY_PROVIDER_KEY: dict[str, ManifestRunner] = {
+    "external_project.rss_feed": _run_rss_feed_manifest,
+    "external_project.sitemap": _run_sitemap_manifest,
+    "external_project.http_api": _run_http_api_manifest,
+    "external_project.article_extractor": _run_article_extractor_manifest,
+    "external_project.python_library": _run_python_library_manifest,
+    "external_project.cli_or_container": _run_cli_or_container_manifest,
+}
+
+
+def _run_python_fixture_runner(
+    *,
+    manifest: dict[str, object],
+    params: Mapping[object, object],
+    runtime: RuntimeInputs,
+    runtime_config: dict[str, object],
+) -> dict[str, object]:
+    return _run_fixture_records(
+        manifest=manifest,
+        runtime=runtime,
+        runtime_config=runtime_config,
+        source="python_library",
+    )
+
+
+def _run_cli_fixture_runner(
+    *,
+    manifest: dict[str, object],
+    params: Mapping[object, object],
+    runtime: RuntimeInputs,
+    runtime_config: dict[str, object],
+) -> dict[str, object]:
+    return _run_fixture_json_output(
+        manifest=manifest,
+        runtime=runtime,
+        runtime_config=runtime_config,
+    )
+
+
+_PYTHON_LIBRARY_RUNNERS: dict[str, RegisteredRunner] = {
+    "source_library.fixture_records.v1": _run_python_fixture_runner,
+}
+
+_CLI_OR_CONTAINER_RUNNERS: dict[str, RegisteredRunner] = {
+    "source_library.fixture_json.v1": _run_cli_fixture_runner,
+}
+
+
+def _resolve_runtime_inputs(*, manifest: dict[str, object], params: Mapping[object, object]) -> RuntimeInputs:
+    accepted = _object(manifest.get("accepted_inputs"))
+    limits = _object(manifest.get("limits"))
     query_terms = _normalize_terms(params.get("query_terms")) if accepted.get("query_terms", True) else []
     urls = _normalize_runtime_urls(params.get("urls")) if accepted.get("urls") else []
     domains = _normalize_terms(params.get("domains")) if accepted.get("domains") else []
     requested_max_items = _to_optional_int(params.get("max_items")) if accepted.get("max_items", True) else None
-    default_max_items = int(limits.get("default_max_items") or 20)
-    max_items_cap = int(limits.get("max_items_cap") or 100)
+    default_max_items = _to_optional_int(limits.get("default_max_items")) or 20
+    max_items_cap = _to_optional_int(limits.get("max_items_cap")) or 100
     max_items = requested_max_items if requested_max_items is not None else default_max_items
     max_items = max(1, min(max_items, max_items_cap))
 
@@ -425,19 +499,19 @@ def _resolve_runtime_inputs(*, manifest: dict[str, Any], params: dict[str, Any])
         "max_items": max_items,
         "date_from": date_from,
         "date_to": date_to,
-        "request_timeout_ms": int(limits.get("request_timeout_ms") or 30000),
+        "request_timeout_ms": _to_optional_int(limits.get("request_timeout_ms")) or 30000,
     }
 
 
 def _build_probe_result(
     *,
-    manifest: dict[str, Any],
-    runtime: dict[str, Any],
-    records: list[dict[str, Any]],
-    errors: list[dict[str, Any]] | list[str],
-    diagnostics: dict[str, Any],
+    manifest: dict[str, object],
+    runtime: RuntimeInputs,
+    records: list[dict[str, object]],
+    errors: list[object],
+    diagnostics: dict[str, object],
     status_override: str | None = None,
-) -> dict[str, Any]:
+) -> dict[str, object]:
     messages = [_stringify_error(entry) for entry in errors]
     candidates = [str(record.get("url") or "").strip() for record in records if str(record.get("url") or "").strip()]
     result_status = status_override or ("partial" if records and messages else ("ok" if records else ("error" if messages else "partial")))
@@ -453,9 +527,9 @@ def _build_probe_result(
         "runtime_diagnostics": {
             "source_kind": manifest.get("source_kind"),
             "source_scope": manifest.get("source_scope"),
-            "frontdoor_strategy": ((manifest.get("normalization") or {}).get("frontdoor_strategy")),
-            "provider_binding": dict((manifest.get("provider_binding") or {})),
-            "accepted_inputs": dict(manifest.get("accepted_inputs") or {}),
+            "frontdoor_strategy": _object(manifest.get("normalization")).get("frontdoor_strategy"),
+            "provider_binding": _object(manifest.get("provider_binding")),
+            "accepted_inputs": _object(manifest.get("accepted_inputs")),
             "runtime_inputs": runtime,
             "diagnostics": diagnostics,
         },
@@ -464,7 +538,7 @@ def _build_probe_result(
 
 def _build_record(
     *,
-    manifest: dict[str, Any],
+    manifest: dict[str, object],
     url: str,
     title: str | None,
     summary: str | None,
@@ -474,9 +548,9 @@ def _build_record(
     author: str | None = None,
     language: str | None = None,
     artifact_url: str | None = None,
-    record_meta_extra: dict[str, Any] | None = None,
-) -> dict[str, Any]:
-    record_meta: dict[str, Any] = {
+    record_meta_extra: dict[str, object] | None = None,
+) -> dict[str, object]:
+    record_meta: dict[str, object] = {
         "origin": "external_project_manifest",
         "external_project": build_external_project_summary(manifest) or {},
     }
@@ -509,30 +583,31 @@ def _build_record(
 
 def _build_http_api_record(
     *,
-    row: Any,
-    manifest: dict[str, Any],
+    row: object,
+    manifest: dict[str, object],
     record_mapping: dict[str, str],
     index: int,
-) -> dict[str, Any] | None:
+) -> dict[str, object] | None:
     if isinstance(row, str):
         url = str(row).strip()
         if not url:
             return None
         return _build_record(manifest=manifest, url=url, title=None, summary=None, index=index)
-    if not isinstance(row, dict):
+    if not _is_object(row):
         return None
-    url = _extract_path_value(row, record_mapping.get("url") or "url")
+    object_row = dict(row)
+    url = _extract_path_value(object_row, record_mapping.get("url") or "url")
     if not url:
-        url = _extract_path_value(row, "link")
-    title = _extract_path_value(row, record_mapping.get("title") or "title")
-    summary = _extract_path_value(row, record_mapping.get("summary") or "summary")
-    content_text = _extract_path_value(row, record_mapping.get("content_text") or "content")
-    published_at = _extract_path_value(row, record_mapping.get("published_at") or "published_at")
-    author = _extract_path_value(row, record_mapping.get("author") or "author")
-    language = _extract_path_value(row, record_mapping.get("language") or "language")
-    artifact_url = _extract_path_value(row, record_mapping.get("artifact_url") or "artifact_url")
+        url = _extract_path_value(object_row, "link")
+    title = _extract_path_value(object_row, record_mapping.get("title") or "title")
+    summary = _extract_path_value(object_row, record_mapping.get("summary") or "summary")
+    content_text = _extract_path_value(object_row, record_mapping.get("content_text") or "content")
+    published_at = _extract_path_value(object_row, record_mapping.get("published_at") or "published_at")
+    author = _extract_path_value(object_row, record_mapping.get("author") or "author")
+    language = _extract_path_value(object_row, record_mapping.get("language") or "language")
+    artifact_url = _extract_path_value(object_row, record_mapping.get("artifact_url") or "artifact_url")
     if not artifact_url:
-        artifact_url = _extract_path_value(row, "pdf_url")
+        artifact_url = _extract_path_value(object_row, "pdf_url")
     if not url and not title and not content_text:
         return None
     return _build_record(
@@ -551,12 +626,12 @@ def _build_http_api_record(
 
 def _build_mapped_records(
     *,
-    rows: list[Any],
-    manifest: dict[str, Any],
+    rows: list[object],
+    manifest: dict[str, object],
     record_mapping: dict[str, str],
     max_items: int,
-) -> list[dict[str, Any]]:
-    records = []
+) -> list[dict[str, object]]:
+    records: list[dict[str, object]] = []
     for index, row in enumerate(rows):
         if len(records) >= max_items:
             break
@@ -573,8 +648,8 @@ def _build_mapped_records(
 
 def _resolve_registered_runner_id(
     *,
-    manifest: dict[str, Any],
-    runtime_config: dict[str, Any],
+    manifest: dict[str, object],
+    runtime_config: dict[str, object],
     allowed_scheme: str | tuple[str, ...],
 ) -> str:
     configured = str(runtime_config.get("runner_id") or "").strip()
@@ -589,27 +664,28 @@ def _resolve_registered_runner_id(
     return runner_id
 
 
-def _load_fixture_output_json(value: Any) -> Any:
+def _load_fixture_output_json(value: object) -> object:
     if isinstance(value, str):
         text = value.strip()
         if not text:
             return {}
-        return json.loads(text)
-    if isinstance(value, (dict, list)):
+        decoded: object = json.loads(text)
+        return decoded
+    if _is_object(value) or _is_object_list(value):
         return value
     return {}
 
 
-def _build_http_api_params(*, runtime: dict[str, Any], runtime_config: dict[str, Any]) -> dict[str, Any]:
-    query_param_map = runtime_config.get("query_param_map") if isinstance(runtime_config.get("query_param_map"), dict) else {}
-    values = {
-        "query_terms": " ".join(runtime.get("query_terms") or []),
-        "domains": ",".join(runtime.get("domains") or []),
-        "max_items": runtime.get("max_items"),
-        "date_from": runtime.get("date_from"),
-        "date_to": runtime.get("date_to"),
+def _build_http_api_params(*, runtime: RuntimeInputs, runtime_config: dict[str, object]) -> dict[str, object]:
+    query_param_map = _string_map(runtime_config.get("query_param_map"))
+    values: dict[str, object] = {
+        "query_terms": " ".join(runtime["query_terms"]),
+        "domains": ",".join(runtime["domains"]),
+        "max_items": runtime["max_items"],
+        "date_from": runtime["date_from"],
+        "date_to": runtime["date_to"],
     }
-    out: dict[str, Any] = {}
+    out: dict[str, object] = {}
     for source_key, target_key in query_param_map.items():
         target = str(target_key or "").strip()
         value = values.get(str(source_key or "").strip())
@@ -619,14 +695,14 @@ def _build_http_api_params(*, runtime: dict[str, Any], runtime_config: dict[str,
     return out
 
 
-def _render_json_template(payload: dict[str, Any], *, runtime: dict[str, Any]) -> dict[str, Any]:
-    rendered: dict[str, Any] = {}
+def _render_json_template(payload: dict[str, object], *, runtime: RuntimeInputs) -> dict[str, object]:
+    rendered: dict[str, object] = {}
     replacements = {
-        "query": " ".join(runtime.get("query_terms") or []),
-        "domains_csv": ",".join(runtime.get("domains") or []),
-        "max_items": str(runtime.get("max_items") or ""),
-        "date_from": str(runtime.get("date_from") or ""),
-        "date_to": str(runtime.get("date_to") or ""),
+        "query": " ".join(runtime["query_terms"]),
+        "domains_csv": ",".join(runtime["domains"]),
+        "max_items": str(runtime["max_items"]),
+        "date_from": str(runtime["date_from"] or ""),
+        "date_to": str(runtime["date_to"] or ""),
     }
     for key, value in payload.items():
         if isinstance(value, str):
@@ -639,24 +715,24 @@ def _render_json_template(payload: dict[str, Any], *, runtime: dict[str, Any]) -
     return rendered
 
 
-def _extract_http_api_rows(payload: Any, *, records_path: str | None) -> list[Any]:
+def _extract_http_api_rows(payload: object, *, records_path: str | None) -> list[object]:
     if records_path:
         resolved = _extract_nested_value(payload, records_path)
-        if isinstance(resolved, list):
+        if _is_object_list(resolved):
             return list(resolved)
         return [resolved] if resolved not in (None, "") else []
-    if isinstance(payload, list):
+    if _is_object_list(payload):
         return list(payload)
-    if isinstance(payload, dict):
+    if _is_object(payload):
         for key in ("items", "records", "data", "results"):
             candidate = payload.get(key)
-            if isinstance(candidate, list):
+            if _is_object_list(candidate):
                 return list(candidate)
         return [payload]
     return []
 
 
-def _extract_path_value(payload: dict[str, Any], path: str) -> str:
+def _extract_path_value(payload: dict[str, object], path: str) -> str:
     resolved = _extract_nested_value(payload, path)
     if resolved is None:
         return ""
@@ -664,15 +740,17 @@ def _extract_path_value(payload: dict[str, Any], path: str) -> str:
     return text
 
 
-def _extract_nested_value(payload: Any, path: str) -> Any:
+def _extract_nested_value(payload: object, path: str) -> object:
     current = payload
     for segment in [part for part in str(path or "").split(".") if part]:
-        if isinstance(current, dict):
+        if _is_object(current):
             current = current.get(segment)
             continue
-        if isinstance(current, list):
+        if _is_object_list(current):
+            items = _object_list(current)
             try:
-                current = current[int(segment)]
+                index = int(segment)
+                current = items[index] if -len(items) <= index < len(items) else None
             except Exception:
                 return None
             continue
@@ -680,13 +758,11 @@ def _extract_nested_value(payload: Any, path: str) -> Any:
     return current
 
 
-def _normalize_terms(value: Any) -> list[str]:
+def _normalize_terms(value: object) -> list[str]:
     if isinstance(value, str):
         terms = [value]
-    elif isinstance(value, list):
-        terms = [str(entry or "") for entry in value]
     else:
-        terms = []
+        terms = [str(entry or "") for entry in _object_list(value)]
     out: list[str] = []
     for entry in terms:
         normalized = str(entry or "").strip()
@@ -695,13 +771,8 @@ def _normalize_terms(value: Any) -> list[str]:
     return out
 
 
-def _normalize_runtime_urls(value: Any) -> list[str]:
-    if isinstance(value, str):
-        raw_values = [value]
-    elif isinstance(value, list):
-        raw_values = value
-    else:
-        raw_values = []
+def _normalize_runtime_urls(value: object) -> list[str]:
+    raw_values = [value] if isinstance(value, str) else _object_list(value)
     out: list[str] = []
     for entry in raw_values:
         raw = str(entry or "").strip()
@@ -713,8 +784,8 @@ def _normalize_runtime_urls(value: Any) -> list[str]:
     return out
 
 
-def _build_parser_capability(*, manifest: dict[str, Any], runtime_config: dict[str, Any]) -> dict[str, Any]:
-    capabilities = manifest.get("capabilities") if isinstance(manifest.get("capabilities"), dict) else {}
+def _build_parser_capability(*, manifest: dict[str, object], runtime_config: dict[str, object]) -> dict[str, object]:
+    capabilities = _object(manifest.get("capabilities"))
     return {
         "contract_version": "external_project.article_extraction_runner.v1",
         "parser": str(runtime_config.get("parser") or "trafilatura_or_heuristic").strip().lower(),
@@ -727,19 +798,19 @@ def _build_parser_capability(*, manifest: dict[str, Any], runtime_config: dict[s
     }
 
 
-def _article_extraction_meta(*, state: dict[str, Any], parser_capability: dict[str, Any]) -> dict[str, Any]:
+def _article_extraction_meta(*, state: dict[str, object], parser_capability: dict[str, object]) -> dict[str, object]:
     return {
         "contract_version": "external_project.article_body_extraction.v1",
         "parser_capability": dict(parser_capability),
         "state": str(state.get("state") or "").strip(),
         "extractor": str(state.get("extractor") or parser_capability.get("parser") or "").strip() or None,
         "confidence": str(state.get("confidence") or "").strip() or None,
-        "content_chars": int(state.get("content_chars") or 0),
+        "content_chars": _to_optional_int(state.get("content_chars")) or 0,
         "error": str(state.get("error") or "").strip() or None,
     }
 
 
-def _normalize_date(value: Any) -> str | None:
+def _normalize_date(value: object) -> str | None:
     raw = str(value or "").strip()
     if not raw:
         return None
@@ -753,18 +824,21 @@ def _normalize_date(value: Any) -> str | None:
     return raw
 
 
-def _to_optional_int(value: Any) -> int | None:
+def _to_optional_int(value: object) -> int | None:
     try:
         if value in (None, ""):
+            return None
+        if not isinstance(value, int | float | str):
             return None
         return int(value)
     except Exception:
         return None
 
 
-def _stringify_error(entry: Any) -> str:
+def _stringify_error(entry: object) -> str:
     if isinstance(entry, str):
         return entry.strip()
-    if isinstance(entry, dict):
-        return str(entry.get("error") or entry.get("message") or entry).strip()
+    payload = _object(entry)
+    if payload:
+        return str(payload.get("error") or payload.get("message") or entry).strip()
     return str(entry or "").strip()

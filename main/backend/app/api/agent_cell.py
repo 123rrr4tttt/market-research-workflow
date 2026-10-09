@@ -26,7 +26,8 @@ def _fail(status: int, code: str, message: str, details: dict[str, Any] | None =
 def _check(result: Any) -> Any:
     if isinstance(result, Failure):
         context = dict(result.context or {})
-        code = context.get("macro_environment_code", result.code)
+        raw_code = context.get("macro_environment_code", result.code)
+        code = raw_code if isinstance(raw_code, str) else result.code
         status = 409 if code == "macro_environment_ambiguous" else 422
         _fail(status, code, result.message, context)
     return result

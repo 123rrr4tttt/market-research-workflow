@@ -7,8 +7,9 @@ ordered chain); the heavier fixed-DAG workflow surface lives in ``workflow.py``.
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from dataclasses import dataclass
-from typing import Any, NoReturn, TypeAlias
+from typing import Any, NoReturn, TypeAlias, TypeGuard
 
 from functorial_kit import Failure
 from mrw_functorial_kit.core.agent_service_semantics import (
@@ -22,6 +23,14 @@ from .registry import catalog
 __all__ = ["MotifSpec", "compose_motif", "resolve_composition_ref"]
 _FAILURE_WITNESS = "test:test_w02_functorial_projection_failure_lifts"
 ProjectionFailure: TypeAlias = Failure
+
+
+def _is_object_dict(value: object) -> TypeGuard[dict[object, object]]:
+    return isinstance(value, dict)
+
+
+def _is_string_dict(value: object) -> TypeGuard[dict[str, object]]:
+    return _is_object_dict(value) and all(isinstance(key, str) for key in value)
 
 
 def _projection_failure(code: str, message: str, *, ref: str | None = None) -> Failure:
@@ -74,7 +83,7 @@ def _parse_composition(composition: Any) -> list[str] | ProjectionFailure:
             "composition must be a sequence of refs, not an object",
         )
     try:
-        iterator = iter(composition)
+        iterator: Iterator[object] = iter(composition)
     except TypeError:
         return _projection_failure(
             "composition_step_invalid",
@@ -82,27 +91,29 @@ def _parse_composition(composition: Any) -> list[str] | ProjectionFailure:
         )
     refs: list[str] = []
     for index, item in enumerate(iterator):
-        if not isinstance(item, (str, dict)):
+        if not isinstance(item, str) and not _is_object_dict(item):
             return _projection_failure(
                 "composition_step_invalid",
                 f"composition step must be a ref, got {type(item).__name__}",
                 ref=f"index:{index}",
             )
-        if isinstance(item, dict):
-            item = item.get("ref")
-            if item is None:
+        if _is_string_dict(item):
+            ref_value = item.get("ref")
+            if ref_value is None:
                 return _projection_failure(
                     "composition_step_invalid",
                     "composition step object requires ref",
                     ref=f"index:{index}",
                 )
-        text = str(item).strip()
+            item = ref_value
+        text = str(item)
+        text = text.strip()
         if text:
             refs.append(text)
     return refs
 
 
-def _resolve_composition_ref(ref: str) -> dict[str, Any] | ProjectionFailure:
+def _resolve_composition_ref(ref: object) -> dict[str, Any] | ProjectionFailure:
     """Resolve ``operator:<id>`` or ``motif:<id>`` to its catalog spec."""
     if not isinstance(ref, str):
         return _projection_failure(

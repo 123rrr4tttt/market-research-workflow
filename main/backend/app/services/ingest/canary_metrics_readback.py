@@ -3,7 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import Path
-from typing import Annotated, Any, Mapping, NoReturn
+from typing import Annotated, Any, Mapping, NoReturn, Iterable, Protocol, runtime_checkable, TypeGuard
 
 from functorial_kit import Failure
 from mrw_functorial_kit.core.provider_port_failures import ingest_operation_failures
@@ -15,6 +15,31 @@ from .canary_metrics import build_ingest_canary_metrics_readiness
 
 CONTRACT_VERSION = "ingest.canary_metrics_readback.v1"
 _FAILURE_WITNESS = "test:test_ingest_service_a_failure_lifts"
+
+
+def _is_string_key(value: object) -> bool:
+    return isinstance(value, str)
+
+
+@runtime_checkable
+class _StringKeyInspectable(Protocol):
+    def keys(self) -> Iterable[object]: ...
+
+
+def _has_only_string_keys(value: object) -> bool:
+    if not isinstance(value, _StringKeyInspectable):
+        return False
+    return all(map(_is_string_key, value.keys()))
+
+
+def _is_object_mapping(value: object) -> TypeGuard[Mapping[str, object]]:
+    if not _has_only_string_keys(value):
+        return False
+    return isinstance(value, Mapping)
+
+
+def _object_dict(value: object) -> dict[str, object]:
+    return dict(value) if _is_object_mapping(value) else {}
 
 
 def _failure(code: str, message: str, *, operation: str, site: str, **details: Any) -> Failure:
@@ -51,24 +76,24 @@ def _raise_failure(failure: Failure, *, cause: BaseException | None = None) -> N
     raise ValueError(message) from cause
 
 
-def _canonical_json(payload: Mapping[str, Any]) -> str:
+def _canonical_json(payload: Mapping[str, object]) -> str:
     return json.dumps(payload, ensure_ascii=True, sort_keys=True, separators=(",", ":"))
 
 
-def _digest(payload: Mapping[str, Any]) -> str:
+def _digest(payload: Mapping[str, object]) -> str:
     return hashlib.sha256(_canonical_json(payload).encode("utf-8")).hexdigest()
 
 
 def build_canary_metrics_readback_record(
     *,
-    handoff: Mapping[str, Any],
+    handoff: Mapping[str, object],
     project_key: str = "demo_proj",
 ) -> Annotated[
-    dict[str, Any],
+    dict[str, object],
     "kit:non-authoritative derived_as=generated_evidence fact_source=handoff+project_key+snapshot_digest_inputs witness=test:test_w03_ingest_ports_authority_metadata",
 ]:
     readiness = build_ingest_canary_metrics_readiness(handoff=handoff, project_key=project_key)
-    metrics_snapshot = handoff.get("metrics_snapshot") if isinstance(handoff.get("metrics_snapshot"), Mapping) else {}
+    metrics_snapshot = _object_dict(handoff.get("metrics_snapshot"))
     canary_status = {
         "readiness_contract_version": readiness.contract_version,
         "readiness_status": readiness.status,
@@ -80,7 +105,7 @@ def build_canary_metrics_readback_record(
         "closure_claim": readiness.closure_claim,
         "remaining_live_gaps": list(readiness.remaining_live_gaps),
     }
-    digest_payload = {
+    digest_payload: dict[str, object] = {
         "project_key": project_key,
         "source_handoff_contract_version": handoff.get("contract_version"),
         "source_metrics_contract_version": metrics_snapshot.get("contract_version"),
@@ -101,7 +126,7 @@ def build_canary_metrics_readback_record(
     }
 
 
-def write_canary_metrics_readback_record(path: Path | str, record: Mapping[str, Any]) -> None:
+def write_canary_metrics_readback_record(path: Path | str, record: Mapping[str, object]) -> None:
     destination = Path(path)
     destination.parent.mkdir(parents=True, exist_ok=True)
     destination.write_text(
@@ -110,19 +135,19 @@ def write_canary_metrics_readback_record(path: Path | str, record: Mapping[str, 
     )
 
 
-def try_read_canary_metrics_readback_record(path: Path | str) -> dict[str, Any] | Failure:
-    payload = json.loads(Path(path).read_text(encoding="utf-8"))
-    if not isinstance(payload, dict):
+def try_read_canary_metrics_readback_record(path: Path | str) -> dict[str, object] | Failure:
+    payload: object = json.loads(Path(path).read_text(encoding="utf-8"))
+    if not _is_object_mapping(payload):
         return _failure(
             "canary_readback_not_object",
             "canary metrics readback record must be a JSON object",
             operation="read_canary_metrics_readback_record",
             site="app.services.ingest.canary_metrics_readback.read_canary_metrics_readback_record",
         )
-    return payload
+    return dict(payload)
 
 
-def read_canary_metrics_readback_record(path: Path | str) -> dict[str, Any]:
+def read_canary_metrics_readback_record(path: Path | str) -> dict[str, object]:
     payload = try_read_canary_metrics_readback_record(path)
     if isinstance(payload, Failure):
         _raise_failure(payload)
@@ -130,12 +155,12 @@ def read_canary_metrics_readback_record(path: Path | str) -> dict[str, Any]:
 
 
 def validate_canary_metrics_readback_record(
-    record: Mapping[str, Any],
+    record: Mapping[str, object],
     *,
     project_key: str = "demo_proj",
-) -> dict[str, Any]:
-    metrics_snapshot = record.get("metrics_snapshot") if isinstance(record.get("metrics_snapshot"), Mapping) else {}
-    canary_status = record.get("canary_status") if isinstance(record.get("canary_status"), Mapping) else {}
+) -> dict[str, object]:
+    metrics_snapshot = _object_dict(record.get("metrics_snapshot"))
+    canary_status = _object_dict(record.get("canary_status"))
     expected_digest = _digest(
         {
             "project_key": record.get("project_key"),
@@ -145,7 +170,7 @@ def validate_canary_metrics_readback_record(
             "canary_status": dict(canary_status),
         }
     )
-    checks = {
+    checks: dict[str, bool] = {
         "contract_version": record.get("contract_version") == CONTRACT_VERSION,
         "project_key": record.get("project_key") == project_key,
         "source_handoff_contract_version": record.get("source_handoff_contract_version") == CANARY_HANDOFF_CONTRACT_VERSION,
@@ -174,10 +199,10 @@ def validate_canary_metrics_readback_record(
 
 def run_canary_metrics_readback_gate(
     *,
-    handoff: Mapping[str, Any],
+    handoff: Mapping[str, object],
     path: Path | str,
     project_key: str = "demo_proj",
-) -> dict[str, Any]:
+) -> dict[str, object]:
     record = build_canary_metrics_readback_record(handoff=handoff, project_key=project_key)
     write_canary_metrics_readback_record(path, record)
     readback = read_canary_metrics_readback_record(path)

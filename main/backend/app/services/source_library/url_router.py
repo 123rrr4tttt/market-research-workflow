@@ -3,15 +3,33 @@
 from __future__ import annotations
 
 from urllib.parse import urlparse, parse_qs
+from typing import TypeGuard
 
 from ..ingest_config.service import get_config
+
 
 _DEFAULT_CHANNEL = "url_pool"
 
 
+def _is_object(value: object) -> TypeGuard[dict[str, object]]:
+    return isinstance(value, dict)
+
+
+def _is_object_list(value: object) -> TypeGuard[list[object]]:
+    return isinstance(value, list)
+
+
+def _object(value: object) -> dict[str, object]:
+    return dict(value) if _is_object(value) else {}
+
+
+def _object_list(value: object) -> list[object]:
+    return list(value) if _is_object_list(value) else []
+
+
 def _domain_from_url(url: str) -> str:
     """Extract domain from URL (lowercase, without www). Returns empty string if invalid."""
-    if not url or not isinstance(url, str):
+    if not url:
         return ""
     try:
         parsed = urlparse(url)
@@ -25,7 +43,7 @@ def _domain_from_url(url: str) -> str:
 
 def _path_from_url(url: str) -> str:
     """Extract path from URL (lowercase). Returns empty string if invalid."""
-    if not url or not isinstance(url, str):
+    if not url:
         return ""
     try:
         parsed = urlparse(url)
@@ -51,7 +69,7 @@ def _pattern_matches(domain: str, pattern: str) -> bool:
     return pattern in domain
 
 
-def _path_rule_matches(path: str, rule: dict) -> bool:
+def _path_rule_matches(path: str, rule: dict[str, object]) -> bool:
     """
     Match optional path constraints in rule.
     - path_contains: path must contain this substring
@@ -135,17 +153,17 @@ def resolve_channel_for_url(url: str, project_key: str | None, *, has_query_term
         return kw_aware or guessed or _DEFAULT_CHANNEL
 
     cfg = get_config(project_key, "url_channel_routing")
-    if not cfg or not isinstance(cfg.get("payload"), dict):
+    payload = _object(cfg.get("payload")) if cfg is not None else {}
+    if not cfg or not payload:
         return kw_aware or guessed or _DEFAULT_CHANNEL
 
-    rules = cfg["payload"].get("rules")
-    if not isinstance(rules, list) or not rules:
+    rules = _object_list(payload.get("rules"))
+    if not rules:
         return kw_aware or guessed or _DEFAULT_CHANNEL
 
     domain = _domain_from_url(url)
-    for rule in rules:
-        if not isinstance(rule, dict):
-            continue
+    for raw_rule in rules:
+        rule = _object(raw_rule)
         pattern = rule.get("pattern")
         channel_key = rule.get("channel_key")
         if not pattern or not channel_key:

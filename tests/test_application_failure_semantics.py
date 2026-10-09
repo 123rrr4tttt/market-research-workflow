@@ -133,6 +133,7 @@ EXPECTED_FAMILIES: tuple[tuple[FailureFamily, str, tuple[str, ...]], ...] = (
             "market_keywords_required",
             "google_news_keywords_required",
             "url_routing_urls_required",
+            "routing_value_invalid",
             "frontdoor_runtime_targets_invalid",
             "frontdoor_entrypoint_rejected",
             "source_item_disabled",

@@ -32,7 +32,7 @@ from .assignments import (
     canonical_digest,
 )
 from .ports import RuntimeScope
-from .failure_policy import raise_runtime_failure, runtime_failure
+from .failure_policy import public_exception_type, raise_runtime_failure, runtime_failure
 
 _T = TypeVar("_T")
 
@@ -79,15 +79,15 @@ def raise_admission_coordinator_failure(
     failure: Failure, exception_type: type[Exception] = AdmissionCoordinatorError
 ) -> None:
     if exception_type is AdmissionCoordinatorError:
-        name = (failure.context or {}).get("public_exception")
-        exception_type = {
-            "AdmissionRegistryError": AdmissionRegistryError,
-            "AdmissionBindingError": AdmissionBindingError,
-            "AdmissionCoordinatorError": AdmissionCoordinatorError,
-            "TypeError": TypeError,
-            "ValueError": ValueError,
-            "KeyError": KeyError,
-        }.get(name, AdmissionCoordinatorError)
+        exception_type = public_exception_type(
+            failure,
+            default=AdmissionCoordinatorError,
+            extensions={
+                "AdmissionRegistryError": AdmissionRegistryError,
+                "AdmissionBindingError": AdmissionBindingError,
+                "AdmissionCoordinatorError": AdmissionCoordinatorError,
+            },
+        )
     raise_runtime_failure(failure, exception_type)
 
 
@@ -609,7 +609,7 @@ class AdmissionCoordinator:
 
 def _state_value(row: Mapping[str, Any]) -> str:
     value = row.get("state")
-    return value.value if hasattr(value, "value") else str(value)
+    return value.value if isinstance(value, StrEnum) else str(value)
 
 
 def _revision(row: Mapping[str, Any]) -> int:

@@ -62,7 +62,6 @@ from app.successor_runtime.runtime.node import (
     DefiniteInterpreterFailure,
     InterpreterOutcome,
     RuntimeExecutionContext,
-    RuntimeHandler,
 )
 from app.successor_runtime.runtime.ports import RuntimeScope
 from app.successor_runtime.substrate.blob.internal_export import (
@@ -928,7 +927,7 @@ def _provider_receipt_body(
     }
 
 
-class PostgresInternalDeliveryHandler(RuntimeHandler):
+class PostgresInternalDeliveryHandler:
     """RuntimeNode handler for one exact installed internal-export realization."""
 
     def __init__(

@@ -52,6 +52,41 @@ class TopicWorkflowUnitTest(unittest.TestCase):
         self.assertTrue(bool(diagnostics.get("fallback_used")))
         self.assertGreaterEqual(len(seen_texts), 2)
 
+    def test_topic_merge_preserves_invalid_item_and_confidence_semantics(self):
+        invalid_item = object()
+        opaque_value = object()
+        mixed_fact: dict[object, object] = {
+            "fact_type": "mixed",
+            1: opaque_value,
+        }
+        valid_entity: dict[object, object] = {
+            "text": "Acme",
+            "type": "ORG",
+            1: opaque_value,
+        }
+        merged = workflow.merge_topic_structured(
+            {
+                "entities": [invalid_item, valid_entity],
+                "facts": [mixed_fact],
+                "confidence": 0.8,
+            },
+            {
+                "entities": [invalid_item, valid_entity],
+                "facts": [mixed_fact],
+                "confidence": "bad",
+            },
+        )
+
+        self.assertEqual(merged["entities"], [invalid_item, valid_entity])
+        self.assertIs(merged["entities"][1], valid_entity)
+        self.assertEqual(merged["facts"], [mixed_fact])
+        self.assertIs(merged["facts"][0], mixed_fact)
+        self.assertIs(merged["facts"][0][1], opaque_value)
+        self.assertEqual(merged["confidence"], 0.0)
+
+        with self.assertRaisesRegex(TypeError, "^topic collection is not iterable: object$"):
+            workflow.merge_topic_structured({"topics": object()}, {})
+
 
 if __name__ == "__main__":
     unittest.main()

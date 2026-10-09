@@ -2,19 +2,20 @@
 from __future__ import annotations
 
 import os
-from pathlib import Path
 import sys
+from pathlib import Path
 from uuid import uuid4
 
 import pytest
-from functorial_kit import Failure
-
-from app.services.information_topology.contracts import BoundRef, ElementRef, TopologyState
+from app.services.information_topology.contracts import TopologyState
 from app.services.information_topology.io.retrieval import (
-    build_import_preview, export_retrieval_bundle, export_retrieval_directory,
+    build_import_preview,
+    export_retrieval_bundle,
+    export_retrieval_directory,
     resolve_domain_vocabulary,
 )
 from app.services.information_topology.profiles import validate_state
+from functorial_kit import Failure
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from fixtures.information_topology_retrieval import source_bundle, vocabulary
@@ -68,7 +69,7 @@ def test_source_records_map_to_profile_and_export_keeps_order_report_and_extensi
         finally:
             sys.path.remove(str(framework_root))
 
-def test_export_retrieval_directory_rejects_invalid_original_paths(tmp_path):
+def test_export_retrieval_directory_rejects_invalid_original_paths(tmp_path: Path):
     bundle = {
         "source_graph": {}, "topology": {}, "source_companions": {},
         "mrw-extension.json": {}, "original_files": {"../escape.txt": "blocked"},
@@ -78,6 +79,20 @@ def test_export_retrieval_directory_rejects_invalid_original_paths(tmp_path):
     colliding = {**bundle, "original_files": {"图.json": "blocked"}}
     with pytest.raises(ValueError, match="collides with generated export file"):
         export_retrieval_directory(tmp_path / "collision", colliding)
+    invalid_body_root = tmp_path / "invalid-body"
+    invalid_body = {**bundle, "original_files": {"来源池.md": {"not": "text"}}}
+    with pytest.raises(
+        ValueError,
+        match="original_files must map source paths to exact text",
+    ) as raised:
+        export_retrieval_directory(invalid_body_root, invalid_body)
+    failure = getattr(raised.value, "topology_failure")
+    assert isinstance(failure, Failure)
+    assert (failure.family, failure.code) == (
+        "information_topology",
+        "INVALID_WIRE_FORMAT",
+    )
+    assert not invalid_body_root.exists()
 
 
 
@@ -189,13 +204,11 @@ TEST_SCHEMA = os.environ.get("INFORMATION_TOPOLOGY_TEST_SCHEMA")
 )
 def test_postgres_import_edit_export_and_source_validator_round_trip():
     """Real P02 repository round-trip; never falls back to an in-memory store."""
+    from app.services.information_topology.io.retrieval import RepositoryRetrievalStore, RetrievalStructureIO
+    from app.services.information_topology.profiles import decode_state
+    from app.services.information_topology.repository import InformationTopologyRepository, StateWrite
     from sqlalchemy import create_engine, inspect, text
     from sqlalchemy.orm import sessionmaker
-
-    from app.models.information_topology_entities import InformationTopologyState
-    from app.services.information_topology.io.retrieval import RepositoryRetrievalStore, RetrievalStructureIO
-    from app.services.information_topology.repository import InformationTopologyRepository, StateWrite
-    from app.services.information_topology.profiles import decode_state
 
     engine = create_engine(TEST_URL, future=True, pool_size=2, max_overflow=0)
 

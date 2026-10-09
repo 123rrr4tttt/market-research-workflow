@@ -15,8 +15,7 @@ import os
 import subprocess
 import sys
 from pathlib import Path, PurePosixPath
-from typing import Any
-
+from typing import Any, TypeGuard, cast
 
 SDK_ROOT_ENV = "MRW_CONCEPT_WORKBENCH_ROOT"
 TARGETS_ENV = "MRW_WORKBENCH_TARGETS"
@@ -66,6 +65,12 @@ METHOD_DEFINITIONS: tuple[dict[str, str], ...] = (
 _OPERATION_IDS = frozenset(entry["id"] for entry in OPERATION_DEFINITIONS)
 _METHOD_IDS = frozenset(entry["id"] for entry in METHOD_DEFINITIONS)
 
+
+def _is_string_object_dict(value: object) -> TypeGuard[dict[str, object]]:
+    return isinstance(value, dict) and all(
+        isinstance(key, str) for key in cast(dict[object, object], value)
+    )
+
 _OPERATION_PARAMS: dict[str, frozenset[str]] = {
     "init": frozenset({"target_id"}),
     "scan": frozenset({"target_id", "paths", "catalog", "shape"}),
@@ -89,10 +94,10 @@ def _targets_config() -> dict[str, Any]:
     if not raw:
         return {}
     try:
-        value = json.loads(raw)
+        value: object = json.loads(raw)
     except json.JSONDecodeError:
         return {}
-    return value if isinstance(value, dict) else {}
+    return value if _is_string_object_dict(value) else {}
 
 
 def _sdk_root_env_value() -> str | None:
@@ -187,7 +192,7 @@ def _resolve_target(target_id: Any, project_key: str) -> dict[str, Any]:
     entry = targets.get(target_id)
     if entry is None:
         raise ValueError(f"unknown workbench target: {target_id}")
-    if not isinstance(entry, dict):
+    if not _is_string_object_dict(entry):
         raise ValueError(f"workbench target {target_id} is malformed")
     target_project = entry.get("project_key")
     if target_project != project_key:
@@ -210,13 +215,14 @@ def _resolve_target(target_id: Any, project_key: str) -> dict[str, Any]:
 
 
 def _validate_arguments(operation: str, arguments: Any) -> dict[str, Any]:
-    if not isinstance(arguments, dict):
+    if not _is_string_object_dict(arguments):
         raise ValueError("arguments must be an object")
     allowed = _OPERATION_PARAMS[operation]
     unknown = set(arguments) - allowed
     if unknown:
         raise ValueError(f"unsupported workbench argument(s): {', '.join(sorted(unknown))}")
-    if not isinstance(arguments.get("target_id"), str) or not arguments["target_id"].strip():
+    target_id = arguments.get("target_id")
+    if not isinstance(target_id, str) or not target_id.strip():
         raise ValueError("target_id is required")
     if "paths" in allowed:
         paths = arguments.get("paths")
@@ -267,10 +273,10 @@ def _report_from_stdout(stdout: str) -> dict[str, Any] | None:
     if not stdout:
         return None
     try:
-        value = json.loads(stdout)
+        value: object = json.loads(stdout)
     except json.JSONDecodeError:
         return None
-    return value if isinstance(value, dict) else None
+    return value if _is_string_object_dict(value) else None
 
 
 def _invoke_cli(argv: list[str], sdk_root: Path) -> dict[str, Any]:
@@ -322,7 +328,7 @@ def workbench_module(project_key: str) -> dict[str, Any]:
     targets = _targets_config()
     project_targets: list[dict[str, str]] = []
     for target_id, entry in targets.items():
-        if not isinstance(entry, dict):
+        if not _is_string_object_dict(entry):
             continue
         if entry.get("project_key") != key:
             continue
@@ -377,7 +383,7 @@ def _unavailable(reason: str) -> dict[str, Any]:
     }
 
 
-def run_workbench(operation: str, arguments: dict[str, Any], project_key: str) -> dict[str, Any]:
+def run_workbench(operation: object, arguments: dict[str, Any], project_key: str) -> dict[str, Any]:
     """Run one whitelisted operation against a configured target via the SDK CLI."""
 
     key = _project_key(project_key)
@@ -396,7 +402,7 @@ def run_workbench(operation: str, arguments: dict[str, Any], project_key: str) -
     return _invoke_cli(argv, root)
 
 
-def read_workbench_method(method_id: str, relative_path: str = "SKILL.md") -> dict[str, Any]:
+def read_workbench_method(method_id: object, relative_path: str = "SKILL.md") -> dict[str, Any]:
     """Read one SDK skill text file and return its source reference and digest."""
 
     if not isinstance(method_id, str) or method_id not in _METHOD_IDS:

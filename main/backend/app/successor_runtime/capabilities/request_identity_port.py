@@ -17,10 +17,11 @@ import hashlib
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from types import MappingProxyType
-from typing import Any, Final, Literal, NoReturn, TypeAlias
+from typing import Any, Final, Literal, NoReturn, TypeAlias, TypeGuard
 
 from functorial_kit import Failure
 from mrw_functorial_kit.core.application_failure_semantics import request_identity_failures
+from app.successor_runtime.research.codec import runtime_value
 
 REQUEST_IDENTITY_PORT_REF: Final[str] = "mrw.successor.request-identity.horizontal-port.v1"
 REQUEST_IDENTITY_SCHEMA: Final[str] = "mrw.successor.request-identity.actor-context.v1"
@@ -133,6 +134,10 @@ def _as_mapping(value: Mapping[str, Any] | None) -> Mapping[str, Any]:
     return _EMPTY_METADATA
 
 
+def _is_object_mapping(value: object) -> TypeGuard[Mapping[object, object]]:
+    return isinstance(value, Mapping)
+
+
 def _header_value(headers: Mapping[str, str] | None, name: str) -> Any | None:
     if not isinstance(headers, Mapping):
         return None
@@ -144,7 +149,7 @@ def _header_value(headers: Mapping[str, str] | None, name: str) -> Any | None:
 
 
 def _first_mapping_text(
-    mapping: Mapping[str, Any],
+    mapping: Mapping[object, object],
     keys: tuple[str, ...],
     *,
     max_length: int,
@@ -269,10 +274,12 @@ class RequestActorContext:
         mode = _clean_text(self.actor_auth_mode, max_length=_ACTOR_MODE_MAX_LENGTH)
         if mode is None:
             _reject("RequestActorContext requires actor_auth_mode", code="actor_context_invalid")
-        if not isinstance(self.actor_trusted, bool):
+        actor_trusted = runtime_value(self.actor_trusted)
+        if not isinstance(actor_trusted, bool):
             _reject("RequestActorContext.actor_trusted must be bool", TypeError, code="actor_context_invalid")
         legacy_actor_id = _clean_text(self.legacy_actor_id)
-        if not isinstance(self.authority, RequestIdentityAuthority):
+        authority = runtime_value(self.authority)
+        if not isinstance(authority, RequestIdentityAuthority):
             _reject("RequestActorContext.authority is required", TypeError, code="authority_contract_invalid")
         object.__setattr__(self, "actor_id", actor_id)
         object.__setattr__(self, "actor_source", source)
@@ -380,7 +387,7 @@ def authenticated_actor_context(
         actor_auth_mode=(_clean_text(auth_mode, max_length=_ACTOR_MODE_MAX_LENGTH) or DEFAULT_AUTHENTICATED_MODE),
         actor_trusted=True,
         legacy_actor_id=legacy_actor_id,
-        actor_metadata=actor_metadata,
+        actor_metadata=_as_mapping(actor_metadata),
     )
 
 
@@ -415,7 +422,7 @@ def _authenticated_context_from_observation(
     legacy_actor_id = _first_legacy_actor(observation.headers)
     for state_attr, attr_name in _AUTH_STATE_ATTRS:
         raw_actor = getattr(observation, state_attr)
-        if not isinstance(raw_actor, Mapping):
+        if not _is_object_mapping(raw_actor):
             continue
         actor_id = _first_mapping_text(raw_actor, _ACTOR_ID_KEYS, max_length=_ACTOR_ID_MAX_LENGTH)
         if actor_id is None:
@@ -512,7 +519,8 @@ def resolve_request_actor_context(
     normalized state actor follows; otherwise legacy headers or anonymous.
     """
 
-    if not isinstance(observation, RequestIdentityObservation):
+    raw_observation = runtime_value(observation)
+    if not isinstance(raw_observation, RequestIdentityObservation):
         _reject(
             "resolve_request_actor_context requires RequestIdentityObservation",
             TypeError,
@@ -569,7 +577,8 @@ def require_trusted_actor_context(
 ) -> RequestActorContext:
     """Return a trusted context or lift a typed 403-equivalent denial."""
 
-    if not isinstance(context, RequestActorContext):
+    raw_context = runtime_value(context)
+    if not isinstance(raw_context, RequestActorContext):
         _reject("require_trusted_actor_context requires RequestActorContext", TypeError, code="actor_context_invalid")
     if context.actor_trusted:
         return context

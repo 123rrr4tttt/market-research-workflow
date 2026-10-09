@@ -1,7 +1,7 @@
 """Resource pool extraction service."""
 
 from .append_adapter import DefaultResourcePoolAppendAdapter
-from .auto_classify import classify_site_entry, classify_site_entries_batch
+from .auto_classify import classify_site_entries_batch, classify_site_entry
 from .capture_config import get_capture_config, upsert_capture_config
 from .extract import append_url, extract_from_documents, extract_from_tasks
 from .open_source_source_importer import import_open_source_preset_pack, list_open_source_preset_packs

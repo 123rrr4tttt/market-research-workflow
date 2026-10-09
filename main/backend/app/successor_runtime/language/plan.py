@@ -8,7 +8,7 @@ perform effects.  Operational identifiers are deliberately excluded from
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
-from typing import Annotated, Any, Literal, NoReturn
+from typing import TYPE_CHECKING, Annotated, Any, Literal, NoReturn
 
 from functorial_kit import Failure
 
@@ -18,10 +18,13 @@ from .algebra import ReturnContract
 from .checksum import sha256_hex
 from .object_contracts import (
     OperationContractRef,
-    _failure as _language_failure,
-    _raise_failure as _lift_language_failure,
+    language_failure as _language_failure,
+    raise_language_failure as _lift_language_failure,
 )
 from .transforms import TransformRef
+
+if TYPE_CHECKING:
+    from .profiles import ContractProfileRef
 
 def _plan_failure(code: str, message: object, *, site: str, exception_type: type[Exception] = ValueError) -> Failure:
     return _language_failure(code, message, exception_type, site=site)
@@ -85,10 +88,10 @@ class CompiledStep:
     operation_id: str | None
     operation_contract_ref: OperationContractRef | None
     transform_ref: TransformRef | None
-    effect_profile_ref: str | None
-    resource_profile_ref: str | None
-    failure_profile_ref: str | None
-    authority_profile_ref: str | None
+    effect_profile_ref: ContractProfileRef | str | None
+    resource_profile_ref: ContractProfileRef | str | None
+    failure_profile_ref: ContractProfileRef | str | None
+    authority_profile_ref: ContractProfileRef | str | None
     return_contract: ReturnContract
     semantic_return_barrier: bool
     staged_output_only: bool

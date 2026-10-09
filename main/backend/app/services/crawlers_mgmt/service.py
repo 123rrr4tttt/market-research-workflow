@@ -5,9 +5,10 @@ import json
 import re
 from datetime import datetime, timezone
 from functools import lru_cache
-from typing import Any, Literal
+from typing import Any, Literal, TypeGuard, cast
 
 from sqlalchemy import func, select
+from sqlalchemy.orm import Session
 
 from ...models.base import SessionLocal
 from ...models.entities import CrawlerDeployRun, CrawlerProject
@@ -47,6 +48,24 @@ def _utcnow() -> datetime:
     return datetime.now(timezone.utc)
 
 
+def _is_object_list(value: object) -> TypeGuard[list[object]]:
+    return isinstance(value, list)
+
+
+def _is_string_object_dict(value: object) -> TypeGuard[dict[str, object]]:
+    return isinstance(value, dict) and all(
+        isinstance(key, str) for key in cast(dict[object, object], value)
+    )
+
+
+def _object_view(value: object) -> dict[str, object]:
+    return dict(value) if _is_string_object_dict(value) else {}
+
+
+def _optional_text(value: object) -> str | None:
+    return value if isinstance(value, str) else None
+
+
 def _slugify(value: str) -> str:
     s = (value or "").strip().lower()
     s = re.sub(r"[^a-z0-9_]+", "_", s)
@@ -70,13 +89,13 @@ def _extract_text_from_llm_output(raw: Any) -> str:
     content = getattr(raw, "content", None)
     if isinstance(content, str):
         return content
-    if isinstance(content, list):
+    if _is_object_list(content):
         parts: list[str] = []
         for item in content:
             if isinstance(item, str):
                 parts.append(item)
                 continue
-            if isinstance(item, dict):
+            if _is_string_object_dict(item):
                 txt = item.get("text")
                 if isinstance(txt, str):
                     parts.append(txt)
@@ -89,9 +108,9 @@ def _parse_json_object(raw: str) -> dict[str, Any] | None:
     if not text:
         return None
     try:
-        obj = json.loads(text)
-        if isinstance(obj, dict):
-            return obj
+        obj: object = json.loads(text)
+        if _is_string_object_dict(obj):
+            return dict(obj)
     except Exception:
         pass
 
@@ -106,8 +125,8 @@ def _parse_json_object(raw: str) -> dict[str, Any] | None:
             candidate = candidate[4:].strip()
         try:
             obj = json.loads(candidate)
-            if isinstance(obj, dict):
-                return obj
+            if _is_string_object_dict(obj):
+                return dict(obj)
         except Exception:
             continue
     return None
@@ -116,7 +135,7 @@ def _parse_json_object(raw: str) -> dict[str, Any] | None:
 def _heuristic_plan(import_payload: dict[str, Any]) -> dict[str, Any]:
     source_type = str(import_payload.get("source_type") or "manual")
     source_uri = str(import_payload.get("source_uri") or "")
-    tasks = []
+    tasks: list[dict[str, object]] = []
     for item in _CORE_TASKS:
         tasks.append(
             {
@@ -139,11 +158,11 @@ def _heuristic_plan(import_payload: dict[str, Any]) -> dict[str, Any]:
 
 
 def _normalize_plan(candidate: dict[str, Any], fallback: dict[str, Any], *, mode: str) -> dict[str, Any]:
-    tasks_raw = candidate.get("tasks") if isinstance(candidate, dict) else None
+    tasks_raw = candidate.get("tasks")
     tasks: list[dict[str, Any]] = []
-    if isinstance(tasks_raw, list):
+    if _is_object_list(tasks_raw):
         for i, task in enumerate(tasks_raw):
-            if not isinstance(task, dict):
+            if not _is_string_object_dict(task):
                 continue
             task_id = str(task.get("id") or f"T{i:02d}").strip() or f"T{i:02d}"
             tasks.append(
@@ -168,7 +187,11 @@ def _normalize_plan(candidate: dict[str, Any], fallback: dict[str, Any], *, mode
 def analyze_import_plan(import_payload: dict[str, Any]) -> dict[str, Any]:
     fallback = _heuristic_plan(import_payload)
     try:
-        model = get_chat_model(temperature=0.1, max_tokens=1200).with_retry()
+        model = get_chat_model(temperature=0.1, max_tokens=1200)
+        retry_factory = getattr(model, "with_retry", None)
+        if not callable(retry_factory):
+            return fallback
+        runnable: object = retry_factory()
         prompt = (
             "Generate an MVP crawler management plan as JSON.\n"
             "Constraints:\n"
@@ -178,7 +201,10 @@ def analyze_import_plan(import_payload: dict[str, Any]) -> dict[str, Any]:
             "Payload:\n"
             f"{json.dumps(import_payload, ensure_ascii=False)}"
         )
-        raw = model.invoke(prompt)
+        invoke = getattr(runnable, "invoke", None)
+        if not callable(invoke):
+            return fallback
+        raw: object = invoke(prompt)
         parsed = _parse_json_object(_extract_text_from_llm_output(raw))
         if not parsed:
             return fallback
@@ -326,7 +352,11 @@ def get_project(project_id: int | None = None, project_key: str | None = None) -
             return _serialize_project(row)
 
 
-def _get_project_model(session, project_id: int | None = None, project_key: str | None = None) -> CrawlerProject:
+def _get_project_model(
+    session: Session,
+    project_id: int | None = None,
+    project_key: str | None = None,
+) -> CrawlerProject:
     key = str(project_key or "").strip()
     if key:
         row = session.execute(
@@ -382,14 +412,14 @@ def deploy_project(
             task_id: str | None = None
 
             if async_mode:
-                import_payload = dict(project.import_payload or {})
-                manifest = dict(import_payload.get("manifest") or {})
+                import_payload = _object_view(project.import_payload)
+                manifest = _object_view(import_payload.get("manifest"))
                 registration_key = str(registration_project_key or "").strip() or project.project_key
                 metadata = {
                     "crawler_project_id": int(project.id),
                     "crawler_project_key": project.project_key,
                     "registration_project_key": registration_key,
-                    **dict(import_payload.get("metadata") or {}),
+                    **_object_view(import_payload.get("metadata")),
                 }
                 try:
                     task = _tasks_module().task_orchestrate_crawler_deploy.delay(
@@ -404,15 +434,15 @@ def deploy_project(
                         channel_key=str(import_payload.get("channel_key") or f"crawler.{project.project_key}"),
                         item_key=str(import_payload.get("item_key") or f"crawler.{project.project_key}.default"),
                         version=target_version,
-                        egg_file_path=import_payload.get("egg_file_path"),
-                        egg_content_b64=import_payload.get("egg_content_b64"),
-                        base_url=import_payload.get("scrapyd_base_url"),
+                        egg_file_path=_optional_text(import_payload.get("egg_file_path")),
+                        egg_content_b64=_optional_text(import_payload.get("egg_content_b64")),
+                        base_url=_optional_text(import_payload.get("scrapyd_base_url")),
                         metadata=metadata,
-                        channel_name=import_payload.get("channel_name"),
-                        item_name=import_payload.get("item_name"),
+                        channel_name=_optional_text(import_payload.get("channel_name")),
+                        item_name=_optional_text(import_payload.get("item_name")),
                         description=project.description,
-                        arguments=import_payload.get("arguments"),
-                        settings=import_payload.get("settings"),
+                        arguments=_object_view(import_payload.get("arguments")) or None,
+                        settings=_object_view(import_payload.get("settings")) or None,
                         enabled=bool(import_payload.get("enable_now", True)),
                     )
                     task_id = str(task.id)
@@ -482,8 +512,8 @@ def rollback_project(
             task_id: str | None = None
 
             if async_mode:
-                import_payload = dict(project.import_payload or {})
-                manifest = dict(import_payload.get("manifest") or {})
+                import_payload = _object_view(project.import_payload)
+                manifest = _object_view(import_payload.get("manifest"))
                 registration_key = str(registration_project_key or "").strip() or project.project_key
                 try:
                     task = _tasks_module().task_orchestrate_crawler_rollback.delay(
@@ -497,7 +527,7 @@ def rollback_project(
                         channel_key=str(import_payload.get("channel_key") or f"crawler.{project.project_key}"),
                         item_key=str(import_payload.get("item_key") or f"crawler.{project.project_key}.default"),
                         version=rollback_target,
-                        base_url=import_payload.get("scrapyd_base_url"),
+                        base_url=_optional_text(import_payload.get("scrapyd_base_url")),
                         disable_provider_type_to_native=True,
                         keep_item_enabled=True,
                     )

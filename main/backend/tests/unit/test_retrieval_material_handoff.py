@@ -521,7 +521,7 @@ def test_raw_import_overwrite_from_plain_to_html_clears_stale_material_witness(m
     monkeypatch.setattr(raw_import, "start_job", lambda *_args, **_kwargs: 22)
     monkeypatch.setattr(raw_import, "complete_job", lambda *_args, **_kwargs: None)
     monkeypatch.setattr(raw_import, "fetch_html", lambda *_args, **_kwargs: (html, SimpleNamespace(status_code=200, final_url="https://example.test/source")))
-    monkeypatch.setattr(raw_import, "_get_or_create_source", lambda *_args, **_kwargs: SimpleNamespace(id=1))
+    monkeypatch.setattr(raw_import, "get_or_create_source", lambda *_args, **_kwargs: SimpleNamespace(id=1))
     monkeypatch.setattr(
         raw_import,
         "run_postprocess_frontdoor",

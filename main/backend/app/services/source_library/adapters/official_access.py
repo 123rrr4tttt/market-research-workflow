@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import time
+from collections.abc import Mapping
 from urllib.parse import quote_plus
-from typing import Any, Dict
+from typing import Any, Dict, SupportsFloat, SupportsIndex, SupportsInt, TypeGuard
+from typing_extensions import Buffer
 
 from ...http.client import default_http_client
 from ...ingest.adapters.http_utils import fetch_html
@@ -18,8 +20,60 @@ _CROSSREF_RESULT_CACHE_TTL_SECONDS = 900.0
 _CROSSREF_RESULT_CACHE: dict[str, tuple[float, dict[str, Any]]] = {}
 
 
-def _normalize_terms(raw: Any) -> list[str]:
-    if isinstance(raw, list):
+def _is_object(value: object) -> TypeGuard[dict[str, object]]:
+    return isinstance(value, dict)
+
+
+def _is_object_list(value: object) -> TypeGuard[list[object]]:
+    return isinstance(value, list)
+
+
+def _object(value: object) -> dict[str, object]:
+    return dict(value) if _is_object(value) else {}
+
+
+def _object_list(value: object) -> list[object]:
+    return list(value) if _is_object_list(value) else []
+
+
+def _int(value: object) -> int:
+    if not isinstance(value, int | float | str):
+        return 0
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _strict_int(value: object) -> int:
+    if not isinstance(value, (str, bytes, bytearray, SupportsInt, SupportsIndex, Buffer)):
+        raise TypeError(
+            "int() argument must be a string, a bytes-like object or a real number, "
+            f"not '{type(value).__name__}'"
+        )
+    return int(value)
+
+
+def _strict_float(value: object) -> float:
+    if not isinstance(value, (str, bytes, bytearray, SupportsFloat, SupportsIndex, Buffer)):
+        raise TypeError(
+            "float() argument must be a string or a real number, "
+            f"not '{type(value).__name__}'"
+        )
+    return float(value)
+
+
+def _candidate_urls(value: object) -> list[str]:
+    urls: list[str] = []
+    for item in _object_list(value):
+        url = str(getattr(item, "url", "") or "").strip()
+        if url:
+            urls.append(url)
+    return urls
+
+
+def _normalize_terms(raw: object) -> list[str]:
+    if _is_object_list(raw):
         out: list[str] = []
         for item in raw:
             term = str(item or "").strip()
@@ -30,14 +84,14 @@ def _normalize_terms(raw: Any) -> list[str]:
     return [term] if term else []
 
 
-def _build_arxiv_query_url(*, query_terms: list[str], params: Dict[str, Any]) -> str:
+def _build_arxiv_query_url(*, query_terms: list[str], params: Mapping[object, object]) -> str:
     terms = [term for term in query_terms if term]
     if not terms:
         raise ValueError("official_access.api arxiv requires query_terms")
     search_fragments = [f"all:{quote_plus(term)}" for term in terms]
     search_query = "+AND+".join(search_fragments)
-    start = max(0, int(params.get("start") or 0))
-    max_results = max(1, min(int(params.get("max_results") or params.get("limit") or 10), 100))
+    start = max(0, _strict_int(params.get("start") or 0))
+    max_results = max(1, min(_strict_int(params.get("max_results") or params.get("limit") or 10), 100))
     sort_by = str(params.get("sort_by") or "relevance").strip() or "relevance"
     sort_order = str(params.get("sort_order") or "descending").strip() or "descending"
     return (
@@ -47,23 +101,23 @@ def _build_arxiv_query_url(*, query_terms: list[str], params: Dict[str, Any]) ->
     )
 
 
-def _build_arxiv_html_search_url(*, query_terms: list[str], params: Dict[str, Any]) -> str:
+def _build_arxiv_html_search_url(*, query_terms: list[str], params: Mapping[object, object]) -> str:
     terms = [term for term in query_terms if term]
     if not terms:
         raise ValueError("official_access.api arxiv requires query_terms")
     query = " ".join(terms)
-    size = max(1, min(int(params.get("max_results") or params.get("limit") or 10), 50))
+    size = max(1, min(_strict_int(params.get("max_results") or params.get("limit") or 10), 50))
     return (
         "https://arxiv.org/search/"
         f"?query={quote_plus(query)}&searchtype=all&abstracts=show&order=-announced_date_first&size={size}"
     )
 
 
-def _build_crossref_query_params(*, query_terms: list[str], params: Dict[str, Any]) -> dict[str, Any]:
+def _build_crossref_query_params(*, query_terms: list[str], params: Mapping[object, object]) -> dict[str, Any]:
     terms = [term for term in query_terms if term]
     if not terms:
         raise ValueError("official_access.api crossref requires query_terms")
-    rows = max(1, min(int(params.get("max_results") or params.get("limit") or 10), 100))
+    rows = max(1, min(_strict_int(params.get("max_results") or params.get("limit") or 10), 100))
     query_params: dict[str, Any] = {
         "query": " ".join(terms),
         "rows": rows,
@@ -75,8 +129,8 @@ def _build_crossref_query_params(*, query_terms: list[str], params: Dict[str, An
     return query_params
 
 
-def _candidate_url_from_crossref_item(item: Any) -> str:
-    if not isinstance(item, dict):
+def _candidate_url_from_crossref_item(item: object) -> str:
+    if not _is_object(item):
         return ""
     direct_url = normalize_candidate_url(str(item.get("URL") or "").strip())
     if direct_url:
@@ -87,17 +141,18 @@ def _candidate_url_from_crossref_item(item: Any) -> str:
     return ""
 
 
-def _extract_crossref_records(payload: Any, *, max_results: int) -> list[dict[str, Any]]:
-    message = payload.get("message") if isinstance(payload, dict) else {}
-    items = message.get("items") if isinstance(message, dict) else []
+def _extract_crossref_records(payload: object, *, max_results: int) -> list[dict[str, Any]]:
+    message = _object(_object(payload).get("message"))
+    items = _object_list(message.get("items"))
     records: list[dict[str, Any]] = []
     seen: set[str] = set()
-    for item in items if isinstance(items, list) else []:
+    for raw_item in items:
+        item = _object(raw_item)
         url = _candidate_url_from_crossref_item(item)
         if not url or url in seen:
             continue
-        title_rows = item.get("title") if isinstance(item, dict) else []
-        title = str(title_rows[0] if isinstance(title_rows, list) and title_rows else item.get("title") or "").strip()
+        title_rows = _object_list(item.get("title"))
+        title = str(title_rows[0] if title_rows else item.get("title") or "").strip()
         seen.add(url)
         records.append(
             {
@@ -138,40 +193,32 @@ def _extract_arxiv_abs_candidates(html_text: str, *, search_url: str, max_result
 def _run_arxiv_feed_probe(
     *,
     query_terms: list[str],
-    params: Dict[str, Any],
+    params: Mapping[object, object],
 ) -> Dict[str, Any]:
     feed_url = _build_arxiv_query_url(query_terms=query_terms, params=params)
     execution = execute_feed_probe(
         feed_url=feed_url,
         query_terms=query_terms,
-        probe_timeout=float(params.get("probe_timeout") or 10.0),
+        probe_timeout=_strict_float(params.get("probe_timeout") or 10.0),
         allow_term_fallback=bool(params.get("allow_term_fallback", False)),
         params=params,
     )
-    max_results = max(1, min(int(params.get("max_results") or params.get("limit") or 10), 100))
-    raw_candidates = [
-        str(getattr(item, "url", "") or "").strip()
-        for item in (getattr(execution, "raw_candidates", None) or [])
-        if str(getattr(item, "url", "") or "").strip()
-    ]
-    selected_candidates = [
-        str(getattr(decision, "url", "") or "").strip()
-        for decision in (getattr(execution, "selected_candidates", None) or [])
-        if str(getattr(decision, "url", "") or "").strip()
-    ]
+    max_results = max(1, min(_strict_int(params.get("max_results") or params.get("limit") or 10), 100))
+    raw_candidates = _candidate_urls(getattr(execution, "raw_candidates", None))
+    selected_candidates = _candidate_urls(getattr(execution, "selected_candidates", None))
     candidates = list(dict.fromkeys(raw_candidates or selected_candidates))[:max_results]
     return {
         "strategy": "official_api_feed",
         "candidates": candidates,
-        "used_term_fallback": bool(getattr(execution, "used_term_fallback", False)),
-        "pages_scanned": int(getattr(execution, "pages_scanned", 1) or 1),
+        "used_term_fallback": execution.used_term_fallback,
+        "pages_scanned": execution.pages_scanned,
         "diagnostics": {
-            **dict(getattr(execution, "diagnostics", {}) or {}),
+            **dict(execution.diagnostics),
             "provider_key": "arxiv",
             "feed_url": feed_url,
             "selection_mode": "raw_feed_candidates" if raw_candidates else "selected_candidates",
         },
-        "errors": list(getattr(execution, "errors", None) or []),
+        "errors": list(execution.errors),
         "message": "official_access.api executed via arXiv API search",
     }
 
@@ -179,15 +226,15 @@ def _run_arxiv_feed_probe(
 def _run_arxiv_html_fallback(
     *,
     query_terms: list[str],
-    params: Dict[str, Any],
+    params: Mapping[object, object],
 ) -> Dict[str, Any]:
-    max_results = max(1, min(int(params.get("max_results") or params.get("limit") or 10), 50))
+    max_results = max(1, min(_strict_int(params.get("max_results") or params.get("limit") or 10), 50))
     search_url = _build_arxiv_html_search_url(query_terms=query_terms, params=params)
     try:
         html_text, _response = fetch_html(
             search_url,
-            timeout=float(params.get("probe_timeout") or 10.0),
-            retries=max(0, int(params.get("fetch_retries") or 0)),
+            timeout=_strict_float(params.get("probe_timeout") or 10.0),
+            retries=max(0, _strict_int(params.get("fetch_retries") or 0)),
         )
         candidates = _extract_arxiv_abs_candidates(html_text, search_url=search_url, max_results=max_results)
         return {
@@ -226,16 +273,16 @@ def _run_arxiv_html_fallback(
 def _run_crossref_works_probe(
     *,
     query_terms: list[str],
-    params: Dict[str, Any],
+    params: Mapping[object, object],
 ) -> Dict[str, Any]:
     endpoint = "https://api.crossref.org/works"
     query_params = _build_crossref_query_params(query_terms=query_terms, params=params)
-    max_results = max(1, min(int(params.get("max_results") or params.get("limit") or 10), 100))
+    max_results = max(1, min(_strict_int(params.get("max_results") or params.get("limit") or 10), 100))
     try:
-        payload = default_http_client.get_json(
+        payload: object = default_http_client.get_json(
             endpoint,
             params=query_params,
-            timeout=float(params.get("probe_timeout") or 10.0),
+            timeout=_strict_float(params.get("probe_timeout") or 10.0),
         )
     except Exception as exc:  # noqa: BLE001
         return {
@@ -257,7 +304,7 @@ def _run_crossref_works_probe(
         }
 
     records = _extract_crossref_records(payload, max_results=max_results)
-    message = payload.get("message") if isinstance(payload, dict) else {}
+    message = _object(_object(payload).get("message"))
     return {
         "strategy": "crossref_works_api",
         "candidates": [record["url"] for record in records],
@@ -269,7 +316,7 @@ def _run_crossref_works_probe(
             "endpoint": endpoint,
             "query": query_params.get("query"),
             "rows": query_params.get("rows"),
-            "records_total": int(message.get("total-results") or 0) if isinstance(message, dict) else 0,
+            "records_total": _int(message.get("total-results")),
             "selected_candidates": len(records),
             "credential_required": False,
             "public_api": True,
@@ -280,7 +327,7 @@ def _run_crossref_works_probe(
     }
 
 
-def _resolve_official_provider(params: Dict[str, Any]) -> str:
+def _resolve_official_provider(params: Mapping[object, object]) -> str:
     return str(
         params.get("provider_key")
         or params.get("provider")
@@ -290,11 +337,11 @@ def _resolve_official_provider(params: Dict[str, Any]) -> str:
     ).strip().lower()
 
 
-def _make_arxiv_cache_key(*, query_terms: list[str], params: Dict[str, Any]) -> str:
+def _make_arxiv_cache_key(*, query_terms: list[str], params: Mapping[object, object]) -> str:
     return "|".join(
         [
             ",".join(query_terms),
-            str(int(params.get("max_results") or params.get("limit") or 10)),
+            str(_strict_int(params.get("max_results") or params.get("limit") or 10)),
             str(params.get("sort_by") or "relevance"),
             str(params.get("sort_order") or "descending"),
         ]
@@ -317,11 +364,11 @@ def _write_arxiv_cache(cache_key: str, payload: dict[str, Any]) -> None:
         _ARXIV_RESULT_CACHE[cache_key] = (time.monotonic(), dict(payload))
 
 
-def _make_crossref_cache_key(*, query_terms: list[str], params: Dict[str, Any]) -> str:
+def _make_crossref_cache_key(*, query_terms: list[str], params: Mapping[object, object]) -> str:
     return "|".join(
         [
             ",".join(query_terms),
-            str(int(params.get("max_results") or params.get("limit") or 10)),
+            str(_strict_int(params.get("max_results") or params.get("limit") or 10)),
         ]
     )
 
@@ -342,7 +389,7 @@ def _write_crossref_cache(cache_key: str, payload: dict[str, Any]) -> None:
         _CROSSREF_RESULT_CACHE[cache_key] = (time.monotonic(), dict(payload))
 
 
-def handle_official_access_api(params: Dict[str, Any], project_key: str | None) -> Dict[str, Any]:
+def handle_official_access_api(params: Mapping[object, object], project_key: str | None) -> Dict[str, Any]:
     provider = _resolve_official_provider(params)
     if provider in {"arxiv", "arxiv_api"}:
         query_terms = _normalize_terms(

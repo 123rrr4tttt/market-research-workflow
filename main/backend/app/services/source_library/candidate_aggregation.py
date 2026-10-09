@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Iterable, Mapping
+from collections.abc import Iterable, Mapping, Sequence
+from typing import TypeGuard
 
 
 @dataclass(frozen=True)
@@ -15,8 +16,24 @@ class HandlerCandidateLimits:
     sitemap_max_sitemaps: int
 
 
-def normalize_query_terms(value: Any) -> list[str]:
-    if isinstance(value, list):
+def _is_object(value: object) -> TypeGuard[dict[str, object]]:
+    return isinstance(value, dict)
+
+
+def _is_object_list(value: object) -> TypeGuard[list[object]]:
+    return isinstance(value, list)
+
+
+def _object(value: object) -> dict[str, object]:
+    return dict(value) if _is_object(value) else {}
+
+
+def _object_list(value: object) -> list[object]:
+    return list(value) if _is_object_list(value) else []
+
+
+def normalize_query_terms(value: object) -> list[str]:
+    if _is_object_list(value):
         out: list[str] = []
         for item in value:
             term = str(item or "").strip()
@@ -35,14 +52,14 @@ def split_query_batches(terms: list[str], chunk_size: int) -> list[list[str]]:
     return [clean[index : index + size] for index in range(0, len(clean), size)]
 
 
-def normalize_handler_candidate_limits(params: Mapping[str, Any]) -> HandlerCandidateLimits:
-    raw = dict(params or {})
+def normalize_handler_candidate_limits(params: Mapping[object, object]) -> HandlerCandidateLimits:
+    raw = dict(params)
     return HandlerCandidateLimits(
-        per_keyword_limit=max(1, int(raw.get("per_keyword_limit") or raw.get("limit") or 5)),
-        global_max_candidates=max(1, int(raw.get("max_candidates") or 200)),
-        global_ingest_limit=max(1, int(raw.get("ingest_limit") or raw.get("limit") or 20)),
-        sitemap_max_depth=max(0, int(raw.get("sitemap_max_depth") or 2)),
-        sitemap_max_sitemaps=max(1, int(raw.get("sitemap_max_sitemaps") or 50)),
+        per_keyword_limit=max(1, _int(raw.get("per_keyword_limit") or raw.get("limit"), 5)),
+        global_max_candidates=max(1, _int(raw.get("max_candidates"), 200)),
+        global_ingest_limit=max(1, _int(raw.get("ingest_limit") or raw.get("limit"), 20)),
+        sitemap_max_depth=max(0, _int(raw.get("sitemap_max_depth"), 2)),
+        sitemap_max_sitemaps=max(1, _int(raw.get("sitemap_max_sitemaps"), 50)),
     )
 
 
@@ -50,11 +67,12 @@ def batch_max_candidates(limits: HandlerCandidateLimits, term_count: int) -> int
     return min(limits.global_max_candidates, limits.per_keyword_limit * max(1, term_count))
 
 
-def unique_site_entries(runs: Iterable[Any]) -> list[dict[str, Any]]:
+def unique_site_entries(runs: Iterable[object]) -> list[dict[str, object]]:
     seen: set[str] = set()
-    out: list[dict[str, Any]] = []
+    out: list[dict[str, object]] = []
     for run in runs:
-        for entry in run.site_entries_used or []:
+        for entry_value in _object_list(getattr(run, "site_entries_used", None)):
+            entry = _object(entry_value)
             key = str(entry.get("site_url") or entry.get("id") or "")
             if key and key not in seen:
                 seen.add(key)
@@ -62,11 +80,11 @@ def unique_site_entries(runs: Iterable[Any]) -> list[dict[str, Any]]:
     return out
 
 
-def unique_candidates(runs: Iterable[Any]) -> list[str]:
+def unique_candidates(runs: Iterable[object]) -> list[str]:
     seen: set[str] = set()
     out: list[str] = []
     for run in runs:
-        for candidate in run.candidates or []:
+        for candidate in _object_list(getattr(run, "candidates", None)):
             value = str(candidate or "").strip()
             if value and value not in seen:
                 seen.add(value)
@@ -74,21 +92,21 @@ def unique_candidates(runs: Iterable[Any]) -> list[str]:
     return out
 
 
-def aggregate_written_counts(runs: Iterable[Any]) -> tuple[int, int]:
+def aggregate_written_counts(runs: Iterable[object]) -> tuple[int, int]:
     urls_new = 0
     urls_skipped = 0
     for run in runs:
-        written = run.written or {}
-        urls_new += int(written.get("urls_new") or 0)
-        urls_skipped += int(written.get("urls_skipped") or 0)
+        written = _object(getattr(run, "written", None))
+        urls_new += _optional_int(written.get("urls_new"))
+        urls_skipped += _optional_int(written.get("urls_skipped"))
     return urls_new, urls_skipped
 
 
 def candidate_record_stats(
     candidates: list[str],
-    records: list[dict[str, Any]],
+    records: list[dict[str, object]],
     *,
-    errors: list[Any],
+    errors: Sequence[object],
 ) -> dict[str, int]:
     return {
         "fetched": len(candidates),
@@ -96,3 +114,21 @@ def candidate_record_stats(
         "dropped": max(len(candidates) - len(records), 0),
         "errors": len(errors),
     }
+
+
+def _optional_int(value: object) -> int:
+    if not isinstance(value, int | float | str):
+        return 0
+    try:
+        return int(value)
+    except Exception:
+        return 0
+
+
+def _int(value: object, default: int) -> int:
+    if not isinstance(value, int | float | str):
+        return default
+    try:
+        return int(value)
+    except Exception:
+        return default

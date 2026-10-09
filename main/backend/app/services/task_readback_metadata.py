@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Annotated, Any, Mapping
+from typing import Annotated, Any, Mapping, NoReturn, TypeGuard
 from functorial_kit import Failure
 from mrw_functorial_kit.core.application_failure_semantics import task_readback_contract_failures
 
@@ -65,7 +65,7 @@ def _task_readback_failure(message: str, *, operation: str) -> Failure:
     )
 
 
-def _raise_task_readback_failure(failure: Failure) -> None:
+def _raise_task_readback_failure(failure: Failure) -> NoReturn:
     context = failure.context or {}
     if not task_readback_contract_failures.matches(failure) or _FAILURE_CONTEXT_KEYS - set(context):
         # kit:boundary owner=task_readback_metadata.failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w01_request_failures
@@ -76,6 +76,14 @@ def _raise_task_readback_failure(failure: Failure) -> None:
 
 def utc_now_iso() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
+def _is_string_object_mapping(value: object) -> TypeGuard[Mapping[str, object]]:
+    return isinstance(value, Mapping)
+
+
+def _is_object_list(value: object) -> TypeGuard[list[object]]:
+    return isinstance(value, list)
 
 
 def normalize_line_key(value: Any) -> str | None:
@@ -112,7 +120,7 @@ def append_runtime_event(
     if not normalized_event:
         return events
     for item in events:
-        if isinstance(item, dict) and str(item.get("event") or "").strip() == normalized_event:
+        if _is_string_object_mapping(item) and str(item.get("event") or "").strip() == normalized_event:
             return events
         if isinstance(item, str) and item.strip() == normalized_event:
             return events
@@ -159,13 +167,13 @@ def ensure_contract_events(
 
 def extract_runtime_readback_payload(*payloads: Any) -> dict[str, Any]:
     for payload in payloads:
-        if not isinstance(payload, Mapping):
+        if not _is_string_object_mapping(payload):
             continue
         direct = payload.get("runtime_readback")
-        if isinstance(direct, Mapping):
+        if _is_string_object_mapping(direct):
             return dict(direct)
         nested = payload.get("task_readback")
-        if isinstance(nested, Mapping):
+        if _is_string_object_mapping(nested):
             return dict(nested)
     return {}
 
@@ -173,9 +181,10 @@ def extract_runtime_readback_payload(*payloads: Any) -> dict[str, Any]:
 def request_runtime_context(task_request: Any) -> dict[str, Any]:
     if task_request is None:
         return {}
-    delivery_info = getattr(task_request, "delivery_info", None)
-    if not isinstance(delivery_info, Mapping):
-        delivery_info = {}
+    raw_delivery_info = getattr(task_request, "delivery_info", None)
+    delivery_info: Mapping[str, object] = (
+        raw_delivery_info if _is_string_object_mapping(raw_delivery_info) else {}
+    )
     return {
         "task_id": non_empty_text(getattr(task_request, "id", None)),
         "worker_name": non_empty_text(getattr(task_request, "hostname", None)),
@@ -209,10 +218,11 @@ def build_runtime_readback_payload(
                 operation="build_runtime_readback_payload",
             )
         )
+    payload_events: list[Any] = list(events or [])
     payload: dict[str, Any] = {
         "line_key": normalized_line_key,
         "status": str(status or "running").strip().lower(),
-        "events": list(events or []),
+        "events": payload_events,
     }
     for key, value in {
         "trace_id": trace_id,
@@ -225,19 +235,20 @@ def build_runtime_readback_payload(
         if text:
             payload[key] = text
     if event:
-        payload["events"] = append_runtime_event(
-            payload["events"],
+        payload_events = append_runtime_event(
+            payload_events,
             event,
             status=payload["status"],
             source=event_source,
         )
-    payload["events"] = ensure_contract_events(
-        payload["events"],
+    payload_events = ensure_contract_events(
+        payload_events,
         line_key=normalized_line_key,
         status=payload["status"],
         event=event,
         source=event_source,
     )
+    payload["events"] = payload_events
     return payload
 
 
@@ -266,7 +277,7 @@ def merge_runtime_readback_payload(
 
     events: list[Any] = []
     for candidate in (payload.get("events"), metadata.get("events")):
-        if isinstance(candidate, list):
+        if _is_object_list(candidate):
             for item in candidate:
                 if item not in events:
                     events.append(item)

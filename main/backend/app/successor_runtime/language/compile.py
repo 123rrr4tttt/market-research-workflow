@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
-from typing import Any, NoReturn
+from typing import Any, NoReturn, TypeGuard
 
 from functorial_kit import Failure
 from mrw_functorial_kit.core.w07_semantics import language_failures
@@ -64,6 +64,20 @@ class CompileFailure(Exception):
         return f"{self.code} at {self.path}: {self.message}"
 
 
+def _is_validation_failure_sequence(
+    value: object,
+) -> TypeGuard[tuple[ValidationFailure, ...] | list[ValidationFailure]]:
+    if not _is_object_sequence(value):
+        return False
+    return all(isinstance(item, ValidationFailure) for item in value)
+
+
+def _is_object_sequence(
+    value: object,
+) -> TypeGuard[tuple[object, ...] | list[object]]:
+    return isinstance(value, (tuple, list))
+
+
 def _compile_failure(
     code: str,
     path: str,
@@ -103,11 +117,13 @@ def raise_compile_failure(failure: Failure, *, cause: BaseException | None = Non
     ):
         # kit:boundary owner=successor.language.compile.failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_invalid_program_fails_typed_before_any_effect_boundary
         raise TypeError("compile failure lift context is incomplete")
+    raw_failures = context.get("failures")
+    failures = tuple(raw_failures) if _is_validation_failure_sequence(raw_failures) else ()
     error = CompileFailure(
         failure.code,
         str(context["path"]),
         str(context["public_message"]),
-        tuple(context.get("failures") or ()),
+        failures,
     )
     if cause is None:
         # kit:boundary owner=successor.language.compile.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.language.failure witness=test:test_invalid_program_fails_typed_before_any_effect_boundary
@@ -1077,7 +1093,7 @@ def _map_plan_output_unsafe(
     steps = plan.ordered_steps + (step,)
     order = _topological_order(steps)
     if isinstance(order, Failure):
-        return order
+        raise_compile_failure(order)
     result = replace(
         plan,
         plan_id="plan-" + digest[:24],

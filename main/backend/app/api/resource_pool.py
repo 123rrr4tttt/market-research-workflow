@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Any, Literal
+from collections.abc import Mapping
+from typing import Any, Literal, TypeGuard
 from urllib.parse import urlparse
 
 from fastapi import APIRouter, Query, Request
@@ -34,6 +35,7 @@ from ..services.resource_pool import (
     write_discovered_site_entries,
 )
 from ..services.source_library.item_plan import build_item_execution_plan
+from ..services.resource_pool.unified_search import UnifiedSearchResult
 
 ScopeType = Literal["shared", "project", "effective"]
 
@@ -44,6 +46,34 @@ SITE_ENTRIES_DASH_ALIAS_DEPRECATION = "resource_pool.site_entries_dash_alias.v1"
 SITE_ENTRY_LIFECYCLE_STATES = {"active", "candidate", "accepted", "rejected", "needs_review", "disabled"}
 SITE_ENTRY_REVIEW_STATES = {"accepted", "rejected", "needs_review", "disabled"}
 SITE_ENTRY_LIFECYCLE_TRANSITION_CONTRACT = "resource_pool.site_entry.lifecycle_transition.v1"
+
+
+def _is_object_mapping(value: object) -> TypeGuard[Mapping[object, object]]:
+    return isinstance(value, Mapping)
+
+
+def _is_object_dict(value: object) -> TypeGuard[dict[str, object]]:
+    return _is_object_mapping(value) and isinstance(value, dict) and all(isinstance(key, str) for key in value)
+
+
+def _object_dict(value: object) -> dict[str, object]:
+    return dict(value) if _is_object_dict(value) else {}
+
+
+def _is_object_list(value: object) -> TypeGuard[list[object]]:
+    return isinstance(value, list)
+
+
+def _string_list(value: object) -> list[str] | None:
+    if value is None:
+        return None
+    if not _is_object_list(value):
+        return []
+    return [item for item in value if isinstance(item, str)]
+
+
+def _optional_string(value: object) -> str | None:
+    return value if isinstance(value, str) else None
 
 
 def _error_status_code(code: ErrorCode) -> int:
@@ -92,7 +122,7 @@ def _site_entry_lifecycle_state(item: dict[str, Any]) -> tuple[str, str]:
     raw = str(item.get("lifecycle_state") or "").strip().lower()
     if raw:
         return raw, "field"
-    extra = item.get("extra") if isinstance(item.get("extra"), dict) else {}
+    extra = _object_dict(item.get("extra"))
     for key in ("lifecycle_state", "lifecycle", "status", "review_state"):
         raw = str(extra.get(key) or "").strip().lower()
         if raw:
@@ -120,13 +150,13 @@ def _attach_site_entry_lifecycle(item: dict[str, Any]) -> dict[str, Any]:
         execution_plan=execution_plan,
     )
     execution_fact["lifecycle_transition"] = lifecycle_transition
-    extra = dict(enriched.get("extra") or {}) if isinstance(enriched.get("extra"), dict) else {}
+    extra = _object_dict(enriched.get("extra"))
     extra["lifecycle_transition"] = lifecycle_transition
     extra["review_closure"] = review_closure
     extra["evidence_binding"] = review_closure["evidence_binding"]
     extra["execution_fact"] = execution_fact
     enriched["extra"] = extra
-    lifecycle_summary = enriched.get("lifecycle_summary") if isinstance(enriched.get("lifecycle_summary"), dict) else {}
+    lifecycle_summary = _object_dict(enriched.get("lifecycle_summary"))
     enriched["lifecycle_summary"] = {
         **lifecycle_summary,
         "state": state,
@@ -158,7 +188,7 @@ def _attach_site_entries_lifecycle(items: list[dict[str, Any]]) -> list[dict[str
 def _site_entry_execution_plan_preview(item: dict[str, Any]) -> dict[str, Any]:
     site_url = str(item.get("site_url") or item.get("template") or "").strip()
     entry_type = str(item.get("entry_type") or "domain_root").strip().lower() or "domain_root"
-    source_item = {
+    source_item: dict[str, object] = {
         "item_key": f"resource_pool.site_entry.{item.get('id') or site_url}",
         "name": item.get("name") or item.get("domain") or site_url,
         "params": {
@@ -171,7 +201,7 @@ def _site_entry_execution_plan_preview(item: dict[str, Any]) -> dict[str, Any]:
         },
     }
     plan = build_item_execution_plan(source_item)
-    plan_meta = plan.get("plan_meta") if isinstance(plan.get("plan_meta"), dict) else {}
+    plan_meta = _object_dict(plan.get("plan_meta"))
     plan["plan_meta"] = {
         **plan_meta,
         "preview_source": "resource_pool.site_entry",
@@ -263,7 +293,7 @@ def _site_entry_review_closure(
     resolved_state = str(state or _site_entry_lifecycle_state(item)[0] or "active").strip().lower()
     enabled = bool(item.get("enabled", True))
     site_url = str(item.get("site_url") or item.get("template") or "").strip()
-    extra = item.get("extra") if isinstance(item.get("extra"), dict) else {}
+    extra = _object_dict(item.get("extra"))
     if extra.get("site_entry_url_missing") is True:
         site_url = ""
     entry_type = str(item.get("entry_type") or "domain_root").strip().lower() or "domain_root"
@@ -364,8 +394,8 @@ def _site_entry_execution_fact(
 ) -> dict[str, Any]:
     site_url = str(review_closure.get("site_entry_url") or item.get("site_url") or item.get("template") or "").strip()
     report_source_ref = str(review_closure.get("report_source_ref") or _site_entry_report_source_ref(item)).strip()
-    source_ref = review_closure.get("source_ref") if isinstance(review_closure.get("source_ref"), dict) else {}
-    guard = review_closure.get("single_source_guard") if isinstance(review_closure.get("single_source_guard"), dict) else {}
+    source_ref = _object_dict(review_closure.get("source_ref"))
+    guard = _object_dict(review_closure.get("single_source_guard"))
     reason_code = str(review_closure.get("reason_code") or review_closure.get("block_reason") or "").strip()
     if not reason_code:
         reason_code = "ready_to_collect" if review_closure.get("status") == "ready_to_collect" else "execution_state_unknown"
@@ -413,11 +443,11 @@ def _site_entry_lifecycle_transition_readback(
     state: str,
     review_closure: dict[str, Any],
 ) -> dict[str, Any]:
-    extra = item.get("extra") if isinstance(item.get("extra"), dict) else {}
-    existing = item.get("lifecycle_transition") if isinstance(item.get("lifecycle_transition"), dict) else {}
-    if not existing and isinstance(extra.get("lifecycle_transition"), dict):
-        existing = extra.get("lifecycle_transition") or {}
-    lifecycle_review = extra.get("lifecycle_review") if isinstance(extra.get("lifecycle_review"), dict) else {}
+    extra = _object_dict(item.get("extra"))
+    existing = _object_dict(item.get("lifecycle_transition"))
+    if not existing:
+        existing = _object_dict(extra.get("lifecycle_transition"))
+    lifecycle_review = _object_dict(extra.get("lifecycle_review"))
     report_source_ref = str(review_closure.get("report_source_ref") or _site_entry_report_source_ref(item))
     updated_at = str(existing.get("updated_at") or lifecycle_review.get("updated_at") or "").strip() or None
     event_ref = str(existing.get("event_ref") or "").strip()
@@ -520,7 +550,7 @@ def _prepare_site_entry_lifecycle_extra_for_write(
         prepared["review_state"] = state
     timestamp = updated_at or datetime.now(timezone.utc).isoformat()
     prepared["lifecycle_review"] = {
-        **(prepared.get("lifecycle_review") if isinstance(prepared.get("lifecycle_review"), dict) else {}),
+        **_object_dict(prepared.get("lifecycle_review")),
         "state": state,
         "review_state": state if state in SITE_ENTRY_REVIEW_STATES else None,
         "reviewer": reviewer,
@@ -659,6 +689,8 @@ def extract_from_documents_api(payload: ExtractFromDocumentsPayload, request: Re
     project_key, error = _get_project_key_for_project_route_or_error(payload.project_key, request=request)
     if error:
         return error
+    if project_key is None:
+        return _error_json(400, ErrorCode.PROJECT_KEY_REQUIRED, "project_key is required. Please select a project first.")
     filters = payload.filters or {}
     doc_type = filters.get("doc_type")
     state = filters.get("state")
@@ -819,6 +851,8 @@ def capture_enable_api(payload: CaptureEnablePayload, request: Request):
     project_key, error = _get_project_key_for_project_route_or_error(payload.project_key, request=request)
     if error:
         return error
+    if project_key is None:
+        return _error_json(400, ErrorCode.PROJECT_KEY_REQUIRED, "project_key is required. Please select a project first.")
     try:
         result = upsert_capture_config(
             project_key=project_key,
@@ -836,6 +870,8 @@ def capture_from_tasks_api(payload: CaptureFromTasksPayload, request: Request):
     project_key, error = _get_project_key_for_project_route_or_error(payload.project_key, request=request)
     if error:
         return error
+    if project_key is None:
+        return _error_json(400, ErrorCode.PROJECT_KEY_REQUIRED, "project_key is required. Please select a project first.")
     if payload.async_mode:
         task = _get_tasks_module().task_extract_resource_pool_from_tasks.delay(
             project_key=project_key,
@@ -1112,13 +1148,14 @@ def patch_site_entry_lifecycle_api(payload: SiteEntryLifecyclePatchPayload, requ
                 details={"site_url": payload.site_url, "scope": payload.scope},
             )
 
-        previous_state = _site_entry_lifecycle_state(existing)[0]
-        existing_site_url = str(existing.get("site_url") or "").strip()
+        existing_item = _object_dict(existing)
+        previous_state = _site_entry_lifecycle_state(existing_item)[0]
+        existing_site_url = str(existing_item.get("site_url") or "").strip()
         before_seed = {
-            **existing,
+            **existing_item,
             "site_url": existing_site_url,
-            "entry_type": str(existing.get("entry_type") or "domain_root"),
-            "source_ref": existing.get("source_ref") if isinstance(existing.get("source_ref"), dict) else {},
+            "entry_type": str(existing_item.get("entry_type") or "domain_root"),
+            "source_ref": _object_dict(existing_item.get("source_ref")),
             "scope": payload.scope,
         }
         before_closure = _site_entry_review_closure(
@@ -1126,7 +1163,7 @@ def patch_site_entry_lifecycle_api(payload: SiteEntryLifecyclePatchPayload, requ
             state=previous_state,
             project_key=project_key if payload.scope == "project" else None,
         )
-        extra = dict(existing.get("extra") or {})
+        extra = _object_dict(existing_item.get("extra"))
         if isinstance(payload.extra_patch, dict):
             extra.update(payload.extra_patch)
         if existing_site_url:
@@ -1134,17 +1171,17 @@ def patch_site_entry_lifecycle_api(payload: SiteEntryLifecyclePatchPayload, requ
         else:
             extra["site_entry_url_missing"] = True
 
-        enabled = bool(existing.get("enabled", True)) if payload.enabled is None else bool(payload.enabled)
+        enabled = bool(existing_item.get("enabled", True)) if payload.enabled is None else bool(payload.enabled)
         if lifecycle_state == "disabled":
             enabled = False
         elif lifecycle_state == "accepted" and payload.enabled is None:
             enabled = True
 
         closure_seed = {
-            **existing,
+            **existing_item,
             "site_url": existing_site_url or payload.site_url,
-            "entry_type": str(existing.get("entry_type") or "domain_root"),
-            "source_ref": existing.get("source_ref") if isinstance(existing.get("source_ref"), dict) else {},
+            "entry_type": str(existing_item.get("entry_type") or "domain_root"),
+            "source_ref": _object_dict(existing_item.get("source_ref")),
             "enabled": enabled,
             "scope": payload.scope,
             "extra": extra,
@@ -1165,14 +1202,14 @@ def patch_site_entry_lifecycle_api(payload: SiteEntryLifecyclePatchPayload, requ
             scope=payload.scope,
             project_key=project_key if payload.scope == "project" else None,
             site_url=existing_site_url or payload.site_url,
-            entry_type=str(existing.get("entry_type") or "domain_root"),
-            template=existing.get("template"),
-            name=existing.get("name"),
-            domain=existing.get("domain"),
-            capabilities=existing.get("capabilities") if isinstance(existing.get("capabilities"), dict) else {},
-            source=str(existing.get("source") or "manual"),
-            source_ref=existing.get("source_ref") if isinstance(existing.get("source_ref"), dict) else {},
-            tags=existing.get("tags") if isinstance(existing.get("tags"), list) else [],
+            entry_type=str(existing_item.get("entry_type") or "domain_root"),
+            template=_optional_string(existing_item.get("template")),
+            name=_optional_string(existing_item.get("name")),
+            domain=_optional_string(existing_item.get("domain")),
+            capabilities=_object_dict(existing_item.get("capabilities")),
+            source=str(existing_item.get("source") or "manual"),
+            source_ref=_object_dict(existing_item.get("source_ref")),
+            tags=_string_list(existing_item.get("tags")) or [],
             enabled=enabled,
             extra=extra,
         )
@@ -1284,24 +1321,23 @@ def discover_site_entries_api(payload: DiscoverSiteEntriesPayload, request: Requ
     project_key, error = _get_project_key_for_project_route_or_error(payload.project_key, request=request)
     if error:
         return error
+    if project_key is None:
+        return _error_json(400, ErrorCode.PROJECT_KEY_REQUIRED, "project_key is required. Please select a project first.")
     try:
         # Optional: merge ingest_config policy (payload wins)
-        policy = (get_ingest_config(project_key, "site_entry_discovery_policy") or {}).get("payload") or {}
-        url_scope = payload.url_scope or policy.get("url_scope") or "effective"
-        target_scope = payload.target_scope or policy.get("target_scope") or "project"
-        limit_domains = payload.limit_domains if payload.limit_domains is not None else int(policy.get("limit_domains") or 50)
-        probe_timeout = payload.probe_timeout if payload.probe_timeout is not None else float(policy.get("probe_timeout") or 8.0)
-        include_link_alternate = (
-            payload.include_link_alternate
-            if payload.include_link_alternate is not None
-            else bool(policy.get("include_link_alternate", True))
-        )
-        sitemap_paths = payload.sitemap_paths if payload.sitemap_paths is not None else policy.get("sitemap_paths")
-        rss_paths = payload.rss_paths if payload.rss_paths is not None else policy.get("rss_paths")
-        allow_domains = payload.allow_domains if payload.allow_domains is not None else policy.get("allow_domains")
-        deny_domains = payload.deny_domains if payload.deny_domains is not None else policy.get("deny_domains")
-        run_auto_classify = payload.run_auto_classify if payload.run_auto_classify is not None else bool(policy.get("run_auto_classify", False))
-        use_llm = payload.use_llm if payload.use_llm is not None else bool(policy.get("use_llm", False))
+        config = _object_dict(get_ingest_config(project_key, "site_entry_discovery_policy"))
+        policy = _object_dict(config.get("payload"))
+        url_scope = payload.url_scope
+        target_scope = payload.target_scope
+        limit_domains = payload.limit_domains
+        probe_timeout = payload.probe_timeout
+        include_link_alternate = payload.include_link_alternate
+        sitemap_paths = payload.sitemap_paths if payload.sitemap_paths is not None else _string_list(policy.get("sitemap_paths"))
+        rss_paths = payload.rss_paths if payload.rss_paths is not None else _string_list(policy.get("rss_paths"))
+        allow_domains = payload.allow_domains if payload.allow_domains is not None else _string_list(policy.get("allow_domains"))
+        deny_domains = payload.deny_domains if payload.deny_domains is not None else _string_list(policy.get("deny_domains"))
+        run_auto_classify = payload.run_auto_classify
+        use_llm = payload.use_llm
 
         if payload.async_mode:
             task = _get_tasks_module().task_discover_site_entries_batched.delay(
@@ -1463,10 +1499,8 @@ def recommend_site_entry_api(payload: RecommendSiteEntryPayload):
 def recommend_site_entries_batch_api(payload: BatchRecommendSiteEntriesPayload):
     """Batch recommend channel/entry_type/template (+ capability/symbol-ready hints) for site entries."""
     try:
-        rows = []
+        rows: list[dict[str, object]] = []
         for i, row in enumerate(payload.entries or []):
-            if not isinstance(row, dict):
-                continue
             site_url = str(row.get("site_url") or "").strip()
             if not site_url:
                 continue
@@ -1479,19 +1513,20 @@ def recommend_site_entries_batch_api(payload: BatchRecommendSiteEntriesPayload):
                 }
             )
         result = classify_site_entries_batch(rows, use_llm=payload.use_llm, llm_batch_size=payload.llm_batch_size)
-        normalized = [
+        normalized: list[dict[str, object]] = [
             {
-                "index": item.get("index"),
-                "site_url": item.get("site_url"),
-                "entry_type": item.get("entry_type"),
-                "channel_key": item.get("channel_key"),
-                "template": item.get("template"),
-                "validated": item.get("validated"),
-                "source": item.get("source"),
-                "capabilities": item.get("capabilities") or {},
-                "symbol_suggestion": item.get("symbol_suggestion"),
+                "index": normalized_item.get("index"),
+                "site_url": normalized_item.get("site_url"),
+                "entry_type": normalized_item.get("entry_type"),
+                "channel_key": normalized_item.get("channel_key"),
+                "template": normalized_item.get("template"),
+                "validated": normalized_item.get("validated"),
+                "source": normalized_item.get("source"),
+                "capabilities": normalized_item.get("capabilities") or {},
+                "symbol_suggestion": normalized_item.get("symbol_suggestion"),
             }
             for item in result
+            for normalized_item in (_object_dict(item),)
         ]
         return JSONResponse(status_code=200, content=ok({"items": normalized, "count": len(normalized)}))
     except Exception as exc:
@@ -1521,7 +1556,7 @@ class SourceLibraryCollectPayload(BaseModel):
     allow_term_fallback: bool = Field(default=True)
 
 
-def _source_library_collect_response(result) -> dict[str, Any]:
+def _source_library_collect_response(result: UnifiedSearchResult) -> dict[str, Any]:
     ingest_result = result.ingest_result if isinstance(result.ingest_result, dict) else {}
     written = result.written if isinstance(result.written, dict) else {}
     inserted = int(ingest_result.get("inserted") or 0)
@@ -1580,6 +1615,8 @@ def unified_search_api(payload: UnifiedSearchPayload, request: Request):
     project_key, error = _get_project_key_for_project_route_or_error(payload.project_key, request=request)
     if error:
         return error
+    if project_key is None:
+        return _error_json(400, ErrorCode.PROJECT_KEY_REQUIRED, "project_key is required. Please select a project first.")
     try:
         result = unified_search_by_item(
             project_key=project_key,
@@ -1619,6 +1656,8 @@ def source_library_collect_api(payload: SourceLibraryCollectPayload, request: Re
     project_key, error = _get_project_key_for_project_route_or_error(payload.project_key, request=request)
     if error:
         return error
+    if project_key is None:
+        return _error_json(400, ErrorCode.PROJECT_KEY_REQUIRED, "project_key is required. Please select a project first.")
     try:
         result = unified_search_by_item(
             project_key=project_key,

@@ -22,6 +22,34 @@ if [ ! -f "$TEMPLATE" ] || [ ! -f "$ROOT/dist/main.js" ]; then
   echo "[codex-webui] template or backend build missing; run 'pnpm run build' in $ROOT first" >&2
   exit 1
 fi
+
+webui_port_has_foreign_owner() {
+  local pid command_line cwd foreign_owner=0
+  while IFS= read -r pid; do
+    [ -n "$pid" ] || continue
+    command_line="$(ps -p "$pid" -o command= 2>/dev/null || true)"
+    cwd="$(lsof -a -p "$pid" -d cwd -Fn 2>/dev/null | sed -n 's/^n//p' | head -n 1)"
+    if [ "$cwd" != "$ROOT" ] || [[ "$command_line" != *"dist/main.js"* ]]; then
+      foreign_owner=1
+    fi
+  done < <(lsof -nP -iTCP:"$PORT" -sTCP:LISTEN -t 2>/dev/null || true)
+  [ "$foreign_owner" = "0" ]
+}
+
+webui_launchd_has_foreign_owner() {
+  local loaded
+  loaded="$(launchctl print "$DOMAIN/$LABEL" 2>/dev/null)" || return 1
+  [[ "$loaded" != *"$ROOT"* ]]
+}
+
+if webui_launchd_has_foreign_owner; then
+  echo "[codex-webui] launchd label $LABEL belongs to another source root; refusing to replace it" >&2
+  exit 1
+fi
+if ! webui_port_has_foreign_owner; then
+  echo "[codex-webui] port $PORT is owned by another process; refusing to start" >&2
+  exit 1
+fi
 if [ ! -x "$NODE_BIN" ] || [ ! -x "$CODEX_BIN" ]; then
   echo "[codex-webui] node or pinned Codex CLI is unavailable" >&2
   exit 1
@@ -76,6 +104,7 @@ template_path = Path(os.environ["MRW_WEBUI_TEMPLATE"])
 runtime_path = Path(os.environ["MRW_WEBUI_RUNTIME_PLIST"])
 host_plist_path = Path(os.environ["MRW_WEBUI_HOST_PLIST"])
 root = os.environ["MRW_WEBUI_ROOT"]
+candidate_skill_root = (Path(root).parents[1] / "backend" / "skills").resolve()
 
 host_environment = {}
 try:
@@ -97,6 +126,15 @@ if not isinstance(api_key, str) or not api_key:
 with template_path.open("rb") as template_file:
     plist = plistlib.load(template_file)
 
+skill_source_root = Path(
+    os.environ.get("MRW_WEBUI_SKILL_SOURCE_ROOT") or candidate_skill_root
+).resolve()
+if skill_source_root != candidate_skill_root:
+    raise SystemExit(
+        "[codex-webui] MRW_SKILL_SOURCE_ROOT must resolve inside the current "
+        f"candidate: expected {candidate_skill_root}, got {skill_source_root}"
+    )
+
 plist["ProgramArguments"] = [
     os.environ["MRW_WEBUI_NODE_BIN"],
     str(Path(root) / "dist/main.js"),
@@ -115,9 +153,7 @@ plist["EnvironmentVariables"].update(
         "MRW_BACKEND_API_KEY": os.environ.get("MRW_WEBUI_BACKEND_API_KEY")
         or host_environment.get("MRW_BACKEND_API_KEY")
         or api_key,
-        "MRW_SKILL_SOURCE_ROOT": os.environ.get("MRW_WEBUI_SKILL_SOURCE_ROOT")
-        or host_environment.get("MRW_SKILL_SOURCE_ROOT")
-        or str(Path(root).parents[1] / "backend" / "skills"),
+        "MRW_SKILL_SOURCE_ROOT": str(skill_source_root),
     }
 )
 
@@ -190,7 +226,7 @@ done
 
 if ! nc -z -G 1 127.0.0.1 "$PORT" >/dev/null 2>&1; then
   echo "[codex-webui] failed to start on $PORT" >&2
-  launchctl print "$DOMAIN/$LABEL" 2>&1 | tail -n 12 >&2 || true
+  launchctl bootout "$DOMAIN/$LABEL" >/dev/null 2>&1 || true
   exit 1
 fi
 

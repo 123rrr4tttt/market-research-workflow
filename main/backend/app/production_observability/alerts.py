@@ -4,10 +4,19 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass
 from collections.abc import Iterable, Mapping
+from typing import TypeGuard
 
 from .errors import ObservabilityTypeError, ObservabilityValueError
 from .contracts import AlertDirection, AlertState, AlertTransition, AlertTransitionReason, MetricFamily
 from .observations import Observation
+
+
+def _instance_of(value: object, expected_type: type[AlertState]) -> TypeGuard[AlertState]:
+    return isinstance(value, expected_type)
+
+
+def _is_metric_family(value: object) -> TypeGuard[MetricFamily]:
+    return isinstance(value, MetricFamily)
 
 
 @dataclass(frozen=True)
@@ -24,7 +33,7 @@ class AlertRule:
     def __post_init__(self) -> None:
         if not self.rule_id.strip():
             raise ObservabilityValueError("rule_id is required")
-        if not isinstance(self.metric_family, MetricFamily):
+        if not _is_metric_family(self.metric_family):
             raise ObservabilityTypeError("metric_family is closed")
         if not self.domain.strip() or not self.route.strip() or not self.release_version.strip():
             raise ObservabilityValueError("alert rule labels are required")
@@ -35,7 +44,7 @@ class AlertRule:
         if self.direction is AlertDirection.BELOW and self.recover_threshold < self.trigger_threshold:
             raise ObservabilityValueError("below recovery threshold must not precede trigger threshold")
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, object]:
         return asdict(self)
 
     def matches(self, observation: Observation) -> bool:
@@ -59,7 +68,7 @@ class AlertEvaluation:
     latest_value: float | None
     authority: bool = False
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, object]:
         return asdict(self)
 
 
@@ -69,7 +78,7 @@ def evaluate_alert_rule(
     *,
     previous_state: AlertState = AlertState.UNKNOWN,
 ) -> AlertEvaluation:
-    if not isinstance(previous_state, AlertState):
+    if not _instance_of(previous_state, AlertState):
         raise ObservabilityTypeError("previous alert state is closed")
     matching = sorted((item for item in observations if rule.matches(item)), key=lambda item: item.observed_at)
     if not matching:

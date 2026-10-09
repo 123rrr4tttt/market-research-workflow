@@ -2,9 +2,10 @@ from __future__ import annotations
 
 from collections.abc import Iterator
 from dataclasses import dataclass
+from decimal import Decimal
 from pathlib import Path
 from types import SimpleNamespace
-from typing import TYPE_CHECKING, assert_type
+from typing import TYPE_CHECKING, Self, assert_type
 
 import pytest
 from functorial_kit import Failure
@@ -19,6 +20,8 @@ from langchain_openai import (
 )
 
 from app.composition.llm import LiteLLMProviderAdapter, configure_llm_providers
+from app.models.entities import LlmServiceConfig
+from app.services.llm import config_loader
 from app.services.llm import provider
 from app.services.llm.codex_cli import CodexCliChatModel
 from app.services.llm.adapters.langchain_provider import LangChainProviderAdapter
@@ -340,6 +343,78 @@ def test_local_fallback_wraps_registered_chat(
     assert recorded.options.temperature == 0.1
     assert chat.with_retry() is chat
     assert result.content == "fallback"
+
+
+def test_config_loader_reads_and_updates_typed_orm_fields(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    row = LlmServiceConfig(
+        service_name="policy_summary",
+        system_prompt="system prompt",
+        user_prompt_template="base prompt",
+        model="fixture-model",
+        temperature=Decimal("0.00"),
+        max_tokens=512,
+        top_p=Decimal("0.7500"),
+        presence_penalty=Decimal("0.0000"),
+        frequency_penalty=Decimal("-0.2500"),
+        enabled=True,
+    )
+
+    class ScalarResult:
+        def scalar_one_or_none(self) -> LlmServiceConfig:
+            return row
+
+    class FakeSession:
+        def __init__(self) -> None:
+            self.added: list[object] = []
+            self.commit_count = 0
+
+        def __enter__(self) -> Self:
+            return self
+
+        def __exit__(
+            self,
+            exc_type: object,
+            exc: object,
+            traceback: object,
+        ) -> None:
+            return None
+
+        def execute(self, statement: object) -> ScalarResult:
+            return ScalarResult()
+
+        def add(self, value: object) -> None:
+            self.added.append(value)
+
+        def commit(self) -> None:
+            self.commit_count += 1
+
+    session = FakeSession()
+    monkeypatch.setattr(config_loader, "SessionLocal", lambda: session)
+
+    loaded = config_loader.get_llm_config("policy_summary")
+    assert loaded == {
+        "service_name": "policy_summary",
+        "system_prompt": "system prompt",
+        "user_prompt_template": "base prompt",
+        "model": "fixture-model",
+        "temperature": None,
+        "max_tokens": 512,
+        "top_p": 0.75,
+        "presence_penalty": None,
+        "frequency_penalty": -0.25,
+    }
+
+    updated = config_loader.ensure_prompt_has_guidelines(
+        "policy_summary",
+        row.user_prompt_template,
+        "guideline",
+    )
+    assert updated == "base prompt\n\nguideline"
+    assert row.user_prompt_template == updated
+    assert session.added == [row]
+    assert session.commit_count == 1
 
 
 @pytest.mark.skipif(

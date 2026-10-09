@@ -2,18 +2,24 @@
 
 from __future__ import annotations
 
-import logging
 import json
+import logging
 from dataclasses import dataclass
-from typing import Any
-from urllib.parse import urlparse, parse_qsl, urlencode, urlunparse
+from typing import Any, SupportsIndex, SupportsInt, TypedDict, TypeGuard
+from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
+
+from functorial_kit import Failure
+from typing_extensions import Buffer
 
 from ...settings.config import settings
 from ..extraction.json_utils import extract_json_payload
 from ..llm.config_loader import format_prompt_template, get_llm_config
 from ..llm.provider import get_chat_model
 from .llm_validator import validate_llm_recommendation
-from .url_utils import domain_from_url
+from .site_entries import (
+    raise_resource_pool_contract_legacy,
+    resource_pool_contract_failure,
+)
 
 _log = logging.getLogger(__name__)
 
@@ -38,7 +44,7 @@ For each item, return:
 
 Use rule-like reasoning first. If URL clearly contains search path/query (e.g. /search, ?q=), prefer search_template.
 Return JSON only in this shape:
-{"items":[{...}]}
+{{"items":[{{...}}]}}
 
 Inputs:
 {inputs_json}
@@ -54,6 +60,50 @@ _ENTRY_TYPE_TO_CHANNEL: dict[str, str] = {
 
 _ALLOWED_ENTRY_TYPES = frozenset(_ENTRY_TYPE_TO_CHANNEL)
 _ALLOWED_CHANNEL_KEYS = frozenset(_ENTRY_TYPE_TO_CHANNEL.values()) | {"url_pool"}
+
+
+class _BatchInput(TypedDict):
+    index: int
+    site_url: str
+    entry_type: str
+    template: str
+
+
+def _is_object_list(value: object) -> TypeGuard[list[object]]:
+    return isinstance(value, list)
+
+
+def _is_object_dict(value: object) -> TypeGuard[dict[object, object]]:
+    return isinstance(value, dict)
+
+
+def _is_string_object_dict(value: object) -> TypeGuard[dict[str, object]]:
+    return _is_object_dict(value) and all(isinstance(key, str) for key in value)
+
+
+def _integer(value: object) -> int | Failure:
+    if isinstance(value, (str, Buffer, SupportsInt, SupportsIndex)):
+        try:
+            return int(value)
+        except (TypeError, ValueError) as exc:
+            conversion_error = exc
+    else:
+        conversion_error = TypeError(
+            "int() argument must be a string, a bytes-like object or a real number, "
+            f"not '{type(value).__name__}'"
+        )
+    exception_type = ValueError if isinstance(conversion_error, ValueError) else TypeError
+    return resource_pool_contract_failure(
+        "record_field_type_invalid",
+        str(conversion_error),
+        operation="site_entry_classification",
+        site="resource_pool.auto_classify.batch_index",
+        public_exception=exception_type,
+        field="index",
+        expected="integer",
+        actual_type=type(value).__name__,
+        cause=conversion_error,
+    )
 
 
 @dataclass
@@ -94,7 +144,7 @@ def infer_keyword_capabilities(entry_type: str | None, channel_key: str | None =
 
 def _path_from_url(url: str) -> str:
     """Extract path from URL (lowercase)."""
-    if not url or not isinstance(url, str):
+    if not url:
         return ""
     try:
         parsed = urlparse(url)
@@ -258,9 +308,10 @@ def _llm_classify(site_url: str, entry_type: str | None, template: str | None) -
         return None
 
     config = get_llm_config("site_entry_classification")
-    if config and config.get("user_prompt_template"):
+    prompt_template = config.get("user_prompt_template") if config else None
+    if config and prompt_template:
         prompt = format_prompt_template(
-            config["user_prompt_template"],
+            prompt_template,
             site_url=site_url,
             entry_type=entry_type or "",
             template=template or "",
@@ -312,15 +363,30 @@ def _llm_classify_batch(url_items: list[dict[str, Any]]) -> dict[int, Recommenda
         return {}
 
     config = get_llm_config("site_entry_classification")
-    inputs_payload = [
-        {
-            "index": int(item.get("index", i)),
-            "site_url": str(item.get("site_url") or ""),
-            "entry_type": str(item.get("entry_type") or ""),
-            "template": str(item.get("template") or ""),
-        }
-        for i, item in enumerate(url_items)
-    ]
+    inputs_payload: list[_BatchInput] = []
+    for i, item in enumerate(url_items):
+        index = _integer(item.get("index", i))
+        if isinstance(index, Failure):
+            cause = (index.context or {}).get("cause")
+            if isinstance(cause, ValueError):
+                raise_resource_pool_contract_legacy(
+                    index,
+                    exception_type=ValueError,
+                    cause=cause,
+                )
+            raise_resource_pool_contract_legacy(
+                index,
+                exception_type=TypeError,
+                cause=cause if isinstance(cause, TypeError) else None,
+            )
+        inputs_payload.append(
+            {
+                "index": index,
+                "site_url": str(item.get("site_url") or ""),
+                "entry_type": str(item.get("entry_type") or ""),
+                "template": str(item.get("template") or ""),
+            }
+        )
     prompt = _DEFAULT_BATCH_LLM_PROMPT.format(
         inputs_json=json.dumps(inputs_payload, ensure_ascii=False, indent=2)
     )
@@ -333,19 +399,18 @@ def _llm_classify_batch(url_items: list[dict[str, Any]]) -> dict[int, Recommenda
         response = model.invoke(prompt)
         content = response.content if hasattr(response, "content") else str(response)
         raw = extract_json_payload(content)
-        if not raw or not isinstance(raw, dict):
+        if not raw:
             return {}
         items = raw.get("items")
-        if not isinstance(items, list):
+        if not _is_object_list(items):
             return {}
         by_index: dict[int, Recommendation] = {}
         src_map = {int(x.get("index", -1)): x for x in inputs_payload}
         for row in items:
-            if not isinstance(row, dict):
+            if not _is_string_object_dict(row):
                 continue
-            try:
-                idx = int(row.get("index"))
-            except Exception:
+            idx = _integer(row.get("index"))
+            if isinstance(idx, Failure):
                 continue
             src = src_map.get(idx)
             if not src:

@@ -2,9 +2,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from types import MappingProxyType
-from typing import Annotated, Any, Final, Mapping, NoReturn
+from typing import Annotated, Any, Final, Mapping, NoReturn, TypeGuard
 
 from functorial_kit import Failure
+
 from mrw_functorial_kit.core.w04_service_semantics import typed_knowledge_contract_failures
 
 REVIEW_STATE_DRAFT_CANDIDATE = "draft_candidate"
@@ -270,7 +271,7 @@ class KnowledgeItem:
     review_state: str = REVIEW_STATE_DRAFT_CANDIDATE
     quality_grade: str | None = None
     locale: str | None = None
-    locale_variants: Mapping[str, str] = field(default_factory=dict)
+    locale_variants: Mapping[str, str] = field(default_factory=dict[str, str])
     updated_at: str | None = None
 
 
@@ -329,7 +330,7 @@ class WritingKnowledgeHandoff:
     visibility_scope: str
     selection_hash: str | None = None
     selection_text: str | None = None
-    facets: Mapping[str, Any] = field(default_factory=dict)
+    facets: Mapping[str, object] = field(default_factory=dict[str, object])
 
 
 def _contract_failure(code: str, message: str, *, owner: str, **details: Any) -> Failure:
@@ -692,14 +693,40 @@ def validate_writing_knowledge_handoff(handoff: WritingKnowledgeHandoff) -> None
         raise_typed_knowledge_legacy(failure)
 
 
-def serialize_writing_knowledge_handoff(handoff: WritingKnowledgeHandoff) -> dict[str, Any]:
+def _is_object_mapping(value: object) -> TypeGuard[Mapping[object, object]]:
+    return isinstance(value, Mapping)
+
+
+def _is_object_sequence(value: object) -> TypeGuard[list[object] | tuple[object, ...]]:
+    return isinstance(value, (list, tuple))
+
+
+def _is_object_tuple(value: object) -> TypeGuard[tuple[object, ...]]:
+    return isinstance(value, tuple)
+
+
+def _string_object_mapping(value: object) -> dict[str, object] | None:
+    if not _is_object_mapping(value):
+        return None
+    result: dict[str, object] = {}
+    for key, item in value.items():
+        if not isinstance(key, str):
+            return None
+        result[key] = item
+    return result
+
+
+def serialize_writing_knowledge_handoff(handoff: WritingKnowledgeHandoff) -> dict[str, object]:
     validate_writing_knowledge_handoff(handoff)
     return {field: _json_safe(getattr(handoff, field)) for field in WRITING_KNOWLEDGE_HANDOFF_FIELDS}
 
 
-def parse_writing_knowledge_handoff_payload(payload: Mapping[str, Any]) -> WritingKnowledgeHandoff:
-    if not isinstance(payload, Mapping):
+def parse_writing_knowledge_handoff_payload(payload: object) -> WritingKnowledgeHandoff:
+    payload_mapping = _string_object_mapping(payload)
+    if payload_mapping is None:
         raise_typed_knowledge_legacy(_contract_failure("writing_handoff_contract_invalid", "writing_handoff_payload_not_mapping", owner="typed_knowledge.contracts.writing_handoff", field="payload"))
+    payload = payload_mapping
+    raw_facets = _string_object_mapping(payload.get("facets") or {})
     handoff = WritingKnowledgeHandoff(
         contract_version=str(payload.get("contract_version") or ""),
         knowledge_item_key=str(payload.get("knowledge_item_key") or ""),
@@ -715,14 +742,14 @@ def parse_writing_knowledge_handoff_payload(payload: Mapping[str, Any]) -> Writi
         visibility_scope=str(payload.get("visibility_scope") or ""),
         selection_hash=_optional_string(payload.get("selection_hash")),
         selection_text=_optional_string(payload.get("selection_text")),
-        facets=dict(payload.get("facets") or {}) if isinstance(payload.get("facets") or {}, Mapping) else {},
+        facets=raw_facets if raw_facets is not None else {},
     )
     validate_writing_knowledge_handoff(handoff)
     return handoff
 
 
 def try_parse_writing_knowledge_handoff_payload(
-    payload: Mapping[str, Any],
+    payload: object,
 ) -> WritingKnowledgeHandoff | Failure:
     try:
         return parse_writing_knowledge_handoff_payload(payload)
@@ -738,7 +765,7 @@ def try_parse_writing_knowledge_handoff_payload(
 def build_writing_knowledge_context_envelope(
     handoffs: tuple[WritingKnowledgeHandoff, ...],
 ) -> Annotated[
-    dict[str, Any],
+    dict[str, object],
     "kit:non-authoritative derived_as=view "
     "fact_source=validated_writing_handoffs "
     "witness=test:test_w04_authority_metadata",
@@ -756,11 +783,11 @@ def build_writing_knowledge_context_envelope(
     return envelope
 
 
-def validate_writing_knowledge_context_envelope(envelope: Mapping[str, Any]) -> None:
+def validate_writing_knowledge_context_envelope(envelope: object) -> None:
     _parse_writing_knowledge_context_envelope(envelope)
 
 
-def try_validate_writing_knowledge_context_envelope(envelope: Mapping[str, Any]) -> Failure | None:
+def try_validate_writing_knowledge_context_envelope(envelope: object) -> Failure | None:
     try:
         _parse_writing_knowledge_context_envelope(envelope)
     except TypedKnowledgeContractError as exc:
@@ -773,12 +800,12 @@ def try_validate_writing_knowledge_context_envelope(envelope: Mapping[str, Any])
     return None
 
 
-def parse_writing_knowledge_context_envelope(envelope: Mapping[str, Any]) -> tuple[WritingKnowledgeHandoff, ...]:
+def parse_writing_knowledge_context_envelope(envelope: object) -> tuple[WritingKnowledgeHandoff, ...]:
     return _parse_writing_knowledge_context_envelope(envelope)
 
 
 def try_parse_writing_knowledge_context_envelope(
-    envelope: Mapping[str, Any],
+    envelope: object,
 ) -> tuple[WritingKnowledgeHandoff, ...] | Failure:
     try:
         return _parse_writing_knowledge_context_envelope(envelope)
@@ -791,37 +818,39 @@ def try_parse_writing_knowledge_context_envelope(
         )
 
 
-def _parse_writing_knowledge_context_envelope(envelope: Mapping[str, Any]) -> tuple[WritingKnowledgeHandoff, ...]:
-    if not isinstance(envelope, Mapping):
+def _parse_writing_knowledge_context_envelope(envelope: object) -> tuple[WritingKnowledgeHandoff, ...]:
+    envelope_mapping = _string_object_mapping(envelope)
+    if envelope_mapping is None:
         raise_typed_knowledge_legacy(_contract_failure("writing_context_contract_invalid", "writing_context_envelope_not_mapping", owner="typed_knowledge.contracts.writing_context", field="envelope"))
+    envelope = envelope_mapping
     if envelope.get("contract_version") != WRITING_KNOWLEDGE_CONTEXT_ENVELOPE_VERSION:
         raise_typed_knowledge_legacy(_contract_failure("writing_context_contract_invalid", "writing_context_envelope_version_mismatch", owner="typed_knowledge.contracts.writing_context", field="contract_version"))
     if envelope.get("source") != "typed_knowledge":
         raise_typed_knowledge_legacy(_contract_failure("writing_context_contract_invalid", "writing_context_envelope_source_mismatch", owner="typed_knowledge.contracts.writing_context", field="source"))
     if envelope.get("consumer") != "writing.keyword_card":
         raise_typed_knowledge_legacy(_contract_failure("writing_context_contract_invalid", "writing_context_envelope_consumer_mismatch", owner="typed_knowledge.contracts.writing_context", field="consumer"))
-    boundary = envelope.get("boundary")
-    if not isinstance(boundary, Mapping):
+    boundary = _string_object_mapping(envelope.get("boundary"))
+    if boundary is None:
         raise_typed_knowledge_legacy(_contract_failure("writing_context_contract_invalid", "writing_context_envelope_missing_boundary", owner="typed_knowledge.contracts.writing_context", field="boundary"))
     if boundary.get("card_source_type") != "resource":
         raise_typed_knowledge_legacy(_contract_failure("writing_context_contract_invalid", "writing_context_envelope_card_source_type_mismatch", owner="typed_knowledge.contracts.writing_context", field="card_source_type"))
     raw_handoffs = envelope.get("handoffs")
-    if not isinstance(raw_handoffs, list) or not raw_handoffs:
+    if not _is_object_sequence(raw_handoffs) or not isinstance(raw_handoffs, list) or not raw_handoffs:
         raise_typed_knowledge_legacy(_contract_failure("writing_context_contract_invalid", "writing_context_envelope_missing_handoffs", owner="typed_knowledge.contracts.writing_context", field="handoffs"))
     return tuple(parse_writing_knowledge_handoff_payload(item) for item in raw_handoffs)
 
 
-def _optional_string(value: Any) -> str | None:
+def _optional_string(value: object) -> str | None:
     if value is None:
         return None
     normalized = str(value).strip()
     return normalized or None
 
 
-def _tuple_of_nonblank_strings(value: Any, field_name: str) -> tuple[str, ...]:
+def _tuple_of_nonblank_strings(value: object, field_name: str) -> tuple[str, ...]:
     if value is None:
         return ()
-    if isinstance(value, str) or not isinstance(value, (list, tuple)):
+    if isinstance(value, str) or not _is_object_sequence(value):
         raise_typed_knowledge_legacy(_contract_failure("writing_handoff_contract_invalid", f"writing_handoff_invalid_{field_name}", owner="typed_knowledge.contracts.writing_handoff", field=field_name))
     normalized: list[str] = []
     for item in value:
@@ -831,10 +860,10 @@ def _tuple_of_nonblank_strings(value: Any, field_name: str) -> tuple[str, ...]:
     return tuple(normalized)
 
 
-def _json_safe(value: Any) -> Any:
-    if isinstance(value, Mapping):
+def _json_safe(value: object) -> object:
+    if _is_object_mapping(value):
         return {str(key): _json_safe(item) for key, item in value.items()}
-    if isinstance(value, tuple):
+    if _is_object_tuple(value):
         return [_json_safe(item) for item in value]
     return value
 

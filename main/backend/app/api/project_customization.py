@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from datetime import datetime, timezone
-from typing import Any, Literal
+from typing import Any, Literal, NoReturn, TypedDict, TypeGuard
 from uuid import uuid4
 
 from fastapi import APIRouter, HTTPException, Query, Request
@@ -36,24 +37,42 @@ router = APIRouter(prefix="/project-customization", tags=["project-customization
 ProjectCustomizationDictEnvelope = ApiEnvelope[dict[str, Any]]
 
 
-def _raise_invalid_input(message: str, *, details: dict | None = None) -> None:
+def _raise_invalid_input(
+    message: str,
+    *,
+    details: Mapping[str, object] | None = None,
+) -> NoReturn:
     raise HTTPException(
         status_code=400,
-        detail=error_response(ErrorCode.INVALID_INPUT, message, details=details),
+        detail=error_response(
+            ErrorCode.INVALID_INPUT,
+            message,
+            details=None if details is None else dict(details),
+        ),
     )
 
 
-def _raise_project_key_required(message: str = "project_key is required. Please select a project first.") -> None:
+def _raise_project_key_required(
+    message: str = "project_key is required. Please select a project first.",
+) -> NoReturn:
     raise HTTPException(
         status_code=400,
         detail=error_response(ErrorCode.PROJECT_KEY_REQUIRED, message),
     )
 
 
-def _raise_not_found(message: str, *, details: dict | None = None) -> None:
+def _raise_not_found(
+    message: str,
+    *,
+    details: Mapping[str, object] | None = None,
+) -> NoReturn:
     raise HTTPException(
         status_code=404,
-        detail=error_response(ErrorCode.NOT_FOUND, message, details=details),
+        detail=error_response(
+            ErrorCode.NOT_FOUND,
+            message,
+            details=None if details is None else dict(details),
+        ),
     )
 
 
@@ -73,13 +92,13 @@ def _status_code_for_error_code(code: ErrorCode) -> int:
 
 class WorkflowRunPayload(BaseModel):
     project_key: str | None = None
-    params: dict = Field(default_factory=dict)
+    params: dict[str, object] = Field(default_factory=dict)
     dry_run: bool = Field(default=False)
 
 
 class WorkflowStepPayload(BaseModel):
     handler: str
-    params: dict = Field(default_factory=dict)
+    params: dict[str, object] = Field(default_factory=dict)
     enabled: bool = Field(default=True)
     name: str | None = Field(default=None)
 
@@ -87,7 +106,7 @@ class WorkflowStepPayload(BaseModel):
 class WorkflowTemplatePayload(BaseModel):
     project_key: str | None = None
     steps: list[WorkflowStepPayload] = Field(default_factory=list)
-    board_layout: dict = Field(default_factory=dict)
+    board_layout: dict[str, object] = Field(default_factory=dict)
 
 
 class WorkflowTemplateStagePayload(WorkflowTemplatePayload):
@@ -122,59 +141,112 @@ WORKFLOW_GOVERNANCE_COMPATIBLE_OBJECT_TYPES = ("workflow_template", "dashboard",
 WORKFLOW_GOVERNANCE_OPERATIONS = ("stage", "publish", "rollback", "snapshot", "history", "dry_run")
 
 
-def _coerce_workflow_payload(raw_payload: dict | None) -> tuple[dict[str, dict], dict[str, dict], int]:
-    payload = raw_payload if isinstance(raw_payload, dict) else {}
+class _AuditIdentity(TypedDict):
+    actor: str
+    requested_by: str
+    applied_by: str
+    identity_source: str
+    actor_trusted: bool
+    actor_auth_mode: str
+    legacy_actor_id: str | None
+
+
+def _is_object_mapping(value: object) -> TypeGuard[Mapping[object, object]]:
+    return isinstance(value, Mapping)
+
+
+def _object_dict(value: object) -> dict[str, object]:
+    if not _is_object_mapping(value):
+        return {}
+    return {key: item for key, item in value.items() if isinstance(key, str)}
+
+
+def _is_object_list(value: object) -> TypeGuard[list[object]]:
+    return isinstance(value, list)
+
+
+def _object_list(value: object) -> list[object]:
+    return value if _is_object_list(value) else []
+
+
+def _object_dict_list(value: object) -> list[dict[str, object]]:
+    return [_object_dict(item) for item in _object_list(value) if _is_object_mapping(item)]
+
+
+def _named_object_dict(value: object) -> dict[str, dict[str, object]]:
+    if not _is_object_mapping(value):
+        return {}
+    return {
+        key: _object_dict(item)
+        for key, item in value.items()
+        if isinstance(key, str) and _is_object_mapping(item)
+    }
+
+
+def _optional_int(value: object) -> int | None:
+    if value is None or isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float, str)):
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return None
+    return None
+
+
+def _coerce_workflow_payload(
+    raw_payload: object,
+) -> tuple[dict[str, dict[str, object]], dict[str, dict[str, object]], int]:
+    payload = _object_dict(raw_payload)
     workflows = payload.get("workflows")
     boards = payload.get("boards")
     version_raw = payload.get("version", 0)
-    try:
-        version = int(version_raw) if version_raw is not None else 0
-    except (TypeError, ValueError):
-        version = 0
+    version = _optional_int(version_raw) or 0
     return (
-        workflows if isinstance(workflows, dict) else {},
-        boards if isinstance(boards, dict) else {},
+        _named_object_dict(workflows),
+        _named_object_dict(boards),
         version if version >= 0 else 0,
     )
 
 
-def _coerce_workflow_stages(raw_payload: dict | None) -> dict[str, dict[str, dict[str, Any]]]:
-    payload = raw_payload if isinstance(raw_payload, dict) else {}
+def _coerce_workflow_stages(raw_payload: object) -> dict[str, dict[str, dict[str, object]]]:
+    payload = _object_dict(raw_payload)
     stages = payload.get("workflow_stages")
-    if not isinstance(stages, dict):
+    if not _is_object_mapping(stages):
         return {}
-    out: dict[str, dict[str, dict[str, Any]]] = {}
+    out: dict[str, dict[str, dict[str, object]]] = {}
     for workflow_name, stage_map in stages.items():
-        if not isinstance(stage_map, dict):
+        if not isinstance(workflow_name, str) or not _is_object_mapping(stage_map):
             continue
-        normalized_stage_map: dict[str, dict[str, Any]] = {}
+        normalized_stage_map: dict[str, dict[str, object]] = {}
         for stage_name, stage_payload in stage_map.items():
-            if stage_name not in {"draft", "staging", "active"} or not isinstance(stage_payload, dict):
+            if not isinstance(stage_name, str) or stage_name not in {"draft", "staging", "active"} or not _is_object_mapping(stage_payload):
                 continue
-            steps = stage_payload.get("steps") if isinstance(stage_payload.get("steps"), list) else []
-            board_layout = stage_payload.get("board_layout") if isinstance(stage_payload.get("board_layout"), dict) else {}
+            normalized_stage_payload = _object_dict(stage_payload)
+            steps = _object_dict_list(normalized_stage_payload.get("steps"))
+            board_layout = _object_dict(normalized_stage_payload.get("board_layout"))
             normalized_stage_map[stage_name] = {
-                **stage_payload,
+                **normalized_stage_payload,
                 "steps": steps,
                 "board_layout": board_layout,
             }
         if normalized_stage_map:
-            out[str(workflow_name)] = normalized_stage_map
+            out[workflow_name] = normalized_stage_map
     return out
 
 
-def _coerce_workflow_stage_history(raw_payload: dict | None) -> dict[str, list[dict[str, Any]]]:
-    payload = raw_payload if isinstance(raw_payload, dict) else {}
+def _coerce_workflow_stage_history(raw_payload: object) -> dict[str, list[dict[str, object]]]:
+    payload = _object_dict(raw_payload)
     raw_history = payload.get("workflow_stage_history")
-    if not isinstance(raw_history, dict):
+    if not _is_object_mapping(raw_history):
         return {}
-    out: dict[str, list[dict[str, Any]]] = {}
+    out: dict[str, list[dict[str, object]]] = {}
     for workflow_name, items in raw_history.items():
-        if not isinstance(items, list):
+        if not isinstance(workflow_name, str):
             continue
-        normalized_items = [item for item in items if isinstance(item, dict)]
+        normalized_items = _object_dict_list(items)
         if normalized_items:
-            out[str(workflow_name)] = normalized_items
+            out[workflow_name] = normalized_items
     return out
 
 
@@ -190,7 +262,7 @@ def _validate_workflow_template_payload(workflow_name: str, payload: WorkflowTem
             details={"field": "workflow_name", "value": workflow_name},
         )
 
-    if not isinstance(payload.steps, list) or not payload.steps:
+    if not payload.steps:
         _raise_invalid_input(
             "steps is required and must be a non-empty array.",
             details={"field": "steps"},
@@ -207,15 +279,15 @@ def _validate_workflow_template_payload(workflow_name: str, payload: WorkflowTem
 def _read_workflow_platform_payload(
     project_key: str,
 ) -> tuple[
-    dict[str, Any],
-    dict[str, dict],
-    dict[str, dict],
+    dict[str, object],
+    dict[str, dict[str, object]],
+    dict[str, dict[str, object]],
     int,
-    dict[str, dict[str, dict[str, Any]]],
-    dict[str, list[dict[str, Any]]],
+    dict[str, dict[str, dict[str, object]]],
+    dict[str, list[dict[str, object]]],
 ]:
     existing_record = get_config(project_key, WORKFLOW_PLATFORM_CONFIG_KEY) or {}
-    existing_payload = existing_record.get("payload") if isinstance(existing_record.get("payload"), dict) else {}
+    existing_payload = _object_dict(existing_record.get("payload"))
     workflows, boards, version = _coerce_workflow_payload(existing_payload)
     stages = _coerce_workflow_stages(existing_payload)
     history = _coerce_workflow_stage_history(existing_payload)
@@ -234,8 +306,8 @@ def _workflow_governance_object_id(project_key: str, workflow_name: str) -> str:
     return f"{project_key}:{workflow_name}"
 
 
-def _governance_operator_from_audit(audit: dict[str, Any] | None) -> dict[str, Any]:
-    if not isinstance(audit, dict):
+def _governance_operator_from_audit(audit: Mapping[str, object] | None) -> dict[str, object]:
+    if audit is None:
         return {"actor": "system", "requested_by": "system", "applied_by": "system", "identity_source": "system"}
     return {
         "actor": audit.get("actor") or "system",
@@ -263,10 +335,10 @@ def _build_workflow_governance(
     target_stage: str | None = None,
     target_version: int | None = None,
     reason: str | None = None,
-    audit: dict[str, Any] | None = None,
-    snapshot: dict[str, Any] | None = None,
-    history: list[dict[str, Any]] | None = None,
-) -> dict[str, Any]:
+    audit: Mapping[str, object] | None = None,
+    snapshot: Mapping[str, object] | None = None,
+    history: list[dict[str, object]] | None = None,
+) -> dict[str, object]:
     resolved_operation = operation if operation in WORKFLOW_GOVERNANCE_OPERATIONS else "snapshot"
     object_id = _workflow_governance_object_id(project_key, workflow_name)
     target = {
@@ -275,8 +347,8 @@ def _build_workflow_governance(
         "stage": target_stage or stage,
         "version": target_version,
     }
-    snapshot_payload = snapshot if isinstance(snapshot, dict) else {}
-    history_items = history if isinstance(history, list) else []
+    snapshot_payload = dict(snapshot) if snapshot is not None else {}
+    history_items = history or []
     resolved_reason = str(reason or "").strip() or None
     return {
         "contract_version": WORKFLOW_GOVERNANCE_CONTRACT_VERSION,
@@ -317,13 +389,13 @@ def _resolve_audit_identity(
     *,
     actor: str | None = None,
     requested_by: str | None = None,
-) -> dict[str, Any]:
+) -> _AuditIdentity:
     actor_context = resolve_request_actor_context(request)
     if (actor or "").strip() or (requested_by or "").strip():
-        payload_actor = actor or requested_by
+        payload_actor = actor or requested_by or "system"
         return {
-            "actor": actor,
-            "requested_by": requested_by,
+            "actor": actor or payload_actor,
+            "requested_by": requested_by or payload_actor,
             "applied_by": payload_actor,
             "identity_source": "payload",
             "actor_trusted": False,
@@ -368,11 +440,11 @@ def _build_stage_audit_event(
     actor_trusted: bool | None = None,
     actor_auth_mode: str | None = None,
     legacy_actor_id: str | None = None,
-    stage_snapshot: dict[str, Any] | None = None,
-) -> dict[str, Any]:
+    stage_snapshot: Mapping[str, object] | None = None,
+) -> dict[str, object]:
     normalized_actor = _normalize_audit_actor(actor, requested_by)
     normalized_applied_by = (applied_by or normalized_actor).strip() or normalized_actor
-    event: dict[str, Any] = {
+    event: dict[str, object] = {
         "actor": normalized_actor,
         "requested_by": normalized_actor,
         "applied_by": normalized_applied_by,
@@ -398,47 +470,46 @@ def _build_stage_audit_event(
     if target_version is not None:
         event["target_version"] = target_version
     if stage_snapshot is not None:
-        event["stage_snapshot"] = stage_snapshot
+        event["stage_snapshot"] = dict(stage_snapshot)
     return event
 
 
 def _append_workflow_stage_history(
-    history: dict[str, list[dict[str, Any]]],
+    history: dict[str, list[dict[str, object]]],
     workflow_name: str,
-    event: dict[str, Any],
+    event: dict[str, object],
     *,
     limit: int = 50,
-) -> dict[str, list[dict[str, Any]]]:
-    workflow_history = [item for item in history.get(workflow_name, []) if isinstance(item, dict)]
+) -> dict[str, list[dict[str, object]]]:
+    workflow_history = list(history.get(workflow_name, []))
     workflow_history.append(event)
     history[workflow_name] = workflow_history[-limit:]
     return history
 
 
-def _audit_without_snapshot(event: dict[str, Any] | None) -> dict[str, Any] | None:
-    if not isinstance(event, dict):
+def _audit_without_snapshot(event: Mapping[str, object] | None) -> dict[str, object] | None:
+    if event is None:
         return None
     return {key: value for key, value in event.items() if key != "stage_snapshot"}
 
 
-def _visible_stage_history(history: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    return [event for event in (_audit_without_snapshot(item) for item in history) if isinstance(event, dict)]
+def _visible_stage_history(history: list[dict[str, object]]) -> list[dict[str, object]]:
+    return [event for item in history if (event := _audit_without_snapshot(item)) is not None]
 
 
 def _find_stage_snapshot_by_version(
     *,
-    workflow_stages: dict[str, dict[str, Any]],
-    history: list[dict[str, Any]],
+    workflow_stages: dict[str, dict[str, object]],
+    history: list[dict[str, object]],
     target_stage: str,
     target_version: int | None,
-) -> dict[str, Any] | None:
-    candidates: list[dict[str, Any]] = []
+) -> dict[str, object] | None:
+    candidates: list[dict[str, object]] = []
     for stage_record in workflow_stages.values():
-        if isinstance(stage_record, dict):
-            candidates.append(stage_record)
+        candidates.append(stage_record)
     for event in history:
-        snapshot = event.get("stage_snapshot") if isinstance(event, dict) else None
-        if isinstance(snapshot, dict):
+        snapshot = _object_dict(event.get("stage_snapshot"))
+        if snapshot:
             candidates.append(snapshot)
     for candidate in reversed(candidates):
         if candidate.get("stage") != target_stage:
@@ -453,12 +524,12 @@ def _build_workflow_stage_record(
     *,
     stage: str,
     version: int,
-    steps: list[dict[str, Any]],
-    board_layout: dict[str, Any],
+    steps: list[dict[str, object]],
+    board_layout: dict[str, object],
     promoted_from: str | None = None,
-    audit: dict[str, Any] | None = None,
-) -> dict[str, Any]:
-    record: dict[str, Any] = {
+    audit: Mapping[str, object] | None = None,
+) -> dict[str, object]:
+    record: dict[str, object] = {
         "stage": stage,
         "version": version,
         "steps": steps,
@@ -485,18 +556,18 @@ def _infer_node_module_from_handler(handler: str) -> str:
     return "custom"
 
 
-def _build_default_graph_from_steps(steps: list[dict]) -> dict:
-    nodes: list[dict] = []
-    edges: list[dict] = []
+def _build_default_graph_from_steps(steps: list[dict[str, object]]) -> dict[str, object]:
+    nodes: list[dict[str, object]] = []
+    edges: list[dict[str, object]] = []
     for idx, step in enumerate(steps, start=1):
         node_id = f"n{idx}"
         nodes.append(
             {
                 "id": node_id,
-                "module_key": _infer_node_module_from_handler(step.get("handler") or ""),
+                "module_key": _infer_node_module_from_handler(str(step.get("handler") or "")),
                 "title": step.get("name") or step.get("handler") or node_id,
                 "data_type": "market_info",
-                "params": step.get("params") if isinstance(step.get("params"), dict) else {},
+                "params": _object_dict(step.get("params")),
             }
         )
         if idx > 1:
@@ -511,34 +582,30 @@ def _build_default_graph_from_steps(steps: list[dict]) -> dict:
     return {"nodes": nodes, "edges": edges}
 
 
-def _normalize_board_layout(board_layout: dict, steps: list[dict]) -> dict:
-    layout = board_layout if isinstance(board_layout, dict) else {}
-    design = layout.get("design")
-    design = design if isinstance(design, dict) else {}
-    graph = layout.get("graph")
-    graph = graph if isinstance(graph, dict) else {}
-    graph_nodes = graph.get("nodes")
-    graph_edges = graph.get("edges")
-    graph_nodes = graph_nodes if isinstance(graph_nodes, list) else []
-    graph_edges = graph_edges if isinstance(graph_edges, list) else []
+def _normalize_board_layout(
+    board_layout: Mapping[str, object],
+    steps: list[dict[str, object]],
+) -> dict[str, object]:
+    layout = dict(board_layout)
+    design = _object_dict(layout.get("design"))
+    graph = _object_dict(layout.get("graph"))
+    graph_nodes = _object_list(graph.get("nodes"))
+    graph_edges = _object_list(graph.get("edges"))
     if not graph_nodes:
         fallback = _build_default_graph_from_steps(steps)
-        graph_nodes = fallback["nodes"]
-        graph_edges = fallback["edges"] if not graph_edges else graph_edges
+        graph_nodes = _object_list(fallback.get("nodes"))
+        graph_edges = _object_list(fallback.get("edges")) if not graph_edges else graph_edges
 
-    edge_mappings = layout.get("edge_mappings")
-    if not isinstance(edge_mappings, list):
-        edge_mappings = []
-    adapter_nodes = layout.get("adapter_nodes")
-    if not isinstance(adapter_nodes, list):
-        adapter_nodes = []
-    data_flow = layout.get("data_flow")
-    if not isinstance(data_flow, list):
+    edge_mappings = _object_dict_list(layout.get("edge_mappings"))
+    adapter_nodes = _object_dict_list(layout.get("adapter_nodes"))
+    raw_data_flow = layout.get("data_flow")
+    data_flow = _object_list(raw_data_flow)
+    if not _is_object_list(raw_data_flow):
         data_flow = ["documents", "extracted_data", "visualization"]
 
     normalized_design = {
         "global_data_type": str(design.get("global_data_type") or "market_info"),
-        "node_overrides": design.get("node_overrides") if isinstance(design.get("node_overrides"), dict) else {},
+        "node_overrides": _object_dict(design.get("node_overrides")),
         "llm_policy": str(design.get("llm_policy") or "auto"),
         "visualization_module": str(design.get("visualization_module") or layout.get("layout") or "trend"),
     }
@@ -550,19 +617,19 @@ def _normalize_board_layout(board_layout: dict, steps: list[dict]) -> dict:
         "data_flow": data_flow,
         "design": normalized_design,
         "graph": {"nodes": graph_nodes, "edges": graph_edges},
-        "edge_mappings": [x for x in edge_mappings if isinstance(x, dict)],
-        "adapter_nodes": [x for x in adapter_nodes if isinstance(x, dict)],
+        "edge_mappings": edge_mappings,
+        "adapter_nodes": adapter_nodes,
     }
 
 
 def _read_workflow_config_version(project_key: str) -> int:
     record = get_config(project_key, WORKFLOW_PLATFORM_CONFIG_KEY) or {}
-    payload = record.get("payload") if isinstance(record.get("payload"), dict) else {}
+    payload = _object_dict(record.get("payload"))
     _, _, version = _coerce_workflow_payload(payload)
     return version
 
 
-def _serialize_workflow_steps(steps: list[WorkflowStepPayload]) -> list[dict[str, Any]]:
+def _serialize_workflow_steps(steps: list[WorkflowStepPayload]) -> list[dict[str, object]]:
     return [
         {
             "handler": step.handler,
@@ -574,34 +641,33 @@ def _serialize_workflow_steps(steps: list[WorkflowStepPayload]) -> list[dict[str
     ]
 
 
-def _compact_step_for_diff(step: dict[str, Any] | None) -> dict[str, Any] | None:
+def _compact_step_for_diff(step: Mapping[str, object] | None) -> dict[str, object] | None:
     if step is None:
         return None
     return {
         "handler": step.get("handler"),
         "name": step.get("name"),
         "enabled": bool(step.get("enabled", True)),
-        "params": step.get("params") if isinstance(step.get("params"), dict) else {},
+        "params": _object_dict(step.get("params")),
     }
 
 
 def _build_workflow_diff_contract(
     *,
     changed: bool,
-    step_changes: list[dict[str, Any]],
+    step_changes: list[dict[str, object]],
     board_changed: bool,
     current_version: int,
-) -> dict[str, Any]:
-    removed_or_disabled = any(
-        change.get("change_type") == "removed"
-        or (
-            isinstance(change.get("after"), dict)
-            and isinstance(change.get("before"), dict)
-            and bool(change["before"].get("enabled", True))
-            and not bool(change["after"].get("enabled", True))
-        )
-        for change in step_changes
-    )
+) -> dict[str, object]:
+    removed_or_disabled = False
+    for change in step_changes:
+        before = _object_dict(change.get("before"))
+        after = _object_dict(change.get("after"))
+        if change.get("change_type") == "removed" or (
+            before and after and bool(before.get("enabled", True)) and not bool(after.get("enabled", True))
+        ):
+            removed_or_disabled = True
+            break
     affected_areas: list[str] = []
     if step_changes:
         affected_areas.append("workflow_steps")
@@ -673,7 +739,7 @@ def _build_workflow_template_diff(
     *,
     workflow_name: str,
     payload: WorkflowTemplatePayload,
-) -> dict[str, Any]:
+) -> dict[str, object]:
     effective_project_key, normalized_workflow_name = _validate_workflow_template_payload(workflow_name, payload)
 
     try:
@@ -682,8 +748,8 @@ def _build_workflow_template_diff(
             normalized_workflow_name,
         )
     except HTTPException as exc:
-        detail = exc.detail if isinstance(exc.detail, dict) else {}
-        error = detail.get("error") if isinstance(detail.get("error"), dict) else {}
+        detail = _object_dict(exc.detail)
+        error = _object_dict(detail.get("error"))
         if exc.status_code != 404 or error.get("code") != ErrorCode.NOT_FOUND.value:
             raise
         current_steps = []
@@ -695,7 +761,7 @@ def _build_workflow_template_diff(
     current_version = _read_workflow_config_version(effective_project_key)
 
     max_len = max(len(current_steps), len(proposed_steps))
-    step_changes: list[dict[str, Any]] = []
+    step_changes: list[dict[str, object]] = []
     for idx in range(max_len):
         before = _compact_step_for_diff(current_steps[idx] if idx < len(current_steps) else None)
         after = _compact_step_for_diff(proposed_steps[idx] if idx < len(proposed_steps) else None)
@@ -769,15 +835,15 @@ def _build_workflow_dry_run_result(
     *,
     workflow_name: str,
     project_key: str,
-    params: dict,
-) -> dict[str, Any]:
+    params: Mapping[str, object],
+) -> dict[str, object]:
     effective_project_key, steps, meta, board_layout = _read_workflow_template(project_key, workflow_name)
     normalized_workflow_name = workflow_name.strip()
     current_version = _read_workflow_config_version(effective_project_key)
 
     available_handlers = available_project_workflow_handlers()
-    missing_dependencies: list[dict[str, Any]] = []
-    step_preview: list[dict[str, Any]] = []
+    missing_dependencies: list[dict[str, object]] = []
+    step_preview: list[dict[str, object]] = []
     enabled_count = 0
     disabled_count = 0
     for idx, step in enumerate(steps, start=1):
@@ -964,7 +1030,7 @@ def list_workflows(project_key: str | None = Query(default=None)):
     customization = get_project_customization(project_key)
     workflow_mapping = customization.get_workflow_mapping()
     custom_record = get_config(customization.project_key, WORKFLOW_PLATFORM_CONFIG_KEY) or {}
-    custom_payload = custom_record.get("payload") if isinstance(custom_record.get("payload"), dict) else {}
+    custom_payload = _object_dict(custom_record.get("payload"))
     custom_workflows, _, _ = _coerce_workflow_payload(custom_payload)
     merged = set(workflow_mapping.keys()) | set(custom_workflows.keys())
     return success_response(
@@ -975,7 +1041,10 @@ def list_workflows(project_key: str | None = Query(default=None)):
     )
 
 
-def _read_workflow_template(project_key: str | None, workflow_name: str) -> tuple[str, list[dict], dict[str, str], dict]:
+def _read_workflow_template(
+    project_key: str | None,
+    workflow_name: str,
+) -> tuple[str, list[dict[str, object]], dict[str, str], dict[str, object]]:
     customization = get_project_customization(project_key)
     effective_project_key = customization.project_key
     normalized_workflow_name = workflow_name.strip()
@@ -987,7 +1056,7 @@ def _read_workflow_template(project_key: str | None, workflow_name: str) -> tupl
 
     custom_definition = load_custom_workflow_definition(effective_project_key, normalized_workflow_name)
     if custom_definition is not None:
-        steps = dump_workflow_definition(custom_definition.steps)
+        steps = _object_dict_list(dump_workflow_definition(custom_definition.steps))
         board_layout = _normalize_board_layout(
             load_custom_workflow_board_layout(effective_project_key, normalized_workflow_name),
             steps,
@@ -1006,7 +1075,7 @@ def _read_workflow_template(project_key: str | None, workflow_name: str) -> tupl
             f"workflow not found: {normalized_workflow_name}",
             details={"workflow_name": normalized_workflow_name},
         )
-    steps = dump_workflow_definition(workflow.steps)
+    steps = _object_dict_list(dump_workflow_definition(workflow.steps))
     board_layout = _normalize_board_layout(
         load_custom_workflow_board_layout(effective_project_key, normalized_workflow_name),
         steps,
@@ -1036,19 +1105,26 @@ def get_workflow_template(workflow_name: str, project_key: str | None = Query(de
 @router.post("/workflows/{workflow_name}/template/diff", response_model=ProjectCustomizationDictEnvelope)
 def diff_workflow_template(workflow_name: str, payload: WorkflowTemplatePayload):
     data = _build_workflow_template_diff(workflow_name=workflow_name, payload=payload)
+    version_summary = _object_dict(data.get("version_summary"))
+    current_version = _optional_int(data.get("current_version")) or 0
+    next_version = _optional_int(data.get("next_version")) or current_version
     data["governance"] = _build_workflow_governance(
-        project_key=data["project_key"],
-        workflow_name=data["workflow_name"],
+        project_key=str(data.get("project_key") or ""),
+        workflow_name=str(data.get("workflow_name") or ""),
         operation="snapshot",
-        stage=data["version_summary"]["stage"],
+        stage=str(version_summary.get("stage") or "snapshot"),
         dry_run=True,
         will_mutate=False,
-        requires_publish=bool(data["version_summary"]["requires_publish"]),
-        current_version=data["current_version"],
-        next_version=data["next_version"],
+        requires_publish=bool(version_summary.get("requires_publish")),
+        current_version=current_version,
+        next_version=next_version,
         target_stage="draft",
-        target_version=data["next_version"],
-        snapshot={"current": data["current"], "proposed": data["proposed"], "diff": data["diff"]},
+        target_version=next_version,
+        snapshot={
+            "current": data.get("current"),
+            "proposed": data.get("proposed"),
+            "diff": data.get("diff"),
+        },
         history=[],
     )
     return success_response(data)
@@ -1070,19 +1146,19 @@ def list_workflow_template_versions(workflow_name: str, project_key: str | None 
     workflow_stages = dict(stages.get(normalized_workflow_name) or {})
     workflow_history = history.get(normalized_workflow_name, [])
     active_workflow = workflows.get(normalized_workflow_name)
-    if isinstance(active_workflow, dict):
-        existing_active_record = workflow_stages.get("active") if isinstance(workflow_stages.get("active"), dict) else {}
+    if active_workflow is not None:
+        existing_active_record = workflow_stages.get("active") or {}
         workflow_stages["active"] = _build_workflow_stage_record(
             stage="active",
-            version=int(existing_active_record.get("version") or version),
-            steps=active_workflow.get("steps") if isinstance(active_workflow.get("steps"), list) else [],
-            board_layout=boards.get(normalized_workflow_name) if isinstance(boards.get(normalized_workflow_name), dict) else {},
-            audit=existing_active_record.get("audit") if isinstance(existing_active_record.get("audit"), dict) else None,
+            version=_optional_int(existing_active_record.get("version")) or version,
+            steps=_object_dict_list(active_workflow.get("steps")),
+            board_layout=boards.get(normalized_workflow_name) or {},
+            audit=_object_dict(existing_active_record.get("audit")) or None,
         )
     items = [
         workflow_stages[stage]
         for stage in ("draft", "staging", "active")
-        if isinstance(workflow_stages.get(stage), dict)
+        if stage in workflow_stages
     ]
     visible_history = _visible_stage_history(workflow_history)
     latest_stage = workflow_stages.get("active") or workflow_stages.get("staging") or workflow_stages.get("draft") or {}
@@ -1103,8 +1179,8 @@ def list_workflow_template_versions(workflow_name: str, project_key: str | None 
                 current_version=version,
                 next_version=version,
                 target_stage=str(latest_stage.get("stage") or "history"),
-                target_version=latest_stage.get("version") if isinstance(latest_stage, dict) else None,
-                snapshot=latest_stage if isinstance(latest_stage, dict) else {},
+                target_version=_optional_int(latest_stage.get("version")),
+                snapshot=latest_stage,
                 history=visible_history,
             ),
             "items": items,
@@ -1178,18 +1254,19 @@ def save_workflow_template_stage(request: Request, workflow_name: str, payload: 
         workflows[normalized_workflow_name] = {"steps": serialized_steps}
         boards[normalized_workflow_name] = normalized_board
 
+    next_payload: dict[str, object] = {
+        **existing_payload,
+        "version": next_version,
+        "workflows": workflows,
+        "boards": boards,
+        "workflow_stages": stages,
+        "workflow_stage_history": history,
+    }
     data = upsert_config(
         project_key=effective_project_key,
         config_key=WORKFLOW_PLATFORM_CONFIG_KEY,
         config_type=WORKFLOW_PLATFORM_CONFIG_KEY,
-        payload={
-            **existing_payload,
-            "version": next_version,
-            "workflows": workflows,
-            "boards": boards,
-            "workflow_stages": stages,
-            "workflow_stage_history": history,
-        },
+        payload=next_payload,
     )
     return success_response(
         {
@@ -1237,13 +1314,13 @@ def promote_workflow_template_stage(request: Request, workflow_name: str, payloa
     existing_payload, workflows, boards, version, stages, history = _read_workflow_platform_payload(effective_project_key)
     workflow_stage_map = dict(stages.get(normalized_workflow_name) or {})
     source_record = workflow_stage_map.get(payload.from_stage)
-    if not isinstance(source_record, dict):
+    if source_record is None:
         _raise_not_found(
             f"workflow {payload.from_stage} stage not found: {normalized_workflow_name}",
             details={"workflow_name": normalized_workflow_name, "stage": payload.from_stage},
         )
-    steps = source_record.get("steps") if isinstance(source_record.get("steps"), list) else []
-    board_layout = source_record.get("board_layout") if isinstance(source_record.get("board_layout"), dict) else {}
+    steps = _object_dict_list(source_record.get("steps"))
+    board_layout = _object_dict(source_record.get("board_layout"))
     next_version = version + 1
     audit_identity = _resolve_audit_identity(request, actor=payload.actor, requested_by=payload.requested_by)
     audit = _build_stage_audit_event(
@@ -1293,18 +1370,19 @@ def promote_workflow_template_stage(request: Request, workflow_name: str, payloa
         workflows[normalized_workflow_name] = {"steps": steps}
         boards[normalized_workflow_name] = board_layout
 
+    next_payload: dict[str, object] = {
+        **existing_payload,
+        "version": next_version,
+        "workflows": workflows,
+        "boards": boards,
+        "workflow_stages": stages,
+        "workflow_stage_history": history,
+    }
     data = upsert_config(
         project_key=effective_project_key,
         config_key=WORKFLOW_PLATFORM_CONFIG_KEY,
         config_type=WORKFLOW_PLATFORM_CONFIG_KEY,
-        payload={
-            **existing_payload,
-            "version": next_version,
-            "workflows": workflows,
-            "boards": boards,
-            "workflow_stages": stages,
-            "workflow_stage_history": history,
-        },
+        payload=next_payload,
     )
     return success_response(
         {
@@ -1348,14 +1426,12 @@ def preview_workflow_template_rollback(request: Request, workflow_name: str, pay
     _, workflows, boards, version, stages, history = _read_workflow_platform_payload(effective_project_key)
     workflow_stage_map = dict(stages.get(normalized_workflow_name) or {})
     if normalized_workflow_name in workflows and "active" not in workflow_stage_map:
+        active_workflow = workflows[normalized_workflow_name]
         workflow_stage_map["active"] = _build_workflow_stage_record(
             stage="active",
             version=version,
-            steps=workflows[normalized_workflow_name].get("steps")
-            if isinstance(workflows.get(normalized_workflow_name), dict)
-            and isinstance(workflows[normalized_workflow_name].get("steps"), list)
-            else [],
-            board_layout=boards.get(normalized_workflow_name) if isinstance(boards.get(normalized_workflow_name), dict) else {},
+            steps=_object_dict_list(active_workflow.get("steps")),
+            board_layout=boards.get(normalized_workflow_name) or {},
         )
     workflow_history = history.get(normalized_workflow_name, [])
     target_snapshot = _find_stage_snapshot_by_version(
@@ -1379,7 +1455,10 @@ def preview_workflow_template_rollback(request: Request, workflow_name: str, pay
         actor_auth_mode=audit_identity["actor_auth_mode"],
         legacy_actor_id=audit_identity["legacy_actor_id"],
     )
-    can_execute = isinstance(target_snapshot, dict)
+    can_execute = target_snapshot is not None
+    target_version = payload.target_version or (
+        _optional_int(target_snapshot.get("version")) if target_snapshot is not None else None
+    )
     rollback_reason = str(payload.reason or "").strip() or "rollback preview requested"
     audit["reason"] = rollback_reason
     audit["operator"] = _governance_operator_from_audit(audit)
@@ -1387,7 +1466,7 @@ def preview_workflow_template_rollback(request: Request, workflow_name: str, pay
         "object_type": WORKFLOW_GOVERNANCE_OBJECT_TYPE,
         "object_id": _workflow_governance_object_id(effective_project_key, normalized_workflow_name),
         "stage": payload.target_stage,
-        "version": payload.target_version or (target_snapshot or {}).get("version"),
+        "version": target_version,
     }
     audit["snapshot"] = target_snapshot or {}
     rollback_plan = {
@@ -1398,7 +1477,7 @@ def preview_workflow_template_rollback(request: Request, workflow_name: str, pay
         "reason": None if can_execute else "target stage/version snapshot is not available in workflow_stage_history",
         "from_stage": "active",
         "to_stage": payload.target_stage,
-        "target_version": payload.target_version or (target_snapshot or {}).get("version"),
+        "target_version": target_version,
         "target_stage_record": target_snapshot,
         "apply_endpoint": f"/api/v1/project-customization/workflows/{normalized_workflow_name}/template/rollback",
         "requires_explicit_apply": True,
@@ -1415,10 +1494,10 @@ def preview_workflow_template_rollback(request: Request, workflow_name: str, pay
         current_version=version,
         next_version=version + 1 if can_execute else None,
         target_stage=payload.target_stage,
-        target_version=rollback_plan["target_version"],
+        target_version=target_version,
         reason=rollback_reason,
         audit=audit,
-        snapshot=target_snapshot if isinstance(target_snapshot, dict) else {},
+        snapshot=target_snapshot or {},
         history=visible_history,
     )
     return success_response(
@@ -1461,14 +1540,12 @@ def apply_workflow_template_rollback(request: Request, workflow_name: str, paylo
     existing_payload, workflows, boards, version, stages, history = _read_workflow_platform_payload(effective_project_key)
     workflow_stage_map = dict(stages.get(normalized_workflow_name) or {})
     if normalized_workflow_name in workflows and "active" not in workflow_stage_map:
+        active_workflow = workflows[normalized_workflow_name]
         workflow_stage_map["active"] = _build_workflow_stage_record(
             stage="active",
             version=version,
-            steps=workflows[normalized_workflow_name].get("steps")
-            if isinstance(workflows.get(normalized_workflow_name), dict)
-            and isinstance(workflows[normalized_workflow_name].get("steps"), list)
-            else [],
-            board_layout=boards.get(normalized_workflow_name) if isinstance(boards.get(normalized_workflow_name), dict) else {},
+            steps=_object_dict_list(active_workflow.get("steps")),
+            board_layout=boards.get(normalized_workflow_name) or {},
         )
     workflow_history = history.get(normalized_workflow_name, [])
     target_snapshot = _find_stage_snapshot_by_version(
@@ -1477,7 +1554,7 @@ def apply_workflow_template_rollback(request: Request, workflow_name: str, paylo
         target_stage=payload.target_stage,
         target_version=payload.target_version,
     )
-    if not isinstance(target_snapshot, dict):
+    if target_snapshot is None:
         _raise_not_found(
             "target stage/version snapshot is not available in workflow_stage_history",
             details={
@@ -1487,8 +1564,8 @@ def apply_workflow_template_rollback(request: Request, workflow_name: str, paylo
             },
         )
 
-    steps = target_snapshot.get("steps") if isinstance(target_snapshot.get("steps"), list) else []
-    board_layout = target_snapshot.get("board_layout") if isinstance(target_snapshot.get("board_layout"), dict) else {}
+    steps = _object_dict_list(target_snapshot.get("steps"))
+    board_layout = _object_dict(target_snapshot.get("board_layout"))
     source_stage_record = workflow_stage_map.get(payload.target_stage)
     source_version = source_stage_record.get("version") if isinstance(source_stage_record, dict) else None
     source_version = source_version if isinstance(source_version, int) else version
@@ -1557,6 +1634,7 @@ def apply_workflow_template_rollback(request: Request, workflow_name: str, paylo
         "applied_stage_record": rollback_record,
         "requires_explicit_apply": False,
     }
+    rollback_target_version = _optional_int(rollback_record.get("target_version"))
     governance = _build_workflow_governance(
         project_key=effective_project_key,
         workflow_name=normalized_workflow_name,
@@ -1568,24 +1646,25 @@ def apply_workflow_template_rollback(request: Request, workflow_name: str, paylo
         current_version=version,
         next_version=next_version,
         target_stage=payload.target_stage,
-        target_version=rollback_record["target_version"],
+        target_version=rollback_target_version,
         reason=rollback_reason,
         audit=audit,
         snapshot=target_snapshot,
         history=visible_history,
     )
+    next_payload: dict[str, object] = {
+        **existing_payload,
+        "version": next_version,
+        "workflows": workflows,
+        "boards": boards,
+        "workflow_stages": stages,
+        "workflow_stage_history": history,
+    }
     data = upsert_config(
         project_key=effective_project_key,
         config_key=WORKFLOW_PLATFORM_CONFIG_KEY,
         config_type=WORKFLOW_PLATFORM_CONFIG_KEY,
-        payload={
-            **existing_payload,
-            "version": next_version,
-            "workflows": workflows,
-            "boards": boards,
-            "workflow_stages": stages,
-            "workflow_stage_history": history,
-        },
+        payload=next_payload,
     )
     return success_response(
         {
@@ -1633,7 +1712,7 @@ def upsert_workflow_template(workflow_name: str, payload: WorkflowTemplatePayloa
     }
     boards[normalized_workflow_name] = _normalize_board_layout(payload.board_layout, serialized_steps)
 
-    next_payload = {
+    next_payload: dict[str, object] = {
         **existing_payload,
         "version": version + 1,
         "workflows": workflows,
@@ -1694,7 +1773,7 @@ def delete_workflow_template(workflow_name: str, project_key: str | None = Query
         )
 
     record = get_config(effective_project_key, WORKFLOW_PLATFORM_CONFIG_KEY) or {}
-    existing_payload = record.get("payload") if isinstance(record.get("payload"), dict) else {}
+    existing_payload = _object_dict(record.get("payload"))
     workflows, boards, version = _coerce_workflow_payload(existing_payload)
     if normalized_workflow_name not in workflows:
         _raise_not_found(

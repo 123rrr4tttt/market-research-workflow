@@ -1,15 +1,15 @@
 from datetime import datetime, timedelta
 
 import numpy as np
-from sqlalchemy import Float, select
-from sqlalchemy.dialects import postgresql
-
-from app.services.search.candidate_contracts import Candidate, CandidateBundle, ProviderObservation
+import pytest
 from app.models.entities import Embedding
-from app.services.search import smart
 from app.services.discovery import deep_search as deep_search_module
 from app.services.projects import bind_project
 from app.services.search import hybrid as hybrid_search_module
+from app.services.search import smart
+from app.services.search.candidate_contracts import Candidate, CandidateBundle, ProviderObservation
+from sqlalchemy import Float, select
+from sqlalchemy.dialects import postgresql
 
 
 def _bundle(request, *, row=None, observations=()):
@@ -72,6 +72,38 @@ def test_deep_search_candidates_keeps_partial_branch_observations_and_stops_at_c
     assert deep_search_module.deep_search("robotics", iterations=1, breadth=1, max_results=5)["results"] == [
         {"link": "https://example.test/policy", "title": "Policy"}
     ]
+
+
+def test_deep_search_bad_scores_keep_original_conversion_exception_types(monkeypatch):
+    monkeypatch.setattr(deep_search_module, "generate_keywords", lambda _topic, _language: ["robotics policy"])
+
+    def discover_bad_string(request):
+        return _bundle(
+            request,
+            row={
+                "link": "https://example.test/policy",
+                "title": "Policy",
+                "relevance_score": "not-a-number",
+            },
+        )
+
+    monkeypatch.setattr(deep_search_module, "discover_candidates", discover_bad_string)
+    with pytest.raises(ValueError, match="could not convert string to float"):
+        deep_search_module.deep_search_candidates("robotics", iterations=1, breadth=1, max_results=5)
+
+    def discover_bad_object(request):
+        return _bundle(
+            request,
+            row={
+                "link": "https://example.test/policy",
+                "title": "Policy",
+                "relevance_score": object(),
+            },
+        )
+
+    monkeypatch.setattr(deep_search_module, "discover_candidates", discover_bad_object)
+    with pytest.raises(TypeError, match="^relevance_score is not float-convertible$"):
+        deep_search_module.deep_search_candidates("robotics", iterations=1, breadth=1, max_results=5)
 
 
 class _RecordingElasticsearch:

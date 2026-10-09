@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, Iterable
+from collections.abc import Iterable, Mapping
+from typing import TypeGuard
 
 from ...resource_pool.extract import append_url
 from ...resource_pool.search_template_service import execute_feed_probe
@@ -12,27 +13,57 @@ from ...resource_pool.search_template_service import normalize_search_template_p
 from ...resource_pool.url_utils import domain_from_url
 
 
-def _as_terms(raw: Any) -> list[str]:
+def _is_object(value: object) -> TypeGuard[dict[str, object]]:
+    return isinstance(value, dict)
+
+
+def _is_object_list(value: object) -> TypeGuard[list[object]]:
+    return isinstance(value, list)
+
+
+def _object(value: object) -> dict[str, object]:
+    return dict(value) if _is_object(value) else {}
+
+
+def _float(value: object, default: float) -> float:
+    if not isinstance(value, int | float | str):
+        return default
+    try:
+        return float(value)
+    except Exception:
+        return default
+
+
+def _int(value: object, default: int) -> int:
+    if not isinstance(value, int | float | str):
+        return default
+    try:
+        return int(value)
+    except Exception:
+        return default
+
+
+def _as_terms(raw: object) -> list[str]:
     if raw is None:
         return []
     if isinstance(raw, str):
         s = raw.strip()
         return [s] if s else []
-    if isinstance(raw, list):
+    if _is_object_list(raw):
         out: list[str] = []
-        for x in raw:
-            s = str(x).strip()
+        for item in raw:
+            s = str(item).strip()
             if s:
                 out.append(s)
         return list(dict.fromkeys(out))
     return []
 
 
-def _source_library_item_context(params: Dict[str, Any]) -> dict[str, Any]:
+def _source_library_item_context(params: Mapping[object, object]) -> dict[str, object]:
     raw = params.get("_source_library_item")
-    if not isinstance(raw, dict):
+    if not _is_object(raw):
         return {}
-    extra = raw.get("extra") if isinstance(raw.get("extra"), dict) else {}
+    extra = _object(raw.get("extra"))
     item_type = str(raw.get("item_type") or extra.get("item_type") or "").strip().lower() or None
     managed_by = str(raw.get("managed_by") or extra.get("managed_by") or "").strip().lower() or None
     return {
@@ -44,7 +75,7 @@ def _source_library_item_context(params: Dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _build_capability_profile(*, source: str) -> dict[str, Any]:
+def _build_capability_profile(*, source: str) -> dict[str, object]:
     if source == "generic_web_rss":
         return {
             "entry_type": "rss",
@@ -73,7 +104,7 @@ def _build_capability_profile(*, source: str) -> dict[str, Any]:
     }
 
 
-def _adapter_taxonomy(*, source: str, params: Dict[str, Any]) -> dict[str, Any]:
+def _adapter_taxonomy(*, source: str, params: Mapping[object, object]) -> dict[str, object]:
     item_ctx = _source_library_item_context(params)
     return {
         "lane": "site_search_internal_adapter",
@@ -86,7 +117,9 @@ def _adapter_taxonomy(*, source: str, params: Dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _maybe_write_to_pool(urls: Iterable[str], *, params: Dict[str, Any], project_key: str | None, source: str) -> dict[str, int] | None:
+def _maybe_write_to_pool(
+    urls: Iterable[str], *, params: Mapping[object, object], project_key: str | None, source: str,
+) -> dict[str, int] | None:
     if not params.get("write_to_pool"):
         return None
     scope = str(params.get("pool_scope") or "project")
@@ -98,7 +131,7 @@ def _maybe_write_to_pool(urls: Iterable[str], *, params: Dict[str, Any], project
     skipped = 0
     for url in urls:
         normalized_url = str(url or "").strip()
-        source_ref = {
+        source_ref: dict[str, object] = {
             "tool": source,
             "query_terms": _as_terms(params.get("query_terms")),
             "locator": normalized_url,
@@ -128,14 +161,14 @@ def _maybe_write_to_pool(urls: Iterable[str], *, params: Dict[str, Any], project
     return {"urls_new": new_count, "urls_skipped": skipped}
 
 
-def handle_generic_web_rss(params: Dict[str, Any], project_key: str | None) -> Dict[str, Any]:
+def handle_generic_web_rss(params: Mapping[object, object], project_key: str | None) -> dict[str, object]:
     feed_url = str(params.get("feed_url") or params.get("site_url") or "").strip()
     if not feed_url:
         raise ValueError("generic_web.rss requires params.feed_url or params.site_url")
     execution = execute_feed_probe(
         feed_url=feed_url,
         query_terms=_as_terms(params.get("query_terms")),
-        probe_timeout=float(params.get("probe_timeout") or 10),
+        probe_timeout=_float(params.get("probe_timeout"), 10.0),
         allow_term_fallback=bool(params.get("allow_term_fallback", True)),
     )
     candidates = [decision.url for decision in execution.selected_candidates if str(decision.url or "").strip()]
@@ -156,16 +189,16 @@ def handle_generic_web_rss(params: Dict[str, Any], project_key: str | None) -> D
     }
 
 
-def handle_generic_web_sitemap(params: Dict[str, Any], project_key: str | None) -> Dict[str, Any]:
+def handle_generic_web_sitemap(params: Mapping[object, object], project_key: str | None) -> dict[str, object]:
     sitemap_url = str(params.get("sitemap_url") or params.get("site_url") or "").strip()
     if not sitemap_url:
         raise ValueError("generic_web.sitemap requires params.sitemap_url or params.site_url")
     execution = execute_sitemap_probe(
         sitemap_url=sitemap_url,
         query_terms=_as_terms(params.get("query_terms")),
-        probe_timeout=float(params.get("probe_timeout") or 10),
-        max_depth=int(params.get("max_depth") or 2),
-        max_sitemaps=int(params.get("max_sitemaps") or 30),
+        probe_timeout=_float(params.get("probe_timeout"), 10.0),
+        max_depth=_int(params.get("max_depth"), 2),
+        max_sitemaps=_int(params.get("max_sitemaps"), 30),
         allow_term_fallback=bool(params.get("allow_term_fallback", True)),
     )
     candidates = [decision.url for decision in execution.selected_candidates if str(decision.url or "").strip()]
@@ -186,7 +219,7 @@ def handle_generic_web_sitemap(params: Dict[str, Any], project_key: str | None) 
     }
 
 
-def handle_generic_web_search_template(params: Dict[str, Any], project_key: str | None) -> Dict[str, Any]:
+def handle_generic_web_search_template(params: Mapping[object, object], project_key: str | None) -> dict[str, object]:
     template = normalize_search_template_placeholders(str(params.get("template") or params.get("site_url") or "").strip())
     if not template or "{{q}}" not in template:
         raise ValueError("generic_web.search_template requires params.template containing {{q}}")
@@ -194,7 +227,7 @@ def handle_generic_web_search_template(params: Dict[str, Any], project_key: str 
         template=template,
         query_terms=_as_terms(params.get("query_terms")),
         params=params,
-        probe_timeout=float(params.get("probe_timeout") or 10),
+        probe_timeout=_float(params.get("probe_timeout"), 10.0),
         allow_term_fallback=bool(params.get("allow_term_fallback", True)),
     )
     candidates = [decision.url for decision in execution.selected_candidates if str(decision.url or "").strip()]

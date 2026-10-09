@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Annotated, Any
 
-from .common_view import get_entities, get_extracted_data, get_platform
+from .common_view import get_entities, get_extracted_data, get_platform, is_object_list, payload_dict_or_empty
 
 
 def get_social_platform(doc: Any) -> str:
@@ -18,7 +18,7 @@ def get_social_platform_label(doc: Any, *, default: str | None = "unknown") -> s
 def get_social_sentiment(doc: Any) -> dict[str, Any]:
     extracted = get_extracted_data(doc)
     sentiment = extracted.get("sentiment")
-    return dict(sentiment) if isinstance(sentiment, dict) else {}
+    return payload_dict_or_empty(sentiment)
 
 
 def get_social_sentiment_orientation(doc: Any, *, default: str | None = None) -> str | None:
@@ -35,11 +35,11 @@ def get_social_text(doc: Any) -> str:
 def get_social_keywords(doc: Any) -> list[str]:
     extracted = get_extracted_data(doc)
     keywords = extracted.get("keywords")
-    if isinstance(keywords, list):
+    if is_object_list(keywords):
         return [item for item in keywords if isinstance(item, str) and item.strip()]
     sentiment = get_social_sentiment(doc)
     key_phrases = sentiment.get("key_phrases")
-    if isinstance(key_phrases, list):
+    if is_object_list(key_phrases):
         return [item for item in key_phrases if isinstance(item, str) and item.strip()]
     return []
 
@@ -49,7 +49,7 @@ def get_social_sentiment_terms(doc: Any) -> list[str]:
     terms: list[str] = []
 
     key_phrases = sentiment.get("key_phrases")
-    if isinstance(key_phrases, list):
+    if is_object_list(key_phrases):
         terms.extend(_clean_strings(key_phrases))
 
     topic = str(sentiment.get("topic") or "").strip()
@@ -57,7 +57,7 @@ def get_social_sentiment_terms(doc: Any) -> list[str]:
         terms.append(topic)
 
     sentiment_tags = sentiment.get("sentiment_tags")
-    if isinstance(sentiment_tags, list):
+    if is_object_list(sentiment_tags):
         terms.extend(_clean_strings(sentiment_tags))
 
     return terms
@@ -109,8 +109,8 @@ def build_social_data_item(
     return item
 
 
-def _clean_strings(value: Any) -> list[str]:
-    if not isinstance(value, list):
+def _clean_strings(value: object) -> list[str]:
+    if not is_object_list(value):
         return []
     return [item.strip() for item in value if isinstance(item, str) and item.strip()]
 

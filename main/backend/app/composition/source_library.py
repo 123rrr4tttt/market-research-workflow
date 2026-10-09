@@ -68,7 +68,7 @@ class DefaultCrawlerProviderResolver:
         provider_type: str,
         *,
         channel: Mapping[str, object],
-        params: Mapping[str, object],
+        params: Mapping[object, object],
     ) -> CrawlerProvider:
         from ..services.crawlers.registry import get_provider, register_provider
 

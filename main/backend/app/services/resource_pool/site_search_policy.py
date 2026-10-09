@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import TypeGuard
 from urllib.parse import urlparse
 
 
@@ -15,6 +15,10 @@ class SiteSearchPolicy:
     preferred_search_service: str | None = None
     implementation_hint: str | None = None
     parser_profile: str | None = None
+
+
+def _is_string_object(value: object) -> TypeGuard[dict[str, object]]:
+    return isinstance(value, dict)
 
 
 _API_PREFERRED = {
@@ -133,10 +137,10 @@ def resolve_site_search_policy(site_url: str) -> SiteSearchPolicy:
     )
 
 
-def resolve_site_search_policy_for_entry(site_url: str, entry: dict[str, Any] | None) -> SiteSearchPolicy:
-    extra = entry.get("extra") if isinstance(entry, dict) else None
-    remediation = extra.get("remediation") if isinstance(extra, dict) else None
-    if isinstance(remediation, dict):
+def resolve_site_search_policy_for_entry(site_url: str, entry: object) -> SiteSearchPolicy:
+    extra = entry.get("extra") if _is_string_object(entry) else None
+    remediation = extra.get("remediation") if _is_string_object(extra) else None
+    if _is_string_object(remediation):
         status = str(remediation.get("status") or "").strip().lower()
         parser_profile = str(remediation.get("parser_profile") or "").strip() or None
         if status:

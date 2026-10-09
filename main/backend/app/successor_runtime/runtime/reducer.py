@@ -5,7 +5,7 @@ from __future__ import annotations
 import ast
 from collections.abc import Mapping
 from dataclasses import dataclass, replace
-from typing import NoReturn
+from typing import NoReturn, TypeGuard
 
 from functorial_kit import Failure
 
@@ -338,10 +338,13 @@ def _reduce_branch_decision_impl(
             return guard_result
         if guard_result:
             matched_branch_ids.append(branch.branch_id)
-    matched_branch_ids = tuple(matched_branch_ids)
+    matched_branch_ids_tuple = tuple(matched_branch_ids)
     selected_branch_id: str | None = None
-    if len(raw_candidates) == len(set(raw_candidates)) and len(matched_branch_ids) == 1:
-        selected_branch_id = matched_branch_ids[0]
+    if (
+        len(raw_candidates) == len(set(raw_candidates))
+        and len(matched_branch_ids_tuple) == 1
+    ):
+        selected_branch_id = matched_branch_ids_tuple[0]
 
     if selected_branch_id is None:
         return runtime_failure(
@@ -505,11 +508,35 @@ def _branch_event(
 def _discriminator_candidates(value: object) -> tuple[str, ...]:
     if isinstance(value, str):
         return (value,)
-    if isinstance(value, (tuple, list)) and all(
-        isinstance(item, str) for item in value
-    ):
+    if _is_string_sequence(value):
         return tuple(value)
     return ()
+
+
+def _is_string_sequence(value: object) -> TypeGuard[tuple[str, ...] | list[str]]:
+    if not _is_object_sequence(value):
+        return False
+    return all(isinstance(item, str) for item in value)
+
+
+def _is_object_sequence(value: object) -> TypeGuard[tuple[object, ...] | list[object]]:
+    return isinstance(value, (tuple, list))
+
+
+def _is_object_mapping(value: object) -> TypeGuard[Mapping[str, object]]:
+    if not _is_unknown_key_mapping(value):
+        return False
+    return all(isinstance(key, str) for key in value)
+
+
+def _is_unknown_key_mapping(
+    value: object,
+) -> TypeGuard[Mapping[object, object]]:
+    return isinstance(value, Mapping)
+
+
+def _runtime_attribute(owner: object, name: str) -> object:
+    return getattr(owner, name)
 
 
 def _guard_holds(expression: str, input_value: object) -> bool | Failure:
@@ -550,7 +577,7 @@ def _guard_value(node: ast.AST, root: object) -> object:
     if isinstance(node, ast.Constant):
         return node.value
     if isinstance(node, ast.Name):
-        if isinstance(root, Mapping) and node.id in root:
+        if _is_object_mapping(root) and node.id in root:
             return root[node.id]
         # A leading symbolic name such as ``outcome`` denotes the input root.
         return root
@@ -558,9 +585,9 @@ def _guard_value(node: ast.AST, root: object) -> object:
         owner = _guard_value(node.value, root)
         if isinstance(owner, Failure):
             return owner
-        if isinstance(owner, Mapping):
+        if _is_object_mapping(owner):
             return owner[node.attr]
-        return getattr(owner, node.attr)
+        return _runtime_attribute(owner, node.attr)
     if isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.Not):
         operand = _guard_value(node.operand, root)
         if isinstance(operand, Failure):

@@ -7,12 +7,11 @@ bytes remain owned by the project-scoped ``successor_values`` repository.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
 from dataclasses import dataclass, fields
 from typing import Literal, get_args
 
 from sqlalchemy import insert, select, update
-from sqlalchemy.engine import Connection
+from sqlalchemy.engine import Connection, RowMapping
 
 from app.successor_runtime.runtime.assignments import require_digest
 from app.successor_runtime.runtime.ports import RuntimeScope
@@ -23,7 +22,7 @@ from .runtime_journal import (
     StaleRevisionError,
     one_mapping,
     project_values,
-    _require_opaque_locator,
+    require_opaque_locator,
     runtime_scope_key,
     runtime_table,
     utc_now,
@@ -64,7 +63,7 @@ class RuntimeValueBinding:
             ("canonical_ref", self.canonical_ref),
         ):
             if ref is not None:
-                _require_opaque_locator(ref, path=name)
+                require_opaque_locator(ref, path=name)
         for name, digest in (
             ("write_intent_digest", self.write_intent_digest),
             ("write_receipt_digest", self.write_receipt_digest),
@@ -88,7 +87,7 @@ class RuntimeValueRepository:
         binding: RuntimeValueBinding,
         *,
         state: RuntimeValueState = "AVAILABLE",
-    ) -> Mapping[str, object]:
+    ) -> RowMapping:
         if state not in get_args(RuntimeValueState):
             raise ValueError("invalid runtime value state")
         table = runtime_table("runtime_values")
@@ -135,7 +134,7 @@ class RuntimeValueRepository:
             )
         return self.load_exact(binding)
 
-    def load_exact(self, binding: RuntimeValueBinding) -> Mapping[str, object]:
+    def load_exact(self, binding: RuntimeValueBinding) -> RowMapping:
         table = runtime_table("runtime_values")
         row = one_mapping(
             self.connection.execute(
@@ -163,7 +162,7 @@ class RuntimeValueRepository:
         expected_state: RuntimeValueState,
         target_state: RuntimeValueState,
         write_receipt_digest: str | None = None,
-    ) -> Mapping[str, object]:
+    ) -> RowMapping:
         allowed = {
             ("PREPARED", "AVAILABLE"),
             ("PREPARED", "FAILED"),

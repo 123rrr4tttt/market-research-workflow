@@ -31,9 +31,32 @@ from app.composition.installed_operation import (
     installed_operation_contribution_catalog,
     installed_operation_for_ref,
     validate_installed_operation,
+    url_installed_operations,
     workflow_installed_operation_catalog,
     workflow_installed_operations,
 )
+
+
+def test_installed_url_catalog_resolves_legacy_and_current_exact_refs() -> None:
+    from app.successor_runtime.capabilities import acquisition_url as url
+
+    legacy, current = url.build_url_single_url_contracts()
+    assert tuple(
+        item.definition.contract.ref for item in url_installed_operations
+    ) == (legacy.ref, current.ref)
+    assert (
+        installed_operation_for_ref(installed_operation_catalog, legacy.ref)
+        is url_installed_operations[0]
+    )
+    assert (
+        installed_operation_for_ref(installed_operation_catalog, current.ref)
+        is url_installed_operations[1]
+    )
+    drifted = dataclasses.replace(current.ref, contract_digest="0" * 64)
+    with pytest.raises(ValueError, match="operation ref drift"):
+        installed_operation_for_ref(installed_operation_catalog, drifted)
+
+
 def test_historical_compile_read_and_replay_preserve_exact_bytes_and_hash() -> None:
     raw = (
         b'{"schema":"mrw.functorial-successor.c1.legacy-dsl-receipt.v1",'

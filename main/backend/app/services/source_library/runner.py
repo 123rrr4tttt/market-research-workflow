@@ -438,7 +438,7 @@ def resolve_credential(cred_name: str, project_key: str | None) -> str | None:
     return os.getenv(cred_name)
 
 
-def validate_params(params: Mapping[str, object], param_schema: Mapping[str, object]) -> None:
+def validate_params(params: Mapping[object, object], param_schema: Mapping[str, object]) -> None:
     required = param_schema.get("required", [])
     if not _is_object_list(required):
         return
@@ -536,7 +536,7 @@ def _is_crawler_rollout_allowed(
 
 
 def _crawler_dispatch_request(
-    *, params: Mapping[str, object], provider_config: RunnerObject, project_key: str | None, provider_type: str
+    *, params: Mapping[object, object], provider_config: RunnerObject, project_key: str | None, provider_type: str
 ) -> CrawlerDispatchRequest:
     spider = str(params.get("spider") or params.get("spider_name") or provider_config.get("spider") or "").strip()
     project = str(
@@ -740,7 +740,7 @@ def _crawler_runner_result(
 
 
 def _run_via_crawler_provider_registry(
-    *, channel: Mapping[str, object], params: Mapping[str, object], project_key: str | None, provider_type: str
+    *, channel: Mapping[str, object], params: Mapping[object, object], project_key: str | None, provider_type: str
 ) -> RunnerObject:
     provider = resolve_crawler_provider(provider_type, channel=channel, params=params)
     provider_config = _mapping(channel.get("provider_config"))
@@ -877,7 +877,7 @@ def _build_runtime_channel_meta(*, channel: Mapping[str, object], project_key: s
 def run_channel(
     *,
     channel: Mapping[str, object],
-    params: Mapping[str, object],
+    params: Mapping[object, object],
     project_key: str | None = None,
     item_key: str | None = None,
 ) -> RunnerObject:

@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timezone
 import re
-from typing import Annotated, Any
+from typing import Annotated, Any, NoReturn, Protocol, TypeGuard, runtime_checkable
 from functorial_kit import Failure
 from mrw_functorial_kit.core.application_failure_semantics import llm_report_request_failures
 
@@ -50,13 +50,34 @@ def _request_failure(code: str, message: str, *, operation: str, **details: Any)
     )
 
 
-def _raise_request_failure(failure: Failure) -> None:
+def _raise_request_failure(failure: Failure) -> NoReturn:
     context = failure.context or {}
     if not llm_report_request_failures.matches(failure) or _FAILURE_CONTEXT_KEYS - set(context):
         # kit:boundary owner=llm_report_generator.failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w01_request_failures
         raise TypeError("llm report request failure lift context is incomplete or inconsistent")
     # kit:boundary owner=llm_report_generator.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=llm.report.request.failure witness=test:test_w01_request_failures
     raise ValueError(str(context["public_message"]))
+
+
+def _is_payload_dict(value: object) -> TypeGuard[dict[str, object]]:
+    return isinstance(value, dict)
+
+
+def _is_payload_list(value: object) -> TypeGuard[list[object]]:
+    return isinstance(value, list)
+
+
+@runtime_checkable
+class _SupportsFloat(Protocol):
+    def __float__(self) -> float: ...
+
+
+def _float_value(value: object) -> float:
+    if not value:
+        return 0.0
+    if isinstance(value, (str, bytes, bytearray, _SupportsFloat)):
+        return float(value)
+    return 0.0
 
 
 def build_report_capability_truth(*, route_kind: str, auto_source_enabled: bool) -> Annotated[
@@ -415,11 +436,16 @@ def evaluate_report_gate(report: StructuredReport) -> dict[str, Any]:
 
 
 def export_quality_gate_metrics(gate: dict[str, Any]) -> dict[str, Any]:
-    hard_failures = gate.get("hard_failures") if isinstance(gate.get("hard_failures"), list) else []
-    soft_failures = gate.get("soft_failures") if isinstance(gate.get("soft_failures"), list) else []
-    unique_citations = gate.get("unique_citations") if isinstance(gate.get("unique_citations"), list) else []
-    rules = gate.get("rules") if isinstance(gate.get("rules"), dict) else {}
-    observability = gate.get("observability") if isinstance(gate.get("observability"), dict) else {}
+    hard_failures_value = gate.get("hard_failures")
+    soft_failures_value = gate.get("soft_failures")
+    unique_citations_value = gate.get("unique_citations")
+    rules_value = gate.get("rules")
+    observability_value = gate.get("observability")
+    hard_failures = hard_failures_value if _is_payload_list(hard_failures_value) else []
+    soft_failures = soft_failures_value if _is_payload_list(soft_failures_value) else []
+    unique_citations = unique_citations_value if _is_payload_list(unique_citations_value) else []
+    rules = rules_value if _is_payload_dict(rules_value) else {}
+    observability = observability_value if _is_payload_dict(observability_value) else {}
     return {
         "gate_version": str(gate.get("gate_version") or ""),
         "decision": str(gate.get("decision") or "fail"),
@@ -431,7 +457,7 @@ def export_quality_gate_metrics(gate: dict[str, Any]) -> dict[str, Any]:
         "source_count": int(gate.get("source_count") or 0),
         "unique_citations": len(unique_citations),
         "rules_count": len(rules),
-        "gate_duration_ms": float(observability.get("gate_duration_ms") or 0.0),
+        "gate_duration_ms": _float_value(observability.get("gate_duration_ms")),
     }
 
 

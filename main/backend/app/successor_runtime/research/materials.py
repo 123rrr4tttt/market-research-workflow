@@ -5,7 +5,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 
-from .codec import _failure, _raise_failure, digest_dataclass, finalize_digest, sha256_hex
+from .codec import (
+    digest_dataclass,
+    finalize_digest,
+    raise_research_failure as _raise_failure,
+    research_failure as _failure,
+    sha256_hex,
+)
 
 __all__ = ["CapturedMaterialSnapshot", "MaterialRef"]
 

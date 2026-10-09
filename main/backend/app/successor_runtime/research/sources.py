@@ -6,7 +6,12 @@ from dataclasses import dataclass
 from datetime import datetime
 from urllib.parse import urlsplit
 
-from .codec import _failure, _raise_failure, finalize_digest
+from .codec import (
+    finalize_digest,
+    raise_research_failure as _raise_failure,
+    research_failure as _failure,
+    runtime_value,
+)
 
 __all__ = ["SourceRef", "material_locator_identity"]
 
@@ -44,7 +49,7 @@ class SourceRef:
     content_digest: str | None = None
 
     def __post_init__(self) -> None:
-        if not isinstance(self.access_profile_ref, str):
+        if not isinstance(runtime_value(self.access_profile_ref), str):
             _raise_failure(
                 _failure(
                     "SOURCE_REF_INVALID",

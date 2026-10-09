@@ -2,18 +2,20 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from hashlib import sha256
+from importlib import import_module
 from io import BytesIO
 from pathlib import Path
 from tempfile import gettempdir
-from typing import Any
+from typing import Any, Protocol, SupportsFloat, SupportsIndex, SupportsInt, TypeGuard, runtime_checkable
+from typing_extensions import Buffer
 from urllib.parse import urlparse
 
 from pypdf import PdfReader
 
 from ...ingest.adapters.http_utils import fetch_html, make_html_parser, request_html
 from ...ingest.retry_policy import RateGate, RequestScope
-from ...resource_pool import list_urls
 from ...resource_pool.article_extraction_service import extract_article_content_from_html
 from ..external_project import validate_external_http_url
 
@@ -29,12 +31,69 @@ _PDF_ARTIFACT_RATE_GATE = RateGate(
 )
 
 
-def _response_mime_type(response: Any) -> str:
-    headers = getattr(response, "headers", None) or {}
+def _strict_int(value: object) -> int:
+    if not isinstance(value, (str, bytes, bytearray, SupportsInt, SupportsIndex, Buffer)):
+        raise TypeError(
+            "int() argument must be a string, a bytes-like object or a real number, "
+            f"not '{type(value).__name__}'"
+        )
+    return int(value)
+
+
+def _strict_float(value: object) -> float:
+    if not isinstance(value, (str, bytes, bytearray, SupportsFloat, SupportsIndex, Buffer)):
+        raise TypeError(
+            "float() argument must be a string or a real number, "
+            f"not '{type(value).__name__}'"
+        )
+    return float(value)
+
+
+@runtime_checkable
+class _ListUrlsPort(Protocol):
+    def __call__(
+        self,
+        *,
+        scope: str = "effective",
+        project_key: str | None = None,
+        source: str | None = None,
+        domain: str | None = None,
+        page: int = 1,
+        page_size: int = 20,
+    ) -> tuple[list[dict[str, object]], int]: ...
+
+
+def _is_object_list(value: object) -> TypeGuard[list[object]]:
+    return isinstance(value, list)
+
+
+def _is_mapping(value: object) -> TypeGuard[Mapping[object, object]]:
+    return isinstance(value, Mapping)
+
+
+def _headers(value: object) -> dict[str, object]:
+    if not _is_mapping(value):
+        return {}
+    return {str(key): item for key, item in value.items()}
+
+
+def _resolve_list_urls() -> _ListUrlsPort:
+    module = import_module("app.services.resource_pool.resolver")
+    candidate = getattr(module, "list_urls", None)
+    if not isinstance(candidate, _ListUrlsPort):
+        raise RuntimeError("resource_pool.list_urls port is unavailable")
+    return candidate
+
+
+list_urls: _ListUrlsPort = _resolve_list_urls()
+
+
+def _response_mime_type(response: object) -> str:
+    headers = _headers(getattr(response, "headers", None))
     return str(headers.get("Content-Type") or headers.get("content-type") or "").split(";", 1)[0].strip().lower()
 
 
-def _html_response_text(html: str, response: Any) -> str:
+def _html_response_text(html: str, response: object) -> str:
     body = getattr(response, "content", None)
     declared = str(getattr(response, "encoding", None) or "").lower()
     if not isinstance(body, bytes) or declared not in {"iso-8859-1", "latin-1", ""}:
@@ -78,13 +137,13 @@ def _extract_pdf_text(body: bytes, url: str) -> tuple[str, str, int]:
     return title, content_text, page_count
 
 
-def _normalize_urls_from_params(params: dict[str, Any]) -> tuple[list[str], list[str], bool]:
+def _normalize_urls_from_params(params: Mapping[object, object]) -> tuple[list[str], list[str], bool]:
     raw = params.get("urls")
     out: list[str] = []
     rejected: list[str] = []
     explicit_input = False
 
-    def add(raw_value: Any) -> None:
+    def add(raw_value: object) -> None:
         nonlocal explicit_input
         s = str(raw_value or "").strip()
         if not s:
@@ -101,7 +160,7 @@ def _normalize_urls_from_params(params: dict[str, Any]) -> tuple[list[str], list
         if normalized not in out:
             out.append(normalized)
 
-    if isinstance(raw, list):
+    if _is_object_list(raw):
         for x in raw:
             add(x)
     elif isinstance(raw, str):
@@ -118,12 +177,10 @@ def _extract_text_preview(html: str, *, max_chars: int = 50000) -> tuple[str | N
     for selector in ("script", "style", "noscript"):
         for node in parser.css(selector):
             node.decompose()
-    extracted = extract_article_content_from_html(html=parser.html, title=title)
+    extracted = extract_article_content_from_html(html=str(parser.html or ""), title=title)
     text = str(extracted.content or "").strip()
     if not text:
-        text = parser.text(" ", strip=True) if hasattr(parser, "text") else str(html or "")
-        if not isinstance(text, str):
-            text = str(text or "")
+        text = parser.text(separator=" ", strip=True)
         text = " ".join(text.split())
     return title, text[:max_chars]
 
@@ -208,27 +265,29 @@ def _materialize_pdf_artifact(
     return materialized
 
 
-def handle_url_pool(params: dict[str, Any], project_key: str | None) -> dict[str, Any]:
+def handle_url_pool(params: Mapping[object, object], project_key: str | None) -> dict[str, Any]:
     merged_params = dict(params or {})
     terminal_output_only = bool(merged_params.get("source_library_terminal_output_only")) or str(
         merged_params.get("source_library_execution_layer") or ""
     ).strip().lower() == "terminal_output_only"
     urls, rejected_url_errors, explicit_url_input = _normalize_urls_from_params(merged_params)
-    limit = max(1, int(merged_params.get("limit") or merged_params.get("max_items") or 50))
-    timeout = float(merged_params.get("probe_timeout") or 8.0)
-    retries = max(0, int(merged_params.get("fetch_retries") or 1))
+    limit = max(1, _strict_int(merged_params.get("limit") or merged_params.get("max_items") or 50))
+    timeout = _strict_float(merged_params.get("probe_timeout") or 8.0)
+    retries = max(0, _strict_int(merged_params.get("fetch_retries") or 1))
 
     if not urls and not explicit_url_input:
+        source_value = merged_params.get("source_filter") or merged_params.get("source")
+        domain_value = merged_params.get("domain")
         pool_rows, _total = list_urls(
             scope=str(merged_params.get("scope") or "effective"),
             project_key=str(project_key or ""),
-            source=merged_params.get("source_filter") or merged_params.get("source") or None,
-            domain=merged_params.get("domain") or None,
+            source=source_value if isinstance(source_value, str) else None,
+            domain=domain_value if isinstance(domain_value, str) else None,
             page=1,
             page_size=limit,
         )
         for row in pool_rows:
-            u = str((row or {}).get("url") or "").strip()
+            u = str(row.get("url") or "").strip()
             if not u:
                 continue
             try:
@@ -253,7 +312,7 @@ def handle_url_pool(params: dict[str, Any], project_key: str | None) -> dict[str
             body = getattr(resp, "content", None)
             mime_type = _response_mime_type(resp)
             is_pdf = mime_type == "application/pdf" or isinstance(body, bytes) and body.startswith(b"%PDF-")
-            record_meta = {
+            record_meta: dict[str, object] = {
                 "http_status": int(getattr(resp, "status_code", 200) or 200),
                 "execution_layer": "terminal_output_only" if terminal_output_only else "execute",
             }

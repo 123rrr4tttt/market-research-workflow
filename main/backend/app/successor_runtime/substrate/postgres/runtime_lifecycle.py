@@ -15,7 +15,7 @@ from enum import StrEnum
 from typing import Any, Protocol
 
 from sqlalchemy import MetaData, insert, select, update
-from sqlalchemy.engine import Connection
+from sqlalchemy.engine import Connection, RowMapping
 
 from app.successor_runtime.runtime.assignments import (
     AssignmentKind,
@@ -46,6 +46,7 @@ from app.successor_runtime.runtime.transitions import (
     TERMINAL_RUN_STATES,
     TERMINAL_STEP_STATES,
 )
+from app.successor_runtime.runtime.failure_policy import FailurePolicyDecision
 
 from .failure_policy import PostgresFailurePolicyLoader
 from .models import project_tables
@@ -232,7 +233,7 @@ class TerminalFailurePort(Protocol):
 
 
 class PersistedFailurePolicyPort(Protocol):
-    def load_decision(self, run_id: str, step_id: str) -> object: ...
+    def load_decision(self, run_id: str, step_id: str) -> FailurePolicyDecision: ...
 
 
 class RuntimeLifecycleRepository:
@@ -259,7 +260,7 @@ class RuntimeLifecycleRepository:
             scope,
         )
 
-    def submit(self, command: SubmitRun) -> Mapping[str, Any]:
+    def submit(self, command: SubmitRun) -> RowMapping:
         project_key = runtime_scope_key(self.scope)
         assignment = command.compile_work.assignment if command.compile_work else None
         if assignment is not None and (
@@ -836,11 +837,7 @@ class RuntimeLifecycleRepository:
                 "required_step_failed": (
                     False
                     if failure_policy_decision is None
-                    else getattr(
-                        failure_policy_decision,
-                        "emit_required_step_failed",
-                        False,
-                    )
+                    else failure_policy_decision.emit_required_step_failed
                 ),
             },
             payload_ref=outcome.payload_ref,
@@ -995,7 +992,7 @@ class RuntimeLifecycleRepository:
             if persisted_step_ids
             else ()
         )
-        if {str(row["step_id"]) for row in rows} != persisted_step_ids:
+        if frozenset(str(row["step_id"]) for row in rows) != persisted_step_ids:
             raise ExactBindingConflict("run completion step closure is incomplete")
         snapshots = tuple(
             StepSnapshot(
@@ -1101,7 +1098,11 @@ class RuntimeLifecycleRepository:
         observed_at: datetime | None = None,
     ) -> None:
         """Propagate a journal-proven required child failure without a fake effect."""
-        from .runtime_activation import _active_child_rows, _require_program_plan_run, _traversal_plan_step
+        from .runtime_activation import (
+            active_child_rows,
+            require_program_plan_run,
+            traversal_plan_step,
+        )
         from .plans import PlanRepository
         from .programs import ProgramRepository
 
@@ -1113,8 +1114,8 @@ class RuntimeLifecycleRepository:
         program = ProgramRepository(self.connection, tables).get(
             self.scope, str(parent["program_id"]), expected_digest=str(parent["program_digest"]))
         plan = PlanRepository(self.connection, tables).get(self.scope, str(parent["plan_digest"]))
-        _require_program_plan_run(program, plan, parent)
-        _traversal_plan_step(plan, source_step_id)
+        require_program_plan_run(program, plan, parent)
+        traversal_plan_step(plan, source_step_id)
         events = runtime_table("runtime_events")
 
         def replay(run: Mapping[str, Any]) -> tuple[ReplayEvent, ...]:
@@ -1148,7 +1149,7 @@ class RuntimeLifecycleRepository:
             validate_authorization_row(dict(authority))
         elif cause.authority_digest != child["submission_authority_digest"]:
             raise ExactBindingConflict("nested child failure authority drift")
-        relations = _active_child_rows(self.connection, project_key=runtime_scope_key(self.scope),
+        relations = active_child_rows(self.connection, project_key=runtime_scope_key(self.scope),
                                       parent_run_id=parent_run_id, source_step_id=source_step_id)
         matches = tuple(row["event_metadata_json"] for row in relations
                         if row["event_metadata_json"].get("child_run_id") == child_run_id)
@@ -1571,7 +1572,7 @@ class RuntimeLifecycleRepository:
                 return True
         return False
 
-    def _lock_run(self, run_id: str) -> Mapping[str, Any]:
+    def _lock_run(self, run_id: str) -> RowMapping:
         table = runtime_table("runtime_runs")
         row = one_mapping(
             self.connection.execute(
@@ -1587,7 +1588,7 @@ class RuntimeLifecycleRepository:
             raise RecordNotFound(f"runtime run not found: {run_id}")
         return row
 
-    def _lock_claimed(self, claimed: ClaimedLifecycle) -> tuple[Mapping[str, Any], ...]:
+    def _lock_claimed(self, claimed: ClaimedLifecycle) -> tuple[RowMapping, ...]:
         project_key = runtime_scope_key(self.scope)
         if claimed.claim.lease_expires_at <= utc_now():
             raise ExactBindingConflict("claim lease has expired")
@@ -1601,7 +1602,7 @@ class RuntimeLifecycleRepository:
                 ("reservation_id", claimed.reservation_id),
             ),
         )
-        rows: list[Mapping[str, Any]] = [run]
+        rows: list[RowMapping] = [run]
         for name, *pairs in lookups:
             table = runtime_table(name)
             statement = select(table).where(table.c.project_key == project_key)
@@ -1820,7 +1821,7 @@ class RuntimeLifecycleRepository:
     def _append_event_and_run(
         self,
         run_id: str,
-        run: Mapping[str, Any],
+        run: RowMapping,
         *,
         target_run_state: str,
         event_type: str,
@@ -1966,10 +1967,10 @@ def assignment_values(
 
 def _require_claim_rows(
     claimed: ClaimedLifecycle,
-    step: Mapping[str, Any],
-    work: Mapping[str, Any],
-    attempt: Mapping[str, Any],
-    reservation: Mapping[str, Any],
+    step: RowMapping,
+    work: RowMapping,
+    attempt: RowMapping,
+    reservation: RowMapping,
     *,
     started: bool,
 ) -> None:

@@ -33,7 +33,8 @@ graph_view_profile = ProfileSpec(
 
 def make_graph_view_spec(*, group_by: str | None = None) -> ViewSpec:
     """Build a pure projection; `group_by` reads a node property only."""
-    if group_by is not None and (not isinstance(group_by, str) or not group_by.strip()):
+    group_value = _runtime_value(group_by)
+    if group_value is not None and (not isinstance(group_value, str) or not group_value.strip()):
         # kit:boundary owner=information_topology.modules.graph_view.make_graph_view_spec.group_by class=PROGRAMMER_DEFECT failure_family=none witness=test:test_graph_adapter_preserves_relation_origin_and_endpoints_and_ignores_ui_state
         raise ValueError("group_by must be a non-empty property name")
 
@@ -55,3 +56,7 @@ def make_graph_view_spec(*, group_by: str | None = None) -> ViewSpec:
 
     return ViewSpec(GRAPH_VIEW_DEFINITION_ID, GRAPH_VIEW_DEFINITION_VERSION,
                     GRAPH_VIEW_PROFILE_ID, GRAPH_VIEW_PROFILE_VERSION, project)
+
+
+def _runtime_value(value: object) -> object:
+    return value

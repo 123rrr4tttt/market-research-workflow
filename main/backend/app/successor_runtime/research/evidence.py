@@ -6,7 +6,12 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import ClassVar
 
-from .codec import _failure, _raise_failure, finalize_digest
+from .codec import (
+    finalize_digest,
+    raise_research_failure as _raise_failure,
+    research_failure as _failure,
+    runtime_value,
+)
 
 __all__ = ["QUALIFICATION_DIRECTIONS", "EvidenceQualification", "Validity"]
 
@@ -68,7 +73,8 @@ class EvidenceQualification:
     DUPLICATE_RESEARCH_OBJECT_FORBIDDEN: ClassVar[bool] = True
 
     def __post_init__(self) -> None:
-        if not isinstance(self.material_ref, str) or not self.material_ref.strip():
+        material_ref = runtime_value(self.material_ref)
+        if not isinstance(material_ref, str) or not material_ref.strip():
             _raise_failure(
                 _failure(
                     "MATERIAL_REF_INVALID",
@@ -78,8 +84,9 @@ class EvidenceQualification:
                 ),
                 ValueError,
             )
-        if self.claim_ref is not None and (
-            not isinstance(self.claim_ref, str) or not self.claim_ref.strip()
+        claim_ref = runtime_value(self.claim_ref)
+        if claim_ref is not None and (
+            not isinstance(claim_ref, str) or not claim_ref.strip()
         ):
             _raise_failure(
                 _failure(
@@ -90,7 +97,7 @@ class EvidenceQualification:
                 ),
                 ValueError,
             )
-        if not isinstance(self.validity, Validity):
+        if not isinstance(runtime_value(self.validity), Validity):
             _raise_failure(
                 _failure(
                     "VALIDITY_INVALID",

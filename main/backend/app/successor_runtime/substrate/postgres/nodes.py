@@ -2,14 +2,12 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any
 
 from sqlalchemy import select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
-from sqlalchemy.engine import Connection
+from sqlalchemy.engine import Connection, RowMapping
 
 from .runtime_journal import (
     ExactBindingConflict,
@@ -35,7 +33,7 @@ class DeploymentCatalogRepository:
     def __init__(self, connection: Connection) -> None:
         self.connection = connection
 
-    def put_exact(self, catalog: DeploymentCatalog) -> Mapping[str, Any]:
+    def put_exact(self, catalog: DeploymentCatalog) -> RowMapping:
         table = runtime_table("runtime_deployment_catalogs")
         values = {name: getattr(catalog, name) for name in catalog.__dataclass_fields__}
         values["created_at"] = utc_now()
@@ -45,7 +43,7 @@ class DeploymentCatalogRepository:
             raise ExactBindingConflict("deployment catalog digest is bound to different metadata")
         return row
 
-    def load(self, catalog_digest: str) -> Mapping[str, Any]:
+    def load(self, catalog_digest: str) -> RowMapping:
         table = runtime_table("runtime_deployment_catalogs")
         row = one_mapping(self.connection.execute(select(table).where(table.c.catalog_digest == catalog_digest)))
         if row is None:
@@ -57,7 +55,7 @@ class RuntimeNodeRepository:
     def __init__(self, connection: Connection) -> None:
         self.connection = connection
 
-    def register(self, *, node_id: str, node_profile_digest: str, deployment_catalog_digest: str, runtime_protocol_version: str, started_at: datetime) -> Mapping[str, Any]:
+    def register(self, *, node_id: str, node_profile_digest: str, deployment_catalog_digest: str, runtime_protocol_version: str, started_at: datetime) -> RowMapping:
         table = runtime_table("runtime_nodes")
         values = dict(node_id=node_id, node_profile_digest=node_profile_digest, deployment_catalog_digest=deployment_catalog_digest,
                       runtime_protocol_version=runtime_protocol_version, state="ACTIVE", heartbeat_at=started_at, started_at=started_at,
@@ -69,14 +67,14 @@ class RuntimeNodeRepository:
             raise ExactBindingConflict("node identity cannot be rebound to another deployment")
         return row
 
-    def load(self, node_id: str) -> Mapping[str, Any]:
+    def load(self, node_id: str) -> RowMapping:
         table = runtime_table("runtime_nodes")
         row = one_mapping(self.connection.execute(select(table).where(table.c.node_id == node_id)))
         if row is None:
             raise RecordNotFound(f"runtime node not found: {node_id}")
         return row
 
-    def heartbeat(self, node_id: str, *, expected_revision: int, heartbeat_at: datetime, current_claim_count: int) -> Mapping[str, Any]:
+    def heartbeat(self, node_id: str, *, expected_revision: int, heartbeat_at: datetime, current_claim_count: int) -> RowMapping:
         table = runtime_table("runtime_nodes")
         result = self.connection.execute(update(table).where(table.c.node_id == node_id, table.c.revision == expected_revision).values(
             heartbeat_at=heartbeat_at, current_claim_count=current_claim_count, revision=expected_revision + 1, updated_at=utc_now()))
@@ -84,7 +82,7 @@ class RuntimeNodeRepository:
             raise StaleRevisionError("runtime node heartbeat CAS failed")
         return self.load(node_id)
 
-    def request_drain(self, node_id: str, *, expected_revision: int, requested_at: datetime) -> Mapping[str, Any]:
+    def request_drain(self, node_id: str, *, expected_revision: int, requested_at: datetime) -> RowMapping:
         table = runtime_table("runtime_nodes")
         result = self.connection.execute(update(table).where(table.c.node_id == node_id, table.c.revision == expected_revision).values(
             state="DRAINING", drain_requested_at=requested_at, revision=expected_revision + 1, updated_at=utc_now()))

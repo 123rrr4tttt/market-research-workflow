@@ -1,19 +1,25 @@
 """智能搜索模块：自动增量搜索"""
 from __future__ import annotations
 
-from datetime import datetime, timedelta
-from typing import List, Optional
+from datetime import datetime
 import logging
 
 from .candidate_contracts import CandidateBundle, CandidateSearchRequest
 from .candidate_search import discover_candidates
 from .history import get_last_search_time, update_search_time
+from .web import SearchResult
 
 
 logger = logging.getLogger(__name__)
 
 
-def smart_search(topic: str, days_back: int = 30, max_results: int = 10, language: str = "en", provider: str = "auto") -> List[dict]:
+def smart_search(
+    topic: str,
+    days_back: int = 30,
+    max_results: int = 10,
+    language: str = "en",
+    provider: str = "auto",
+) -> list[SearchResult]:
     """智能搜索：自动判断是否增量，只返回新信息
     
     Args:

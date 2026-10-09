@@ -2,14 +2,13 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
-from sqlalchemy.engine import Connection
+from sqlalchemy.engine import Connection, RowMapping
 
 from app.successor_runtime.capabilities.first_specimen_delivery_gate import (
     DeliveryApprovalSnapshot,
@@ -70,7 +69,7 @@ class ApprovalRepository:
         self.connection = connection
         self.scope = scope
 
-    def decide(self, binding: ApprovalBinding) -> Mapping[str, Any]:
+    def decide(self, binding: ApprovalBinding) -> RowMapping:
         if binding.actor_id != self.scope.actor_id:
             raise ExactBindingConflict("approval actor does not match RuntimeScope actor")
         table = runtime_table("runtime_approvals")
@@ -92,7 +91,7 @@ class ApprovalRepository:
                 )
         return current
 
-    def load(self, approval_id: str, *, for_update: bool = False) -> Mapping[str, Any]:
+    def load(self, approval_id: str, *, for_update: bool = False) -> RowMapping:
         table = runtime_table("runtime_approvals")
         statement = select(table).where(
             table.c.project_key == runtime_scope_key(self.scope),
@@ -114,7 +113,7 @@ class ApprovalRepository:
         payload_digest: str,
         authority_digest: str,
         now: datetime,
-    ) -> Mapping[str, Any]:
+    ) -> RowMapping:
         row = self.load(approval_id)
         expected = {
             "run_id": run_id,

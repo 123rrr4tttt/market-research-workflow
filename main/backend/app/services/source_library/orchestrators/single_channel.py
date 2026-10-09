@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from contextlib import AbstractContextManager, nullcontext
+from collections.abc import Mapping
 from typing import Callable, NoReturn
 
 from functorial_kit import Failure
@@ -51,7 +52,7 @@ def run_single_channel_orchestrator(
     item: dict[str, object],
     request: ExecutionRequest,
     channel_map: dict[str, dict[str, object]],
-    deep_merge: Callable[[dict[str, object], dict[str, object]], dict[str, object]],
+    deep_merge: Callable[[Mapping[object, object], Mapping[object, object]], dict[object, object]],
     bind_project: Callable[[str], AbstractContextManager[object]],
     run_channel: SourceChannelExecutor,
 ) -> ExecutionPayload:

@@ -15,7 +15,7 @@ for path in (str(BACKEND_ROOT), str(REPOSITORY_ROOT / "src")):
         sys.path.insert(0, path)
 
 import pytest
-from dataclasses import FrozenInstanceError
+from dataclasses import FrozenInstanceError, replace
 
 from app.production_contract import (
     APPROVED_DECISION,
@@ -313,3 +313,10 @@ def test_failure_family_is_closed_and_decisions_are_immutable() -> None:
     assert all(isinstance(code, str) for code in valid_code)
     with pytest.raises(FrozenInstanceError):
         decision.authority = True  # type: ignore[misc]
+
+
+def test_policy_config_rejects_non_mapping_catalogs_at_runtime() -> None:
+    config = _config()
+
+    with pytest.raises(TypeError, match="operations must be a Mapping"):
+        replace(config, operations=[("document.write", config.operations["document.write"])])

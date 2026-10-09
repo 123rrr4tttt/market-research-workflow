@@ -7,22 +7,96 @@ to the current session/project; it does not silently install a global tool.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
-from hashlib import sha256
 import json
 import re
-from typing import Annotated, Any
+from collections.abc import Mapping
+from hashlib import sha256
+from typing import Annotated, NotRequired, TypedDict, TypeGuard
 
+from app.contracts.json import JSONObject, JSONValue
+from app.services.agent_sessions.service import AgentSessionService
+from app.services.agent_sessions.store import AgentArtifactPayload
 from functorial_kit import Failure
-from mrw_functorial_kit.core.agent_service_semantics import agent_runtime_failures
 
+from mrw_functorial_kit.core.agent_service_semantics import agent_runtime_failures
 
 CONTRACT_VERSION = "agent_macro.registration_package.v1"
 _IDENTITY = re.compile(r"^[A-Za-z][A-Za-z0-9_.:-]{0,127}$")
 _VERSION = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$")
 
 
-def _canonical(value: Any) -> bytes:
+def _is_object_mapping(value: object) -> TypeGuard[Mapping[object, object]]:
+    return isinstance(value, Mapping)
+
+
+def _is_string_mapping(value: object) -> TypeGuard[Mapping[str, object]]:
+    return _is_object_mapping(value) and all(isinstance(key, str) for key in value)
+
+
+def _is_object_sequence(value: object) -> TypeGuard[list[object]]:
+    return isinstance(value, list)
+
+
+def _is_object_tuple(value: object) -> TypeGuard[tuple[object, ...]]:
+    return isinstance(value, tuple)
+
+
+class RegistrationSaveResult(TypedDict):
+    package: JSONObject
+    artifact: JSONObject
+    project_artifact: JSONObject
+    activation: JSONObject
+
+
+class RegistrationReadResult(TypedDict):
+    package: JSONObject
+    artifact: JSONObject
+    activation: JSONObject
+    legacy: NotRequired[bool]
+    runnable: NotRequired[bool]
+
+
+class RegistrationActivateResult(TypedDict):
+    package: JSONObject
+    artifact: JSONObject
+    activation: JSONObject
+    already_activated: bool
+
+
+def _json_value(value: object, *, path: str = "$") -> JSONValue | Failure:
+    if value is None or isinstance(value, str | bool | int | float):
+        return value
+    if _is_object_sequence(value) or _is_object_tuple(value):
+        converted_list: list[JSONValue] = []
+        for index, item in enumerate(value):
+            converted = _json_value(item, path=f"{path}[{index}]")
+            if isinstance(converted, Failure):
+                return converted
+            converted_list.append(converted)
+        return converted_list
+    if _is_string_mapping(value):
+        converted_object: JSONObject = {}
+        for key, item in value.items():
+            converted = _json_value(item, path=f"{path}.{key}")
+            if isinstance(converted, Failure):
+                return converted
+            converted_object[key] = converted
+        return converted_object
+    return _failure(
+        "macro_registration_invalid",
+        "value is not JSON-compatible",
+        path=path,
+    )
+
+
+def _json_object(value: object) -> JSONObject | None:
+    converted = _json_value(value)
+    if isinstance(converted, Failure):
+        return None
+    return converted if isinstance(converted, dict) else None
+
+
+def _canonical(value: object) -> bytes:
     return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False).encode()
 
 
@@ -35,27 +109,13 @@ def _failure(code: str, message: str, *, path: str = "$") -> Failure:
     return agent_runtime_failures.fail(mapped, message, {"path": path, "contract_version": CONTRACT_VERSION, "registration_code": code})
 
 
-def _project_versions(service: Any, *, session_id: str, project_key: str, package_id: str) -> list[str]:
+def _project_versions(
+    service: AgentSessionService, *, session_id: str, project_key: str, package_id: str
+) -> list[str]:
     """List exact project-artifact versions without selecting one by time."""
 
     prefix = f"macro-registration/{package_id}@"
-    list_project = getattr(service.store, "list_project_artifacts", None)
-    if callable(list_project):
-        rows = list_project(project_key=project_key)
-        if isinstance(rows, Failure):
-            return []
-        return sorted({
-            str(row.get("name", ""))[len(prefix):-len(".json")]
-            for row in rows
-            if str(row.get("artifact_type") or "") == "agent_macro.registration_package"
-            and str(row.get("name") or "").startswith(prefix)
-            and str(row.get("name") or "").endswith(".json")
-        })
-
-    # The production store has no project-artifact listing method yet. Exact
-    # version readback remains authoritative; this bounded session view only
-    # helps a caller choose an explicit version and never selects one.
-    rows = service.store.list_artifacts(session_id)
+    rows = service.store.list_project_artifacts(project_key=project_key)
     if isinstance(rows, Failure):
         return []
     return sorted({
@@ -68,46 +128,61 @@ def _project_versions(service: Any, *, session_id: str, project_key: str, packag
 
 
 def _read_exact_artifact(
-    service: Any, *, session_id: str, project_key: str, package_id: str, package_version: str,
-) -> dict[str, Any] | None | Failure:
+    service: AgentSessionService,
+    *,
+    session_id: str,
+    project_key: str,
+    package_id: str,
+    package_version: str,
+) -> JSONObject | None | Failure:
     name = registration_artifact_name({
         "package_id": package_id,
         "package_version": package_version,
     })
-    row = service.store.get_project_artifact(project_key=project_key, name=name)
-    if row is None or isinstance(row, Failure):
+    row_value = service.store.get_project_artifact(project_key=project_key, name=name)
+    if row_value is None or isinstance(row_value, Failure):
         # Pre-project-authority v1 artifacts remain readable from their
         # originating session when an exact version is requested.
-        rows = service.store.list_artifacts(session_id)
-        if isinstance(rows, Failure):
-            return row if isinstance(row, Failure) else rows
-        matches = [item for item in rows if item.get("name") == name]
+        rows_value = service.store.list_artifacts(session_id)
+        if isinstance(rows_value, Failure):
+            return rows_value
+        rows = rows_value
+        matches = [item for item in rows if _is_string_mapping(item) and item.get("name") == name]
         if not matches:
             return None
-        row = sorted(matches, key=lambda item: str(item.get("updated_at") or ""))[-1]
-    if row is None:
+        row_value = sorted(matches, key=lambda item: str(item.get("updated_at") or ""))[-1]
+    if not _is_string_mapping(row_value):
+        return _failure("macro_registration_readback", "registration artifact is not an object")
+    if str(row_value.get("artifact_type") or "") != "agent_macro.registration_package":
         return None
-    if str(row.get("artifact_type") or "") != "agent_macro.registration_package":
-        return None
-    return row
+    converted = _json_object(row_value)
+    return converted if converted is not None else _failure(
+        "macro_registration_readback", "registration artifact is not JSON"
+    )
 
 
-def _text(value: Any, path: str) -> str | Failure:
+def _text(value: object, path: str) -> str | Failure:
     result = str(value or "").strip()
     return result if result else _failure("macro_registration_invalid", "non-empty value required", path=path)
 
 
-def _refs(value: Any, path: str) -> tuple[str, ...] | Failure:
-    if not isinstance(value, (list, tuple)) or any(not isinstance(item, str) or not item.strip() for item in value):
+def _refs(value: object, path: str) -> tuple[str, ...] | Failure:
+    if _is_object_sequence(value):
+        raw_items: list[object] | tuple[object, ...] = value
+    elif _is_object_tuple(value):
+        raw_items = value
+    else:
         return _failure("macro_registration_invalid", "expected a non-empty string array", path=path)
-    result = tuple(item.strip() for item in value)
+    if any(not isinstance(item, str) or not item.strip() for item in raw_items):
+        return _failure("macro_registration_invalid", "expected a non-empty string array", path=path)
+    result = tuple(item.strip() for item in raw_items if isinstance(item, str))
     if len(result) != len(set(result)):
         return _failure("macro_registration_invalid", "references must be unique", path=path)
     return result
 
 
-def validate_registration_package(payload: Mapping[str, Any], *, project_key: str) -> dict[str, Any] | Failure:
-    if not isinstance(payload, Mapping):
+def validate_registration_package(payload: object, *, project_key: str) -> JSONObject | Failure:
+    if not _is_string_mapping(payload):
         return _failure("macro_registration_invalid", "package must be an object")
     contract = str(payload.get("contract_version") or CONTRACT_VERSION)
     if contract != CONTRACT_VERSION:
@@ -115,20 +190,32 @@ def validate_registration_package(payload: Mapping[str, Any], *, project_key: st
     package_id = _text(payload.get("package_id"), "$.package_id")
     version = _text(payload.get("package_version"), "$.package_version")
     owner = _text(payload.get("owner"), "$.owner")
-    if isinstance(package_id, Failure) or isinstance(version, Failure) or isinstance(owner, Failure):
-        return package_id if isinstance(package_id, Failure) else version if isinstance(version, Failure) else owner
+    if isinstance(package_id, Failure):
+        return package_id
+    if isinstance(version, Failure):
+        return version
+    if isinstance(owner, Failure):
+        return owner
     if not _IDENTITY.fullmatch(package_id) or not _VERSION.fullmatch(version):
         return _failure("macro_registration_invalid", "package identity contains unsupported characters", path="$.package_id")
     declared_project = str(payload.get("project_key") or project_key).strip()
     if declared_project != project_key:
         return _failure("macro_registration_scope", "package project does not match the trusted request project", path="$.project_key")
-    cell = payload.get("cell")
-    if not isinstance(cell, Mapping):
+    cell_value = payload.get("cell")
+    if not _is_string_mapping(cell_value):
         return _failure("macro_registration_invalid", "cell declaration is required", path="$.cell")
-    for key in ("cell_id", "core_binding_ref", "core_mode"):
-        value = _text(cell.get(key), f"$.cell.{key}")
-        if isinstance(value, Failure):
-            return value
+    cell = _json_object(cell_value)
+    if cell is None:
+        return _failure("macro_registration_invalid", "cell declaration is not JSON", path="$.cell")
+    cell_id = _text(cell.get("cell_id"), "$.cell.cell_id")
+    core_binding_ref = _text(cell.get("core_binding_ref"), "$.cell.core_binding_ref")
+    core_mode_value = _text(cell.get("core_mode"), "$.cell.core_mode")
+    if isinstance(cell_id, Failure):
+        return cell_id
+    if isinstance(core_binding_ref, Failure):
+        return core_binding_ref
+    if isinstance(core_mode_value, Failure):
+        return core_mode_value
     core_mode = str(cell.get("core_mode") or "")
     if core_mode not in {"native-agent", "model-only"}:
         return _failure("macro_registration_invalid", "unsupported core mode", path="$.cell.core_mode")
@@ -139,15 +226,19 @@ def validate_registration_package(payload: Mapping[str, Any], *, project_key: st
             return value
         arrays[key] = value
     canonical_arrays = {key: list(refs) for key, refs in arrays.items()}
-    skills = payload.get("skill_contents", [])
-    if not isinstance(skills, list):
+    skills_value = payload.get("skill_contents", [])
+    if not _is_object_sequence(skills_value):
         return _failure("macro_registration_invalid", "skill_contents must be an array", path="$.skill_contents")
-    normalized_skills: list[dict[str, Any]] = []
+    skills = skills_value
+    normalized_skills: list[JSONObject] = []
     seen_skills: set[str] = set()
     for index, raw in enumerate(skills):
-        if not isinstance(raw, Mapping):
+        if not _is_string_mapping(raw):
             return _failure("macro_registration_invalid", "skill content must be an object", path=f"$.skill_contents[{index}]")
-        item = dict(raw)
+        converted_item = _json_object(raw)
+        if converted_item is None:
+            return _failure("macro_registration_invalid", "skill content is not JSON", path=f"$.skill_contents[{index}]")
+        item = converted_item
         skill_id = _text(item.get("skill_id"), f"$.skill_contents[{index}].skill_id")
         if isinstance(skill_id, Failure):
             return skill_id
@@ -167,15 +258,19 @@ def validate_registration_package(payload: Mapping[str, Any], *, project_key: st
         item["skill_id"] = skill_id
         item["tool_refs"] = list(tool_refs)
         normalized_skills.append(item)
-    relations = payload.get("relations", [])
-    if not isinstance(relations, list):
+    relations_value = payload.get("relations", [])
+    if not _is_object_sequence(relations_value):
         return _failure("macro_registration_invalid", "relations must be an array", path="$.relations")
-    normalized_relations: list[dict[str, Any]] = []
+    relations = relations_value
+    normalized_relations: list[JSONObject] = []
     seen_relations: set[tuple[str, str]] = set()
     for index, raw in enumerate(relations):
-        if not isinstance(raw, Mapping):
+        if not _is_string_mapping(raw):
             return _failure("macro_registration_invalid", "relation must be an object", path=f"$.relations[{index}]")
-        item = dict(raw)
+        converted_item = _json_object(raw)
+        if converted_item is None:
+            return _failure("macro_registration_invalid", "relation is not JSON", path=f"$.relations[{index}]")
+        item = converted_item
         values: dict[str, str] = {}
         for key in ("relation_id", "source_ref", "target_ref", "observation_boundary", "implementation_ref", "authority_ref"):
             value = _text(item.get(key), f"$.relations[{index}].{key}")
@@ -191,20 +286,22 @@ def validate_registration_package(payload: Mapping[str, Any], *, project_key: st
         seen_relations.add(key)
         failures = _refs(item.get("failure_refs", []), f"$.relations[{index}].failure_refs")
         readbacks = _refs(item.get("readback_refs", []), f"$.relations[{index}].readback_refs")
-        if isinstance(failures, Failure) or isinstance(readbacks, Failure):
-            return failures if isinstance(failures, Failure) else readbacks
+        if isinstance(failures, Failure):
+            return failures
+        if isinstance(readbacks, Failure):
+            return readbacks
         normalized_relations.append({**values, "realization": realization, "failure_refs": list(failures), "readback_refs": list(readbacks)})
-    normalized = {
+    normalized: JSONObject = {
         "contract_version": CONTRACT_VERSION,
         "package_id": package_id,
         "package_version": version,
         "project_key": project_key,
         "owner": owner,
         "cell": {
-            **dict(cell),
+            **cell,
             **canonical_arrays,
-            "cell_id": str(cell["cell_id"]).strip(),
-            "core_binding_ref": str(cell["core_binding_ref"]).strip(),
+            "cell_id": cell_id,
+            "core_binding_ref": core_binding_ref,
             "core_mode": core_mode,
         },
         "skill_contents": normalized_skills,
@@ -215,19 +312,34 @@ def validate_registration_package(payload: Mapping[str, Any], *, project_key: st
     return normalized
 
 
-def build_registration_package(payload: Mapping[str, Any], *, project_key: str) -> Annotated[
-    dict[str, Any] | Failure,
+def build_registration_package(payload: object, *, project_key: str) -> Annotated[
+    JSONObject | Failure,
     "kit:non-authoritative derived_as=registration_candidate fact_source=payload+trusted_project_key "
     "witness=test:test_candidate_package_is_canonical_and_not_active",
 ]:
     return validate_registration_package(payload, project_key=project_key)
 
 
-def registration_artifact_name(package: Mapping[str, Any]) -> str:
+def registration_artifact_name(package: Mapping[str, object]) -> str:
     return f"macro-registration/{package['package_id']}@{package['package_version']}.json"
 
 
-def save_registration_package(service: Any, *, session_id: str, project_key: str, payload: Mapping[str, Any]) -> dict[str, Any] | Failure:
+def _stored_json(value: object) -> JSONObject | Failure:
+    if isinstance(value, Failure):
+        return value
+    converted = _json_object(value)
+    return converted if converted is not None else _failure(
+        "macro_registration_readback", "registration artifact result is not JSON"
+    )
+
+
+def save_registration_package(
+    service: AgentSessionService,
+    *,
+    session_id: str,
+    project_key: str,
+    payload: object,
+) -> RegistrationSaveResult | Failure:
     package = build_registration_package(payload, project_key=project_key)
     if isinstance(package, Failure):
         return package
@@ -235,14 +347,17 @@ def save_registration_package(service: Any, *, session_id: str, project_key: str
         service,
         project_key=project_key,
         session_id=session_id,
-        package_id=package["package_id"],
-        package_version=package["package_version"],
+        package_id=str(package["package_id"]),
+        package_version=str(package["package_version"]),
     )
     if isinstance(existing, Failure):
         return existing
     if existing is not None:
-        old_digest = str((existing.get("content_json") or {}).get("content_digest") or "")
-        old_activation = dict((existing.get("content_json") or {}).get("activation") or {})
+        old_package_value = existing.get("content_json")
+        old_package = _json_object(old_package_value) or {}
+        old_digest = str(old_package.get("content_digest") or "")
+        old_activation_value = old_package.get("activation")
+        old_activation = _json_object(old_activation_value) or {}
         if old_activation.get("status") == "activated":
             if old_digest != package["content_digest"]:
                 return _failure(
@@ -253,7 +368,7 @@ def save_registration_package(service: Any, *, session_id: str, project_key: str
             # Re-saving identical content is idempotent and must not demote an
             # activated package back to candidate.
             package["activation"] = old_activation
-    artifact_payload = {
+    artifact_payload: AgentArtifactPayload = {
         "session_id": session_id,
         "name": registration_artifact_name(package),
         "artifact_type": "agent_macro.registration_package",
@@ -262,20 +377,36 @@ def save_registration_package(service: Any, *, session_id: str, project_key: str
         "content_json": package,
         "metadata": {"project_key": project_key, "content_digest": package["content_digest"], "activation_status": "candidate"},
     }
-    result = service.store.upsert_artifact(artifact_payload)
+    result_value = service.store.upsert_artifact(artifact_payload)
+    result = _stored_json(result_value)
     if isinstance(result, Failure):
         return result
-    project_artifact = service.store.upsert_project_artifact({
+    project_artifact_payload: AgentArtifactPayload = {
         **artifact_payload,
         "project_key": project_key,
         "metadata": {**artifact_payload["metadata"], "project_scope": True},
-    })
+    }
+    project_artifact_value = service.store.upsert_project_artifact(project_artifact_payload)
+    project_artifact = _stored_json(project_artifact_value)
     if isinstance(project_artifact, Failure):
         return project_artifact
-    return {"package": package, "artifact": result, "project_artifact": project_artifact, "activation": package["activation"]}
+    saved: RegistrationSaveResult = {
+        "package": package,
+        "artifact": result,
+        "project_artifact": project_artifact,
+        "activation": _json_object(package.get("activation")) or {},
+    }
+    return saved
 
 
-def read_registration_package(service: Any, *, session_id: str, project_key: str, package_id: str, package_version: str | None = None) -> dict[str, Any] | Failure:
+def read_registration_package(
+    service: AgentSessionService,
+    *,
+    session_id: str,
+    project_key: str,
+    package_id: str,
+    package_version: str | None = None,
+) -> RegistrationReadResult | Failure:
     if not str(package_version or "").strip():
         versions = _project_versions(service, session_id=session_id, project_key=project_key, package_id=package_id)
         version_failure = _failure(
@@ -283,7 +414,8 @@ def read_registration_package(service: Any, *, session_id: str, project_key: str
             "registration package version is required",
             path="$.package_version",
         )
-        version_failure.context["available_versions"] = versions
+        if isinstance(version_failure.context, dict):
+            version_failure.context["available_versions"] = versions
         return version_failure
     row = _read_exact_artifact(
         service,
@@ -296,8 +428,12 @@ def read_registration_package(service: Any, *, session_id: str, project_key: str
         return row
     if row is None:
         return _failure("macro_registration_not_found", "registration package was not found", path="$.package_id")
-    package = dict(row.get("content_json") or {})
-    persisted_activation = dict(package.get("activation") or {})
+    package_value = row.get("content_json") or {}
+    package = _json_object(package_value)
+    if package is None:
+        return _failure("macro_registration_readback", "registration package is not JSON", path="$")
+    persisted_activation_value = package.get("activation") or {}
+    persisted_activation = _json_object(persisted_activation_value) or {}
     digest = package.pop("content_digest", None)
     if digest is None:
         return {
@@ -312,21 +448,26 @@ def read_registration_package(service: Any, *, session_id: str, project_key: str
         return checked
     if checked.get("content_digest") != digest:
         return _failure("macro_registration_readback", "registration package digest mismatch", path="$.content_digest")
-    checked["content_digest"] = digest
+    checked["content_digest"] = str(digest)
     if persisted_activation:
         checked["activation"] = persisted_activation
-    return {"package": checked, "artifact": row, "activation": checked.get("activation")}
+    readback: RegistrationReadResult = {
+        "package": checked,
+        "artifact": row,
+        "activation": _json_object(checked.get("activation")) or {},
+    }
+    return readback
 
 
 def activate_registration_package(
-    service: Any,
+    service: AgentSessionService,
     *,
     session_id: str,
     project_key: str,
     package_id: str,
     package_version: str,
-    host_authorization: Any,
-) -> dict[str, Any] | Failure:
+    host_authorization: object,
+) -> RegistrationActivateResult | Failure:
     """Activate a candidate using verified trusted-host authorization.
 
     Model-authored consent is not an authority. The registry obtains and checks
@@ -343,7 +484,10 @@ def activate_registration_package(
         return result
     if result.get("legacy") or result.get("runnable") is False:
         return _failure("macro_registration_legacy_unverified", "legacy package has no verifiable digest", path="$.content_digest")
-    package = dict(result["package"])
+    package_value = result["package"]
+    package = _json_object(package_value)
+    if package is None:
+        return _failure("macro_registration_readback", "registration package is not JSON", path="$")
     if str(package.get("project_key") or "") != project_key:
         return _failure("macro_registration_scope", "package project does not match the trusted request project", path="$.project_key")
     context = host_authorization.context
@@ -358,7 +502,8 @@ def activate_registration_package(
         or not (automatic or confirmed)
     ):
         return _failure("macro_registration_host_authorization_mismatch", "trusted host authorization does not bind this activation", path="$.host_authorization")
-    activation = dict(package.get("activation") or {})
+    activation_value = package.get("activation") or {}
+    activation = _json_object(activation_value) or {}
     status = str(activation.get("status") or "candidate")
     if status == "activated":
         if str(activation.get("content_digest") or "") != package_digest:
@@ -366,7 +511,7 @@ def activate_registration_package(
         return {"package": package, "artifact": result["artifact"], "activation": activation, "already_activated": True}
     if status != "candidate":
         return _failure("macro_registration_activation_state", "only candidate packages can be activated", path="$.activation.status")
-    activation = {
+    activation: JSONObject = {
         "status": "activated",
         "authority": "host_authorization",
         "authorization_source": "host_policy" if automatic else "human_confirmation",
@@ -378,7 +523,7 @@ def activate_registration_package(
         "content_digest": package_digest,
     }
     package["activation"] = activation
-    artifact_payload = {
+    artifact_payload: AgentArtifactPayload = {
         "session_id": session_id,
         "name": registration_artifact_name(package),
         "artifact_type": "agent_macro.registration_package",
@@ -394,11 +539,13 @@ def activate_registration_package(
             "activation_approval_id": activation["approval_id"],
         },
     }
-    artifact = service.store.upsert_project_artifact({
+    project_artifact_payload: AgentArtifactPayload = {
         **artifact_payload,
         "project_key": project_key,
         "metadata": {**artifact_payload["metadata"], "project_scope": True},
-    })
+    }
+    artifact_value = service.store.upsert_project_artifact(project_artifact_payload)
+    artifact = _stored_json(artifact_value)
     if isinstance(artifact, Failure):
         return artifact
     # Keep the originating conversation artifact in sync for replay; the

@@ -11,7 +11,7 @@ This module reuses `numeric.py` parsing capability and standardizes:
 from __future__ import annotations
 
 import re
-from typing import Any, Dict, Mapping, Tuple
+from typing import Any, Dict, Mapping, Tuple, TypeGuard
 
 from .numeric import CORE_SCOPE, normalize_numeric_with_meta
 
@@ -55,6 +55,14 @@ _CURRENCY_MAP: Dict[str, str] = {
 }
 
 
+def _is_string_mapping(value: object) -> TypeGuard[Mapping[str, object]]:
+    return isinstance(value, Mapping)
+
+
+def _is_object_mapping(value: object) -> TypeGuard[Mapping[object, object]]:
+    return isinstance(value, Mapping)
+
+
 def _to_text(value: Any) -> str:
     if value is None:
         return ""
@@ -69,7 +77,7 @@ def _map_error_code(meta_error: str | None) -> str:
     return _ERROR_MAP.get(meta_error, GENERAL_NUMERIC_PARSE_FAILED)
 
 
-def _detect_currency(raw_text: str, default_currency: str | None = None) -> str | None:
+def _detect_currency(raw_text: str, default_currency: object = None) -> object:
     if not raw_text:
         return default_currency
     m = _CURRENCY_PATTERN.search(raw_text)
@@ -95,7 +103,7 @@ def extract_numeric_general(
     value: Any,
     *,
     expect_percent: bool = False,
-    default_currency: str | None = None,
+    default_currency: object = None,
     scope: str = CORE_SCOPE,
 ) -> Dict[str, Any]:
     """Extract one numeric value with unified metadata and quality signal."""
@@ -125,9 +133,9 @@ def extract_numeric_general(
 
 
 def extract_numeric_fields(
-    payload: Mapping[str, Any],
+    payload: object,
     *,
-    field_rules: Mapping[str, Mapping[str, Any]],
+    field_rules: Mapping[str, object],
     scope: str = CORE_SCOPE,
 ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     """Extract multiple fields according to rules.
@@ -139,7 +147,8 @@ def extract_numeric_fields(
       "preserve_raw": bool,  # default True
     }
     """
-    normalized: Dict[str, Any] = dict(payload) if isinstance(payload, Mapping) else {}
+    payload_view: Mapping[str, object] = payload if _is_string_mapping(payload) else {}
+    normalized: dict[str, object] = dict(payload_view)
     fields_report: Dict[str, Any] = {}
     issues: list[str] = []
     total_score = 0.0
@@ -147,8 +156,8 @@ def extract_numeric_fields(
 
     for field, rule in field_rules.items():
         field_count += 1
-        rule_dict = dict(rule) if isinstance(rule, Mapping) else {}
-        raw_value = payload.get(field) if isinstance(payload, Mapping) else None
+        rule_dict: dict[object, object] = dict(rule) if _is_object_mapping(rule) else {}
+        raw_value = payload_view.get(field)
         result = extract_numeric_general(
             raw_value,
             expect_percent=bool(rule_dict.get("expect_percent", False)),

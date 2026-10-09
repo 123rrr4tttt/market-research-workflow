@@ -4,7 +4,14 @@ from sqlalchemy import select, or_
 from sqlalchemy.orm import Session
 
 from ....models.entities import GraphEdgeRecord, GraphNodeRecord
+from ..mapping import normalize_graph_json_object
 from ..models import Graph, GraphEdge, GraphNode
+
+
+def _row_id(value: object) -> int:
+    if isinstance(value, int):
+        return value
+    return int(str(value))
 
 
 class GraphNodeReader:
@@ -18,14 +25,16 @@ class GraphNodeReader:
         graph = Graph(schema_version="v1")
         nodes_by_row_id: dict[int, GraphNode] = {}
         for row in rows:
-            key = f"{row.node_type}:{row.canonical_id}"
+            node_type = str(row.node_type)
+            canonical_id = str(row.canonical_id)
+            key = f"{node_type}:{canonical_id}"
             node = GraphNode(
-                type=str(row.node_type),
-                id=str(row.canonical_id),
-                properties=dict(row.properties or {}),
+                type=node_type,
+                id=canonical_id,
+                properties=normalize_graph_json_object(row.properties),
             )
             graph.nodes[key] = node
-            nodes_by_row_id[int(row.id)] = node
+            nodes_by_row_id[_row_id(row.id)] = node
 
         if not nodes_by_row_id:
             return graph
@@ -37,8 +46,8 @@ class GraphNodeReader:
             )
         ).scalars().all()
         for edge_row in edge_rows:
-            from_node = nodes_by_row_id.get(int(edge_row.from_node_id))
-            to_node = nodes_by_row_id.get(int(edge_row.to_node_id))
+            from_node = nodes_by_row_id.get(_row_id(edge_row.from_node_id))
+            to_node = nodes_by_row_id.get(_row_id(edge_row.to_node_id))
             if from_node is None or to_node is None:
                 continue
             graph.edges.append(
@@ -46,7 +55,7 @@ class GraphNodeReader:
                     type=str(edge_row.edge_type),
                     from_node=from_node,
                     to_node=to_node,
-                    properties=dict(edge_row.properties or {}),
+                    properties=normalize_graph_json_object(edge_row.properties),
                 )
             )
         return graph

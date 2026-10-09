@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import hashlib
 from dataclasses import MISSING, fields as dataclass_fields
-from typing import Any, Protocol
+from typing import Any, Protocol, TypeVar
 
 from app.successor_runtime.language.algebra import ValueRef
 from app.successor_runtime.research.artifacts import DeliveryIntent
@@ -13,12 +13,13 @@ from app.successor_runtime.research.object_types import ObjectType
 
 from .checksum import content_digest
 from .codecs import PayloadCodec
-from .first_specimen import (
-    InternalExportInput,
-    _capability_failure,
-    _raise_capability_failure,
-    build_first_specimen_bundle,
+from .first_specimen import InternalExportInput, build_first_specimen_bundle
+from .failure import (
+    capability_failure as _capability_failure,
+    raise_capability_failure as _raise_capability_failure,
 )
+
+T = TypeVar("T")
 
 
 class TypedPayloadValuePort(Protocol):
@@ -51,7 +52,7 @@ def _payload(dto_cls: type, **fields: Any) -> Any:
     return dto_cls(**complete, payload_digest=content_digest(complete))
 
 
-def _payload_object_type(codec: PayloadCodec) -> ObjectType:
+def _payload_object_type(codec: PayloadCodec[T]) -> ObjectType:
     return ObjectType(
         type_id=codec.payload_type_id,
         schema_version=codec.codec_version,
@@ -102,7 +103,7 @@ def persist_internal_export_payload(
     exact_digest = hashlib.sha256(exact).hexdigest()
     object_type = _payload_object_type(codec)
     value_id = f"{intent.delivery_intent_id}:payload:delivery.internal_export"
-    provenance = {
+    provenance: dict[str, object] = {
         "submission_phase": "POST_ARTIFACT_APPROVAL",
         "run_id": run_id,
         "operation_id": "delivery.internal_export",

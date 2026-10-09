@@ -4,7 +4,7 @@ import base64
 import json
 import os
 from pathlib import Path
-from typing import Any
+from typing import Any, TypeGuard, cast
 
 import httpx
 from sqlalchemy import select
@@ -15,12 +15,22 @@ from ..crawlers.scrapyd_runtime import ensure_scrapyd_ready
 from ..projects import bind_project
 
 
-def _as_dict(value: Any) -> dict[str, Any]:
-    return dict(value) if isinstance(value, dict) else {}
+def _is_string_object(value: object) -> TypeGuard[dict[str, object]]:
+    return isinstance(value, dict) and all(
+        isinstance(key, str) for key in cast(dict[object, object], value)
+    )
 
 
-def _as_list(value: Any) -> list[Any]:
-    return list(value) if isinstance(value, list) else []
+def _is_object_list(value: object) -> TypeGuard[list[object]]:
+    return isinstance(value, list)
+
+
+def _as_dict(value: object) -> dict[str, object]:
+    return dict(value) if _is_string_object(value) else {}
+
+
+def _as_list(value: object) -> list[object]:
+    return list(value) if _is_object_list(value) else []
 
 
 def _merge_unique_strings(*parts: list[str]) -> list[str]:
@@ -101,9 +111,9 @@ def deploy_scrapy_project_version(
             files={"egg": ("project.egg", egg_bytes, "application/octet-stream")},
         )
         resp.raise_for_status()
-        body = resp.json()
+        body: object = resp.json()
 
-    if not isinstance(body, dict):
+    if not _is_string_object(body):
         raise ValueError("invalid scrapyd addversion response")
     status = str(body.get("status") or "unknown").strip().lower()
     if status not in {"ok", "queued"}:
@@ -137,8 +147,8 @@ def rollback_scrapy_project_version(
             data={"project": project_name, "version": version_name},
         )
         resp.raise_for_status()
-        body = resp.json()
-    if not isinstance(body, dict):
+        body: object = resp.json()
+    if not _is_string_object(body):
         raise ValueError("invalid scrapyd delversion response")
     status = str(body.get("status") or "unknown").strip().lower()
     if status not in {"ok", "queued"}:
@@ -167,7 +177,7 @@ def register_or_update_source_library_scrapy_binding(
     item_params_patch: dict[str, Any] | None = None,
     channel_extra_patch: dict[str, Any] | None = None,
     item_extra_patch: dict[str, Any] | None = None,
-    enabled: bool = True,
+    enabled: bool | None = True,
 ) -> dict[str, Any]:
     project_value = str(project_key or "").strip()
     channel_value = str(channel_key or "").strip()

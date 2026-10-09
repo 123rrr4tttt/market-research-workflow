@@ -6,12 +6,13 @@ from typing import Any
 
 import pytest
 from app.api import ingest as ingest_api
+from app.models.ingest_registry import IngestSubmissionRegistry
 from app.services.ingest.adapters import submission_registry
-from app.services.typed_knowledge.adapters import live_service
 from app.services.ingest.adapters.submission_registry import (
     MaterialIngestRegistryBackendUnavailableError,
     MaterialIngestRegistryConflictError,
 )
+from app.services.typed_knowledge.adapters import live_service
 from sqlalchemy.exc import IntegrityError, OperationalError
 
 pytestmark = pytest.mark.unit
@@ -150,6 +151,46 @@ def _submission_row(**overrides: Any) -> SimpleNamespace:
     }
     values.update(overrides)
     return SimpleNamespace(**values)
+
+
+@pytest.mark.parametrize(
+    ("overrides", "message"),
+    [
+        ({"project_key": ""}, "ingest submission registry row identity is invalid"),
+        ({"status": 7}, "ingest submission registry row status is invalid"),
+        ({"created_at": "not-a-datetime"}, "ingest submission registry row created_at is invalid"),
+    ],
+)
+def test_ingest_submission_row_boundary_rejects_invalid_identity_status_and_timestamp(
+    overrides: dict[str, object],
+    message: str,
+) -> None:
+    with pytest.raises(TypeError, match=message):
+        submission_registry.row_to_submission(_submission_row(**overrides))
+
+
+def test_ingest_submission_native_constructor_preserves_registered_fields() -> None:
+    row = IngestSubmissionRegistry(
+        project_key="project_native",
+        trigger_type="ingest.url.single",
+        registry_key="ingest.url.single:project_native:idem-native",
+        idempotency_key="idem-native",
+        submission_id="sub-native",
+        task_id=None,
+        status="submitted",
+        request_hash="a" * 64,
+        request_payload={"url": "https://example.com"},
+        subject_payload={"url": "https://example.com"},
+        response_payload=None,
+        created_at=None,
+        updated_at=None,
+    )
+
+    submission = submission_registry.row_to_submission(row)
+
+    assert submission["submission_id"] == "sub-native"
+    assert submission["project_key"] == "project_native"
+    assert submission["subject"] == {"url": "https://example.com"}
 
 
 def test_ingest_submission_db_adapter_duplicate_is_read_only(

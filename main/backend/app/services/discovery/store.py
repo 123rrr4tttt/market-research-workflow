@@ -3,27 +3,53 @@ from __future__ import annotations
 import hashlib
 import logging
 import re
-from datetime import datetime, date
-from typing import Dict, List, Tuple, Optional
-from urllib.parse import urlparse, parse_qs
+from collections.abc import Mapping
+from datetime import date, datetime
+from typing import SupportsIndex, SupportsInt, TypeGuard
+from urllib.parse import parse_qs, urlparse
 
-from sqlalchemy import text
 from bs4 import BeautifulSoup
+from sqlalchemy import text
+from sqlalchemy.orm import Session
 
-from ..http.client import default_http_client
-from ..llm.provider import get_chat_model
-from ...settings.config import settings
-from ..indexer.policy import index_policy_documents
 from ...models.base import SessionLocal
-from ...models.entities import Source, Document
-from ..extraction.extract import extract_policy_info, extract_market_info, extract_entities_relations
-from ..ingest.frontdoor_ingress import build_discovery_ingress_envelope
+from ...models.entities import Document, Source
+from ...settings.config import settings
+from ..http.client import default_http_client
+from ..indexer.policy import index_policy_documents
 from ..ingest.content_cleaner import normalize_content_for_ingest
+from ..ingest.frontdoor_ingress import build_discovery_ingress_envelope
 from ..ingest.meaningful_gate import content_quality_check, url_policy_check
 from ..ingest.postprocess_frontdoor import run_postprocess_frontdoor
-
+from ..llm.provider import get_chat_model
+from ..search.web import SearchResult
+from .ports import DiscoveryStoreResult
 
 logger = logging.getLogger(__name__)
+
+
+def _is_object_dict(value: object) -> TypeGuard[dict[object, object]]:
+    return isinstance(value, dict)
+
+
+def _is_object_list(value: object) -> TypeGuard[list[object]]:
+    return isinstance(value, list)
+
+
+def _text_field(value: object) -> str:
+    if not value:
+        return ""
+    if not isinstance(value, str):
+        raise AttributeError("discovery result text field must be a string")
+    return value
+
+
+def _int_value(value: object) -> int:
+    if not value:
+        return 0
+    if isinstance(value, (str, bytes, bytearray, SupportsInt, SupportsIndex)):
+        return int(value)
+    raise TypeError("writer result integer field is not int-convertible")
 
 
 def _sha256(text: str) -> str:
@@ -47,7 +73,7 @@ _ARTICLE_FALLBACK_SELECTORS = [
 ]
 
 
-def _extract_text_from_soup(soup: BeautifulSoup, selectors: List[str]) -> str:
+def _extract_text_from_soup(soup: BeautifulSoup, selectors: list[str]) -> str:
     """Try selectors in order, return first non-empty text."""
     for sel in selectors:
         try:
@@ -64,12 +90,12 @@ def _extract_text_from_soup(soup: BeautifulSoup, selectors: List[str]) -> str:
     return ""
 
 
-def _fetch_content(url: str) -> tuple[str | None, BeautifulSoup | None, dict | None]:
+def _fetch_content(url: str) -> tuple[str | None, BeautifulSoup | None, dict[str, str] | None]:
     """获取网页内容，返回文本、BeautifulSoup对象和HTTP响应头"""
     try:
-        response_headers = {}
+        response_headers: dict[str, str] = {}
         try:
-            response = default_http_client._client.head(url, timeout=10, follow_redirects=True)
+            response = default_http_client.head(url, timeout=10, follow_redirects=True)
             if "last-modified" in response.headers:
                 response_headers["last-modified"] = response.headers["last-modified"]
         except Exception:
@@ -100,9 +126,9 @@ def _discovery_gate_check(
     url: str,
     content: str | None,
     doc_type: str | None,
-    extracted_data: dict | None = None,
-) -> tuple[bool, str, dict]:
-    gate_cfg = {"enable_strict_gate": True}
+    extracted_data: Mapping[str, object] | None = None,
+) -> tuple[bool, str, dict[str, object]]:
+    gate_cfg: dict[str, object] = {"enable_strict_gate": True}
     url_gate = url_policy_check(url, config=gate_cfg)
     if url_gate.blocked:
         return False, str(url_gate.reason), {"url_gate": url_gate.to_dict()}
@@ -124,7 +150,7 @@ def fetch_content_from_url(url: str) -> str | None:
     return content
 
 
-def _extract_date_from_url(url: str) -> Optional[date]:
+def _extract_date_from_url(url: str) -> date | None:
     """从URL中提取日期（增强版：支持PDF文件名和财政年度）"""
     if not url:
         return None
@@ -227,7 +253,7 @@ def _extract_date_from_url(url: str) -> Optional[date]:
     return None
 
 
-def _extract_date_from_html(soup: BeautifulSoup, url: str) -> Optional[date]:
+def _extract_date_from_html(soup: BeautifulSoup, url: str) -> date | None:
     """从HTML中提取发布时间（增强版：改进优先级和格式支持）"""
     if not soup:
         return None
@@ -255,8 +281,9 @@ def _extract_date_from_html(soup: BeautifulSoup, url: str) -> Optional[date]:
         
         for attr, value in meta_tags:
             meta = soup.find('meta', {attr: value})
-            if meta and meta.get('content'):
-                date_str = meta.get('content')
+            date_value = meta.get('content') if meta is not None else None
+            if isinstance(date_value, str) and date_value:
+                date_str = date_value
                 # 尝试解析ISO格式日期（支持时区和微秒）
                 date_formats = [
                     '%Y-%m-%d',
@@ -304,7 +331,10 @@ def _extract_date_from_html(soup: BeautifulSoup, url: str) -> Optional[date]:
                         continue
         
         # 2. 检查JSON-LD结构化数据（递归检查嵌套对象）
-        def extract_date_from_json_ld(obj, visited=None):
+        def extract_date_from_json_ld(
+            obj: object,
+            visited: set[int] | None = None,
+        ) -> date | None:
             """递归提取JSON-LD中的日期"""
             if visited is None:
                 visited = set()
@@ -315,7 +345,7 @@ def _extract_date_from_html(soup: BeautifulSoup, url: str) -> Optional[date]:
                 return None
             visited.add(obj_id)
             
-            if not isinstance(obj, dict):
+            if not _is_object_dict(obj):
                 return None
             
             # 检查常见的日期字段（按优先级排序）
@@ -375,26 +405,28 @@ def _extract_date_from_html(soup: BeautifulSoup, url: str) -> Optional[date]:
                                 continue
             
             # 递归检查嵌套对象
-            for key, value in obj.items():
-                if isinstance(value, dict):
+            for value in obj.values():
+                if _is_object_dict(value):
                     result = extract_date_from_json_ld(value, visited)
                     if result:
                         return result
-                elif isinstance(value, list):
+                elif _is_object_list(value):
                     for item in value:
-                        if isinstance(item, dict):
+                        if _is_object_dict(item):
                             result = extract_date_from_json_ld(item, visited)
                             if result:
                                 return result
             
             return None
         
-        json_ld_scripts = soup.find_all('script', type='application/ld+json')
-        for script in json_ld_scripts:
+        for script in soup.find_all('script'):
             try:
-                if not script.string:
+                if script.get('type') != 'application/ld+json':
                     continue
-                data = json.loads(script.string)
+                script_text: object = getattr(script, "string", None)
+                if not script_text:
+                    continue
+                data = json.loads(str(script_text))
                 date_result = extract_date_from_json_ld(data)
                 if date_result:
                     return date_result
@@ -404,8 +436,9 @@ def _extract_date_from_html(soup: BeautifulSoup, url: str) -> Optional[date]:
         # 3. 检查time标签
         time_tags = soup.find_all('time')
         for time_tag in time_tags[:5]:  # 只检查前5个
-            datetime_attr = time_tag.get('datetime') or time_tag.get('pubdate')
-            if datetime_attr:
+            datetime_value = time_tag.get('datetime') or time_tag.get('pubdate')
+            if isinstance(datetime_value, str) and datetime_value:
+                datetime_attr = datetime_value
                 # 支持多种日期时间格式
                 date_formats = [
                     '%Y-%m-%d',
@@ -433,7 +466,7 @@ def _extract_date_from_html(soup: BeautifulSoup, url: str) -> Optional[date]:
     return None
 
 
-def _extract_date_from_http_headers(headers: dict | None) -> Optional[date]:
+def _extract_date_from_http_headers(headers: Mapping[str, str] | None) -> date | None:
     """从HTTP响应头中提取日期（Last-Modified）"""
     if not headers or 'last-modified' not in headers:
         return None
@@ -449,7 +482,7 @@ def _extract_date_from_http_headers(headers: dict | None) -> Optional[date]:
     return None
 
 
-def _extract_date_from_text(content: str) -> Optional[date]:
+def _extract_date_from_text(content: str) -> date | None:
     """从文本内容中提取日期（增强版：支持带上下文的日期）"""
     if not content:
         return None
@@ -459,7 +492,7 @@ def _extract_date_from_text(content: str) -> Optional[date]:
         'may': 5, 'june': 6, 'july': 7, 'august': 8,
         'september': 9, 'october': 10, 'november': 11, 'december': 12,
         'jan': 1, 'feb': 2, 'mar': 3, 'apr': 4,
-        'may': 5, 'jun': 6, 'jul': 7, 'aug': 8,
+        'jun': 6, 'jul': 7, 'aug': 8,
         'sep': 9, 'oct': 10, 'nov': 11, 'dec': 12,
     }
     
@@ -482,7 +515,7 @@ def _extract_date_from_text(content: str) -> Optional[date]:
     
     # 查找所有匹配的日期（只检查前5000字符以提高性能）
     text_sample = content[:5000]
-    found_dates = []
+    found_dates: list[tuple[date, bool]] = []
     
     for pattern_info in date_patterns:
         pattern = pattern_info[0]
@@ -527,7 +560,13 @@ def _extract_date_from_text(content: str) -> Optional[date]:
     return None
 
 
-def _extract_publish_date(url: str, soup: BeautifulSoup | None, content: str | None, extracted_data: dict | None, http_headers: dict | None = None) -> Optional[date]:
+def _extract_publish_date(
+    url: str,
+    soup: BeautifulSoup | None,
+    content: str | None,
+    extracted_data: Mapping[str, object] | None,
+    http_headers: Mapping[str, str] | None = None,
+) -> date | None:
     """提取发布时间，按优先级尝试多种方法（增强版）"""
     # 1. 从URL中提取（包括PDF文件名）
     date_from_url = _extract_date_from_url(url)
@@ -551,7 +590,7 @@ def _extract_publish_date(url: str, soup: BeautifulSoup | None, content: str | N
     
     # 4. 从extracted_data中提取（包括嵌套对象）
     if extracted_data:
-        def extract_from_dict(data: dict) -> Optional[date]:
+        def extract_from_dict(data: Mapping[str, object]) -> date | None:
             """递归从字典中提取日期"""
             date_fields = [
                 'publish_date', 'published_date', 'date', 'effective_date',
@@ -579,8 +618,9 @@ def _extract_publish_date(url: str, soup: BeautifulSoup | None, content: str | N
             
             # 检查嵌套对象
             for key in ['policy', 'market', 'article', 'metadata']:
-                if key in data and isinstance(data[key], dict):
-                    result = extract_from_dict(data[key])
+                nested = data.get(key)
+                if _is_object_dict(nested):
+                    result = extract_from_dict({str(item_key): item for item_key, item in nested.items()})
                     if result:
                         return result
             
@@ -600,7 +640,7 @@ def _extract_publish_date(url: str, soup: BeautifulSoup | None, content: str | N
     return None
 
 
-def _get_or_create_source(session, domain: str) -> int:
+def _get_or_create_source(session: Session, domain: str) -> int:
     src = session.query(Source).filter(Source.base_url == domain).one_or_none()
     if src:
         return src.id
@@ -635,14 +675,15 @@ def _classify_kind(title: str, snippet: str, content: str | None) -> str:
     # Fallback to LLM when ambiguous
     try:
         # 尝试从数据库读取配置
-        from ..llm.config_loader import get_llm_config, format_prompt_template
+        from ..llm.config_loader import format_prompt_template, get_llm_config
         
         config = get_llm_config("document_classification")
         
-        if config and config.get("user_prompt_template"):
+        prompt_template = config.get("user_prompt_template") if config else None
+        if config and prompt_template:
             # 使用配置的提示词
             prompt = format_prompt_template(
-                config["user_prompt_template"],
+                prompt_template,
                 title=title,
                 snippet=snippet,
                 content=(content or '')[:800]
@@ -694,7 +735,7 @@ def _infer_state(domain: str, title: str, snippet: str) -> str | None:
     return None
 
 
-def _store_tables_available(session) -> bool:
+def _store_tables_available(session: Session) -> bool:
     """Check if sources and documents tables exist (auto-detect schema readiness)."""
     try:
         session.execute(text("SELECT 1 FROM sources LIMIT 1"))
@@ -709,18 +750,18 @@ def _store_tables_available(session) -> bool:
 
 
 def store_results(
-    results: List[Dict],
+    results: list[SearchResult],
     *,
     project_key: str | None = None,
     job_type: str | None = None,
-) -> Dict[str, int | bool | dict]:
+) -> DiscoveryStoreResult:
     inserted = 0
     inserted_valid = 0
     updated = 0
     skipped = 0
     rejected_count = 0
     rejection_breakdown: dict[str, int] = {}
-    policy_to_index: List[int] = []
+    policy_to_index: list[int] = []
 
     with SessionLocal() as session:
         if not _store_tables_available(session):
@@ -735,7 +776,7 @@ def store_results(
             }
         for item in results:
             try:
-                link = _normalize_url((item.get("link") or "").strip())
+                link = _normalize_url(_text_field(item.get("link")).strip())
                 if not link:
                     skipped += 1
                     continue
@@ -753,11 +794,11 @@ def store_results(
                         )
                     except Exception as rp_exc:  # noqa: BLE001
                         logger.debug("resource_pool append skipped: %s", rp_exc)
-                domain = item.get("domain") or urlparse(link).netloc
-                title = (item.get("title") or "").replace("\x00", "").strip() or domain
-                snippet = (item.get("snippet") or "").replace("\x00", "").strip()
+                domain = _text_field(item.get("domain")) or urlparse(link).netloc
+                title = _text_field(item.get("title")).replace("\x00", "").strip() or domain
+                snippet = _text_field(item.get("snippet")).replace("\x00", "").strip()
 
-                source_id = _get_or_create_source(session, domain)
+                _get_or_create_source(session, domain)
 
                 # Dedup by URI first
                 doc = session.query(Document).filter(Document.uri == link).one_or_none()
@@ -839,7 +880,7 @@ def store_results(
                 kind = _classify_kind(title, snippet, content)
                 state = _infer_state(domain, title, snippet)
                 
-                extracted_data = None
+                extracted_data: dict[str, object] | None = None
                 
                 # 提取发布时间（增强版：包括HTTP响应头）
                 publish_date = _extract_publish_date(link, soup, content, extracted_data, http_headers)
@@ -850,7 +891,7 @@ def store_results(
                     url=link,
                     content=content,
                     doc_type=kind,
-                    extracted_data=extracted_data if isinstance(extracted_data, dict) else None,
+                    extracted_data=extracted_data,
                 )
                 if not content_ok:
                     rejection_breakdown[reject_reason] = int(rejection_breakdown.get(reject_reason, 0)) + 1
@@ -858,7 +899,7 @@ def store_results(
                     skipped += 1
                     logger.info("discovery.store rejected url=%s reason=%s", link, reject_reason)
                     continue
-                if isinstance(extracted_data, dict):
+                if extracted_data is not None:
                     extracted_data.setdefault("_meaningful_gate", gate_diagnostics)
                 else:
                     extracted_data = {"_meaningful_gate": gate_diagnostics}
@@ -881,7 +922,7 @@ def store_results(
                         "extracted_data_base": extracted_data,
                     },
                 )
-                collection_payload = ingress_envelope.get("collection_payload") if isinstance(ingress_envelope.get("collection_payload"), dict) else {}
+                collection_payload = ingress_envelope["collection_payload"]
                 collection_payload["document_candidate"] = {
                     "source_name": domain,
                     "source_kind": "web",
@@ -920,11 +961,12 @@ def store_results(
                     ingress_envelope=ingress_envelope,
                     run_writer=True,
                 )
-                writer_result = (frontdoor_result.get("data") or {}).get("writer_result") if isinstance(frontdoor_result.get("data"), dict) else {}
-                inserted += int((writer_result or {}).get("inserted") or 0)
-                inserted_valid += int((writer_result or {}).get("inserted") or 0)
-                if kind == "policy" and int((writer_result or {}).get("inserted") or 0) > 0:
-                    policy_to_index.append(int((writer_result or {}).get("doc_id") or 0))
+                writer_result = frontdoor_result["data"]["writer_result"] or {}
+                writer_inserted = _int_value(writer_result.get("inserted"))
+                inserted += writer_inserted
+                inserted_valid += writer_inserted
+                if kind == "policy" and writer_inserted > 0:
+                    policy_to_index.append(_int_value(writer_result.get("doc_id")))
             except Exception as exc:  # noqa: BLE001
                 logger.warning("discovery.store skipped error err=%s", exc)
                 skipped += 1

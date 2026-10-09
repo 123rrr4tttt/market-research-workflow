@@ -4,6 +4,7 @@ from collections.abc import Callable
 from dataclasses import replace
 
 import pytest
+from functorial_kit import Failure
 
 from app.successor_runtime.language.checksum import sha256_hex
 from app.successor_runtime.runtime.replay import (
@@ -250,6 +251,31 @@ def test_replay_is_deterministic_and_projection_codec_round_trips() -> None:
 
     assert first == second == decoded
     assert projection_digest(first) == projection_digest(second)
+
+
+def test_replay_projection_bad_scalar_helpers_return_typed_failure_and_preserve_legacy_error() -> None:
+    projection = replay_runtime_events(_required_failure_events())
+    invalid_fields = (
+        ("last_seq", "not-an-integer", "integer field is invalid"),
+        (
+            "required_failure_step_ids",
+            {"bad": "string collection"},
+            "string collection is invalid",
+        ),
+    )
+
+    for field, value, message in invalid_fields:
+        payload = projection.to_json()
+        payload[field] = value
+
+        result = RuntimeReplayProjection.from_json_result(payload)
+
+        assert isinstance(result, Failure)
+        assert result.family == "successor.runtime.failure"
+        assert result.code == "REPLAY_PROJECTION_INVALID"
+        assert result.context and result.context["public_exception"] == "RuntimeReplayError"
+        with pytest.raises(RuntimeReplayError, match=message):
+            RuntimeReplayProjection.from_json(payload)
 
 
 def test_real_compile_and_activation_events_have_strict_typed_semantics() -> None:

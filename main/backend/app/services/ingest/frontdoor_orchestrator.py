@@ -1,11 +1,37 @@
 from __future__ import annotations
 
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
-from typing import Any, Callable, Mapping
+from typing import Iterable, Protocol, runtime_checkable, TypeGuard
 
 from .frontdoor_contract import FRONTDOOR_STAGES, apply_stage_update, build_frontdoor_envelope
 
-StageHandler = Callable[[dict[str, Any]], Mapping[str, Any] | None]
+StageHandler = Callable[[dict[str, object]], Mapping[str, object] | None]
+
+
+def _is_string_key(value: object) -> bool:
+    return isinstance(value, str)
+
+
+@runtime_checkable
+class _StringKeyInspectable(Protocol):
+    def keys(self) -> Iterable[object]: ...
+
+
+def _has_only_string_keys(value: object) -> bool:
+    if not isinstance(value, _StringKeyInspectable):
+        return False
+    return all(map(_is_string_key, value.keys()))
+
+
+def _is_object_mapping(value: object) -> TypeGuard[Mapping[str, object]]:
+    if not _has_only_string_keys(value):
+        return False
+    return isinstance(value, Mapping)
+
+
+def _object_dict(value: object) -> dict[str, object]:
+    return dict(value) if _is_object_mapping(value) else {}
 
 
 @dataclass(frozen=True)
@@ -39,12 +65,12 @@ class FrontDoorOrchestrator:
     def run(
         self,
         *,
-        payload: Mapping[str, Any] | None = None,
+        payload: Mapping[str, object] | None = None,
         trace_id: str | None = None,
         request_key: str | None = None,
         stage_handlers: Mapping[str, StageHandler] | None = None,
-    ) -> dict[str, Any]:
-        envelope = build_frontdoor_envelope(
+    ) -> dict[str, object]:
+        envelope: dict[str, object] = build_frontdoor_envelope(
             status="success",
             reason_code="ok",
             stage=FRONTDOOR_STAGES[0],
@@ -81,9 +107,9 @@ class FrontDoorOrchestrator:
                 )
                 continue
 
-            context = {
+            context: dict[str, object] = {
                 "stage": stage,
-                "payload": dict(envelope.get("payload") or {}),
+                "payload": _object_dict(envelope.get("payload")),
                 "envelope": dict(envelope),
             }
             try:
@@ -109,7 +135,7 @@ class FrontDoorOrchestrator:
 
             if result:
                 update_payload = dict(result)
-                update_diag = dict(update_payload.get("diagnostics") or {})
+                update_diag = _object_dict(update_payload.get("diagnostics"))
                 stage_status_key = f"stage.{stage}.status"
                 stage_reason_key = f"stage.{stage}.reason"
                 if stage_status_key not in update_diag:

@@ -2,18 +2,17 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 import json
 import re
 import time
-from typing import Annotated, Any
+from dataclasses import dataclass, field
+from typing import Annotated, Any, SupportsFloat, SupportsIndex, TypeGuard, cast
 from urllib.parse import parse_qsl, urlsplit
 
+from ...settings.config import settings
 from ..extraction.json_utils import extract_json_payload
 from ..llm.provider import get_local_fallback_chat
-from ...settings.config import settings
 from .url_utils import domain_from_url, normalize_url
-
 
 _GENERIC_NAV_TEXTS = {
     "",
@@ -82,6 +81,25 @@ _SEMANTIC_MATCH_CACHE_TTL_SECONDS = 900.0
 _SEMANTIC_MATCH_CACHE: dict[str, tuple[float, list[str]]] = {}
 
 
+def _is_string_object_dict(value: object) -> TypeGuard[dict[str, object]]:
+    return isinstance(value, dict) and all(
+        isinstance(key, str) for key in cast(dict[object, object], value)
+    )
+
+
+def _is_object_list(value: object) -> TypeGuard[list[object]]:
+    return isinstance(value, list)
+
+
+def _optional_float(value: object) -> float | None:
+    if isinstance(value, (str, bytes, bytearray, SupportsFloat, SupportsIndex)):
+        try:
+            return float(value)
+        except Exception:
+            return None
+    return None
+
+
 @dataclass(frozen=True)
 class SearchCapabilityCandidate:
     url: str
@@ -89,7 +107,7 @@ class SearchCapabilityCandidate:
     text: str = ""
     title: str = ""
     summary: str = ""
-    extra: dict[str, Any] = field(default_factory=dict)
+    extra: dict[str, Any] = field(default_factory=dict[str, object])
 
 
 @dataclass(frozen=True)
@@ -113,7 +131,7 @@ class SearchCapabilityScoringConfig:
     route_kind_bonus: dict[str, float]
     penalties: dict[str, float]
     thresholds: dict[str, float]
-    raw_overrides: dict[str, Any] = field(default_factory=dict)
+    raw_overrides: dict[str, Any] = field(default_factory=dict[str, object])
 
 
 def resolve_candidate_scoring_config(raw: dict[str, Any] | str | None) -> SearchCapabilityScoringConfig:
@@ -163,7 +181,8 @@ def build_capability_candidates(
             text = str(raw.get("text") or "").strip()
             title = str(raw.get("title") or "").strip()
             summary = str(raw.get("summary") or "").strip()
-            extra = raw.get("extra") if isinstance(raw.get("extra"), dict) else {}
+            raw_extra = raw.get("extra")
+            extra: dict[str, Any] = raw_extra if _is_string_object_dict(raw_extra) else {}
         else:
             url = normalize_url(str(raw).strip())
             text = ""
@@ -558,7 +577,7 @@ def _parse_scoring_config_payload(raw: dict[str, Any] | str | None) -> dict[str,
             parsed = json.loads(text)
         except Exception:
             return {}
-        return dict(parsed) if isinstance(parsed, dict) else {}
+        return dict(parsed) if _is_string_object_dict(parsed) else {}
     return {}
 
 
@@ -570,15 +589,14 @@ def _merge_numeric_map(
     maximum: float,
 ) -> dict[str, float]:
     merged = dict(default_map)
-    if not isinstance(raw_overrides, dict):
+    if not _is_string_object_dict(raw_overrides):
         return merged
     for key, value in raw_overrides.items():
         normalized_key = str(key or "").strip()
         if not normalized_key:
             continue
-        try:
-            numeric = float(value)
-        except Exception:
+        numeric = _optional_float(value)
+        if numeric is None:
             continue
         numeric = max(minimum, min(maximum, numeric))
         merged[normalized_key] = numeric
@@ -705,7 +723,7 @@ def _expand_semantic_query_terms_with_llm(query_terms: list[str]) -> list[str]:
         content = response.content if hasattr(response, "content") else str(response)
         payload = extract_json_payload(str(content or "")) or {}
         expanded = payload.get("expanded_terms")
-        if not isinstance(expanded, list):
+        if not _is_object_list(expanded):
             return []
         semantic_terms = [
             str(item or "").strip()
@@ -761,7 +779,7 @@ def _select_candidates_with_llm(
         content = response.content if hasattr(response, "content") else str(response)
         payload = extract_json_payload(str(content or "")) or {}
         selected_ids = payload.get("selected_ids")
-        if not isinstance(selected_ids, list):
+        if not _is_object_list(selected_ids):
             return []
         allowed_ids = {str(item["id"]) for item in candidate_payload}
         ordered_ids: list[str] = []

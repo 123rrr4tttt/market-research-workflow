@@ -3,6 +3,7 @@ from __future__ import annotations
 import copy
 import sys
 import unittest
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -156,6 +157,24 @@ class TypedObservationReceiptTestCase(unittest.TestCase):
         self.assertEqual(item.digest, digest)
         self.assertEqual(item.contract_version, OBSERVABILITY_CONTRACT_VERSION)
         self.assertEqual(item.to_dict()["release_version"], "r7")
+
+    def test_legacy_item_pairs_normalize_and_invalid_runtime_values_fail_closed(self) -> None:
+        item = healthy_observations()[0]
+        normalized = replace(item, labels=((" region ", " us "),))
+        normalized_receipt = replace(
+            receipt(ReceiptScope.PRODUCTION, healthy_observations()),
+            observation_digests=((" domain-ok ", " digest "),),
+        )
+
+        self.assertEqual(dict(normalized.labels), {"region": "us"})
+        self.assertEqual(
+            dict(normalized_receipt.observation_digests),
+            {"domain-ok": "digest"},
+        )
+        with self.assertRaises(TypeError):
+            replace(item, labels=object())
+        with self.assertRaises(ValueError):
+            replace(item, observed_at=object())
 
     def test_release_label_is_required(self) -> None:
         with self.assertRaises(ValueError):

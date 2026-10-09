@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Iterable
 
 import httpx
@@ -24,7 +24,7 @@ class LegiScanApiAdapter(PolicyAdapter):
             "op": "getSearch",
             "state": self.state.lower(),
             "search": self.keyword,
-            "year": datetime.utcnow().year,
+            "year": datetime.now(timezone.utc).year,
         }
 
         response = httpx.get(self.BASE_URL, params=params, timeout=30)

@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Literal
 
 from sqlalchemy import insert, select, update
-from sqlalchemy.engine import Connection
+from sqlalchemy.engine import Connection, RowMapping
 
 from app.successor_runtime.runtime.ports import RuntimeScope
 
@@ -66,7 +65,7 @@ class StagedArtifactRepository:
         self.connection = connection
         self.scope = scope
 
-    def stage(self, binding: StagedArtifactBinding) -> Mapping[str, object]:
+    def stage(self, binding: StagedArtifactBinding) -> RowMapping:
         table = runtime_table("runtime_staged_artifacts")
         current = one_mapping(
             self.connection.execute(
@@ -97,7 +96,7 @@ class StagedArtifactRepository:
 
     def load(
         self, artifact_id: str, *, for_update: bool = False
-    ) -> Mapping[str, object]:
+    ) -> RowMapping:
         table = runtime_table("runtime_staged_artifacts")
         statement = select(table).where(
             table.c.project_key == runtime_scope_key(self.scope),
@@ -118,7 +117,7 @@ class StagedArtifactRepository:
         expected_state: StagedArtifactState,
         target_state: StagedArtifactState,
         receipt_ref: str | None = None,
-    ) -> Mapping[str, object]:
+    ) -> RowMapping:
         allowed = {
             ("STAGED", "VERIFIED"),
             ("STAGED", "REJECTED"),

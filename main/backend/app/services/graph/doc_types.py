@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import TypeGuard
 
 from ...project_customization.service import get_project_customization
 
@@ -120,7 +120,7 @@ DEFAULT_GRAPH_NODE_ENSEMBLE: list[str] = sorted(
 def resolve_graph_doc_types(project_key: str | None = None) -> dict[str, list[str]]:
     customization = get_project_customization(project_key)
     field_mapping = customization.get_field_mapping() or {}
-    raw = field_mapping.get("graph_doc_types")
+    raw: object = field_mapping.get("graph_doc_types")
 
     if not isinstance(raw, dict):
         return {k: list(v) for k, v in DEFAULT_GRAPH_DOC_TYPES.items()}
@@ -136,7 +136,7 @@ def resolve_graph_doc_types(project_key: str | None = None) -> dict[str, list[st
 def resolve_graph_type_labels(project_key: str | None = None) -> dict[str, str]:
     customization = get_project_customization(project_key)
     field_mapping = customization.get_field_mapping() or {}
-    raw = field_mapping.get("graph_type_labels")
+    raw: object = field_mapping.get("graph_type_labels")
 
     if not isinstance(raw, dict):
         return dict(DEFAULT_GRAPH_TYPE_LABELS)
@@ -151,7 +151,7 @@ def resolve_graph_type_labels(project_key: str | None = None) -> dict[str, str]:
 def resolve_graph_node_types(project_key: str | None = None) -> dict[str, list[str]]:
     customization = get_project_customization(project_key)
     field_mapping = customization.get_field_mapping() or {}
-    raw = field_mapping.get("graph_node_types")
+    raw: object = field_mapping.get("graph_node_types")
 
     if not isinstance(raw, dict):
         return {k: list(v) for k, v in DEFAULT_GRAPH_NODE_TYPES.items()}
@@ -213,7 +213,7 @@ def resolve_graph_node_combo(
 def resolve_graph_edge_types(project_key: str | None = None) -> dict[str, list[str]]:
     customization = get_project_customization(project_key)
     field_mapping = customization.get_field_mapping() or {}
-    raw = field_mapping.get("graph_edge_types")
+    raw: object = field_mapping.get("graph_edge_types")
 
     if not isinstance(raw, dict):
         return {k: list(v) for k, v in DEFAULT_GRAPH_EDGE_TYPES.items()}
@@ -230,7 +230,7 @@ def resolve_graph_node_labels(project_key: str | None = None) -> dict[str, str]:
     """Node type -> display label. Projects can override via graph_node_labels in field_mapping."""
     customization = get_project_customization(project_key)
     field_mapping = customization.get_field_mapping() or {}
-    raw = field_mapping.get("graph_node_labels")
+    raw: object = field_mapping.get("graph_node_labels")
 
     labels = dict(DEFAULT_GRAPH_NODE_LABELS)
     if isinstance(raw, dict):
@@ -245,7 +245,7 @@ def resolve_graph_field_labels(project_key: str | None = None) -> dict[str, str]
     """Field-level display labels for card sections (state, game, sales_volume, etc.)."""
     customization = get_project_customization(project_key)
     field_mapping = customization.get_field_mapping() or {}
-    raw = field_mapping.get("graph_field_labels")
+    raw: object = field_mapping.get("graph_field_labels")
 
     labels = dict(DEFAULT_GRAPH_FIELD_LABELS)
     if isinstance(raw, dict):
@@ -259,7 +259,7 @@ def resolve_graph_field_labels(project_key: str | None = None) -> dict[str, str]
 def resolve_graph_relation_labels(project_key: str | None = None) -> dict[str, str]:
     customization = get_project_customization(project_key)
     field_mapping = customization.get_field_mapping() or {}
-    raw = field_mapping.get("graph_relation_labels")
+    raw: object = field_mapping.get("graph_relation_labels")
 
     if not isinstance(raw, dict):
         return dict(DEFAULT_GRAPH_RELATION_LABELS)
@@ -277,12 +277,12 @@ def resolve_graph_edge_style_bindings(project_key: str | None = None) -> dict[st
     """Transport project-owned edge-style bindings; the frontend validates catalog ids."""
     customization = get_project_customization(project_key)
     field_mapping = customization.get_field_mapping() or {}
-    raw = field_mapping.get("graph_edge_style_bindings")
+    raw: object = field_mapping.get("graph_edge_style_bindings")
 
     if not isinstance(raw, dict):
         return {}
 
-    bindings: dict[str, dict[str, str]] = {}
+    bindings: dict[str, object] = {}
     for axis in ("byRelationClass", "byRelationToken", "byPredicate", "byType"):
         values = raw.get(axis)
         if not isinstance(values, dict):
@@ -303,7 +303,7 @@ def resolve_graph_edge_style_bindings(project_key: str | None = None) -> dict[st
 def resolve_graph_topic_scope_entities(project_key: str | None = None) -> dict[str, list[str]]:
     customization = get_project_customization(project_key)
     field_mapping = customization.get_field_mapping() or {}
-    raw = field_mapping.get("graph_topic_scope_entities")
+    raw: object = field_mapping.get("graph_topic_scope_entities")
 
     if not isinstance(raw, dict):
         return {k: list(v) for k, v in DEFAULT_GRAPH_TOPIC_SCOPE_ENTITIES.items()}
@@ -316,10 +316,16 @@ def resolve_graph_topic_scope_entities(project_key: str | None = None) -> dict[s
     return resolved
 
 
-def _normalize_doc_type_list(value: Any) -> list[str]:
+def _is_object_collection(
+    value: object,
+) -> TypeGuard[list[object] | tuple[object, ...] | set[object]]:
+    return isinstance(value, (list, tuple, set))
+
+
+def _normalize_doc_type_list(value: object) -> list[str]:
     if isinstance(value, str):
-        candidate = [value]
-    elif isinstance(value, (list, tuple, set)):
+        candidate: list[object] = [value]
+    elif _is_object_collection(value):
         candidate = list(value)
     else:
         return []
@@ -335,10 +341,10 @@ def _normalize_doc_type_list(value: Any) -> list[str]:
     return normalized
 
 
-def _normalize_string_list(value: Any) -> list[str]:
+def _normalize_string_list(value: object) -> list[str]:
     if isinstance(value, str):
-        candidate = [value]
-    elif isinstance(value, (list, tuple, set)):
+        candidate: list[object] = [value]
+    elif _is_object_collection(value):
         candidate = list(value)
     else:
         return []
@@ -354,7 +360,7 @@ def _normalize_string_list(value: Any) -> list[str]:
     return normalized
 
 
-def resolve_graph_projections(project_key: str | None = None) -> list[dict[str, Any]]:
+def resolve_graph_projections(project_key: str | None = None) -> list[dict[str, object]]:
     """Project-owned view bindings over the shared graph realizer.
 
     A project may select, order, relabel and filter the built-in graph entry
@@ -364,11 +370,11 @@ def resolve_graph_projections(project_key: str | None = None) -> list[dict[str, 
     """
     customization = get_project_customization(project_key)
     field_mapping = customization.get_field_mapping() or {}
-    raw = field_mapping.get("graph_projections")
+    raw: object = field_mapping.get("graph_projections")
     if not isinstance(raw, list):
         return []
 
-    resolved: list[dict[str, Any]] = []
+    resolved: list[dict[str, object]] = []
     seen_ids: set[str] = set()
     for item in raw:
         if not isinstance(item, dict):
@@ -377,7 +383,7 @@ def resolve_graph_projections(project_key: str | None = None) -> list[dict[str, 
         if not view_id or view_id in seen_ids:
             continue
         seen_ids.add(view_id)
-        entry: dict[str, Any] = {"id": view_id}
+        entry: dict[str, object] = {"id": view_id}
         label = str(item.get("label") or "").strip()
         if label:
             entry["label"] = label

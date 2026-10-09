@@ -13,7 +13,7 @@ class LlmConfigService:
     def list_configs(self, db: Session) -> list[LlmServiceConfig]:
         stmt = select(LlmServiceConfig).order_by(LlmServiceConfig.service_name)
         try:
-            return db.execute(stmt).scalars().all()
+            return list(db.execute(stmt).scalars().all())
         except ProgrammingError as exc:
             # In cold/local environments the table may not be initialized yet.
             msg = str(exc).lower()

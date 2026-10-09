@@ -1,4 +1,5 @@
 import { execFileSync } from 'node:child_process'
+import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { expect, test } from '@playwright/test'
 import type { APIRequestContext, Page } from '@playwright/test'
@@ -69,9 +70,55 @@ type RunEvents = {
 const headers = { 'X-Project-Key': PROJECT_KEY }
 const workflowBearerToken = process.env.MRW_E2E_WORKFLOW_BEARER_TOKEN || ''
 
+type LiveWorkflowResourceContract = {
+  databaseName: string
+  databaseHost: string
+  databasePort: number
+  apiOrigin: string
+}
+
+let liveWorkflowResource: LiveWorkflowResourceContract | undefined
+
 function withProject(path: string) {
   const query = `project_key=${encodeURIComponent(PROJECT_KEY)}`
   return `${path}${path.includes('?') ? '&' : '?'}${query}`
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+}
+
+function requiredString(source: Record<string, unknown>, key: string, label: string) {
+  expect(Object.hasOwn(source, key), `${label} must contain ${key}`).toBe(true)
+  const value = source[key]
+  if (typeof value !== 'string' || !value.trim()) {
+    throw new Error(`${label}.${key} must be a non-empty string`)
+  }
+  return value
+}
+
+function requiredNumber(source: Record<string, unknown>, key: string, label: string) {
+  expect(Object.hasOwn(source, key), `${label} must contain ${key}`).toBe(true)
+  const value = source[key]
+  if (typeof value !== 'number' || !Number.isInteger(value) || value <= 0 || value >= 65_536) {
+    throw new Error(`${label}.${key} must be a valid port`)
+  }
+  return value
+}
+
+function requiredBoolean(source: Record<string, unknown>, key: string, label: string) {
+  expect(Object.hasOwn(source, key), `${label} must contain ${key}`).toBe(true)
+  if (typeof source[key] !== 'boolean') {
+    throw new Error(`${label}.${key} must be a boolean`)
+  }
+  return source[key]
+}
+
+function liveWorkflowResourceContract(): LiveWorkflowResourceContract {
+  if (!liveWorkflowResource) {
+    throw new Error('live workflow resource contract was not initialized')
+  }
+  return liveWorkflowResource
 }
 
 async function apiSend<T>(
@@ -95,11 +142,102 @@ async function apiSend<T>(
 function assertIsolatedLiveEnvironment() {
   const databaseUrl = process.env.DATABASE_URL || ''
   const apiTarget = process.env.VITE_API_PROXY_TARGET || ''
-  expect(databaseUrl, 'live workflow chain must use the isolated completion database').toContain(
-    '127.0.0.1:55436/mrw_completion_test',
+  if (!databaseUrl || !apiTarget) {
+    throw new Error('live workflow lane requires both DATABASE_URL and VITE_API_PROXY_TARGET')
+  }
+
+  const claimsPath = process.env.MRW_E2E_WORKFLOW_RESOURCE_CLAIMS || ''
+  if (!claimsPath) {
+    throw new Error('integration must supply MRW_E2E_WORKFLOW_RESOURCE_CLAIMS for the live workflow lane')
+  }
+
+  let parsedClaims: unknown
+  try {
+    parsedClaims = JSON.parse(readFileSync(claimsPath, 'utf8'))
+  } catch (error) {
+    throw new Error(`unable to read integration resource claims at ${claimsPath}: ${error instanceof Error ? error.message : String(error)}`)
+  }
+  expect(isRecord(parsedClaims), 'integration resource claims must be a JSON object').toBe(true)
+  if (!isRecord(parsedClaims)) throw new Error('unreachable resource claims guard')
+  expect(parsedClaims.schema).toBe('mrw.local-release-resource-claims.v1')
+  expect(isRecord(parsedClaims.postgres), 'resource claims must declare postgres').toBe(true)
+  if (!isRecord(parsedClaims.postgres)) throw new Error('unreachable postgres claim guard')
+  expect(isRecord(parsedClaims.live_workflow), 'resource claims must declare live_workflow').toBe(true)
+  if (!isRecord(parsedClaims.live_workflow)) throw new Error('unreachable live workflow claim guard')
+  const liveWorkflow = parsedClaims.live_workflow
+
+  const status = requiredString(liveWorkflow, 'status', 'live_workflow claim')
+  if (status !== 'ready') {
+    throw new Error(`integration live workflow resource is ${status}, not ready`)
+  }
+
+  const expectedDatabaseName = requiredString(liveWorkflow, 'database_name', 'live_workflow claim')
+  const expectedDatabaseHost = requiredString(liveWorkflow, 'database_host', 'live_workflow claim')
+  const expectedDatabasePort = requiredNumber(liveWorkflow, 'database_port', 'live_workflow claim')
+  const expectedApiOrigin = requiredString(liveWorkflow, 'api_origin', 'live_workflow claim')
+  const postgresHost = requiredString(parsedClaims.postgres, 'host', 'resource claims postgres')
+  const postgresPort = requiredNumber(parsedClaims.postgres, 'port', 'resource claims postgres')
+  const postgresExclusiveDatabase = requiredString(
+    parsedClaims.postgres,
+    'live_workflow_exclusive',
+    'resource claims postgres',
   )
-  expect(apiTarget, 'live workflow chain must use the isolated backend').toContain('127.0.0.1:18086')
+  expect(requiredBoolean(liveWorkflow, 'loopback_only', 'live_workflow claim')).toBe(true)
+  expect(requiredBoolean(liveWorkflow, 'requires_postgres_slot', 'live_workflow claim')).toBe(true)
+  expect(PROJECT_KEY.startsWith('e2e_live_workflow_'), 'live workflow project scope mismatch').toBe(true)
+  expect(expectedDatabaseHost).toBe(postgresHost)
+  expect(expectedDatabaseHost).toBe('127.0.0.1')
+  expect(expectedDatabasePort).toBe(postgresPort)
+  expect(expectedDatabaseName).toBe(postgresExclusiveDatabase)
+
+  expect(isRecord(liveWorkflow.required_env), 'live_workflow claim must declare required_env').toBe(true)
+  if (!isRecord(liveWorkflow.required_env)) throw new Error('unreachable required env guard')
+  const declaredClaimsPath = requiredString(
+    liveWorkflow.required_env,
+    'MRW_E2E_WORKFLOW_RESOURCE_CLAIMS',
+    'live_workflow required_env',
+  )
+  expect(declaredClaimsPath).toBe(claimsPath)
+
+  const parsedDatabaseUrl = new URL(databaseUrl)
+  expect(parsedDatabaseUrl.protocol, 'live workflow DATABASE_URL must use the SQLAlchemy PostgreSQL scheme').toBe('postgresql+psycopg2:')
+  expect(parsedDatabaseUrl.hostname, 'live workflow DATABASE_URL host must exactly match the claim').toBe(expectedDatabaseHost)
+  expect(Number(parsedDatabaseUrl.port), 'live workflow DATABASE_URL port must exactly match the claim').toBe(expectedDatabasePort)
+  expect(
+    decodeURIComponent(parsedDatabaseUrl.pathname.replace(/^\//, '')),
+    'live workflow DATABASE_URL database must exactly match the claim',
+  ).toBe(expectedDatabaseName)
+  expect(parsedDatabaseUrl.search, 'live workflow DATABASE_URL must not add query parameters').toBe('')
+  expect(parsedDatabaseUrl.hash).toBe('')
+
+  const parsedApiOrigin = new URL(expectedApiOrigin)
+  expect(parsedApiOrigin.protocol).toBe('http:')
+  expect(parsedApiOrigin.hostname).toBe('127.0.0.1')
+  expect(parsedApiOrigin.pathname).toBe('/')
+  expect(parsedApiOrigin.username).toBe('')
+  expect(parsedApiOrigin.password).toBe('')
+  expect(parsedApiOrigin.search).toBe('')
+  expect(parsedApiOrigin.hash).toBe('')
+  expect(Number(parsedApiOrigin.port)).toBeGreaterThan(0)
+  expect(apiTarget, 'live workflow API target must exactly match the integration claim').toBe(expectedApiOrigin)
+
+  if (!Array.isArray(parsedClaims.preserved_resources)) {
+    throw new Error('resource claims must declare preserved_resources')
+  }
+  const preservedPorts = parsedClaims.preserved_resources.flatMap((resource) => {
+    return typeof resource === 'string' ? [...resource.matchAll(/\d+/g)].map((match) => Number(match[0])) : []
+  })
+  expect(preservedPorts, 'live workflow DB must not use a preserved port').not.toContain(expectedDatabasePort)
+  expect(preservedPorts, 'live workflow API must not use a preserved port').not.toContain(Number(parsedApiOrigin.port))
+
   expect(Boolean(workflowBearerToken), 'configure the isolated backend E2E Bearer credential').toBe(true)
+
+  liveWorkflowResource = {
+    databaseName: expectedDatabaseName,
+    databaseHost: expectedDatabaseHost,
+    databasePort: expectedDatabasePort,
+    apiOrigin: expectedApiOrigin,
+  }
 }
 
 function psqlJson(query: string) {
@@ -115,6 +253,7 @@ function psqlJson(query: string) {
 function installIsolatedWorkflowFixture() {
   const backend = resolve(process.cwd(), '../backend')
   const repository = resolve(backend, '../..')
+  const resource = liveWorkflowResourceContract()
   // Project CRUD creates the business schema; this explicit admin fixture installs Runtime authority.
   execFileSync(resolve(backend, '.venv311/bin/python'), ['-c', `
 import os, sys
@@ -130,9 +269,9 @@ from app.successor_runtime.substrate.postgres.authority import AuthorityGrant, C
 from app.successor_runtime.substrate.postgres.models import PUBLIC_METADATA, PUBLIC_TABLES, project_tables
 from app.successor_runtime.substrate.postgres.session import ServerProjectScopeResolver, compute_scope_digest
 
-project = sys.argv[1]
+project, expected_host, expected_port, expected_database = sys.argv[1:]
 url = sa.engine.make_url(os.environ['DATABASE_URL'])
-assert url.host == '127.0.0.1' and url.port == 55436 and url.database == 'mrw_completion_test'
+assert url.host == expected_host and url.port == int(expected_port) and url.database == expected_database
 assert project.startswith('e2e_live_workflow_')
 engine = sa.create_engine(url)
 definition = build_workflow_runtime_definition()
@@ -169,7 +308,7 @@ with engine.begin() as connection:
                 for resource_class in resource_classes), max_active=1),
             None, 1, now + timedelta(hours=1)))
 engine.dispose()
-`, PROJECT_KEY], {
+`, PROJECT_KEY, resource.databaseHost, String(resource.databasePort), resource.databaseName], {
     cwd: backend,
     env: { ...process.env, PYTHONPATH: [repository, resolve(repository, 'src'), backend].join(':') },
     stdio: ['ignore', 'pipe', 'pipe'],

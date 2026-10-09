@@ -76,6 +76,12 @@ def test_native_adapters_bind_identity_and_report_source_version_capability():
         adapt_document({"id": ""}, project_key="p")
 
 
+@pytest.mark.parametrize("bad_id", [None, "", 0, -1, "not-an-integer", 1.5, True])
+def test_native_adapter_rejects_non_positive_material_identity(bad_id: object):
+    with pytest.raises(ValueError, match="project_key and native identity are required"):
+        adapt_document({"id": bad_id}, project_key="p")
+
+
 def test_clue_state_is_a_read_only_observation_and_mapping_requires_same_project():
     observed = adapt_clue_chain_state({"contract_version": "clue_chain.state.v1", "base_version": 4, "chains": {
         "c1": {"chain": {"chain_id": "c1", "status": "running"}}}}, project_key="p")

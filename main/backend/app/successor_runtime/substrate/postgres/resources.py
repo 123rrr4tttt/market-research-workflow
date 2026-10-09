@@ -14,7 +14,7 @@ from datetime import datetime
 from typing import Any
 
 from sqlalchemy import insert, select, update
-from sqlalchemy.engine import Connection
+from sqlalchemy.engine import Connection, RowMapping
 from sqlalchemy.exc import IntegrityError
 
 from app.successor_runtime.runtime.resources import (
@@ -30,7 +30,7 @@ from .runtime_journal import (
     ExactBindingConflict,
     RecordNotFound,
     StaleRevisionError,
-    _mapping_rows,
+    mapping_rows,
     one_mapping,
     runtime_table,
     utc_now,
@@ -77,7 +77,7 @@ def _active_reservations_statement(
     )
 
 
-def _policy_snapshot(row: Mapping[str, Any]) -> ResourcePolicySnapshot:
+def _policy_snapshot(row: RowMapping) -> ResourcePolicySnapshot:
     return ResourcePolicySnapshot(
         project_key=str(row["project_key"]),
         capability_id=str(row["capability_id"]),
@@ -101,7 +101,7 @@ def _policy_snapshot(row: Mapping[str, Any]) -> ResourcePolicySnapshot:
 
 
 def _usage(
-    rows: tuple[Mapping[str, Any], ...],
+    rows: tuple[RowMapping, ...],
     eligibility: QueueEligibility,
     *,
     resource_policy_id: str,
@@ -165,7 +165,7 @@ class ResourceReservationRepository:
         )
         if locked is None:
             raise StaleResourcePolicy("exact active resource policy not found")
-        active = _mapping_rows(
+        active = mapping_rows(
             self.connection.execute(
                 _active_reservations_statement(
                     eligibility,
@@ -223,7 +223,7 @@ class ResourceReservationRepository:
         *,
         expected_revision: int,
         new_expiry: datetime,
-    ) -> Mapping[str, Any]:
+    ) -> RowMapping:
         table = runtime_table("runtime_resource_reservations")
         predicates = [
                 table.c.reservation_id == reservation_id,
@@ -251,7 +251,7 @@ class ResourceReservationRepository:
         expected_revision: int,
         reason: str,
         now: datetime | None = None,
-    ) -> Mapping[str, Any]:
+    ) -> RowMapping:
         table = runtime_table("runtime_resource_reservations")
         observed_at = now or utc_now()
         predicates = [
@@ -278,7 +278,7 @@ class ResourceReservationRepository:
         if limit <= 0:
             return ()
         table = runtime_table("runtime_resource_reservations")
-        locked = _mapping_rows(
+        locked = mapping_rows(
             self.connection.execute(
                 select(
                     table.c.reservation_id,
@@ -312,7 +312,7 @@ class ResourceReservationRepository:
                 reaped.append(str(row["reservation_id"]))
         return tuple(reaped)
 
-    def load(self, reservation_id: str) -> Mapping[str, Any]:
+    def load(self, reservation_id: str) -> RowMapping:
         table = runtime_table("runtime_resource_reservations")
         row = one_mapping(
             self.connection.execute(

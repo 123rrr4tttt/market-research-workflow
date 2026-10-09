@@ -352,7 +352,7 @@ def generate_keywords(topic: str, language: str = "zh") -> List[str]:
         ]
     try:
         # 尝试从数据库读取配置
-        config: dict[str, object] | None = get_llm_config("keyword_generation")
+        config = get_llm_config("keyword_generation")
 
         template_value = config.get("user_prompt_template") if config else None
         prompt: str

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from hashlib import sha256
 import re
-from typing import Annotated, Any
+from typing import Annotated, Any, TypeGuard
 from urllib.parse import urlparse
 
 from ..ingest.meaningful_gate import url_policy_check
@@ -375,8 +375,8 @@ def _source_policy_action(
 
 
 def _normalize_url_inputs(value: Any) -> list[str]:
-    raw_values: list[Any]
-    if isinstance(value, list):
+    raw_values: list[object]
+    if _is_object_list(value):
         raw_values = list(value)
     elif isinstance(value, str):
         raw_values = [value]
@@ -391,8 +391,8 @@ def _normalize_url_inputs(value: Any) -> list[str]:
 
 
 def _normalize_domains(value: Any) -> list[str]:
-    raw_values: list[Any]
-    if isinstance(value, list):
+    raw_values: list[object]
+    if _is_object_list(value):
         raw_values = list(value)
     elif isinstance(value, str):
         raw_values = [value]
@@ -446,3 +446,7 @@ def _dedupe_text(values: list[str]) -> list[str]:
         if text and text not in out:
             out.append(text)
     return out
+
+
+def _is_object_list(value: object) -> TypeGuard[list[object]]:
+    return isinstance(value, list)

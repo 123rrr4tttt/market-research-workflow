@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 from collections import Counter
+from collections.abc import Sequence
 from hashlib import sha256
 import json
-from typing import Annotated, Any
+from typing import Annotated, Any, TypeGuard
 from urllib.parse import urlparse
 
 
@@ -50,6 +51,30 @@ ITEM_TYPE_VALUES = {"user_defined", "service_aggregated"}
 MANAGED_BY_VALUES = {"user", "system"}
 HUMAN_REVIEW_EVIDENCE_REQUIRED_FIELDS = ("queue_id", "reviewed_by", "reviewed_at", "decision")
 HUMAN_REVIEW_COMPLETED_STATES = {"completed", "review_completed"}
+
+
+def _is_object(value: object) -> TypeGuard[dict[str, object]]:
+    return isinstance(value, dict)
+
+
+def _is_object_list(value: object) -> TypeGuard[list[object]]:
+    return isinstance(value, list)
+
+
+def _object(value: object) -> dict[str, object]:
+    return dict(value) if _is_object(value) else {}
+
+
+def _object_rows(value: object) -> list[dict[str, object]]:
+    if not _is_object_list(value):
+        return []
+    return [dict(row) for row in value if _is_object(row)]
+
+
+def _string_list(value: object) -> list[str]:
+    if not _is_object_list(value):
+        return []
+    return [str(item) for item in value]
 
 
 def build_relevance_review_queue(
@@ -114,7 +139,7 @@ def build_relevance_review_queue(
 
 
 def merge_relevance_review_queues(
-    queues: list[dict[str, Any]] | None,
+    queues: Sequence[object] | None,
     *,
     project_key: str | None,
     item_key: str,
@@ -123,12 +148,11 @@ def merge_relevance_review_queues(
 ) -> dict[str, Any]:
     entries: list[dict[str, Any]] = []
     seen: set[str] = set()
-    for queue in queues or []:
-        if not isinstance(queue, dict):
+    for raw_queue in queues or []:
+        if not _is_object(raw_queue):
             continue
-        for entry in queue.get("entries") or []:
-            if not isinstance(entry, dict):
-                continue
+        queue = _object(raw_queue)
+        for entry in _object_rows(queue.get("entries")):
             queue_id = _clean(entry.get("queue_id"))
             if not queue_id or queue_id in seen:
                 continue
@@ -146,21 +170,20 @@ def merge_relevance_review_queues(
 
 def annotate_records_with_relevance_review_queue(
     records: list[dict[str, Any]],
-    queue: dict[str, Any] | None,
+    queue: object | None,
 ) -> list[dict[str, Any]]:
-    if not isinstance(queue, dict):
+    if not _is_object(queue):
         return records
-    by_url = {
-        _clean((entry.get("reviewer_fields") or {}).get("url")): entry
-        for entry in queue.get("entries") or []
-        if isinstance(entry, dict)
-    }
+    by_url: dict[str, dict[str, object]] = {}
+    for entry in _object_rows(queue.get("entries")):
+        reviewer_fields = _object(entry.get("reviewer_fields"))
+        by_url[_clean(reviewer_fields.get("url"))] = entry
     if not by_url:
         return records
 
     annotated: list[dict[str, Any]] = []
     for record in records:
-        if not isinstance(record, dict):
+        if not _is_object(record):
             annotated.append(record)
             continue
         url = _clean(record.get("url"))
@@ -169,12 +192,12 @@ def annotate_records_with_relevance_review_queue(
             annotated.append(record)
             continue
         updated = dict(record)
-        meta = dict(updated.get("record_meta") or {})
+        meta = _object(updated.get("record_meta"))
         meta["source_library_relevance_review"] = {
             "contract_version": CONTRACT_VERSION,
             "queue_id": _clean(entry.get("queue_id")),
             "state": "review_required",
-            "reason_codes": list(entry.get("reason_codes") or []),
+            "reason_codes": _string_list(entry.get("reason_codes")),
             "auto_accept_allowed": False,
             "auto_ingest_allowed": False,
             "review_completed": False,
@@ -260,7 +283,7 @@ def _queue_envelope(
 ) -> dict[str, Any]:
     reason_counts: Counter[str] = Counter()
     for entry in entries:
-        reason_counts.update(str(code) for code in entry.get("reason_codes") or [])
+        reason_counts.update(_string_list(entry.get("reason_codes")))
     return {
         "contract_version": CONTRACT_VERSION,
         "queue_state": "ready_for_review" if entries else "empty",
@@ -283,7 +306,7 @@ def _queue_envelope(
 
 def _taxonomy_case_readiness(row: dict[str, Any], *, position: int) -> dict[str, Any]:
     source_mode = _clean(row.get("source_mode"))
-    taxonomy = row.get("taxonomy") if isinstance(row.get("taxonomy"), dict) else {}
+    taxonomy = _object(row.get("taxonomy"))
     case_id = _clean(row.get("case_id")) or _clean(row.get("item_key")) or f"case_{position}"
     channel_family = _clean(taxonomy.get("channel_family"))
     item_type = _clean(taxonomy.get("item_type"))
@@ -336,15 +359,15 @@ def _taxonomy_case_readiness(row: dict[str, Any], *, position: int) -> dict[str,
             if part
         )
         or None,
-        "warnings": list(row.get("warnings") or []),
+        "warnings": _string_list(row.get("warnings")),
         "ready": ready,
         "missing_fields": missing,
         "invalid_fields": invalid,
     }
 
 
-def _review_queue_readiness(queue: dict[str, Any] | None) -> dict[str, Any]:
-    if not isinstance(queue, dict):
+def _review_queue_readiness(queue: object | None) -> dict[str, Any]:
+    if not _is_object(queue):
         return {
             "state": "missing",
             "ready": False,
@@ -354,12 +377,12 @@ def _review_queue_readiness(queue: dict[str, Any] | None) -> dict[str, Any]:
             "entries_missing_reviewer_fields": [],
         }
 
-    entries = [entry for entry in queue.get("entries") or [] if isinstance(entry, dict)]
+    entries = _object_rows(queue.get("entries"))
     queue_ids = [_clean(entry.get("queue_id")) for entry in entries if _clean(entry.get("queue_id"))]
     missing_rows = [
         {
             "queue_id": _clean(entry.get("queue_id")) or None,
-            "missing_fields": list(entry.get("reviewer_fields_missing") or []),
+            "missing_fields": _string_list(entry.get("reviewer_fields_missing")),
         }
         for entry in entries
         if entry.get("reviewer_ready") is not True or entry.get("reviewer_fields_missing")
@@ -385,15 +408,16 @@ def _review_queue_readiness(queue: dict[str, Any] | None) -> dict[str, Any]:
 def _human_review_readiness(
     *,
     queue_ids: list[str],
-    human_review_evidence: list[dict[str, Any]],
+    human_review_evidence: Sequence[object],
 ) -> dict[str, Any]:
     required_ids = set(queue_ids)
     completed_ids: set[str] = set()
     invalid: list[dict[str, Any]] = []
-    for index, evidence in enumerate(human_review_evidence):
-        if not isinstance(evidence, dict):
+    for index, raw_evidence in enumerate(human_review_evidence):
+        if not _is_object(raw_evidence):
             invalid.append({"index": index, "reason": "not_object"})
             continue
+        evidence = _object(raw_evidence)
         missing = [key for key in HUMAN_REVIEW_EVIDENCE_REQUIRED_FIELDS if not _clean(evidence.get(key))]
         state = _clean(evidence.get("state") or evidence.get("review_state"))
         queue_id = _clean(evidence.get("queue_id"))
@@ -530,22 +554,24 @@ def _review_reason_codes(
     return [code for code in REASON_CODE_ORDER if code in candidates]
 
 
-def _runtime_by_site_url(rows: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+def _runtime_by_site_url(rows: Sequence[object]) -> dict[str, dict[str, Any]]:
     out: dict[str, dict[str, Any]] = {}
-    for row in rows:
-        if not isinstance(row, dict):
+    for raw_row in rows:
+        if not _is_object(raw_row):
             continue
+        row = _object(raw_row)
         site_url = _clean(row.get("site_url"))
         if site_url:
             out[site_url] = dict(row)
     return out
 
 
-def _errors_by_site_url(rows: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
+def _errors_by_site_url(rows: Sequence[object]) -> dict[str, list[dict[str, Any]]]:
     out: dict[str, list[dict[str, Any]]] = {}
-    for row in rows:
-        if not isinstance(row, dict):
+    for raw_row in rows:
+        if not _is_object(raw_row):
             continue
+        row = _object(raw_row)
         site_url = _clean(row.get("site_url"))
         if site_url:
             out.setdefault(site_url, []).append(dict(row))

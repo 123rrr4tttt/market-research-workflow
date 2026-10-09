@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from .extract import append_url
 from .capture_config import get_capture_config
+from .extract import append_url
 
 
 class DefaultResourcePoolAppendAdapter:
@@ -13,7 +13,7 @@ class DefaultResourcePoolAppendAdapter:
         self,
         url: str,
         source: str,
-        source_ref: dict,
+        source_ref: dict[str, object],
         *,
         project_key: str,
         job_type: str,

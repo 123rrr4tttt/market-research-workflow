@@ -370,6 +370,75 @@ def test_session_retry_effect_marks_retriable_exhaustion() -> None:
     assert (failure.context or {})["cause"] is original
 
 
+def test_session_retry_returned_failures_keep_commit_and_lift_boundaries() -> None:
+    class _Session:
+        def __init__(self) -> None:
+            self.commits = 0
+            self.rollbacks = 0
+
+        def commit(self) -> None:
+            self.commits += 1
+
+        def rollback(self) -> None:
+            self.rollbacks += 1
+
+    class _Manager:
+        def __init__(self, session: _Session) -> None:
+            self.session = session
+
+        def __enter__(self) -> _Session:
+            return self.session
+
+        def __exit__(self, *_args: object) -> None:
+            return None
+
+    sessions: list[_Session] = []
+
+    def factory() -> _Manager:
+        session = _Session()
+        sessions.append(session)
+        return _Manager(session)
+
+    original = ValueError("registered failure")
+    registered = base._session_retry_failure(
+        "operation_failed",
+        "registered failure",
+        operation="test-returned-failure",
+        context={
+            "cause": original,
+            "public_exception": "ValueError",
+            "public_message": str(original),
+        },
+    )
+    with pytest.raises(ValueError) as raised:
+        base.run_with_session_retry(
+            lambda _session: registered,
+            session_factory=factory,
+        )
+    assert raised.value is original
+    assert (sessions[-1].commits, sessions[-1].rollbacks) == (1, 0)
+
+    foreign = Failure("other.family", "domain_rejected", "domain result")
+    assert (
+        base.run_with_session_retry(
+            lambda _session: foreign,
+            session_factory=factory,
+        )
+        is foreign
+    )
+    assert (sessions[-1].commits, sessions[-1].rollbacks) == (1, 0)
+
+    marker = object()
+    assert (
+        base.run_with_session_retry(
+            lambda _session: marker,
+            session_factory=factory,
+        )
+        is marker
+    )
+    assert (sessions[-1].commits, sessions[-1].rollbacks) == (1, 0)
+
+
 def test_session_retry_failure_lift_boundaries(monkeypatch: pytest.MonkeyPatch) -> None:
     with pytest.raises(TypeError, match="requires a registered failure"):
         base._raise_session_retry_failure(Failure("other.family", "operation_failed", "bad"))

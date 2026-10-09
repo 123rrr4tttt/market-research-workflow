@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any, Literal
 
 from sqlalchemy import select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
-from sqlalchemy.engine import Connection
+from sqlalchemy.engine import Connection, RowMapping
 
 from app.successor_runtime.runtime.ports import RuntimeScope
 
@@ -65,7 +64,7 @@ class IdempotencyRepository:
         self.connection = connection
         self.scope = scope
 
-    def reserve(self, binding: IdempotencyBinding) -> Mapping[str, Any]:
+    def reserve(self, binding: IdempotencyBinding) -> RowMapping:
         table = runtime_table("runtime_idempotency")
         values = project_values(self.scope, binding.values())
         now = utc_now()
@@ -99,7 +98,7 @@ class IdempotencyRepository:
         logical_request_id: str,
         *,
         for_update: bool = False,
-    ) -> Mapping[str, Any]:
+    ) -> RowMapping:
         table = runtime_table("runtime_idempotency")
         statement = select(table).where(
             table.c.project_key == runtime_scope_key(self.scope),
@@ -120,7 +119,7 @@ class IdempotencyRepository:
         *,
         expected_revision: int,
         terminal_observation_ref: str,
-    ) -> Mapping[str, Any]:
+    ) -> RowMapping:
         if not terminal_observation_ref:
             raise ValueError("terminal_observation_ref is required")
         table = runtime_table("runtime_idempotency")

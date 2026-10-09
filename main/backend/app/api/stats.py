@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from datetime import date, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from typing import Any, Optional
 
 from fastapi import APIRouter, Query
@@ -152,7 +152,7 @@ def _resolve_range(*, start: Optional[str], end: Optional[str], time_window: Opt
     if not _TIME_WINDOW_RE.match(window):
         raise ValueError("time_window must use Nd format, e.g. 7d/30d/90d")
     days = max(1, int(window[:-1]))
-    end_day = datetime.utcnow().date()
+    end_day = datetime.now(UTC).date()
     start_day = end_day - timedelta(days=days - 1)
     return start_day, end_day
 
@@ -276,7 +276,7 @@ def get_prompt_time_density_priority(
     avoid_peak: bool = Query(True, description="是否启用轻避峰"),
 ):
     try:
-        end_dt = _parse_ymd(end, field="end") or datetime.utcnow().date()
+        end_dt = _parse_ymd(end, field="end") or datetime.now(UTC).date()
         windows = candidate_windows or ["7d", "30d", "90d"]
         merged_groups = _coalesce_noun_group_ids(noun_group_ids=noun_group_ids, prompt_group_ids=prompt_group_ids)
         items = query_prompt_time_density_priority(
@@ -330,7 +330,7 @@ def select_prompt_time_windows(
     avoid_peak: bool = Query(True, description="是否启用轻避峰"),
 ):
     try:
-        end_dt = _parse_ymd(end, field="end") or datetime.utcnow().date()
+        end_dt = _parse_ymd(end, field="end") or datetime.now(UTC).date()
         windows = candidate_windows or ["7d", "30d", "90d"]
         merged_groups = _coalesce_noun_group_ids(noun_group_ids=noun_group_ids, prompt_group_ids=prompt_group_ids)
         rows = query_prompt_time_density_priority(

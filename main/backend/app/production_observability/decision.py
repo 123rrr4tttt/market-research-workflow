@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, replace
 from datetime import datetime
 from collections.abc import Iterable, Mapping
-from typing import Literal
+from typing import Literal, TypeGuard
 
 from .alerts import AlertEvaluation, AlertRule, evaluate_alert_rule
 from .errors import ObservabilityTypeError, ObservabilityValueError
@@ -21,6 +21,14 @@ from .contracts import (
 )
 from .observations import Observation
 from .receipts import ReceiptValidationCode, ObservationReceipt, validate_production_receipt
+
+
+def _instance_of(value: object, expected_type: type[AlertState]) -> TypeGuard[AlertState]:
+    return isinstance(value, expected_type)
+
+
+def _is_continuity_reason(value: object) -> TypeGuard[ContinuityReason]:
+    return isinstance(value, ContinuityReason)
 
 
 @dataclass(frozen=True)
@@ -40,7 +48,7 @@ class StopRequest:
 
         object.__setattr__(self, "requested_at", parse_observed_at(self.requested_at))
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, object]:
         return asdict(self)
 
 
@@ -56,13 +64,13 @@ class ContinueRequest:
             raise ObservabilityValueError("continue requested_by is required")
         if not self.release_version.strip():
             raise ObservabilityValueError("continue release_version is required")
-        if not isinstance(self.reason, ContinuityReason):
+        if not _is_continuity_reason(self.reason):
             raise ObservabilityTypeError("continue reason is closed")
         from .observations import parse_observed_at
 
         object.__setattr__(self, "requested_at", parse_observed_at(self.requested_at))
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, object]:
         return asdict(self)
 
 
@@ -89,7 +97,7 @@ class CanaryRouteDecision:
         if self.derived_as != "view":
             raise ObservabilityValueError("decision derived_as must remain view")
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, object]:
         return asdict(self)
 
 
@@ -144,7 +152,9 @@ def decide_canary_route(
     # A valid production receipt is still required for CONTINUE, so an
     # unreceipted observation can never create promotion authority.
     receipt_bound_ids = (
-        set(production_receipt.observation_ids) if production_receipt_valid else set()
+        set(production_receipt.observation_ids)
+        if production_receipt is not None and production_receipt_valid
+        else set[str]()
     )
     usable_observations = tuple(
         observation
@@ -155,9 +165,11 @@ def decide_canary_route(
         and (not production_receipt_valid or observation.observation_id in receipt_bound_ids)
     )
 
-    previous_states = {} if previous_alert_states is None else dict(previous_alert_states)
+    previous_states: dict[str, AlertState] = (
+        {} if previous_alert_states is None else dict(previous_alert_states)
+    )
     for state in previous_states.values():
-        if not isinstance(state, AlertState):
+        if not _instance_of(state, AlertState):
             raise ObservabilityTypeError("previous alert state is closed")
     alert_evaluation_items: list[AlertEvaluation] = []
     for rule in alert_rules:

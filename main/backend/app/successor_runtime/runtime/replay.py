@@ -11,7 +11,7 @@ from __future__ import annotations
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from types import MappingProxyType
-from typing import Literal, Protocol, TypeVar, cast, overload
+from typing import Literal, Protocol, TypeGuard, TypeVar, overload
 
 from functorial_kit import Failure
 
@@ -75,7 +75,79 @@ def _replay_failure(
 ) -> Failure:
     if message is None:
         code, message = "REPLAY_STATE_INVALID", code
-    return runtime_failure(code, message, RuntimeReplayError, site=site)
+    failure_code = code if isinstance(code, str) else "REPLAY_STATE_INVALID"
+    return runtime_failure(failure_code, message, RuntimeReplayError, site=site)
+
+
+def _is_object_list(value: object) -> TypeGuard[list[object]]:
+    return isinstance(value, list)
+
+
+def _is_object_sequence(value: object) -> TypeGuard[tuple[object, ...] | list[object]]:
+    return isinstance(value, (tuple, list))
+
+
+def _is_string_object_mapping(value: object) -> TypeGuard[Mapping[str, object]]:
+    if not _is_object_mapping(value):
+        return False
+    return all(isinstance(key, str) for key in value)
+
+
+def _is_object_mapping(value: object) -> TypeGuard[Mapping[object, object]]:
+    return isinstance(value, Mapping)
+
+
+def _coerce_int(value: object) -> int:
+    if isinstance(value, (str, bytes, bytearray, int, float)):
+        try:
+            return int(value)
+        except (TypeError, ValueError, OverflowError):
+            pass
+    # kit:boundary owner=successor.runtime.replay.projection_codec class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_replay_projection_bad_scalar_helpers_return_typed_failure_and_preserve_legacy_error
+    raise_runtime_failure(
+        _replay_failure(
+            "REPLAY_PROJECTION_INVALID",
+            "runtime projection integer field is invalid",
+            site="successor_runtime.runtime.replay.RuntimeReplayProjection.from_json",
+        ),
+        RuntimeReplayError,
+    )
+
+
+def _string_tuple(value: object) -> tuple[str, ...]:
+    if not _is_object_sequence(value):
+        # kit:boundary owner=successor.runtime.replay.projection_codec class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_replay_projection_bad_scalar_helpers_return_typed_failure_and_preserve_legacy_error
+        raise_runtime_failure(
+            _replay_failure(
+                "REPLAY_PROJECTION_INVALID",
+                "runtime projection string collection is invalid",
+                site="successor_runtime.runtime.replay.RuntimeReplayProjection.from_json",
+            ),
+            RuntimeReplayError,
+        )
+    return tuple(str(item) for item in value)
+
+
+def _is_nonempty_unique_string_list(value: object) -> TypeGuard[list[str]]:
+    if not _is_object_list(value) or not value:
+        return False
+    strings: list[str] = []
+    for item in value:
+        if not isinstance(item, str) or not item:
+            return False
+        strings.append(item)
+    return len(set(strings)) == len(strings)
+
+
+def _is_optional_digest_sequence(
+    value: object,
+) -> TypeGuard[tuple[str | None, ...] | list[str | None]]:
+    if not _is_object_sequence(value):
+        return False
+    return all(
+        item is None or (isinstance(item, str) and is_sha256_hex(item))
+        for item in value
+    )
 
 
 def _legacy_lift(value: _ReplayValue | Failure) -> _ReplayValue:
@@ -559,11 +631,13 @@ class RuntimeReplayProjection:
             )
 
     @classmethod
-    def _decode_json(cls, value: Mapping[str, object]) -> RuntimeReplayProjection:
+    def _decode_json(
+        cls, value: Mapping[str, object]
+    ) -> RuntimeReplayProjection | Failure:
         if value.get("schema") != "mrw.runtime.run-projection.v1":
-            return cast(RuntimeReplayProjection, _replay_failure(
+            return _replay_failure(
                 "REPLAY_PROJECTION_INVALID", "runtime projection schema mismatch"
-            ))
+            )
         raw_steps = value.get("steps")
         raw_activation_bindings = value.get("step_activation_bindings")
         raw_attempts = value.get("attempts")
@@ -572,36 +646,50 @@ class RuntimeReplayProjection:
         raw_traversal_bindings = value.get("traversal_bindings", [])
         raw_active_child_bindings = value.get("active_child_bindings", [])
         if (
-            not isinstance(raw_steps, list)
-            or not isinstance(raw_activation_bindings, list)
-            or not isinstance(raw_attempts, list)
-            or not isinstance(raw_attempt_step_bindings, list)
-            or not isinstance(raw_recovery_claim_bindings, list)
-            or not isinstance(raw_traversal_bindings, list)
-            or not isinstance(raw_active_child_bindings, list)
+            not _is_object_list(raw_steps)
+            or not _is_object_list(raw_activation_bindings)
+            or not _is_object_list(raw_attempts)
+            or not _is_object_list(raw_attempt_step_bindings)
+            or not _is_object_list(raw_recovery_claim_bindings)
+            or not _is_object_list(raw_traversal_bindings)
+            or not _is_object_list(raw_active_child_bindings)
         ):
-            return cast(RuntimeReplayProjection, _replay_failure(
+            return _replay_failure(
                 "REPLAY_PROJECTION_INVALID", "runtime projection state collections are invalid"
-            ))
+            )
         pending = value.get("pending_required_failure")
         pending_tuple = None
         if pending is not None:
-            if not isinstance(pending, Mapping):
-                return cast(RuntimeReplayProjection, _replay_failure(
+            if not _is_string_object_mapping(pending):
+                return _replay_failure(
                     "REPLAY_PROJECTION_INVALID", "pending required failure is invalid"
-                ))
+                )
             pending_tuple = (
-                int(pending["expected_seq"]),
+                _coerce_int(pending["expected_seq"]),
                 str(pending["step_id"]),
                 str(pending["attempt_id"]),
                 str(pending["source_event_digest"]),
+            )
+        decoded_traversal_bindings: list[tuple[str, str, tuple[str, ...]]] = []
+        for raw_binding in raw_traversal_bindings:
+            if not _is_string_object_mapping(raw_binding):
+                continue
+            raw_digests = raw_binding.get("element_digests")
+            if not _is_object_list(raw_digests):
+                continue
+            decoded_traversal_bindings.append(
+                (
+                    str(raw_binding["source_step_id"]),
+                    str(raw_binding["materialization_digest"]),
+                    tuple(str(digest) for digest in raw_digests),
+                )
             )
         return cls(
             project_key=str(value["project_key"]),
             run_id=str(value["run_id"]),
             run_incarnation=str(value["run_incarnation"]),
             run_state=RunState(str(value["run_state"])),
-            last_seq=int(value["last_seq"]),
+            last_seq=_coerce_int(value["last_seq"]),
             event_chain_digest=str(value["event_chain_digest"]),
             program_digest=str(value["program_digest"]),
             plan_digest=(
@@ -613,7 +701,7 @@ class RuntimeReplayProjection:
                 sorted(
                     (str(item["step_id"]), StepState(str(item["state"])))
                     for item in raw_steps
-                    if isinstance(item, Mapping)
+                    if _is_string_object_mapping(item)
                 )
             ),
             step_activation_bindings=tuple(
@@ -625,7 +713,7 @@ class RuntimeReplayProjection:
                         str(item["input_closure_digest"]),
                     )
                     for item in raw_activation_bindings
-                    if isinstance(item, Mapping)
+                    if _is_string_object_mapping(item)
                 )
             ),
             attempts=tuple(
@@ -635,14 +723,14 @@ class RuntimeReplayProjection:
                         EffectDisposition(str(item["disposition"])),
                     )
                     for item in raw_attempts
-                    if isinstance(item, Mapping)
+                    if _is_string_object_mapping(item)
                 )
             ),
             attempt_step_bindings=tuple(
                 sorted(
                     (str(item["attempt_id"]), str(item["step_id"]))
                     for item in raw_attempt_step_bindings
-                    if isinstance(item, Mapping)
+                    if _is_string_object_mapping(item)
                 )
             ),
             recovery_claim_bindings=tuple(
@@ -653,39 +741,28 @@ class RuntimeReplayProjection:
                         str(item["reconciliation_attempt_id"]),
                     )
                     for item in raw_recovery_claim_bindings
-                    if isinstance(item, Mapping)
+                    if _is_string_object_mapping(item)
                 )
             ),
-            traversal_bindings=tuple(
-                sorted(
-                    (
-                        str(item["source_step_id"]),
-                        str(item["materialization_digest"]),
-                        tuple(str(digest) for digest in item["element_digests"]),
-                    )
-                    for item in raw_traversal_bindings
-                    if isinstance(item, Mapping)
-                    and isinstance(item.get("element_digests"), list)
-                )
-            ),
+            traversal_bindings=tuple(sorted(decoded_traversal_bindings)),
             active_child_bindings=tuple(
                 sorted(
                     (
                         str(item["source_step_id"]),
-                        int(item["element_index"]),
+                        _coerce_int(item["element_index"]),
                         str(item["child_run_id"]),
                         str(item["element_digest"]),
                         str(item["materialization_digest"]),
                     )
                     for item in raw_active_child_bindings
-                    if isinstance(item, Mapping)
+                    if _is_string_object_mapping(item)
                 )
             ),
-            required_failure_step_ids=tuple(
-                str(item) for item in value.get("required_failure_step_ids", [])
+            required_failure_step_ids=_string_tuple(
+                value.get("required_failure_step_ids", [])
             ),
-            observed_event_types=tuple(
-                str(item) for item in value.get("observed_event_types", [])
+            observed_event_types=_string_tuple(
+                value.get("observed_event_types", [])
             ),
             pending_required_failure=pending_tuple,
         )
@@ -1112,7 +1189,7 @@ def _apply_event(
                 run_state = RunState.FAILED
                 if step_id not in failures:
                     failures.append(step_id)
-            elif int(successor_seq) == event.seq + 1:
+            elif _coerce_int(successor_seq) == event.seq + 1:
                 pending = (event.seq + 1, step_id, attempt_id, event.event_digest)
             else:
                 return _replay_failure("required failure successor seq drift")
@@ -1244,7 +1321,7 @@ def _apply_event(
                 run_state = RunState.FAILED
                 if step_id not in failures:
                     failures.append(step_id)
-            elif int(successor_seq) == event.seq + 1:
+            elif _coerce_int(successor_seq) == event.seq + 1:
                 pending = (event.seq + 1, step_id, attempt_id, event.event_digest)
             else:
                 return _replay_failure("readback failure successor seq drift")
@@ -1357,12 +1434,7 @@ def _apply_event(
         if run_state is not RunState.RUNNING:
             return _replay_failure("RunCompletionDerived requires RUNNING")
         required_step_ids = event.metadata.get("required_step_ids")
-        if (
-            not isinstance(required_step_ids, list)
-            or not required_step_ids
-            or any(not isinstance(item, str) or not item for item in required_step_ids)
-            or len(set(required_step_ids)) != len(required_step_ids)
-        ):
+        if not _is_nonempty_unique_string_list(required_step_ids):
             return _replay_failure(
                 "RunCompletionDerived requires unique required_step_ids"
             )
@@ -1405,9 +1477,7 @@ def _apply_event(
         element_count = event.metadata.get("element_count")
         raw_element_digests = event.metadata.get("element_digests")
         element_digests = (
-            cast(tuple[object, ...] | list[object], raw_element_digests)
-            if isinstance(raw_element_digests, (tuple, list))
-            else None
+            raw_element_digests if _is_object_sequence(raw_element_digests) else None
         )
         if (
             not isinstance(element_count, int)
@@ -1423,14 +1493,21 @@ def _apply_event(
             return _replay_failure(
                 "TraversalMaterializationRequested element binding drift"
             )
-        source_step_id = cast(str, event.metadata["source_step_id"])
+        source_step_id = _require_metadata_string(event, "source_step_id")
+        materialization_digest = _require_metadata_digest(
+            event, "materialization_digest"
+        )
+        if isinstance(source_step_id, Failure):
+            return source_step_id
+        if isinstance(materialization_digest, Failure):
+            return materialization_digest
         if source_step_id in traversals:
             return _replay_failure(
                 "TraversalMaterializationRequested source step is duplicated"
             )
         traversals[source_step_id] = (
-            cast(str, event.metadata["materialization_digest"]),
-            tuple(cast(str, item) for item in element_digests),
+            materialization_digest,
+            tuple(item for item in element_digests if isinstance(item, str)),
         )
         run_state = RunState.WAITING
     elif event.event_type == "ActiveChildMaterialized":
@@ -1462,10 +1539,18 @@ def _apply_event(
         index = event.metadata.get("element_index")
         if not isinstance(index, int) or isinstance(index, bool) or index < 0:
             return _replay_failure("ActiveChildMaterialized index is invalid")
-        source_step_id = cast(str, event.metadata["source_step_id"])
-        materialization_digest = cast(str, event.metadata["materialization_digest"])
-        element_digest = cast(str, event.metadata["element_digest"])
-        child_run_id = cast(str, event.metadata["child_run_id"])
+        source_step_id = _require_metadata_string(event, "source_step_id")
+        materialization_digest = _require_metadata_digest(event, "materialization_digest")
+        element_digest = _require_metadata_digest(event, "element_digest")
+        child_run_id = _require_metadata_string(event, "child_run_id")
+        if isinstance(source_step_id, Failure):
+            return source_step_id
+        if isinstance(materialization_digest, Failure):
+            return materialization_digest
+        if isinstance(element_digest, Failure):
+            return element_digest
+        if isinstance(child_run_id, Failure):
+            return child_run_id
         traversal = traversals.get(source_step_id)
         if (
             traversal is None
@@ -1515,15 +1600,11 @@ def _apply_event(
             traversal is None
             or child_count != len(traversal[1])
             or any(item is None for item in ordered_children)
-            or not isinstance(child_run_ids, (tuple, list))
+            or not _is_object_sequence(child_run_ids)
             or tuple(child_run_ids)
             != tuple(item[0] for item in ordered_children if item is not None)
-            or not isinstance(child_result_digests, (tuple, list))
+            or not _is_optional_digest_sequence(child_result_digests)
             or len(child_result_digests) != child_count
-            or any(
-                item is not None and not is_sha256_hex(item)
-                for item in child_result_digests
-            )
         ):
             return _replay_failure("ActiveChildrenSettled child closure drift")
         if source_step_id in steps:

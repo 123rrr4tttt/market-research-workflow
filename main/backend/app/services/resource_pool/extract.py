@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Mapping
 from datetime import datetime, timezone
-from typing import NoReturn, NotRequired, TypeGuard, TypedDict
+from typing import NoReturn, NotRequired, TypedDict, TypeGuard
 
 from functorial_kit import Failure
 from sqlalchemy import select
@@ -17,7 +17,6 @@ from ...models.base import SessionLocal
 from ...models.entities import Document, EtlJobRun, ResourcePoolUrl, SharedResourcePoolUrl
 from ..projects import bind_project, bind_schema
 from .url_utils import canonicalize_url, domain_from_url, extract_urls_from_json, extract_urls_from_text, normalize_url
-
 
 logger = logging.getLogger(__name__)
 ResourceSourceRef = dict[str, object]

@@ -4,7 +4,7 @@ from __future__ import annotations
 import logging
 import re
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from email.utils import parsedate_to_datetime
 from html import unescape
 from typing import Iterable, List, Optional
@@ -97,7 +97,7 @@ class GoogleNewsAdapter:
         # Google News使用article标签
         articles = parser.css("article")
         
-        seen_links = set()
+        seen_links: set[str] = set()
         
         for article in articles:
             try:
@@ -132,7 +132,7 @@ class GoogleNewsAdapter:
                 clean_link = f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
                 if parsed.query:
                     # 保留部分查询参数，但移除Google跟踪参数
-                    params = {}
+                    params: dict[str, str] = {}
                     for param in parsed.query.split("&"):
                         if "=" in param:
                             k, v = param.split("=", 1)
@@ -272,7 +272,7 @@ class GoogleNewsAdapter:
             return None
         
         time_str = time_str.strip().lower()
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         
         # 处理相对时间
         if "minute" in time_str or "分钟" in time_str:

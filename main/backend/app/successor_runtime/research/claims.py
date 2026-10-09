@@ -5,7 +5,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from .codec import _failure, _raise_failure, finalize_digest
+from .codec import (
+    finalize_digest,
+    raise_research_failure as _raise_failure,
+    research_failure as _failure,
+)
 
 __all__ = ["CLAIM_LIFECYCLE_STATES", "Claim", "Gap"]
 

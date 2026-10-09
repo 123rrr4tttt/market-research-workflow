@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from contextlib import nullcontext
-from typing import Annotated
+from typing import Annotated, TypeGuard
 
 from ..contracts import (
     CollectRequest,
@@ -16,41 +17,71 @@ from ..display_meta import build_display_meta
 from ...projects import bind_project
 from ...ingest.frontdoor_ingress import build_source_library_ingress_envelope
 from ...ingest.postprocess_frontdoor import run_postprocess_frontdoor
+from ...source_library.types import (
+    TerminalCollectResult,
+    TerminalErrorView,
+    TerminalLimitsView,
+    TerminalMetaView,
+    TerminalOutputDto,
+)
+
 
 try:
-    from ...source_library.terminal_output import build_source_library_terminal_output
+    from ...source_library.terminal_output import (
+        build_source_library_terminal_output as _build_source_library_terminal_output,
+    )
 except Exception:  # pragma: no cover - optional compatibility import
-    def build_source_library_terminal_output(
+    def _build_source_library_terminal_output(
         *,
-        result_payload: CollectJsonObject | None,
-        collect_result: CollectResult,
-    ) -> CollectJsonObject:
+        result_payload: dict[str, object] | None,
+        collect_result: TerminalCollectResult,
+    ) -> TerminalOutputDto:
         payload = result_payload if isinstance(result_payload, dict) else {}
         nested = _json_object(payload.get("result"))
-        errors = nested.get("errors")
-        if not isinstance(errors, list):
-            errors = _json_list([_failure_message(error) for error in collect_result.errors])
+        raw_errors = nested.get("errors")
+        error_values = raw_errors if isinstance(raw_errors, list) else (
+            list(collect_result.errors)
+            if isinstance(collect_result, CollectResult)
+            else []
+        )
+        errors: list[TerminalErrorView] = [
+            {
+                "source": "collect_result",
+                "message": str(_failure_message(error) or error or ""),
+            }
+            for error in error_values
+        ]
 
-        fetched = int(collect_result.inserted or 0) + int(collect_result.updated or 0) + int(collect_result.skipped or 0)
+        fetched = (
+            int(collect_result.inserted or 0)
+            + int(collect_result.updated or 0)
+            + int(collect_result.skipped or 0)
+            if isinstance(collect_result, CollectResult)
+            else 0
+        )
 
-        limits: CollectJsonObject = {
+        limits: TerminalLimitsView = {
             "limit": None,
             "max_items": None,
             "per_keyword_limit": None,
             "max_candidates": None,
             "ingest_limit": None,
         }
-        raw_result_keys: list[CollectJsonValue] = _json_list(sorted(nested.keys()))
-        meta: CollectJsonObject = {
+        meta: TerminalMetaView = {
             "reason_code": "fetch_errors" if errors else "empty",
             "retryable": False,
             "provider": None,
             "provider_job_id": None,
             "trace_id": None,
             "warnings": [],
-            "raw_result_keys": raw_result_keys,
+            "provider_handoff": None,
+            "frontdoor_route_profile": None,
+            "frontdoor_router_contract": None,
+            "terminal_readback": None,
+            "outcome_unknown": None,
+            "raw_result_keys": sorted(nested.keys()),
         }
-        response: CollectJsonObject = {
+        response: TerminalOutputDto = {
             "contract_version": "source_library.terminal_output.v1",
             "status": "partial" if errors else "ok",
             "source_mode": "protocol_search",
@@ -58,6 +89,7 @@ except Exception:  # pragma: no cover - optional compatibility import
                 "item_key": str(payload.get("item_key") or ""),
                 "item_type": None,
                 "managed_by": None,
+                "external_manifest": None,
             },
             "request": {
                 "project_key": None,
@@ -86,6 +118,30 @@ def _json_object(value: object) -> CollectJsonObject:
     return validated if isinstance(validated, dict) else {}
 
 
+def _object_dict(value: Mapping[str, object]) -> dict[str, object]:
+    return dict(value)
+
+
+def _is_object_dict(value: object) -> TypeGuard[dict[str, object]]:
+    return isinstance(value, dict)
+
+
+def _is_terminal_output_dto(value: object) -> TypeGuard[TerminalOutputDto]:
+    if not _is_object_dict(value):
+        return False
+    return (
+        value.get("contract_version") == "source_library.terminal_output.v1"
+        and value.get("status") in {"ok", "partial", "error", "accepted", "completed", "failed", "cancelled"}
+        and value.get("source_mode") in {"protocol_search", "provider_harvest", "site_search", "url_execution"}
+        and isinstance(value.get("item"), dict)
+        and isinstance(value.get("request"), dict)
+        and isinstance(value.get("results"), dict)
+        and isinstance(value.get("errors"), list)
+        and isinstance(value.get("meta"), dict)
+        and isinstance(value.get("raw_snapshot"), dict)
+    )
+
+
 def _json_object_list(value: object) -> list[CollectJsonObject]:
     validated = source_library_compat_response({"value": value}).get("value")
     if not isinstance(validated, list):
@@ -112,8 +168,8 @@ def _failure_message(value: object) -> CollectJsonValue:
 
 def _derive_source_library_status(
     *,
-    raw: CollectJsonObject,
-    terminal_output: CollectJsonObject,
+    raw: Mapping[str, object],
+    terminal_output: Mapping[str, object],
 ) -> CollectStatus:
     """Keep provider ACK/readback states visible at the collect boundary."""
 
@@ -142,7 +198,10 @@ class SourceLibraryAdapter:
             run_item_payload,
         )
 
-        override_params = _json_object(request.options.get("override_params"))
+        override_params: dict[object, object] = {
+            key: value
+            for key, value in _json_object(request.options.get("override_params")).items()
+        }
         item_key = str(request.item_key or "").strip()
         with (bind_project(request.project_key) if request.project_key else nullcontext()):
             channels = _json_object_list(
@@ -156,22 +215,22 @@ class SourceLibraryAdapter:
             if item is None:
                 raise ValueError(f"source item not found: {item_key}")
             raw_response: object = run_item_payload(
-                item=item,
-                channels=channels,
+                item=_object_dict(item),
+                channels=[_object_dict(channel) for channel in channels],
                 project_key=request.project_key,
                 override_params=override_params,
             )
         raw = _json_object(raw_response)
         nested = _json_object(raw.get("result"))
-        terminal_output = build_source_library_terminal_output(
-            result_payload=raw,
+        terminal_output_dto = _build_source_library_terminal_output(
+            result_payload=_object_dict(raw),
             collect_result=CollectResult(channel=request.channel or "source_library"),
         )
-        terminal_output = _json_object(terminal_output)
         collection_status = _derive_source_library_status(
             raw=raw,
-            terminal_output=terminal_output,
+            terminal_output=terminal_output_dto,
         )
+        terminal_output = _json_object(terminal_output_dto)
         terminal_results = _json_object(terminal_output.get("results"))
         stats = _json_object(terminal_results.get("stats"))
         records = terminal_results.get("records")
@@ -220,17 +279,19 @@ def to_source_library_response(raw_collect_result: CollectResult) -> SourceLibra
         }
 
     response: CollectJsonObject = dict(legacy_result)
-    terminal_output = (raw_collect_result.meta or {}).get("terminal_output")
-    if not isinstance(terminal_output, dict):
-        terminal_output = build_source_library_terminal_output(
-            result_payload=legacy_result,
+    stored_terminal_output = (raw_collect_result.meta or {}).get("terminal_output")
+    if _is_terminal_output_dto(stored_terminal_output):
+        terminal_output_dto = stored_terminal_output
+    else:
+        terminal_output_dto = _build_source_library_terminal_output(
+            result_payload=_object_dict(legacy_result),
             collect_result=raw_collect_result,
         )
-    terminal_output = _json_object(terminal_output)
     frontdoor_ingress = build_source_library_ingress_envelope(
-        terminal_output=terminal_output,
-        legacy_result=legacy_result,
+        terminal_output=terminal_output_dto,
+        legacy_result=_object_dict(legacy_result),
     )
+    terminal_output = _json_object(terminal_output_dto)
     frontdoor_ingress = _json_object(frontdoor_ingress)
     postprocess_frontdoor = run_postprocess_frontdoor(
         ingress_envelope=frontdoor_ingress,

@@ -4,6 +4,9 @@ from dataclasses import dataclass, field
 import json
 from typing import TYPE_CHECKING, Any
 
+from app.contracts.json import JSONObject
+from app.services.agent_core.contracts import json_list, json_object
+
 from .capability_registry import list_interactive_agent_capabilities
 from .external_tool_status import list_external_service_statuses
 from .tool_contract import build_tool_definition
@@ -26,7 +29,7 @@ class ToolPoolRequest:
     user: str | None = None
     permissions: tuple[str, ...] = ()
     agent_mode: str = "read_only"
-    feature_flags: dict[str, bool] = field(default_factory=dict)
+    feature_flags: dict[str, bool] = field(default_factory=lambda: dict[str, bool]())
 
 
 def default_agent_runtime_feature_flags() -> dict[str, bool]:
@@ -184,28 +187,30 @@ class AgentToolPoolAssembler:
             enabled = False
             disabled_reason = "feature flag agent_stream_enabled is disabled"
 
-        input_schema_value = capability.get("input_schema")
-        input_schema = (
-            dict(input_schema_value)
+        input_schema_value: object = capability.get("input_schema")
+        required_input_value: object = capability.get("required_input")
+        required_input = [str(item) for item in json_list(required_input_value)]
+        normalized_input_schema = json_object(input_schema_value)
+        input_schema: JSONObject = (
+            normalized_input_schema
             if isinstance(input_schema_value, dict)
             else {
                 "type": "object",
-                "required": list(capability.get("required_input") or []),
-                "properties": {
-                    key: {"type": "string"}
-                    for key in list(capability.get("required_input") or [])
-                },
+                "required": required_input,
+                "properties": {key: {"type": "string"} for key in required_input},
                 "additionalProperties": True,
             }
         )
+        output_schema_value: object = capability.get("output_schema")
+        normalized_output_schema = json_object(output_schema_value)
         tool_definition = build_tool_definition(
             name=capability_id,
             capability_id=capability_id,
             description=str(capability.get("description") or capability.get("name") or capability_id),
             input_schema=input_schema,
             output_schema=(
-                dict(capability["output_schema"])
-                if isinstance(capability.get("output_schema"), dict)
+                normalized_output_schema
+                if isinstance(output_schema_value, dict)
                 else None
             ),
             risk_level=str(capability.get("risk_level") or _risk_level(capability)),

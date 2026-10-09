@@ -13,7 +13,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from enum import StrEnum
 from types import MappingProxyType
-from typing import Any, Final, Literal, Protocol
+from typing import Any, Final, Literal, Protocol, TypeGuard, TypeVar
 
 from app.successor_runtime.runtime.ports import ProjectScopeRef
 from functorial_kit import Failure, define_failure_family, derived
@@ -23,6 +23,35 @@ HTTP_POLICY_SCHEMA: Final[str] = "mrw.production-policy.http.v1"
 PRODUCTION_POLICY_AUTHORITY_SCHEMA: Final[str] = "mrw.production-policy.authority.v1"
 PRODUCTION_POLICY_FAILURE_FAMILY: Final[str] = "mrw.production-policy.failure.v1"
 APPROVED_DECISION: Final[str] = "APPROVED"
+_Type = TypeVar("_Type")
+_Key = TypeVar("_Key")
+_Value = TypeVar("_Value")
+
+
+def _instance_of(value: object, expected_type: type[_Type]) -> TypeGuard[_Type]:
+    return isinstance(value, expected_type)
+
+
+def _is_bool(value: object) -> TypeGuard[bool]:
+    return isinstance(value, bool)
+
+
+def _is_object_dict(value: object) -> TypeGuard[dict[object, object]]:
+    return isinstance(value, dict)
+
+
+def _is_string_object_dict(value: object) -> TypeGuard[dict[str, object]]:
+    return _is_object_dict(value) and all(isinstance(key, str) for key in value)
+
+
+def _is_object_sequence(
+    value: object,
+) -> TypeGuard[list[object] | tuple[object, ...]]:
+    return isinstance(value, (list, tuple))
+
+
+def _is_mapping(value: object) -> bool:
+    return isinstance(value, Mapping)
 
 
 class PolicyOutcome(StrEnum):
@@ -209,7 +238,7 @@ class EndpointEffectContract:
         try:
             effect_class = (
                 self.effect_class
-                if isinstance(self.effect_class, EffectClass)
+                if _instance_of(self.effect_class, EffectClass)
                 else EffectClass(self.effect_class)
             )
         except (TypeError, ValueError) as exc:
@@ -228,7 +257,7 @@ class EndpointEffectContract:
             try:
                 admission = (
                     self.admission
-                    if isinstance(self.admission, EffectAdmission)
+                    if _instance_of(self.admission, EffectAdmission)
                     else EffectAdmission(self.admission)
                 )
             except (TypeError, ValueError) as exc:
@@ -252,7 +281,7 @@ class EndpointEffectContract:
         try:
             provider_class = (
                 self.provider_class
-                if isinstance(self.provider_class, ProviderClass)
+                if _instance_of(self.provider_class, ProviderClass)
                 else ProviderClass(self.provider_class)
             )
         except (TypeError, ValueError) as exc:
@@ -369,13 +398,14 @@ class EndpointEffectContract:
     def require_admitted(self) -> None:
         """Fail closed for a public route before any downstream effect runs."""
 
-        if not self.admitted:
+        admission = self.admission
+        if admission is not EffectAdmission.ADMITTED:
             raise RouteEffectContractError(
                 "public_effect_route_unadmitted",
                 "public route effect is blocked until its effect binding is admitted",
                 details={
                     "effect_class": self.effect_class.value,
-                    "admission": self.admission.value,
+                    "admission": admission.value if admission is not None else "missing",
                 },
             )
 
@@ -435,17 +465,14 @@ class HTTPPolicy:
     max_body_bytes: int
 
     def __post_init__(self) -> None:
-        if not isinstance(self.require_tls, bool):
+        if not _is_bool(self.require_tls):
             raise TypeError("HTTPPolicy.require_tls must be bool")
         methods = _freeze_strings(self.allowed_methods, field_name="allowed_methods")
         origins = _freeze_strings(self.allowed_origins, field_name="allowed_origins")
         content_types = _freeze_strings(
             self.allowed_content_types, field_name="allowed_content_types"
         )
-        if not isinstance(self.max_body_bytes, int) or isinstance(
-            self.max_body_bytes, bool
-        ) or self.max_body_bytes < 0:
-            raise ValueError("HTTPPolicy.max_body_bytes must be a non-negative integer")
+        _require_non_negative_int(self.max_body_bytes, "HTTPPolicy.max_body_bytes")
         object.__setattr__(self, "allowed_methods", methods)
         object.__setattr__(self, "allowed_origins", origins)
         object.__setattr__(self, "allowed_content_types", content_types)
@@ -505,12 +532,12 @@ class OperationPolicy:
         for field_name in ("approval_required",):
             if not isinstance(getattr(self, field_name), bool):
                 raise TypeError(f"OperationPolicy.{field_name} must be bool")
-        if not isinstance(self.effect_admission, EffectAdmission):
+        if not _instance_of(self.effect_admission, EffectAdmission):
             try:
                 object.__setattr__(self, "effect_admission", EffectAdmission(self.effect_admission))
             except (TypeError, ValueError) as exc:
                 raise ValueError("OperationPolicy.effect_admission is not closed") from exc
-        if not isinstance(self.provider_class, ProviderClass):
+        if not _instance_of(self.provider_class, ProviderClass):
             try:
                 provider_class = ProviderClass(self.provider_class)
             except ValueError as exc:
@@ -551,7 +578,7 @@ class ProjectBinding:
     def __post_init__(self) -> None:
         if _clean_text(self.project_key) is None:
             raise ValueError("ProjectBinding.project_key must be non-empty")
-        if not isinstance(self.scope, ProjectScopeRef):
+        if not _instance_of(self.scope, ProjectScopeRef):
             raise TypeError("ProjectBinding.scope must be ProjectScopeRef")
         object.__setattr__(self, "project_key", _clean_text(self.project_key))
 
@@ -630,10 +657,10 @@ class ProductionPolicyConfig:
         if not operations:
             raise ValueError("at least one operation policy is required")
         for operation, policy in operations.items():
-            if _clean_text(operation) != operation or not isinstance(policy, OperationPolicy):
+            if _clean_text(operation) != operation or not _instance_of(policy, OperationPolicy):
                 raise ValueError("operations must map canonical names to OperationPolicy")
         for project_key, binding in projects.items():
-            if _clean_text(project_key) != project_key or not isinstance(binding, ProjectBinding):
+            if _clean_text(project_key) != project_key or not _instance_of(binding, ProjectBinding):
                 raise ValueError("projects must map canonical names to ProjectBinding")
             if binding.project_key != project_key:
                 raise ValueError("project binding key differs from catalog key")
@@ -644,6 +671,10 @@ class ProductionPolicyConfig:
         object.__setattr__(self, "projects", projects)
 
 
+def _empty_policy_details() -> dict[str, object]:
+    return {}
+
+
 @dataclass(frozen=True, slots=True)
 class PolicyDecision:
     """A derived decision with an explicit non-authoritative boundary."""
@@ -651,11 +682,11 @@ class PolicyDecision:
     outcome: PolicyOutcome
     failure: Failure | None = None
     stage: str | None = None
-    details: Mapping[str, Any] = field(default_factory=dict)
+    details: Mapping[str, object] = field(default_factory=_empty_policy_details)
     authority: Literal[False] = False
 
     def __post_init__(self) -> None:
-        if not isinstance(self.outcome, PolicyOutcome):
+        if not _instance_of(self.outcome, PolicyOutcome):
             raise TypeError("PolicyDecision.outcome must be PolicyOutcome")
         if self.outcome is PolicyOutcome.PASS and self.failure is not None:
             raise ValueError("PASS decision cannot carry a failure")
@@ -675,7 +706,7 @@ class PolicyDecision:
         return derived("preflight", self)
 
 
-def _clean_text(value: Any) -> str | None:
+def _clean_text(value: object) -> str | None:
     if not isinstance(value, str):
         return None
     text = value.strip()
@@ -683,12 +714,12 @@ def _clean_text(value: Any) -> str | None:
 
 
 def _freeze_strings(
-    values: Any,
+    values: object,
     *,
     field_name: str,
     deduplicate: bool = True,
 ) -> tuple[str, ...]:
-    if not isinstance(values, (list, tuple)):
+    if not _is_object_sequence(values):
         raise TypeError(f"{field_name} must be a list or tuple")
     cleaned: list[str] = []
     for value in values:
@@ -699,8 +730,12 @@ def _freeze_strings(
     return tuple(dict.fromkeys(cleaned) if deduplicate else cleaned)
 
 
-def _freeze_mapping(values: Mapping[str, Any], *, field_name: str) -> Mapping[str, Any]:
-    if not isinstance(values, Mapping):
+def _freeze_mapping(
+    values: Mapping[_Key, _Value],
+    *,
+    field_name: str,
+) -> Mapping[_Key, _Value]:
+    if not _is_mapping(values):
         raise TypeError(f"{field_name} must be a Mapping")
     return MappingProxyType(dict(values))
 
@@ -720,7 +755,7 @@ def policy_failure(
     message: str,
     *,
     stage: str,
-    details: Mapping[str, Any] | None = None,
+    details: Mapping[str, object] | None = None,
 ) -> Failure:
     """Build the only failure value admitted by this kernel."""
 
@@ -737,11 +772,11 @@ def policy_failure(
     return production_policy_failures.fail(code, clean_message, context)
 
 
-def _decision_for_failure(failure: Failure) -> PolicyDecision:
+def decision_for_failure(failure: Failure) -> PolicyDecision:
     context = failure.context or {}
     stage = str(context.get("stage", ""))
     details = context.get("details")
-    if not production_policy_failures.matches(failure) or not isinstance(details, dict):
+    if not production_policy_failures.matches(failure) or not _is_string_object_dict(details):
         raise ValueError("failure context is outside the production policy contract")
     if failure.code in _DEFECT_CODES:
         outcome = PolicyOutcome.UNCLASSIFIED_DEFECT

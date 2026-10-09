@@ -3,16 +3,37 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Dict, List, Any, Optional
 from collections import Counter
+from typing import TypedDict
 
-from .models import Graph, GraphNode, GraphEdge
+from ...contracts.json import JSONObject
+from .models import Graph
 from .mapping import GRAPH_INTERFACE_VERSION, map_edge_for_interface, map_node_for_interface
 
 logger = logging.getLogger(__name__)
 
 
-def export_to_json(graph: Graph) -> Dict[str, Any]:
+class GraphExport(TypedDict):
+    graph_schema_version: str
+    nodes: list[JSONObject]
+    edges: list[JSONObject]
+
+
+class GraphValidationStatistics(TypedDict):
+    total_nodes: int
+    total_edges: int
+    node_types: dict[str, int]
+    edge_types: dict[str, int]
+
+
+class GraphValidationResult(TypedDict):
+    valid: bool
+    errors: list[str]
+    warnings: list[str]
+    statistics: GraphValidationStatistics
+
+
+def export_to_json(graph: Graph) -> GraphExport:
     """
     将图谱导出为JSON格式
     
@@ -44,7 +65,7 @@ def export_to_json(graph: Graph) -> Dict[str, Any]:
     }
 
 
-def validate_graph(graph: Graph) -> Dict[str, Any]:
+def validate_graph(graph: Graph) -> GraphValidationResult:
     """
     校验图谱一致性
     
@@ -56,11 +77,11 @@ def validate_graph(graph: Graph) -> Dict[str, Any]:
     Returns:
         校验结果字典，包含 warnings 和 errors
     """
-    errors: List[str] = []
-    warnings: List[str] = []
+    errors: list[str] = []
+    warnings: list[str] = []
     
     # 1. 检查节点ID唯一性
-    node_ids: Dict[str, List[str]] = {}
+    node_ids: dict[str, list[str]] = {}
     for node_key, node in graph.nodes.items():
         node_id = f"{node.type}:{node.id}"
         if node_id not in node_ids:
@@ -72,7 +93,7 @@ def validate_graph(graph: Graph) -> Dict[str, Any]:
         errors.append(f"发现重复节点ID: {duplicate_ids}")
     
     # 2. 检查边端点存在性
-    missing_nodes = []
+    missing_nodes: list[str] = []
     for edge in graph.edges:
         from_key = f"{edge.from_node.type}:{edge.from_node.id}"
         to_key = f"{edge.to_node.type}:{edge.to_node.id}"
@@ -116,7 +137,11 @@ def validate_graph(graph: Graph) -> Dict[str, Any]:
     }
 
 
-def export_to_json_file(graph: Graph, output_path: str, validate: bool = True) -> Dict[str, Any]:
+def export_to_json_file(
+    graph: Graph,
+    output_path: str,
+    validate: bool = True,
+) -> GraphValidationResult | dict[str, object]:
     """
     将图谱导出为JSON文件
     
@@ -128,8 +153,8 @@ def export_to_json_file(graph: Graph, output_path: str, validate: bool = True) -
     Returns:
         校验结果（如果validate=True）
     """
-    if validate:
-        validation_result = validate_graph(graph)
+    validation_result = validate_graph(graph) if validate else None
+    if validation_result is not None:
         if not validation_result["valid"]:
             logger.warning(f"图谱校验失败: {validation_result['errors']}")
         if validation_result["warnings"]:
@@ -143,6 +168,6 @@ def export_to_json_file(graph: Graph, output_path: str, validate: bool = True) -
     logger.info(f"图谱已导出到: {output_path}")
     logger.info(f"节点数: {len(json_data['nodes'])}, 边数: {len(json_data['edges'])}")
     
-    if validate:
+    if validation_result is not None:
         return validation_result
     return {}

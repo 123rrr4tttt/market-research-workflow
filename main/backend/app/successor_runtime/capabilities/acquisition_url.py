@@ -56,6 +56,8 @@ URL_SINGLE_URL_OWNER = "acquisition.url.single_url.v1"
 URL_SINGLE_URL_REQUEST_CODEC_ID = "acquisition.url.single_url.v1.request"
 URL_SINGLE_URL_OUTCOME_CODEC_ID = "acquisition.url.single_url.v1.outcome"
 URL_SINGLE_URL_OBSERVATION_PROFILE = "acquisition.url.single_url.v1.observation"
+URL_SINGLE_URL_LEGACY_CONTRACT_VERSION = "1.0.0"
+URL_SINGLE_URL_CONTRACT_VERSION = "1.1.0"
 _URL_SINGLE_URL_CONTRACT_WITNESS = (
     "test:test_single_url_program_builder_produces_exact_effect_closure"
 )
@@ -154,16 +156,14 @@ def _reject_url_single_url_contract(
     )
 
 
-def build_url_single_url_contract() -> Annotated[
-    OperationContract,
-    "kit:non-authoritative derived_as=view fact_source=URL_single_url_types+profiles+contract_constants witness=test:test_single_url_program_builder_produces_exact_effect_closure",
-]:
-    """Exact EFFECTFUL contract for one prepared single-URL acquisition."""
-
-    profiles = build_url_single_url_profiles()
+def _build_url_single_url_contract(
+    profiles: OperationProfiles,
+    *,
+    contract_version: str,
+) -> OperationContract:
     return profiles.contract(
         kind=URL_SINGLE_URL_KIND,
-        contract_version="1.0.0",
+        contract_version=contract_version,
         input_type=URL_SINGLE_URL_REQUEST_TYPE,
         output_type=URL_SINGLE_URL_OUTCOME_TYPE,
         return_contract_ref=RUNTIME_VALUE_RETURN_CONTRACT_REF,
@@ -172,15 +172,41 @@ def build_url_single_url_contract() -> Annotated[
     )
 
 
-def build_url_single_url_profiles() -> Annotated[
-    OperationProfiles,
-    "kit:non-authoritative derived_as=view fact_source=URL_single_url_profile_constants+shared_operation_profile_rule witness=test:test_single_url_program_builder_produces_exact_effect_closure",
+def build_url_single_url_legacy_contract() -> Annotated[
+    OperationContract,
+    "kit:non-authoritative derived_as=view "
+    "fact_source=URL_single_url_legacy_profiles+contract_constants "
+    "witness=test:test_single_url_contract_versions_preserve_legacy_identity",
 ]:
-    """Derive the URL single-URL profiles from the shared operation rule."""
+    """Rebuild the frozen 1.0 contract used by already-compiled Programs."""
 
+    return _build_url_single_url_contract(
+        build_url_single_url_legacy_profiles(),
+        contract_version=URL_SINGLE_URL_LEGACY_CONTRACT_VERSION,
+    )
+
+
+def build_url_single_url_contract() -> Annotated[
+    OperationContract,
+    "kit:non-authoritative derived_as=view fact_source=URL_single_url_types+profiles+contract_constants witness=test:test_single_url_program_builder_produces_exact_effect_closure",
+]:
+    """Exact EFFECTFUL contract for one prepared single-URL acquisition."""
+
+    return _build_url_single_url_contract(
+        build_url_single_url_profiles(),
+        contract_version=URL_SINGLE_URL_CONTRACT_VERSION,
+    )
+
+
+def _build_url_single_url_profile_version(
+    *,
+    version: str,
+    readback_enabled: bool,
+) -> OperationProfiles:
     interpreter_id = f"{URL_SINGLE_URL_KIND}.interpreter"
     return build_operation_profiles(
         identity=URL_SINGLE_URL_KIND,
+        version=version,
         semantic={
             "reads": ("UrlSingleUrlRequest.v1",),
             "creates": ("UrlSingleUrlOutcome.v1",),
@@ -219,11 +245,13 @@ def build_url_single_url_profiles() -> Annotated[
             ),
             "retryable": False,
             "degraded_acceptable": False,
-            "unknown_outcome_supported": False,
-            "readback_or_compensation": "none",
+            "unknown_outcome_supported": readback_enabled,
+            "readback_or_compensation": "readback" if readback_enabled else "none",
             "failure_union_ref": f"mrw.functorial-successor.failures.{URL_SINGLE_URL_KIND}.v1",
             "retryable_failure_kinds": (),
-            "readback_profile_ref": None,
+            "readback_profile_ref": (
+                URL_SINGLE_URL_OBSERVATION_PROFILE if readback_enabled else None
+            ),
             "compensation_profile_ref": None,
         },
         authority={
@@ -239,14 +267,20 @@ def build_url_single_url_profiles() -> Annotated[
             "supported_contract_kinds": (URL_SINGLE_URL_KIND,),
             "supported_contract_refs": (),
             "dependency_digest": content_digest(
-                {"interpreter": interpreter_id, "version": "1.0.0", "donor": "ingest.url_pool.execute_single_url_kernel"}
+                {
+                    "interpreter": interpreter_id,
+                    "version": version,
+                    "donor": "ingest.url_pool.execute_single_url_kernel",
+                }
             ),
             "security_profile_ref": "mrw.functorial-successor.security.pure.v1",
             "resource_profile_ref": f"{URL_SINGLE_URL_KIND}.resource",
             "credential_requirements_ref": None,
             "cancellation_profile_ref": "element_boundary",
             "idempotency_profile_ref": "logical_request_id",
-            "authoritative_readback_profile_ref": None,
+            "authoritative_readback_profile_ref": (
+                URL_SINGLE_URL_OBSERVATION_PROFILE if readback_enabled else None
+            ),
             "receipt_codec_ref": URL_SINGLE_URL_OUTCOME_CODEC_ID,
         },
         observation={
@@ -255,6 +289,48 @@ def build_url_single_url_profiles() -> Annotated[
             "observation_schema_ref": "mrw.acquisition.url.single_url.observation.v1",
         },
     )
+
+
+def build_url_single_url_legacy_profiles() -> Annotated[
+    OperationProfiles,
+    "kit:non-authoritative derived_as=view "
+    "fact_source=URL_single_url_1_0_profile_constants+shared_operation_profile_rule "
+    "witness=test:test_single_url_contract_versions_preserve_legacy_identity",
+]:
+    """Rebuild the exact 1.0 profiles referenced by persisted assignments."""
+
+    return _build_url_single_url_profile_version(
+        version=URL_SINGLE_URL_LEGACY_CONTRACT_VERSION,
+        readback_enabled=False,
+    )
+
+
+def build_url_single_url_profiles() -> Annotated[
+    OperationProfiles,
+    "kit:non-authoritative derived_as=view fact_source=URL_single_url_profile_constants+shared_operation_profile_rule witness=test:test_single_url_program_builder_produces_exact_effect_closure",
+]:
+    """Derive current profiles while preserving unchanged 1.0 family identities."""
+
+    legacy = build_url_single_url_legacy_profiles()
+    current = _build_url_single_url_profile_version(
+        version=URL_SINGLE_URL_CONTRACT_VERSION,
+        readback_enabled=True,
+    )
+    return OperationProfiles(
+        semantic=legacy.semantic,
+        effect=legacy.effect,
+        resource=legacy.resource,
+        failure=current.failure,
+        authority=legacy.authority,
+        interpreter=current.interpreter,
+        observation=legacy.observation,
+    )
+
+
+def build_url_single_url_contracts() -> tuple[OperationContract, OperationContract]:
+    """Return the legacy and current exact URL contracts in version order."""
+
+    return build_url_single_url_legacy_contract(), build_url_single_url_contract()
 
 
 def build_url_single_url_request_codec(
@@ -457,11 +533,16 @@ __all__ = [
     "CanonicalJsonObject",
     "CanonicalJsonValue",
     "URL_SINGLE_URL_KIND",
+    "URL_SINGLE_URL_CONTRACT_VERSION",
+    "URL_SINGLE_URL_LEGACY_CONTRACT_VERSION",
     "URL_SINGLE_URL_OWNER",
     "UrlSingleUrlRequest",
     "UrlSingleUrlOutcome",
     "UrlSingleUrlProgram",
     "build_url_single_url_contract",
+    "build_url_single_url_contracts",
+    "build_url_single_url_legacy_contract",
+    "build_url_single_url_legacy_profiles",
     "build_url_single_url_profiles",
     "build_url_single_url_request_codec",
     "build_url_single_url_outcome_codec",

@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-from datetime import date, datetime
 import hashlib
 import logging
 import re
-from typing import Any
+from collections.abc import Iterable, Mapping
+from datetime import date, datetime
+from typing import Protocol, TypeGuard, runtime_checkable
 
 from sqlalchemy import select
 
@@ -18,21 +19,64 @@ from .material_ingress import MaterialSourceContext, MaterialTargetSpec, build_m
 from .material_input import FetchedResource, GivenContent, PreparedMaterial, ResourceRef, prepare_material
 from .postprocess_frontdoor import run_postprocess_frontdoor
 from .structured_extraction import build_structured_summary
-from .terminal_writer import _get_or_create_source
+from .terminal_writer import get_or_create_source
 
 logger = logging.getLogger(__name__)
 
 _URL_RE = re.compile(r"https?://[^\s<>()\"']+")
+RawObject = dict[str, object]
 
 
-def _deep_merge_json(base: Any, incoming: Any) -> Any:
-    if isinstance(base, dict) and isinstance(incoming, dict):
-        out: dict[str, Any] = dict(base)
-        for k, v in incoming.items():
-            if k in out:
-                out[k] = _deep_merge_json(out[k], v)
+def _is_object_dict(value: object) -> TypeGuard[dict[object, object]]:
+    return isinstance(value, dict)
+
+
+def _is_object_list(value: object) -> TypeGuard[list[object]]:
+    return isinstance(value, list)
+
+
+def _object_view(value: object) -> RawObject:
+    if not _is_object_dict(value):
+        return {}
+    return {str(key): item for key, item in value.items()}
+
+
+def _safe_int(value: object, default: int = 0) -> int:
+    if not isinstance(value, (str, bytes, int, float)):
+        return default
+    try:
+        return int(value)
+    except (OverflowError, TypeError, ValueError):
+        return default
+
+
+def _safe_float(value: object, default: float = 0.0) -> float:
+    if not isinstance(value, (str, bytes, int, float)):
+        return default
+    try:
+        return float(value)
+    except (OverflowError, TypeError, ValueError):
+        return default
+
+
+@runtime_checkable
+class _HeaderItems(Protocol):
+    def items(self) -> Iterable[tuple[object, object]]: ...
+
+
+def _is_none(value: object) -> bool:
+    return value is None
+
+
+def _deep_merge_json(base: object, incoming: object) -> object:
+    if _is_object_dict(base) and _is_object_dict(incoming):
+        out: RawObject = {str(key): value for key, value in base.items()}
+        for raw_key, value in incoming.items():
+            key = str(raw_key)
+            if key in out:
+                out[key] = _deep_merge_json(out[key], value)
             else:
-                out[k] = v
+                out[key] = value
         return out
     return incoming
 
@@ -66,7 +110,7 @@ def _all_urls_in_text(text: str) -> list[str]:
     return out
 
 
-def _normalize_uri_list(item: dict[str, Any], infer_from_text: bool) -> list[str]:
+def _normalize_uri_list(item: Mapping[str, object], infer_from_text: bool) -> list[str]:
     seen: set[str] = set()
     urls: list[str] = []
     candidates: list[str] = []
@@ -77,7 +121,7 @@ def _normalize_uri_list(item: dict[str, Any], infer_from_text: bool) -> list[str
     if uri:
         candidates.append(str(uri))
     uris = item.get("uris")
-    if isinstance(uris, list):
+    if _is_object_list(uris):
         candidates.extend([str(x) for x in uris if x])
     if infer_from_text:
         candidates.extend(_all_urls_in_text(str(item.get("text") or "")))
@@ -106,16 +150,16 @@ def _extract_title_from_html(html: str) -> str:
     try:
         parser = make_html_parser(html)
         node = parser.css_first("title")
-        if node is None:
+        if _is_none(node):
             return ""
         return str(node.text(strip=True) or "").strip()
     except Exception:
         return ""
 
 
-def _response_mime_type(response: Any) -> str:
+def _response_mime_type(response: object) -> str:
     headers = getattr(response, "headers", None)
-    if not hasattr(headers, "items"):
+    if not isinstance(headers, _HeaderItems):
         return ""
     try:
         for name, value in headers.items():
@@ -166,18 +210,18 @@ def _chunk_text_for_extraction(text: str, chunk_size: int, overlap: int, max_chu
     return (chunks or [source[:chunk_size]], truncated)
 
 
-def _merge_extracted_batch(parts: list[dict[str, Any]]) -> dict[str, Any]:
-    merged: dict[str, Any] = {}
-    all_entities: list[dict[str, Any]] = []
-    all_relations: list[dict[str, Any]] = []
+def merge_extracted_batch(parts: list[RawObject]) -> RawObject:
+    merged: RawObject = {}
+    all_entities: list[object] = []
+    all_relations: list[object] = []
 
-    def _entity_key(entity: Any) -> str:
-        if not isinstance(entity, dict):
+    def _entity_key(entity: object) -> str:
+        if not _is_object_dict(entity):
             return str(entity)
         return f"{str(entity.get('text') or '').strip().lower()}::{str(entity.get('type') or '').strip().lower()}"
 
-    def _rel_key(rel: Any) -> str:
-        if not isinstance(rel, dict):
+    def _rel_key(rel: object) -> str:
+        if not _is_object_dict(rel):
             return str(rel)
         return "::".join(
             [
@@ -190,34 +234,38 @@ def _merge_extracted_batch(parts: list[dict[str, Any]]) -> dict[str, Any]:
     seen_entities: set[str] = set()
     seen_relations: set[str] = set()
     for part in parts:
-        if not isinstance(part, dict):
+        dynamic_part: object = part
+        if not _is_object_dict(dynamic_part):
             continue
-        merged = _deep_merge_json(merged, part)
+        merged = _object_view(_deep_merge_json(merged, part))
         er = part.get("entities_relations")
-        if isinstance(er, dict):
-            for entity in (er.get("entities") or []):
+        if _is_object_dict(er):
+            entities = er.get("entities")
+            for entity in entities if _is_object_list(entities) else []:
                 key = _entity_key(entity)
                 if key and key not in seen_entities:
                     seen_entities.add(key)
                     all_entities.append(entity)
-            for rel in (er.get("relations") or []):
+            relations = er.get("relations")
+            for rel in relations if _is_object_list(relations) else []:
                 key = _rel_key(rel)
                 if key and key not in seen_relations:
                     seen_relations.add(key)
                     all_relations.append(rel)
-        for entity in (part.get("entities") or []):
+        top_entities = part.get("entities")
+        for entity in top_entities if _is_object_list(top_entities) else []:
             key = _entity_key(entity)
             if key and key not in seen_entities:
                 seen_entities.add(key)
                 all_entities.append(entity)
     if all_entities or all_relations:
         merged["entities_relations"] = {"entities": all_entities[:50], "relations": all_relations[:50]}
-        if "entities" in merged and isinstance(merged.get("entities"), list):
+        if "entities" in merged and _is_object_list(merged.get("entities")):
             merged["entities"] = all_entities[:50]
     return merged
 
 
-def _normalize_iso_date(value: Any) -> date | None:
+def _normalize_iso_date(value: object) -> date | None:
     if not value:
         return None
     raw = str(value)
@@ -230,7 +278,7 @@ def _normalize_iso_date(value: Any) -> date | None:
             return None
 
 
-def _resolve_extraction_flags(extraction_mode: str, doc_type: str) -> dict[str, bool]:
+def _resolve_extraction_flags(extraction_mode: str, doc_type: str) -> dict[str, object]:
     mode = (extraction_mode or "auto").strip().lower()
     dtype = (doc_type or "").strip().lower()
     if mode == "auto":
@@ -254,7 +302,7 @@ def _resolve_extraction_flags(extraction_mode: str, doc_type: str) -> dict[str, 
     include_operation = True
 
     return {
-        "mode": mode,  # type: ignore[typeddict-item]
+        "mode": mode,
         "include_policy": include_policy,
         "include_market": include_market,
         "include_sentiment": include_sentiment,
@@ -264,22 +312,22 @@ def _resolve_extraction_flags(extraction_mode: str, doc_type: str) -> dict[str, 
     }
 
 
-def _derive_publish_date_from_extracted(extracted_data: dict[str, Any]) -> date | None:
+def derive_publish_date_from_extracted(extracted_data: Mapping[str, object]) -> date | None:
     policy = extracted_data.get("policy")
-    if isinstance(policy, dict):
+    if _is_object_dict(policy):
         derived = _normalize_iso_date(policy.get("effective_date"))
         if derived:
             return derived
     market = extracted_data.get("market")
-    if isinstance(market, dict):
+    if _is_object_dict(market):
         derived = _normalize_iso_date(market.get("report_date"))
         if derived:
             return derived
     return None
 
 
-def run_raw_import_documents(payload: dict[str, Any], project_key: str) -> dict[str, Any]:
-    now = datetime.utcnow()
+def run_raw_import_documents(payload: RawObject, project_key: str) -> RawObject:
+    now = datetime.now()
 
     source_name = str(payload.get("source_name") or "raw_import").strip() or "raw_import"
     source_kind = str(payload.get("source_kind") or "manual").strip() or "manual"
@@ -288,16 +336,15 @@ def run_raw_import_documents(payload: dict[str, Any], project_key: str) -> dict[
     default_doc_type = str(payload.get("default_doc_type") or "raw_note")
     extraction_mode = str(payload.get("extraction_mode") or "auto").strip().lower()
     overwrite_on_uri = bool(payload.get("overwrite_on_uri", False))
-    chunk_size = int(payload.get("chunk_size") or 2800)
-    chunk_overlap = int(payload.get("chunk_overlap") or 200)
-    max_chunks = int(payload.get("max_chunks") or 8)
+    chunk_size = _safe_int(payload.get("chunk_size") or 2800, 2800)
+    chunk_overlap = _safe_int(payload.get("chunk_overlap") or 200, 200)
+    max_chunks = _safe_int(payload.get("max_chunks") or 8, 8)
     fetch_url_when_text_empty = bool(payload.get("fetch_url_when_text_empty", True))
     fetch_url_also_when_text_present = bool(payload.get("fetch_url_also_when_text_present", True))
-    url_fetch_timeout = float(payload.get("url_fetch_timeout") or 8.0)
+    url_fetch_timeout = _safe_float(payload.get("url_fetch_timeout") or 8.0, 8.0)
     url_to_market = bool(payload.get("url_to_market", True))
-    items = payload.get("items") or []
-    if not isinstance(items, list):
-        items = []
+    raw_items: object = payload.get("items")
+    items = raw_items if _is_object_list(raw_items) else []
 
     job_id = start_job(
         "raw_import",
@@ -316,11 +363,11 @@ def run_raw_import_documents(payload: dict[str, Any], project_key: str) -> dict[
             inserted = 0
             updated = 0
             skipped = 0
-            errors: list[dict[str, Any]] = []
-            item_results: list[dict[str, Any]] = []
+            errors: list[RawObject] = []
+            item_results: list[RawObject] = []
 
             for idx, raw_item in enumerate(items):
-                item = raw_item if isinstance(raw_item, dict) else {}
+                item = _object_view(raw_item)
                 try:
                     given_text = str(item.get("text") or "")
                     text = given_text.strip()
@@ -340,10 +387,10 @@ def run_raw_import_documents(payload: dict[str, Any], project_key: str) -> dict[
                             or (bool(text) and fetch_url_also_when_text_present)
                         )
                     )
-                    if should_fetch_url:
+                    if should_fetch_url and uri is not None:
                         try:
-                            html, response = fetch_html(uri, timeout=float(url_fetch_timeout), retries=1)
-                            fetched_url_status = int(getattr(response, "status_code", 0) or 0)
+                            html, response = fetch_html(uri, timeout=url_fetch_timeout, retries=1)
+                            fetched_url_status = _safe_int(getattr(response, "status_code", 0) or 0)
                             response_mime = _response_mime_type(response)
                             if _is_explicit_text_mime(response_mime):
                                 # ResourceRef owns the locator, while this callback only
@@ -404,6 +451,11 @@ def run_raw_import_documents(payload: dict[str, Any], project_key: str) -> dict[
 
                     text_hash = hashlib.sha256(text.encode("utf-8")).hexdigest()
                     item_doc_type = item.get("doc_type")
+                    if item_doc_type is not None and not isinstance(item_doc_type, str):
+                        error = "doc_type must be a string or null"
+                        logger.warning("raw_import failed idx=%s err=%s", idx, error)
+                        errors.append({"index": idx, "error": error})
+                        continue
                     doc_type = _normalize_doc_type_for_raw(item_doc_type, default_doc_type)
                     if fetched_from_url and url_to_market and not str(item_doc_type or "").strip():
                         doc_type = "market_info"
@@ -416,49 +468,59 @@ def run_raw_import_documents(payload: dict[str, Any], project_key: str) -> dict[
                         existing = session.execute(select(Document).where(Document.text_hash == text_hash)).scalar_one_or_none()
 
                     doc = existing
-                    if doc and not overwrite_on_uri and not (doc.status == "reference_only" and not doc.content):
+                    if doc and not overwrite_on_uri and not (
+                        getattr(doc, "status", None) == "reference_only"
+                        and not getattr(doc, "content", None)
+                    ):
                         skipped += 1
-                        item_results.append({"index": idx, "doc_id": doc.id, "status": "skipped_exists", "uri": doc.uri})
+                        item_results.append(
+                            {
+                                "index": idx,
+                                "doc_id": getattr(doc, "id", None),
+                                "status": "skipped_exists",
+                                "uri": getattr(doc, "uri", None),
+                            }
+                        )
                         continue
 
                     if doc is None:
                         pass
                     else:
-                        source = _get_or_create_source(
+                        source = get_or_create_source(
                             session,
                             name=source_name,
                             kind=source_kind,
                             base_url=None,
                         )
-                        doc.source_id = source.id
-                        doc.state = item.get("state") or doc.state
-                        doc.doc_type = doc_type or doc.doc_type
-                        doc.title = title or doc.title
-                        doc.publish_date = publish_date_value or doc.publish_date
-                        doc.content = text
-                        if doc.status == "reference_only":
-                            doc.status = None
-                        doc.summary = summary or doc.summary
-                        doc.text_hash = text_hash
-                        doc.uri = uri or doc.uri
-                        doc.updated_at = now
+                        setattr(doc, "source_id", getattr(source, "id", None))
+                        setattr(doc, "state", item.get("state") or getattr(doc, "state", None))
+                        setattr(doc, "doc_type", doc_type or getattr(doc, "doc_type", None))
+                        setattr(doc, "title", title or getattr(doc, "title", None))
+                        setattr(doc, "publish_date", publish_date_value or getattr(doc, "publish_date", None))
+                        setattr(doc, "content", text)
+                        if getattr(doc, "status", None) == "reference_only":
+                            setattr(doc, "status", None)
+                        setattr(doc, "summary", summary or getattr(doc, "summary", None))
+                        setattr(doc, "text_hash", text_hash)
+                        setattr(doc, "uri", uri or getattr(doc, "uri", None))
+                        setattr(doc, "updated_at", now)
                         updated += 1
 
                     chunks, truncated = _chunk_text_for_extraction(
                         text,
-                        chunk_size=int(chunk_size),
-                        overlap=int(chunk_overlap),
-                        max_chunks=int(max_chunks),
+                        chunk_size=chunk_size,
+                        overlap=chunk_overlap,
+                        max_chunks=max_chunks,
                     )
-                    raw_meta = {
+                    raw_meta: RawObject = {
                         "uris": uri_list,
                         "uri_count": len(uri_list),
                         "fetched_from_url": fetched_from_url,
                         "fetch_url_status": fetched_url_status,
                         "fetch_url_error": fetched_url_error,
                         "chunk_count": len(chunks),
-                        "chunk_size": int(chunk_size),
-                        "chunk_overlap": int(chunk_overlap),
+                        "chunk_size": chunk_size,
+                        "chunk_overlap": chunk_overlap,
                         "truncated_for_extraction": truncated,
                     }
                     if prepared_material is not None:
@@ -467,10 +529,15 @@ def run_raw_import_documents(payload: dict[str, Any], project_key: str) -> dict[
                             "raw_content_digest": prepared_material.raw_content_digest,
                             "mime_type": prepared_material.mime_type,
                         }
-                    extracted_base = doc.extracted_data if doc is not None and isinstance(doc.extracted_data, dict) else {}
-                    extracted_base["_raw_input"] = _deep_merge_json(extracted_base.get("_raw_input", {}), raw_meta)
-                    if prepared_material is None and isinstance(extracted_base["_raw_input"], dict):
-                        extracted_base["_raw_input"].pop("material_input", None)
+                    extracted_base = _object_view(
+                        getattr(doc, "extracted_data", None) if doc is not None else None
+                    )
+                    raw_input = _object_view(
+                        _deep_merge_json(extracted_base.get("_raw_input", {}), raw_meta)
+                    )
+                    extracted_base["_raw_input"] = raw_input
+                    if prepared_material is None:
+                        raw_input.pop("material_input", None)
 
                     extraction_flags = _resolve_extraction_flags(extraction_mode, doc_type)
                     mode = str(extraction_flags.get("mode") or extraction_mode)
@@ -481,7 +548,7 @@ def run_raw_import_documents(payload: dict[str, Any], project_key: str) -> dict[
                         extraction_mode=mode,
                     )
 
-                    frontdoor_item = {
+                    frontdoor_item: RawObject = {
                         **item,
                         "state": item.get("state") or None,
                         "doc_type": doc_type,
@@ -501,7 +568,9 @@ def run_raw_import_documents(payload: dict[str, Any], project_key: str) -> dict[
                         payload=payload,
                         item=frontdoor_item,
                     )
-                    collection_payload = ingress_envelope.get("collection_payload") if isinstance(ingress_envelope.get("collection_payload"), dict) else {}
+                    dynamic_collection_payload: object = ingress_envelope.get("collection_payload")
+                    collection_payload = _object_view(dynamic_collection_payload)
+                    ingress_envelope["collection_payload"] = collection_payload
                     if prepared_material is not None:
                         collection_payload.update(
                             build_material_frontdoor_payload(
@@ -572,14 +641,17 @@ def run_raw_import_documents(payload: dict[str, Any], project_key: str) -> dict[
                             ingress_envelope=ingress_envelope,
                             run_writer=True,
                         )
-                        writer_result = (frontdoor_result.get("data") or {}).get("writer_result") if isinstance(frontdoor_result.get("data"), dict) else {}
-                        inserted += int((writer_result or {}).get("inserted") or 0)
-                        skipped += int((writer_result or {}).get("skipped") or 0)
+                        dynamic_frontdoor_data: object = frontdoor_result.get("data")
+                        frontdoor_data = _object_view(dynamic_frontdoor_data)
+                        writer_result = _object_view(frontdoor_data.get("writer_result"))
+                        writer_inserted = _safe_int(writer_result.get("inserted") or 0)
+                        inserted += writer_inserted
+                        skipped += _safe_int(writer_result.get("skipped") or 0)
                         item_results.append(
                             {
                                 "index": idx,
-                                "doc_id": (writer_result or {}).get("doc_id"),
-                                "status": "ok" if int((writer_result or {}).get("inserted") or 0) > 0 else str((writer_result or {}).get("reason") or "skipped"),
+                                "doc_id": writer_result.get("doc_id"),
+                                "status": "ok" if writer_inserted > 0 else str(writer_result.get("reason") or "skipped"),
                                 "uri": uri,
                                 "uris": uri_list,
                                 "fetched_from_url": fetched_from_url,
@@ -591,21 +663,28 @@ def run_raw_import_documents(payload: dict[str, Any], project_key: str) -> dict[
                             ingress_envelope=ingress_envelope,
                             run_writer=False,
                         )
-                        normalized_payload = (frontdoor_result.get("data") or {}).get("normalized_payload") if isinstance(frontdoor_result.get("data"), dict) else {}
-                        normalized_extracted = (normalized_payload or {}).get("extracted_data") if isinstance(normalized_payload, dict) else extracted_base
-                        doc.extracted_data = normalized_extracted
-                        normalized_publish_date = (normalized_payload or {}).get("publish_date") if isinstance(normalized_payload, dict) else None
-                        if normalized_publish_date and doc.publish_date is None:
-                            doc.publish_date = _normalize_iso_date(normalized_publish_date) or doc.publish_date
+                        dynamic_frontdoor_data = frontdoor_result.get("data")
+                        frontdoor_data = _object_view(dynamic_frontdoor_data)
+                        normalized_payload = _object_view(frontdoor_data.get("normalized_payload"))
+                        normalized_extracted = normalized_payload.get("extracted_data", extracted_base)
+                        setattr(doc, "extracted_data", normalized_extracted)
+                        normalized_publish_date = normalized_payload.get("publish_date")
+                        if normalized_publish_date and getattr(doc, "publish_date", None) is None:
+                            setattr(
+                                doc,
+                                "publish_date",
+                                _normalize_iso_date(normalized_publish_date)
+                                or getattr(doc, "publish_date", None),
+                            )
                         item_results.append(
                             {
                                 "index": idx,
-                                "doc_id": doc.id,
+                                "doc_id": getattr(doc, "id", None),
                                 "status": "ok",
-                                "uri": doc.uri,
+                                "uri": getattr(doc, "uri", None),
                                 "uris": uri_list,
                                 "fetched_from_url": fetched_from_url,
-                                "doc_type": doc.doc_type,
+                                "doc_type": getattr(doc, "doc_type", None),
                             }
                         )
                 except Exception as exc:  # noqa: BLE001
@@ -613,7 +692,7 @@ def run_raw_import_documents(payload: dict[str, Any], project_key: str) -> dict[
                     errors.append({"index": idx, "error": str(exc)})
 
             session.commit()
-            result = {
+            result: RawObject = {
                 "inserted": inserted,
                 "updated": updated,
                 "skipped": skipped,
@@ -630,3 +709,13 @@ def run_raw_import_documents(payload: dict[str, Any], project_key: str) -> dict[
         fail_job(job_id, str(exc))
         # kit:boundary owner=ingest.raw_import class=SHELL_BOUNDARY_EXCEPTION failure_family=ingest.operation.failure witness=test:test_latest_service_a_ingest_shell_boundaries_reraise_original_errors
         raise
+
+
+_merge_extracted_batch = merge_extracted_batch
+_derive_publish_date_from_extracted = derive_publish_date_from_extracted
+
+__all__ = [
+    "derive_publish_date_from_extracted",
+    "merge_extracted_batch",
+    "run_raw_import_documents",
+]

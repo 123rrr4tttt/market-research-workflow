@@ -42,7 +42,7 @@ from .schema_initialization import run_serialized_schema_ddl
 logger = logging.getLogger(__name__)
 
 
-TENANT_TABLES: list[Table] = [
+_TENANT_TABLE_CANDIDATES = [
     Source.__table__,
     Document.__table__,
     GraphNodeRecord.__table__,
@@ -72,6 +72,15 @@ TENANT_TABLES: list[Table] = [
     InformationTopologyLink.__table__,
     *project_retrieval_tables(),
 ]
+
+
+def _require_table(value: object) -> Table:
+    if isinstance(value, Table):
+        return value
+    raise TypeError("tenant table candidate must be a SQLAlchemy Table")
+
+
+TENANT_TABLES: list[Table] = [_require_table(table) for table in _TENANT_TABLE_CANDIDATES]
 
 
 def _is_missing_vector_type(exc: Exception) -> bool:

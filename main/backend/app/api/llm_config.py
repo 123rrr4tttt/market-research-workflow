@@ -1,7 +1,7 @@
 """LLM服务配置API"""
 from __future__ import annotations
 
-from typing import Optional
+from typing import NoReturn, Optional
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -19,7 +19,7 @@ router = APIRouter(prefix="/llm-config", tags=["llm-config"])
 llm_config_service = LlmConfigService()
 
 
-def _raise_invalid_input(message: str) -> None:
+def _raise_invalid_input(message: str) -> NoReturn:
     raise HTTPException(
         status_code=400,
         detail=error_response(
@@ -29,7 +29,7 @@ def _raise_invalid_input(message: str) -> None:
     )
 
 
-def _raise_not_found(message: str) -> None:
+def _raise_not_found(message: str) -> NoReturn:
     raise HTTPException(
         status_code=404,
         detail=error_response(
@@ -86,25 +86,24 @@ class LlmServiceConfigResponse(BaseModel):
         from_attributes = True
     
     @classmethod
-    def from_orm(cls, obj):
+    def from_orm(cls, obj: LlmServiceConfig) -> LlmServiceConfigResponse:
         """从ORM对象创建响应模型，确保日期时间转换为字符串"""
-        data = {
-            "id": obj.id,
-            "service_name": obj.service_name,
-            "description": obj.description,
-            "system_prompt": obj.system_prompt,
-            "user_prompt_template": obj.user_prompt_template,
-            "model": obj.model,
-            "temperature": float(obj.temperature) if obj.temperature else None,
-            "max_tokens": obj.max_tokens,
-            "top_p": float(obj.top_p) if obj.top_p else None,
-            "presence_penalty": float(obj.presence_penalty) if obj.presence_penalty else None,
-            "frequency_penalty": float(obj.frequency_penalty) if obj.frequency_penalty else None,
-            "enabled": obj.enabled,
-            "created_at": obj.created_at.isoformat() if obj.created_at else "",
-            "updated_at": obj.updated_at.isoformat() if obj.updated_at else "",
-        }
-        return cls(**data)
+        return cls(
+            id=obj.id,
+            service_name=obj.service_name,
+            description=obj.description,
+            system_prompt=obj.system_prompt,
+            user_prompt_template=obj.user_prompt_template,
+            model=obj.model,
+            temperature=float(obj.temperature) if obj.temperature else None,
+            max_tokens=obj.max_tokens,
+            top_p=float(obj.top_p) if obj.top_p else None,
+            presence_penalty=float(obj.presence_penalty) if obj.presence_penalty else None,
+            frequency_penalty=float(obj.frequency_penalty) if obj.frequency_penalty else None,
+            enabled=obj.enabled,
+            created_at=obj.created_at.isoformat() if obj.created_at else "",
+            updated_at=obj.updated_at.isoformat() if obj.updated_at else "",
+        )
 
 
 class LlmConfigMessageData(BaseModel):
@@ -160,15 +159,15 @@ def _assert_project_exists(project_key: str) -> str:
     return normalized
 
 
-def _serialize_configs(configs: list[LlmServiceConfig]) -> list[dict]:
-    return [LlmServiceConfigResponse.from_orm(c).model_dump() for c in configs]
+def _serialize_configs(configs: list[LlmServiceConfig]) -> list[dict[str, object]]:
+    return [LlmServiceConfigResponse.from_orm(config).model_dump() for config in configs]
 
 
 def _copy_configs_between_projects(
     source_project_key: str,
     target_project_key: str,
     overwrite: bool,
-) -> dict:
+) -> dict[str, object]:
     source = _assert_project_exists(source_project_key)
     target = _assert_project_exists(target_project_key)
     if source == target:
@@ -183,23 +182,24 @@ def _copy_configs_between_projects(
     with bind_project(target):
         with SessionLocal() as target_db:
             for item in source_configs:
+                response = LlmServiceConfigResponse.from_orm(item)
                 payload = {
-                    "description": item.description,
-                    "system_prompt": item.system_prompt,
-                    "user_prompt_template": item.user_prompt_template,
-                    "model": item.model,
+                    "description": response.description,
+                    "system_prompt": response.system_prompt,
+                    "user_prompt_template": response.user_prompt_template,
+                    "model": response.model,
                     "temperature": float(item.temperature) if item.temperature is not None else None,
-                    "max_tokens": item.max_tokens,
+                    "max_tokens": response.max_tokens,
                     "top_p": float(item.top_p) if item.top_p is not None else None,
                     "presence_penalty": float(item.presence_penalty) if item.presence_penalty is not None else None,
                     "frequency_penalty": float(item.frequency_penalty) if item.frequency_penalty is not None else None,
-                    "enabled": item.enabled,
+                    "enabled": response.enabled,
                 }
-                existing = llm_config_service.get_config(target_db, item.service_name)
+                existing = llm_config_service.get_config(target_db, response.service_name)
                 if existing and not overwrite:
                     skipped += 1
                     continue
-                llm_config_service.upsert_config(target_db, item.service_name, payload)
+                llm_config_service.upsert_config(target_db, response.service_name, payload)
                 copied += 1
 
     return {

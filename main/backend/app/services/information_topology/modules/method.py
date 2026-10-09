@@ -7,11 +7,11 @@ is a profile-level statement about declared input/output roles and preconditions
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Mapping
+from typing import Mapping, TypedDict, TypeGuard
 
 from functorial_kit import Failure
 
-from ..contracts import BoundRef, Element, ElementRef, Endpoint, TopologyState, topology_failures
+from ..contracts import BoundRef, Element, Endpoint, TopologyState, topology_failures
 from ..profiles import AttributeRule, EndpointRule, ProfileSpec, TypeRule, validate_state
 from ..structural_schema import with_structural_attributes
 
@@ -20,25 +20,29 @@ METHOD_PROFILE_ID = "information_topology.method_description"
 METHOD_PROFILE_VERSION = "1"
 
 
+class PortWire(TypedDict):
+    name: str
+    type: str
+    required: bool
+
+
 def _method_constraint(state: TopologyState) -> Failure | None:
     for element in state.elements:
         if element.ref.ref.type_id != METHOD_TYPE:
             continue
         for key in ("inputs", "outputs"):
             value = element.attributes.get(key)
-            if not isinstance(value, list):
+            if not _is_object_list(value):
                 return topology_failures.fail("INVALID_STRUCTURE", f"{key} must be a list of role declarations", {"method": element.ref.ref.local_id, "path": key})
             names: set[str] = set()
-            for index, port in enumerate(value):
-                if (not isinstance(port, dict) or set(port) != {"name", "type", "required"}
-                        or not isinstance(port["name"], str) or not port["name"]
-                        or not isinstance(port["type"], str) or not port["type"]
-                        or type(port["required"]) is not bool or port["name"] in names):
+            for index, raw_port in enumerate(value):
+                port = _port_wire(raw_port)
+                if port is None or port["name"] in names:
                     return topology_failures.fail("INVALID_STRUCTURE", "port declaration is malformed or duplicated", {"method": element.ref.ref.local_id, "path": f"{key}[{index}]"})
                 names.add(port["name"])
         for key in ("preconditions", "assumptions", "composition_compatibility"):
             value = element.attributes.get(key, [])
-            if not isinstance(value, list) or any(not isinstance(item, str) or not item for item in value):
+            if not _is_non_empty_string_list(value):
                 return topology_failures.fail("INVALID_STRUCTURE", f"{key} must contain descriptive strings", {"method": element.ref.ref.local_id, "path": key})
     return None
 
@@ -65,7 +69,7 @@ class Port:
     type_id: str
     required: bool = True
 
-    def wire(self) -> dict[str, object]:
+    def wire(self) -> PortWire:
         return {"name": self.name, "type": self.type_id, "required": self.required}
 
 
@@ -95,11 +99,11 @@ class CompositionCheck:
     conditions: tuple[str, ...]
 
 
-def _ports(element: Element, key: str) -> tuple[dict[str, object], ...]:
+def _ports(element: Element, key: str) -> tuple[PortWire, ...]:
     raw = element.attributes.get(key, [])
-    if not isinstance(raw, list):
+    if not _is_object_list(raw):
         return ()
-    return tuple(item for item in raw if isinstance(item, dict))
+    return tuple(value for value in raw if _is_declared_port_mapping(value))
 
 
 def check_composition(producer: Element, consumer: Element) -> CompositionCheck:
@@ -121,8 +125,8 @@ def check_composition(producer: Element, consumer: Element) -> CompositionCheck:
         else:
             matched.append((name, name))
     # Both signatures can be locally coherent while semantic conditions remain unresolved.
-    conditions = tuple(str(item) for item in consumer.attributes.get("preconditions", ())) + tuple(
-        str(item) for item in consumer.attributes.get("assumptions", ())
+    conditions = _string_tuple(consumer.attributes.get("preconditions", ())) + _string_tuple(
+        consumer.attributes.get("assumptions", ())
     )
     return CompositionCheck(not missing and not mismatched, tuple(matched), tuple(missing), tuple(mismatched), conditions)
 
@@ -133,3 +137,39 @@ def validate_method_state(state: TopologyState) -> Failure | None:
 
 def declare_method_module() -> Mapping[str, object]:
     return {"module_id": "method", "profile": method_profile, "validate": validate_method_state, "check_composition": check_composition}
+
+
+def _is_object_list(value: object) -> TypeGuard[list[object]]:
+    return isinstance(value, list)
+
+
+def _is_object_sequence(value: object) -> TypeGuard[list[object] | tuple[object, ...]]:
+    return isinstance(value, (list, tuple))
+
+
+def _is_object_mapping(value: object) -> TypeGuard[Mapping[object, object]]:
+    return isinstance(value, Mapping)
+
+
+def _port_wire(value: object) -> PortWire | None:
+    if not _is_object_mapping(value) or set(value) != {"name", "type", "required"}:
+        return None
+    name, type_id, required = value["name"], value["type"], value["required"]
+    if not isinstance(name, str) or not name or not isinstance(type_id, str) or not type_id or type(required) is not bool:
+        return None
+    return {"name": name, "type": type_id, "required": required}
+
+
+def _is_declared_port_mapping(value: object) -> TypeGuard[PortWire]:
+    """Preserve the composition reader's original dict-only dynamic guard."""
+    return isinstance(value, dict)
+
+
+def _is_non_empty_string_list(value: object) -> bool:
+    return _is_object_list(value) and all(isinstance(item, str) and bool(item) for item in value)
+
+
+def _string_tuple(value: object) -> tuple[str, ...]:
+    if not _is_object_sequence(value):
+        return ()
+    return tuple(str(item) for item in value)

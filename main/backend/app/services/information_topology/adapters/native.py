@@ -9,9 +9,9 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from datetime import date, datetime
-from typing import Any, Mapping, Protocol
+from typing import Any, Mapping, Protocol, Sequence, TypeGuard
 
-from app.services.document_queries.identity import material_identity, material_revision
+from app.services.document_queries.identity import DocumentRevisionSource, material_identity, material_revision
 from functorial_kit import Failure
 
 from ..bindings import resolve_project_semantics
@@ -79,17 +79,19 @@ def resolve_retrieval_domain(
     return ResolvedRetrievalDomain(binding.semantics, binding.profile)
 
 
-def _read(value: Any, key: str, default: Any = None) -> Any:
-    return value.get(key, default) if isinstance(value, Mapping) else getattr(value, key, default)
+def _read(value: object, key: str, default: object = None) -> object:
+    if _is_object_mapping(value):
+        return value.get(key, default)
+    return _runtime_value(getattr(value, key, default))
 
 
-def _time_revision(value: Any) -> str:
+def _time_revision(value: object) -> str:
     if isinstance(value, (datetime, date)):
         return value.isoformat()
     return ""
 
 
-def _reference(project_key: str, module: str, namespace: str, type_id: str, local_id: Any) -> ElementRef:
+def _reference(project_key: str, module: str, namespace: str, type_id: str, local_id: object) -> ElementRef:
     if not project_key or local_id is None or str(local_id) == "":
         # kit:boundary owner=information_topology.adapters.native._reference.identity class=PROGRAMMER_DEFECT failure_family=none witness=test:test_native_adapters_bind_identity_and_report_source_version_capability
         raise ValueError("project_key and native identity are required")
@@ -100,16 +102,22 @@ def _state(profile: str, version: str, elements: list[Element]) -> TopologyState
     return TopologyState(profile, version, tuple(elements))
 
 
-def adapt_material(document: Any, *, project_key: str, namespace: str = "materials") -> NativeObservation:
+def adapt_material(
+    document: Mapping[str, object] | DocumentRevisionSource,
+    *,
+    project_key: str,
+    namespace: str = "materials",
+) -> NativeObservation:
     """Adapt a material value returned by the sole body owner."""
     local_id = _read(document, "id")
+    material_id = _positive_material_id(local_id)
+    if not project_key or material_id is None:
+        # kit:boundary owner=information_topology.adapters.native.document_identity class=PROGRAMMER_DEFECT failure_family=none witness=test:test_native_adapter_rejects_non_positive_material_identity
+        raise ValueError("project_key and native identity are required")
     updated = _time_revision(_read(document, "updated_at"))
     revision = material_revision(document)
     capability = "timestamp" if updated else "schema_only"
-    if not project_key or local_id is None or str(local_id) == "":
-        # kit:boundary owner=information_topology.adapters.native.document_identity class=PROGRAMMER_DEFECT failure_family=none witness=test:test_native_adapters_bind_identity_and_report_source_version_capability
-        raise ValueError("project_key and native identity are required")
-    ref = BoundRef(ElementRef(**material_identity(project_key, local_id, namespace=namespace)), revision or "current")
+    ref = BoundRef(ElementRef(**material_identity(project_key, material_id, namespace=namespace)), revision or "current")
     element = Element(ref, {
         "title": str(_read(document, "title") or ""),
         "doc_type": str(_read(document, "doc_type") or ""),
@@ -122,11 +130,11 @@ def adapt_material(document: Any, *, project_key: str, namespace: str = "materia
 adapt_document = adapt_material
 
 
-def adapt_typed_knowledge(record: Any, *, project_key: str) -> NativeObservation:
+def adapt_typed_knowledge(record: object, *, project_key: str) -> NativeObservation | Failure:
     """Adapt a PersistenceBoundaryRecord returned by its canonical repository."""
     record_project = str(_read(record, "project_key") or "")
     if record_project != project_key:
-        return topology_failures.fail("UNRESOLVABLE_REFERENCE", "typed knowledge belongs to another project")  # type: ignore[return-value]
+        return topology_failures.fail("UNRESOLVABLE_REFERENCE", "typed knowledge belongs to another project")
     identity = str(_read(record, "identity_ref") or "")
     revision = str(_read(record, "updated_at") or "")
     capability = "timestamp" if revision else "schema_only"
@@ -140,32 +148,32 @@ def adapt_typed_knowledge(record: Any, *, project_key: str) -> NativeObservation
     return NativeObservation(_state("native.typed_knowledge", "1", [element]), ref.observed_revision, capability, False)
 
 
-def adapt_writing_document(document: Mapping[str, Any], *, project_key: str) -> NativeObservation:
+def adapt_writing_document(document: Mapping[str, Any], *, project_key: str) -> NativeObservation | Failure:
     """Adapt the serialized result of writing.document_service.get_document."""
     if str(document.get("project_key") or project_key) != project_key:
-        return topology_failures.fail("UNRESOLVABLE_REFERENCE", "writing document belongs to another project")  # type: ignore[return-value]
+        return topology_failures.fail("UNRESOLVABLE_REFERENCE", "writing document belongs to another project")
     version = document.get("head_version", document.get("version"))
     if version is None:
         # A service response without a version cannot safely bind an editable reference.
-        return topology_failures.fail("STALE_REFERENCE", "writing reader did not return a version")  # type: ignore[return-value]
+        return topology_failures.fail("STALE_REFERENCE", "writing reader did not return a version")
     revision = str(version)
     ref = BoundRef(_reference(project_key, "writing", "documents", "writing_document", document.get("id")), revision, document.get("etag"))
     element = Element(ref, {"title": str(document.get("title") or ""), "status": str(document.get("status") or "")})
     return NativeObservation(_state("native.writing", "1", [element]), revision, "versioned", True)
 
 
-def adapt_clue_chain_state(state: Mapping[str, Any], *, project_key: str) -> NativeObservation:
+def adapt_clue_chain_state(state: Mapping[str, Any], *, project_key: str) -> NativeObservation | Failure:
     """Adapt a value returned by ClueChainStore.load_state; no activity is inferred."""
     version = str(state.get("contract_version") or "")
     if version != "clue_chain.state.v1":
-        return topology_failures.fail("STALE_REFERENCE", "unsupported clue-chain state contract")  # type: ignore[return-value]
+        return topology_failures.fail("STALE_REFERENCE", "unsupported clue-chain state contract")
     revision = str(state.get("base_version") or 0)
     elements: list[Element] = []
-    chains = state.get("chains") if isinstance(state.get("chains"), Mapping) else {}
+    chains = _object_mapping_or_empty(state.get("chains"))
     for chain_id, record in chains.items():
-        if not isinstance(record, Mapping):
+        if not _is_object_mapping(record):
             continue
-        chain = record.get("chain") if isinstance(record.get("chain"), Mapping) else {}
+        chain = _object_mapping_or_empty(record.get("chain"))
         ref = BoundRef(_reference(project_key, "clue_chains", "chains", "chain", chain.get("chain_id", chain_id)), revision)
         elements.append(Element(ref, {"title": str(chain.get("title") or ""), "status": str(chain.get("status") or ""), "objective": str(chain.get("objective") or "")}))
     return NativeObservation(_state("native.clue_chain", "1", elements), revision, "versioned", False)
@@ -179,13 +187,13 @@ def clue_retrieval_correspondence(clue_ref: BoundRef, retrieval_ref: BoundRef) -
     return Correspondence(clue_ref, (retrieval_ref,))
 
 
-def adapt_graph(graph: Any, *, project_key: str, view_state: Mapping[str, Any] | None = None) -> NativeObservation:
+def adapt_graph(graph: object, *, project_key: str, view_state: Mapping[str, Any] | None = None) -> NativeObservation | Failure:
     """Adapt GraphNodeReader.load_graph output; layout and selection are ignored."""
     schema_version = str(_read(graph, "schema_version") or "")
     nodes = _read(graph, "nodes", {})
     edges = _read(graph, "edges", ())
-    if not isinstance(nodes, Mapping) or not isinstance(edges, (list, tuple)):
-        return topology_failures.fail("INVALID_STRUCTURE", "canonical graph projection has invalid shape")  # type: ignore[return-value]
+    if not _is_object_mapping(nodes) or not _is_object_sequence(edges):
+        return topology_failures.fail("INVALID_STRUCTURE", "canonical graph projection has invalid shape")
     refs: dict[tuple[str, str], BoundRef] = {}
     for node in nodes.values():
         node_type = str(_read(node, "type") or "")
@@ -199,7 +207,7 @@ def adapt_graph(graph: Any, *, project_key: str, view_state: Mapping[str, Any] |
             _reference(project_key, "graph", "nodes", "graph_node", local_id),
             schema_version or "unknown",
         )
-    elements: list[Element] = [Element(ref, {**dict(_read(node, "properties", {}) or {}), "native_type": str(_read(node, "type") or "")}) for node in nodes.values()
+    elements: list[Element] = [Element(ref, {**_string_mapping_or_empty(_read(node, "properties", {})), "native_type": str(_read(node, "type") or "")}) for node in nodes.values()
         if (str(_read(node, "type") or ""), str(_read(node, "id") or "")) in refs
         for ref in (refs[(str(_read(node, "type") or ""), str(_read(node, "id") or ""))],)]
     for edge in edges:
@@ -220,8 +228,43 @@ def adapt_graph(graph: Any, *, project_key: str, view_state: Mapping[str, Any] |
         )
         elements.append(Element(edge_ref, {"edge_type": edge_type,
             "origin_ref": {"module_id": "graph", "type_id": edge_type, "local_id": local_id},
-            "properties": dict(_read(edge, "properties", {}) or {})}, (
+            "properties": _string_mapping_or_empty(_read(edge, "properties", {}))}, (
             Endpoint("source", source_ref), Endpoint("target", target_ref),
         )))
     # view_state is intentionally not read: selection, coordinates and expansion are UI state.
     return NativeObservation(_state("graph.view", "1", elements), schema_version or "unknown", "schema_only", False)
+
+
+def _runtime_value(value: object) -> object:
+    return value
+
+
+def _is_object_mapping(value: object) -> TypeGuard[Mapping[object, object]]:
+    return isinstance(value, Mapping)
+
+
+def _is_object_sequence(value: object) -> TypeGuard[Sequence[object]]:
+    return isinstance(value, (list, tuple))
+
+
+def _object_mapping_or_empty(value: object) -> Mapping[object, object]:
+    return value if _is_object_mapping(value) else {}
+
+
+def _string_mapping_or_empty(value: object) -> dict[str, object]:
+    if not _is_object_mapping(value):
+        return {}
+    result: dict[str, object] = {}
+    for key, item in value.items():
+        if isinstance(key, str):
+            result[key] = item
+    return result
+
+
+def _positive_material_id(value: object) -> int | None:
+    if isinstance(value, int) and not isinstance(value, bool):
+        return value if value > 0 else None
+    if isinstance(value, str) and value.isdigit():
+        parsed = int(value)
+        return parsed if parsed > 0 else None
+    return None

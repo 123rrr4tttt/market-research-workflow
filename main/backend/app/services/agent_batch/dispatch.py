@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from typing import Annotated
+from collections.abc import Mapping
+from typing import Annotated, Any, TypeVar
 
 from datetime import datetime
 import json
-from typing import Any
 
 from app.composition.production import submit_installed_program, read_installed_program, read_installed_program_outputs
 from app.successor_runtime.substrate.postgres.runtime_journal import ExactBindingConflict
@@ -17,9 +17,14 @@ from app.successor_runtime.language.catalog import OperationContractRegistry
 from app.successor_runtime.capabilities.batch_task_program import (
     build_batch_business_program,
 )
-from app.successor_runtime.capabilities.checksum import canonical_json
+from app.successor_runtime.capabilities.checksum import CanonicalJsonObject, canonical_json
+from app.successor_runtime.capabilities.codecs import PayloadCodec
 from app.successor_runtime.language.compile import compile_program
 from app.successor_runtime.language.program import program_atoms
+from app.successor_runtime.research.object_types import ObjectType
+
+
+T = TypeVar("T")
 
 
 def build_dispatch_submission_inputs(
@@ -96,7 +101,7 @@ def load_dispatch_run(
     run_id: str,
     project_key: str,
     actor_id: str,
-) -> tuple[dict[str, Any], list[dict[str, Any]], tuple[dict[str, Any], ...]]:
+) -> tuple[dict[str, Any], list[dict[str, Any]], tuple[Mapping[str, object], ...]]:
     """Project ordered item facts from the original Plan and exact typed outputs."""
 
     run, steps, events = read_installed_program(
@@ -112,7 +117,11 @@ def load_dispatch_run(
     ack_codec = batch_task.build_batch_task_single_dispatch_ack_codec(dispatch_contract.ref)
     result_codec = batch_business.build_batch_business_wait_result_codec(wait_contract.ref)
 
-    def decode(step, object_type, codec):
+    def decode(
+        step: Mapping[str, object],
+        object_type: ObjectType,
+        codec: PayloadCodec[T],
+    ) -> T | None:
         value = outputs.get(str(step["step_id"]))
         if value is None:
             return None
@@ -120,9 +129,10 @@ def load_dispatch_run(
         if ref.object_type != object_type or ref.codec_id != codec.codec_id:
             # kit:boundary owner=batch.business class=SHELL_BOUNDARY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_batch_readback_rejects_codec_and_ack_identity_drift
             raise ExactBindingConflict("batch result codec differs from the exact operation")
-        return codec.decode_payload(json.loads(exact))
+        decoded: CanonicalJsonObject = json.loads(exact)
+        return codec.decode_payload(decoded)
 
-    items = []
+    items: list[dict[str, Any]] = []
     for step in steps:
         if step["operation_kind"] != batch_task.DISPATCH_SINGLE_KIND:
             continue

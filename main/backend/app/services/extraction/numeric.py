@@ -6,11 +6,15 @@
 from __future__ import annotations
 
 import re
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, Tuple, TypeGuard, overload
 
 _PERCENT_SYMBOLS = ("%", "％")
 CORE_SCOPE = "core"
 PROJECT_SCOPE_PREFIX = "project."
+
+
+def _is_market_dict(value: object) -> TypeGuard[dict[object, object]]:
+    return isinstance(value, dict)
 
 
 def _to_project_scope(project_key: str) -> str:
@@ -167,13 +171,29 @@ def normalize_numeric_scalar(value: Any, *, expect_percent: bool = False) -> flo
     return value_norm
 
 
+@overload
 def normalize_market_payload(
-    market: Dict[str, Any],
+    market: dict[str, object],
     *,
     scope: str = "market",
-) -> tuple[Dict[str, Any], Dict[str, Any]]:
+) -> tuple[dict[str, object], dict[str, object]]: ...
+
+
+@overload
+def normalize_market_payload(
+    market: object,
+    *,
+    scope: str = "market",
+) -> tuple[object, dict[str, object]]: ...
+
+
+def normalize_market_payload(
+    market: object,
+    *,
+    scope: str = "market",
+) -> tuple[object, dict[str, object]]:
     """Normalize market payload numeric fields in-place semantics and return quality report."""
-    if not isinstance(market, dict):
+    if not _is_market_dict(market):
         return market, {
             "scope": _to_project_scope(scope),
             "data_class": "project_extension",
@@ -185,11 +205,13 @@ def normalize_market_payload(
     normalized = dict(market)
     project_scope = _to_project_scope(scope)
     data_class = "project_extension" if project_scope.startswith(PROJECT_SCOPE_PREFIX) else "core"
-    quality: Dict[str, Any] = {
+    parsed_fields: dict[str, object] = {}
+    issues: list[str] = []
+    quality: dict[str, object] = {
         "scope": project_scope,
         "data_class": data_class,
-        "parsed_fields": {},
-        "issues": [],
+        "parsed_fields": parsed_fields,
+        "issues": issues,
         "quality_score": 0.0,
     }
 
@@ -210,12 +232,12 @@ def normalize_market_payload(
         )
 
         if raw is None:
-            quality["parsed_fields"][field] = {"status": "missing", "metadata": meta}
+            parsed_fields[field] = {"status": "missing", "metadata": meta}
             continue
 
         if value is None:
-            quality["parsed_fields"][field] = {"status": "parse_failed", "metadata": meta}
-            quality["issues"].append(f"{field}:parse_failed")
+            parsed_fields[field] = {"status": "parse_failed", "metadata": meta}
+            issues.append(f"{field}:parse_failed")
             continue
 
         if value != raw and f"{field}_raw" not in normalized:
@@ -223,7 +245,7 @@ def normalize_market_payload(
 
         parsed_count += 1
         normalized[field] = value
-        quality["parsed_fields"][field] = {
+        parsed_fields[field] = {
             "status": "ok",
             "metadata": meta,
         }

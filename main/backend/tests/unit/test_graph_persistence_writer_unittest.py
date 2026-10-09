@@ -12,9 +12,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 pytestmark = pytest.mark.unit
 
-from app.services.graph.models import Graph, GraphNode
 from app.services.graph.mapping import normalize_canonical_node_id, normalize_node_id
+from app.services.graph.models import Graph, GraphNode
 from app.services.graph.persistence.graph_node_alias_resolver import GraphNodeAliasResolver
+from app.services.graph.persistence.graph_node_reader import GraphNodeReader
 from app.services.graph.persistence.graph_node_writer import GraphNodeWriter
 
 
@@ -35,7 +36,38 @@ class _FakeSession:
         return _FakeExecResult((1,))
 
 
+class _ReaderResult:
+    def __init__(self, rows):
+        self._rows = rows
+
+    def scalars(self):
+        return self
+
+    def all(self):
+        return self._rows
+
+
+class _ReaderSession:
+    def __init__(self, node_rows, edge_rows):
+        self._results = iter((_ReaderResult(node_rows), _ReaderResult(edge_rows)))
+
+    def execute(self, _stmt):  # noqa: ANN001
+        return next(self._results)
+
+
 class GraphPersistenceWriterUnitTestCase(unittest.TestCase):
+    def test_reader_preserves_stored_mixed_case_canonical_identity(self):
+        row = SimpleNamespace(
+            id=7,
+            node_type="Entity",
+            canonical_id="ACME Corp",
+            properties={"name": "ACME Corp"},
+        )
+        graph = GraphNodeReader(_ReaderSession([row], [])).load_graph()
+
+        self.assertEqual(set(graph.nodes), {"Entity:ACME Corp"})
+        self.assertEqual(graph.nodes["Entity:ACME Corp"].id, "ACME Corp")
+
     def test_alias_resolver_extracts_display_and_id_aliases(self):
         resolver = GraphNodeAliasResolver()
         aliases = resolver.resolve({"name": " ACME Corp ", "id": "kb:123"})

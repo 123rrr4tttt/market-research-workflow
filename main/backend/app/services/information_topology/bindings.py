@@ -20,7 +20,8 @@ from .profiles import ProfileSpec
 class ProjectBoundSemantics(Protocol):
     """A semantic declaration anchored to its authoritative observation."""
 
-    source_ref: BoundRef
+    @property
+    def source_ref(self) -> BoundRef: ...
 
 
 SemanticT = TypeVar("SemanticT", bound=ProjectBoundSemantics)

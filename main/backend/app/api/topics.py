@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Optional
-
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy import select
@@ -32,35 +30,34 @@ class TopicPayload(BaseModel):
     keywords_seed: list[str] = Field(default_factory=list)
     subreddits: list[str] = Field(default_factory=list)
     enabled: bool = True
-    description: Optional[str] = None
+    description: str | None = None
 
 
 @router.get("")
-def list_topics(enabled: Optional[bool] = Query(default=None)) -> dict:
+def list_topics(enabled: bool | None = Query(default=None)) -> dict[str, object]:
     with SessionLocal() as session:
         stmt = select(Topic).order_by(Topic.id.asc())
         if enabled is not None:
             stmt = stmt.where(Topic.enabled == enabled)
         rows = session.execute(stmt).scalars().all()
-        return ok({
-            "items": [
-                {
-                    "id": row.id,
-                    "topic_name": row.topic_name,
-                    "domains": row.domains or [],
-                    "languages": row.languages or [],
-                    "keywords_seed": row.keywords_seed or [],
-                    "subreddits": row.subreddits or [],
-                    "enabled": row.enabled,
-                    "description": row.description,
-                }
-                for row in rows
-            ]
-        })
+        items: list[dict[str, object]] = [
+            {
+                "id": row.id,
+                "topic_name": row.topic_name,
+                "domains": row.domains,
+                "languages": row.languages,
+                "keywords_seed": row.keywords_seed or [],
+                "subreddits": row.subreddits or [],
+                "enabled": row.enabled,
+                "description": row.description,
+            }
+            for row in rows
+        ]
+        return ok({"items": items})
 
 
 @router.post("")
-def create_topic(payload: TopicPayload) -> dict:
+def create_topic(payload: TopicPayload) -> dict[str, object]:
     with SessionLocal() as session:
         existed = session.execute(
             select(Topic).where(Topic.topic_name == payload.topic_name.strip())
@@ -84,7 +81,7 @@ def create_topic(payload: TopicPayload) -> dict:
 
 
 @router.put("/{topic_id}")
-def update_topic(topic_id: int, payload: TopicPayload) -> dict:
+def update_topic(topic_id: int, payload: TopicPayload) -> dict[str, object]:
     with SessionLocal() as session:
         row = session.get(Topic, topic_id)
         if row is None:
@@ -114,7 +111,7 @@ def update_topic(topic_id: int, payload: TopicPayload) -> dict:
 
 
 @router.delete("/{topic_id}")
-def delete_topic(topic_id: int) -> dict:
+def delete_topic(topic_id: int) -> dict[str, object]:
     with SessionLocal() as session:
         row = session.get(Topic, topic_id)
         if row is None:

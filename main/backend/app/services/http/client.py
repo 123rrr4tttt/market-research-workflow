@@ -32,15 +32,29 @@ class HttpClient:
         )
 
     @staticmethod
-    def _build_proxies() -> Optional[Dict[str, str]]:
+    def _build_proxies() -> dict[httpx.URL | str, str | httpx.URL | httpx.Proxy | None] | None:
         http_proxy = os.getenv("HTTP_PROXY") or os.getenv("http_proxy")
         https_proxy = os.getenv("HTTPS_PROXY") or os.getenv("https_proxy")
-        proxies: Dict[str, str] = {}
+        proxies: dict[httpx.URL | str, str | httpx.URL | httpx.Proxy | None] = {}
         if http_proxy:
             proxies["http"] = http_proxy
         if https_proxy:
             proxies["https"] = https_proxy
         return proxies or None
+
+    def head(
+        self,
+        url: str,
+        *,
+        timeout: float,
+        follow_redirects: bool = False,
+    ) -> httpx.Response:
+        """Issue a HEAD request through this client's owned transport."""
+        return self._client.head(
+            url,
+            timeout=timeout,
+            follow_redirects=follow_redirects,
+        )
 
     def get_json(
         self,

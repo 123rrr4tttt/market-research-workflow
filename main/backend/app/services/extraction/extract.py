@@ -3,30 +3,64 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Optional, Dict, Any
+from collections.abc import Mapping
+from typing import Any, Dict, Optional, TypeGuard, TypeVar
 
-from ..llm.provider import get_chat_model
-from ..llm.config_loader import get_llm_config, format_prompt_template
+from langchain_core.language_models import BaseChatModel
+from pydantic import BaseModel
+
 from ...subprojects import get_extraction_adapter
-from .models import PolicyExtracted, MarketExtracted, ERPayload
+from ..llm.config_loader import format_prompt_template, get_llm_config
+from ..llm.provider import get_chat_model
 from .json_utils import extract_json_payload
+from .models import ERPayload, MarketExtracted, PolicyExtracted
 from .numeric import normalize_market_payload
-
 
 logger = logging.getLogger(__name__)
 
+ModelT = TypeVar("ModelT", bound=BaseModel)
 
-def _normalize_er_raw(data: Dict[str, Any]) -> Dict[str, Any]:
+
+def _is_object_list(value: object) -> TypeGuard[list[object]]:
+    return isinstance(value, list)
+
+
+def _is_string_object(value: object) -> TypeGuard[dict[str, object]]:
+    return isinstance(value, dict)
+
+
+def _invoke_structured(
+    model: BaseChatModel,
+    schema: type[BaseModel],
+    prompt: str,
+) -> object:
+    result: object = model.with_structured_output(schema).invoke(prompt)
+    return result
+
+
+def _stringify_list(value: object) -> list[str] | None:
+    if not _is_object_list(value):
+        return None
+    return [str(item) for item in value]
+
+
+def _validated_model(model_type: type[ModelT], value: object) -> ModelT:
+    if isinstance(value, BaseModel):
+        return model_type.model_validate(value.model_dump())
+    return model_type.model_validate(value)
+
+
+def _normalize_er_raw(data: Mapping[str, object]) -> dict[str, object]:
     """Normalize raw ER data. Filter out entities/relations with empty key fields to avoid corrupting graph."""
     out = dict(data)
     entities = out.get("entities", [])
-    normalized_entities = []
-    for e in entities:
+    normalized_entities: list[dict[str, object]] = []
+    for e in entities if _is_object_list(entities) else []:
         if isinstance(e, str):
             t = e.strip()
             if t:
                 normalized_entities.append({"text": t, "type": "OTHER"})
-        elif isinstance(e, dict):
+        elif _is_string_object(e):
             text = str(e.get("text", "")).strip()
             etype = str(e.get("type", "")).strip()
             if text and etype:
@@ -36,9 +70,9 @@ def _normalize_er_raw(data: Dict[str, Any]) -> Dict[str, Any]:
     out["entities"] = normalized_entities
 
     relations = out.get("relations", [])
-    normalized_relations = []
-    for r in relations:
-        if isinstance(r, dict):
+    normalized_relations: list[dict[str, object]] = []
+    for r in relations if _is_object_list(relations) else []:
+        if _is_string_object(r):
             rel = dict(r)
             subj = str(rel.get("subject", "")).strip()
             pred = str(rel.get("predicate", "")).strip()
@@ -51,15 +85,15 @@ def _normalize_er_raw(data: Dict[str, Any]) -> Dict[str, Any]:
     return out
 
 
-def _payload_to_dict(payload: ERPayload) -> Optional[Dict[str, Any]]:
+def _payload_to_dict(payload: ERPayload) -> dict[str, object]:
     """校验并转为dict。过滤空字符串的实体/关系，避免破坏图谱"""
-    entities = []
+    entities: list[dict[str, object]] = []
     for e in payload.entities:
         text = (e.text or "").strip()
         etype = (e.type or "").strip()
         if text and etype:
             entities.append({"text": e.text, "type": e.type, "span": e.span})
-    relations = []
+    relations: list[dict[str, object]] = []
     for r in payload.relations:
         subj = (r.subject or "").strip()
         pred = (r.predicate or "").strip()
@@ -84,9 +118,10 @@ def extract_policy_info(text: str) -> Optional[Dict[str, Any]]:
         # 限制文本长度
         text_snippet = text[:3000]
         
-        if config and config.get("user_prompt_template"):
+        prompt_template = config.get("user_prompt_template") if config else None
+        if config and prompt_template:
             # 使用配置的提示词
-            prompt = format_prompt_template(config["user_prompt_template"], text=text_snippet)
+            prompt = format_prompt_template(prompt_template, text=text_snippet)
             model = get_chat_model(
                 model=config.get("model"),
                 temperature=config.get("temperature"),
@@ -110,13 +145,11 @@ def extract_policy_info(text: str) -> Optional[Dict[str, Any]]:
             model = get_chat_model()
         
         # 尝试使用 structured output
-        if hasattr(model, 'with_structured_output'):
+        if isinstance(model, BaseChatModel):
             try:
-                result = model.with_structured_output(PolicyExtracted).invoke(prompt)
-                data = result.model_dump()
-                # 将date对象转换为字符串，以便JSON序列化
-                if data.get("effective_date") and hasattr(data["effective_date"], "isoformat"):
-                    data["effective_date"] = data["effective_date"].isoformat()
+                result = _invoke_structured(model, PolicyExtracted, prompt)
+                extracted = _validated_model(PolicyExtracted, result)
+                data = extracted.model_dump(mode="json")
                 return get_extraction_adapter().augment_policy(data)
             except Exception as e:
                 logger.warning("extract_policy_info: structured_output failed, fallback to JSON: %s", e)
@@ -131,7 +164,7 @@ def extract_policy_info(text: str) -> Optional[Dict[str, Any]]:
             if not data:
                 return None
             # 验证并转换为PolicyExtracted格式
-            extracted = PolicyExtracted(**data)
+            extracted = PolicyExtracted.model_validate(data)
             return get_extraction_adapter().augment_policy(extracted.model_dump())
         except (json.JSONDecodeError, Exception) as e:
             logger.warning("extract_policy_info: JSON parse failed: %s", e)
@@ -153,9 +186,10 @@ def extract_entities_relations(text: str) -> Optional[Dict[str, Any]]:
         
         text_snippet = text[:3000]
         
-        if config and config.get("user_prompt_template"):
+        prompt_template = config.get("user_prompt_template") if config else None
+        if config and prompt_template:
             # 使用配置的提示词
-            prompt = format_prompt_template(config["user_prompt_template"], text=text_snippet)
+            prompt = format_prompt_template(prompt_template, text=text_snippet)
             model = get_chat_model(
                 model=config.get("model"),
                 temperature=config.get("temperature"),
@@ -176,10 +210,10 @@ def extract_entities_relations(text: str) -> Optional[Dict[str, Any]]:
             )
             model = get_chat_model()
         
-        if hasattr(model, "with_structured_output"):
+        if isinstance(model, BaseChatModel):
             try:
-                result = model.with_structured_output(ERPayload).invoke(prompt)
-                payload = ERPayload.model_validate(result.model_dump())
+                result = _invoke_structured(model, ERPayload, prompt)
+                payload = _validated_model(ERPayload, result)
                 validated = _payload_to_dict(payload)
                 if not validated:
                     return None
@@ -196,7 +230,7 @@ def extract_entities_relations(text: str) -> Optional[Dict[str, Any]]:
             if not data:
                 return None
             data = _normalize_er_raw(data)
-            extracted = ERPayload(**data)
+            extracted = ERPayload.model_validate(data)
             validated = _payload_to_dict(extracted)
             if not validated:
                 return None
@@ -222,9 +256,10 @@ def extract_market_info(text: str) -> Optional[Dict[str, Any]]:
         # 限制文本长度
         text_snippet = text[:3000]
         
-        if config and config.get("user_prompt_template"):
+        prompt_template = config.get("user_prompt_template") if config else None
+        if config and prompt_template:
             # 使用配置的提示词
-            prompt = format_prompt_template(config["user_prompt_template"], text=text_snippet)
+            prompt = format_prompt_template(prompt_template, text=text_snippet)
             model = get_chat_model(
                 model=config.get("model"),
                 temperature=config.get("temperature"),
@@ -252,16 +287,14 @@ Extract the following fields and return in JSON format. All text values must be 
             model = get_chat_model()
         
         # 尝试使用 structured output
-        if hasattr(model, "with_structured_output"):
+        if isinstance(model, BaseChatModel):
             try:
-                result = model.with_structured_output(MarketExtracted).invoke(prompt)
-                data = result.model_dump()
-                # 将date对象转换为字符串，以便JSON序列化
-                if data.get("report_date") and hasattr(data["report_date"], "isoformat"):
-                    data["report_date"] = data["report_date"].isoformat()
-                # 确保key_findings中的文本都是英文
-                if "key_findings" in data and isinstance(data["key_findings"], list):
-                    data["key_findings"] = [str(item) for item in data["key_findings"]]
+                result = _invoke_structured(model, MarketExtracted, prompt)
+                extracted = _validated_model(MarketExtracted, result)
+                data = extracted.model_dump(mode="json")
+                key_findings = _stringify_list(data.get("key_findings"))
+                if key_findings is not None:
+                    data["key_findings"] = key_findings
                 try:
                     data, quality = normalize_market_payload(data, scope="market")
                     data["numeric_quality"] = quality
@@ -281,14 +314,12 @@ Extract the following fields and return in JSON format. All text values must be 
             if not data:
                 return None
             # 验证并转换为MarketExtracted格式
-            extracted = MarketExtracted(**data)
-            data = extracted.model_dump()
-            # 转换日期
-            if data.get("report_date") and hasattr(data["report_date"], "isoformat"):
-                data["report_date"] = data["report_date"].isoformat()
+            extracted = MarketExtracted.model_validate(data)
+            data = extracted.model_dump(mode="json")
             # 确保key_findings中的文本都是英文
-            if "key_findings" in data and isinstance(data["key_findings"], list):
-                data["key_findings"] = [str(item) for item in data["key_findings"]]
+            key_findings = _stringify_list(data.get("key_findings"))
+            if key_findings is not None:
+                data["key_findings"] = key_findings
             try:
                 data, quality = normalize_market_payload(data, scope="market")
                 data["numeric_quality"] = quality

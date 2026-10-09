@@ -5,7 +5,7 @@ from typing import Any
 from ...settings.config import settings
 from mrw_functorial_kit.core.agent_service_semantics import agent_batch_failures
 
-from .task_contract import _raise_legacy_agent_batch_failure
+from .task_contract import raise_legacy_agent_batch_failure
 
 ALLOWED_LANES = {"main", "subagent", "system"}
 
@@ -13,7 +13,7 @@ ALLOWED_LANES = {"main", "subagent", "system"}
 def validate_lane(raw_lane: str | None, *, fallback: str | None = None) -> str:
     lane = str(raw_lane or fallback or "").strip().lower()
     if lane not in ALLOWED_LANES:
-        _raise_legacy_agent_batch_failure(
+        raise_legacy_agent_batch_failure(
             agent_batch_failures.fail(
                 "lane_invalid",
                 "lane is required and must be one of: main, subagent, system",

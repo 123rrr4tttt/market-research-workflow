@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 from collections import defaultdict
+from collections.abc import Iterable
 from datetime import date, datetime, timedelta
 import logging
 import math
 import statistics
-from typing import Annotated, Any
+from typing import Annotated, Any, NoReturn, Protocol, TypeGuard, runtime_checkable
 from uuid import uuid4
 
 from sqlalchemy import select
@@ -54,7 +55,7 @@ def _request_failure(code: str, message: str, *, operation: str, **details: Any)
     )
 
 
-def _raise_request_failure(failure: Failure) -> None:
+def _raise_request_failure(failure: Failure) -> NoReturn:
     context = failure.context or {}
     if not prompt_time_density_request_failures.matches(failure) or _FAILURE_CONTEXT_KEYS - set(context):
         # kit:boundary owner=prompt_time_density.failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w01_request_failures
@@ -167,7 +168,7 @@ def _parse_iso_day(value: Any) -> date | None:
         return None
 
 
-def resolve_document_effective_time_provenance(doc: Document) -> dict[str, Any]:
+def resolve_document_effective_time_provenance(doc: Document) -> dict[str, object]:
     prompt_time_fields = get_prompt_time_density_fields(doc)
     created_at = getattr(doc, "created_at", None)
     created_day = created_at.date() if created_at else None
@@ -282,7 +283,66 @@ def _safe_float(value: Any, default: float = 0.0) -> float:
         return default
 
 
-def _new_time_provenance_summary() -> dict[str, Any]:
+@runtime_checkable
+class _SupportsInt(Protocol):
+    def __int__(self) -> int: ...
+
+
+def _coerce_int(value: object, default: int = 0) -> int:
+    if not value:
+        return default
+    if isinstance(value, (str, bytes, bytearray, _SupportsInt)):
+        return int(value)
+    return default
+
+
+def _is_payload_dict(value: object) -> TypeGuard[dict[str, object]]:
+    return isinstance(value, dict)
+
+
+def _is_object_set(value: object) -> TypeGuard[set[object]]:
+    return isinstance(value, set)
+
+
+def _is_object_iterable(value: object) -> TypeGuard[Iterable[object]]:
+    return isinstance(value, Iterable)
+
+
+def _mapping_or_empty(value: object) -> dict[str, object]:
+    if not value:
+        return {}
+    if _is_payload_dict(value):
+        return value
+    return {}
+
+
+def _iterable_or_empty(value: object) -> Iterable[object]:
+    if not value:
+        return ()
+    if _is_object_iterable(value):
+        return value
+    return ()
+
+
+def _dict_slot(target: dict[str, object], key: str) -> dict[str, object]:
+    value = target.setdefault(key, {})
+    if _is_payload_dict(value):
+        return value
+    replacement: dict[str, object] = {}
+    target[key] = replacement
+    return replacement
+
+
+def _set_slot(target: dict[str, object], key: str) -> set[object]:
+    value = target.setdefault(key, set[object]())
+    if _is_object_set(value):
+        return value
+    replacement: set[object] = set()
+    target[key] = replacement
+    return replacement
+
+
+def _new_time_provenance_summary() -> dict[str, object]:
     return {
         "total_docs": 0,
         "source_counts": {},
@@ -292,65 +352,74 @@ def _new_time_provenance_summary() -> dict[str, Any]:
     }
 
 
-def _add_count(target: dict[str, int], key: Any, count: int = 1) -> None:
+def _add_count(target: dict[str, object], key: object, count: object = 1) -> None:
     normalized = str(key or "").strip()
     if not normalized:
         return
-    target[normalized] = int(target.get(normalized, 0)) + int(count)
+    target[normalized] = _coerce_int(target.get(normalized)) + _coerce_int(count)
 
 
-def _accumulate_doc_time_provenance(summary: dict[str, Any], provenance: dict[str, Any]) -> None:
-    summary["total_docs"] = int(summary.get("total_docs") or 0) + 1
-    _add_count(summary.setdefault("source_counts", {}), provenance.get("source") or "missing")
-    for marker in provenance.get("gap_markers") or []:
-        _add_count(summary.setdefault("gap_counts", {}), marker)
+def _accumulate_doc_time_provenance(summary: dict[str, object], provenance: dict[str, object]) -> None:
+    summary["total_docs"] = _coerce_int(summary.get("total_docs")) + 1
+    _add_count(_dict_slot(summary, "source_counts"), provenance.get("source") or "missing")
+    for marker in _iterable_or_empty(provenance.get("gap_markers")):
+        _add_count(_dict_slot(summary, "gap_counts"), marker)
     parse_version = _normalize_json_text(provenance.get("time_parse_version"))
     if parse_version:
-        summary.setdefault("parse_versions", set()).add(parse_version)
+        _set_slot(summary, "parse_versions").add(parse_version)
 
 
-def _merge_time_provenance_summary(target: dict[str, Any], source: dict[str, Any]) -> None:
-    target["total_docs"] = int(target.get("total_docs") or 0) + int(source.get("total_docs") or 0)
-    for key, count in (source.get("source_counts") or {}).items():
-        _add_count(target.setdefault("source_counts", {}), key, int(count or 0))
-    for key, count in (source.get("gap_counts") or {}).items():
-        _add_count(target.setdefault("gap_counts", {}), key, int(count or 0))
-    parse_versions = source.get("parse_versions") or []
-    if isinstance(parse_versions, set):
-        target.setdefault("parse_versions", set()).update(parse_versions)
+def _merge_time_provenance_summary(target: dict[str, object], source: dict[str, object]) -> None:
+    target["total_docs"] = _coerce_int(target.get("total_docs")) + _coerce_int(source.get("total_docs"))
+    for key, count in _mapping_or_empty(source.get("source_counts")).items():
+        _add_count(_dict_slot(target, "source_counts"), key, _coerce_int(count))
+    for key, count in _mapping_or_empty(source.get("gap_counts")).items():
+        _add_count(_dict_slot(target, "gap_counts"), key, _coerce_int(count))
+    parse_versions = source.get("parse_versions") or list[object]()
+    if _is_object_set(parse_versions):
+        _set_slot(target, "parse_versions").update(parse_versions)
     else:
-        target.setdefault("parse_versions", set()).update(str(v) for v in parse_versions if str(v).strip())
+        _set_slot(target, "parse_versions").update(
+            str(value) for value in _iterable_or_empty(parse_versions) if str(value).strip()
+        )
 
 
-def _freeze_time_provenance_summary(summary: dict[str, Any] | None) -> dict[str, Any]:
+def _freeze_time_provenance_summary(summary: dict[str, object] | None) -> dict[str, object]:
     summary = summary or {}
-    parse_versions = summary.get("parse_versions") or []
-    if isinstance(parse_versions, set):
-        frozen_versions = sorted(str(v) for v in parse_versions if str(v).strip())
-    else:
-        frozen_versions = sorted(str(v) for v in parse_versions if str(v).strip())
+    parse_versions = summary.get("parse_versions") or list[object]()
+    frozen_versions = sorted(
+        str(value) for value in _iterable_or_empty(parse_versions) if str(value).strip()
+    )
     return {
-        "total_docs": int(summary.get("total_docs") or 0),
-        "source_counts": {str(k): int(v) for k, v in sorted((summary.get("source_counts") or {}).items())},
-        "gap_counts": {str(k): int(v) for k, v in sorted((summary.get("gap_counts") or {}).items())},
+        "total_docs": _coerce_int(summary.get("total_docs")),
+        "source_counts": {
+            str(key): _coerce_int(value)
+            for key, value in sorted(_mapping_or_empty(summary.get("source_counts")).items())
+        },
+        "gap_counts": {
+            str(key): _coerce_int(value)
+            for key, value in sorted(_mapping_or_empty(summary.get("gap_counts")).items())
+        },
         "parse_versions": frozen_versions,
-        "fallback_chain": list(summary.get("fallback_chain") or _TIME_DENSITY_TIME_FALLBACK_CHAIN),
+        "fallback_chain": list(
+            _iterable_or_empty(summary.get("fallback_chain") or _TIME_DENSITY_TIME_FALLBACK_CHAIN)
+        ),
     }
 
 
 def summarize_effective_time_source_distribution(
-    effective_time_provenance: dict[str, Any] | None,
-) -> dict[str, Any]:
+    effective_time_provenance: dict[str, object] | None,
+) -> dict[str, object]:
     provenance = effective_time_provenance or {}
     source_counts = {
-        str(key): int(value or 0)
-        for key, value in sorted((provenance.get("source_counts") or {}).items())
+        str(key): _coerce_int(value)
+        for key, value in sorted(_mapping_or_empty(provenance.get("source_counts")).items())
     }
     gap_counts = {
-        str(key): int(value or 0)
-        for key, value in sorted((provenance.get("gap_counts") or {}).items())
+        str(key): _coerce_int(value)
+        for key, value in sorted(_mapping_or_empty(provenance.get("gap_counts")).items())
     }
-    total_docs = int(provenance.get("total_docs") or 0)
+    total_docs = _coerce_int(provenance.get("total_docs"))
     if total_docs <= 0:
         total_docs = sum(source_counts.values())
     denominator = float(max(1, total_docs))
@@ -383,10 +452,12 @@ def summarize_effective_time_source_distribution(
         "created_at_fallback_count": int(gap_counts.get("created_at_fallback_used", 0)),
         "parse_versions": sorted(
             str(version)
-            for version in (provenance.get("parse_versions") or [])
+            for version in _iterable_or_empty(provenance.get("parse_versions"))
             if str(version).strip()
         ),
-        "fallback_chain": list(provenance.get("fallback_chain") or _TIME_DENSITY_TIME_FALLBACK_CHAIN),
+        "fallback_chain": list(
+            _iterable_or_empty(provenance.get("fallback_chain") or _TIME_DENSITY_TIME_FALLBACK_CHAIN)
+        ),
     }
 
 
@@ -406,8 +477,8 @@ def build_time_density_live_gap_markers(
         markers.add("production_freshness_probe_not_run")
 
     provenance = effective_time_provenance or {}
-    for marker, count in (provenance.get("gap_counts") or {}).items():
-        if int(count or 0) > 0:
+    for marker, count in _mapping_or_empty(provenance.get("gap_counts")).items():
+        if _coerce_int(count) > 0:
             markers.add(f"effective_time_gap:{marker}")
     return sorted(markers)
 
@@ -438,16 +509,13 @@ def build_time_density_decision_log_features(
     dict[str, Any],
     "kit:non-authoritative derived_as=view fact_source=prompt_time_density.decision_log witness=test:test_w01_meta",
 ]:
-    trace = trace or row.get("policy_decision_trace") or {}
-    effective_time_provenance = (
-        trace.get("effective_time_provenance")
-        or row.get("effective_time_provenance")
-        or {}
+    trace_mapping = trace or _mapping_or_empty(row.get("policy_decision_trace"))
+    effective_time_provenance = _mapping_or_empty(
+        trace_mapping.get("effective_time_provenance") or row.get("effective_time_provenance")
     )
-    source_distribution = (
-        trace.get("effective_time_source_distribution")
-        or summarize_effective_time_source_distribution(effective_time_provenance)
-    )
+    source_distribution = _mapping_or_empty(trace_mapping.get("effective_time_source_distribution"))
+    if not source_distribution:
+        source_distribution = summarize_effective_time_source_distribution(effective_time_provenance)
     return {
         "density": float(row.get("density") or 0.0),
         "norm_density": float(row.get("norm_density") or 0.0),
@@ -458,17 +526,17 @@ def build_time_density_decision_log_features(
         "target_overlap_gap": float(row.get("target_overlap_gap") or 0.0),
         "collection_priority_score": float(row.get("collection_priority_score") or 0.0),
         "contract_version": str(
-            trace.get("contract_version") or TIME_DENSITY_DECISION_LOG_CONTRACT_VERSION
+            trace_mapping.get("contract_version") or TIME_DENSITY_DECISION_LOG_CONTRACT_VERSION
         ),
         "effective_time_provenance": effective_time_provenance,
         "effective_time_source_distribution": source_distribution,
-        "source_time_coverage": float(source_distribution.get("source_time_coverage") or 0.0),
-        "explicit_semantic_time_coverage": float(
-            source_distribution.get("explicit_semantic_time_coverage") or 0.0
+        "source_time_coverage": _safe_float(source_distribution.get("source_time_coverage")),
+        "explicit_semantic_time_coverage": _safe_float(
+            source_distribution.get("explicit_semantic_time_coverage")
         ),
-        "ope_freshness_inputs": trace.get("ope_freshness_inputs") or {},
-        "priority_decision_trace": trace.get("priority_decision_trace") or {},
-        "live_data_gap_markers": trace.get("live_data_gap_markers") or [],
+        "ope_freshness_inputs": trace_mapping.get("ope_freshness_inputs") or {},
+        "priority_decision_trace": trace_mapping.get("priority_decision_trace") or {},
+        "live_data_gap_markers": trace_mapping.get("live_data_gap_markers") or [],
     }
 
 
@@ -555,7 +623,7 @@ def _persist_policy_decision_logs(
         return
     to_insert: list[PromptTimePolicyDecisionLog] = []
     for row in rows:
-        trace = row.get("policy_decision_trace") or {}
+        trace = _mapping_or_empty(row.get("policy_decision_trace"))
         to_insert.append(
             PromptTimePolicyDecisionLog(
                 request_id=request_id,
@@ -725,7 +793,7 @@ def query_prompt_time_density(
 
     grouped_doc_ids: dict[tuple[str, str, date], set[int]] = defaultdict(set)
     grouped_hashes: dict[tuple[str, str, date], list[str]] = defaultdict(list)
-    grouped_time_provenance: dict[tuple[str, str, date], dict[str, Any]] = {}
+    grouped_time_provenance: dict[tuple[str, str, date], dict[str, object]] = {}
 
     for doc in docs:
         time_provenance = resolve_document_effective_time_provenance(doc)
@@ -783,7 +851,7 @@ def query_prompt_time_density(
                 "norm_density": norm_density,
                 "dup_ratio": dup_ratio,
                 "effective_time_provenance": _freeze_time_provenance_summary(
-                    grouped_time_provenance.get(key)
+                    grouped_time_provenance.get((domain, prompt_group, bucket_time))
                 ),
             }
         )
@@ -1113,8 +1181,8 @@ def query_prompt_time_density_priority(
             row["request_id"] = request_id
             row["chosen_window"] = chosen_window
             row["is_chosen"] = bool(str(row.get("window") or "") == str(chosen_window))
-            trace = row.get("policy_decision_trace") or {}
-            priority_trace = dict(trace.get("priority_decision_trace") or {})
+            trace = _mapping_or_empty(row.get("policy_decision_trace"))
+            priority_trace = dict(_mapping_or_empty(trace.get("priority_decision_trace")))
             priority_trace.update(
                 {
                     "rank": int(row.get("rank") or 0),

@@ -4,7 +4,8 @@ from contextlib import nullcontext
 from dataclasses import dataclass, field
 import logging
 from functools import partial
-from typing import TYPE_CHECKING, Any, Dict, List, Literal, NoReturn, Sequence, Tuple
+from collections.abc import Mapping, Sequence
+from typing import TYPE_CHECKING, Literal, NoReturn, TypeGuard, TypeVar
 
 from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
@@ -23,7 +24,7 @@ from ...models.entities import (
 )
 from ..ingest_config.service import get_config as get_ingest_config
 from ..projects import bind_project, bind_schema
-from .external_project import EXTERNAL_PROJECT_CHANNEL_KEY
+from .external_project import EXTERNAL_PROJECT_CHANNEL_KEY, normalize_bounded_int
 from .candidate_aggregation import (
     HandlerCandidateLimits,
     aggregate_written_counts,
@@ -52,7 +53,7 @@ from .orchestrators import (
 from .relevance_review import annotate_records_with_relevance_review_queue
 from .relevance_review import merge_relevance_review_queues
 from .loader import load_project_library_files
-from .runner import RunnerObject, run_channel
+from .runner import RunnerObject, is_runner_mapping, run_channel
 from .single_source_guard import build_single_source_execution_fact, validate_single_source_guard
 from .types import (
     FrontDoorExecutionProtocol,
@@ -73,15 +74,50 @@ ExecutionLayer = Literal["execute", "terminal_output_only"]
 PROVIDER_HANDOFF_CONTRACT_VERSION = "source_library.provider_handoff.v1"
 SMOKE_ONLY_CONTRACT_VERSION = "source_library.smoke_only.v1"
 _FAILURE_WITNESS = "test:test_w01_source_export_failures"
+_Key = TypeVar("_Key")
 
 
-def _resolver_failure(code: str, message: str, *, site: str, **details: Any) -> Failure:
-    context: dict[str, Any] = {
+def _is_object(value: object) -> TypeGuard[dict[object, object]]:
+    return isinstance(value, dict)
+
+
+def _is_object_list(value: object) -> TypeGuard[list[object]]:
+    return isinstance(value, list)
+
+
+def _object(value: object) -> dict[object, object]:
+    return dict(value) if _is_object(value) else {}
+
+
+def _object_list(value: object) -> list[object]:
+    return list(value) if _is_object_list(value) else []
+
+
+def _as_runner_object(value: object) -> RunnerObject:
+    if not is_runner_mapping(value):
+        _raise_resolver_failure(
+            _resolver_failure(
+                "routing_value_invalid",
+                "source-library routing value is not a runner object",
+                site="_as_runner_object.value",
+                actual_type=type(value).__name__,
+            )
+        )
+    return dict(value)
+
+
+def _optional_runner_object(value: object) -> RunnerObject | None:
+    return dict(value) if is_runner_mapping(value) else None
+
+
+def _resolver_failure(code: str, message: str, *, site: str, **details: object) -> Failure:
+    public_exception = "TypeError" if code == "routing_value_invalid" else "ValueError"
+    context: dict[str, object] = {
         "boundary_class": "PURE_CONTRACT_FAILURE",
         "failure_family": source_library_contract_failures.name,
         "operation": "source_library.resolver",
         "owner": "source_library.resolver",
-        "public_exception": "ValueError",
+        "public_exception": public_exception,
         "public_message": message,
         "site": site,
         "witness": _FAILURE_WITNESS,
@@ -92,36 +128,39 @@ def _resolver_failure(code: str, message: str, *, site: str, **details: Any) -> 
 
 def _raise_resolver_failure(failure: Failure) -> NoReturn:
     context = failure.context or {}
+    expected_public_exception = "TypeError" if failure.code == "routing_value_invalid" else "ValueError"
     required = {"boundary_class", "failure_family", "operation", "owner", "public_exception", "public_message", "site", "witness"}
     if (
         not source_library_contract_failures.matches(failure)
         or required - set(context)
         or context.get("failure_family") != source_library_contract_failures.name
         or context.get("boundary_class") != "PURE_CONTRACT_FAILURE"
-        or context.get("public_exception") != "ValueError"
+        or context.get("public_exception") != expected_public_exception
         or context.get("public_message") != failure.message
     ):
         # kit:boundary owner=source_library.resolver.failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w01_source_export_failures
         raise TypeError("source-library resolver failure lift context is incomplete or inconsistent")
+    message = str(context["public_message"])
+    if expected_public_exception == "TypeError":
+        # kit:boundary owner=source_library.resolver.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=source_library.contract_failure witness=test:test_w01_source_export_failures
+        raise TypeError(message)
     # kit:boundary owner=source_library.resolver.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=source_library.contract_failure witness=test:test_w01_source_export_failures
-    raise ValueError(str(context["public_message"]))
+    raise ValueError(message)
 
 
-def _as_list(value: Any) -> list:
-    if isinstance(value, list):
-        return value
+def _as_list(value: object) -> list[object]:
+    if _is_object_list(value):
+        return list(value)
     if value is None:
         return []
     return [value]
 
 
-def _as_dict(value: Any) -> dict:
-    if isinstance(value, dict):
-        return value
-    return {}
+def _as_dict(value: object) -> dict[object, object]:
+    return _object(value)
 
 
-def _as_bool(value: Any, default: bool) -> bool:
+def _as_bool(value: object, default: bool) -> bool:
     if value is None:
         return default
     if isinstance(value, bool):
@@ -136,19 +175,11 @@ def _as_bool(value: Any, default: bool) -> bool:
     return default
 
 
-def _clamp_int(value: Any, default: int, *, min_value: int, max_value: int) -> int:
-    try:
-        parsed = int(value)
-    except Exception:
-        parsed = int(default)
-    return max(min_value, min(max_value, parsed))
-
-
-def _normalize_terms(value: Any) -> list[str]:
-    if isinstance(value, list):
+def _normalize_terms(value: object) -> list[str]:
+    if _is_object_list(value):
         out: list[str] = []
-        for x in value:
-            s = str(x or "").strip()
+        for item in value:
+            s = str(item or "").strip()
             if s and s not in out:
                 out.append(s)
         return out
@@ -156,8 +187,10 @@ def _normalize_terms(value: Any) -> list[str]:
     return [s] if s else []
 
 
-def _as_optional_int(value: Any, *, min_value: int | None = None, max_value: int | None = None) -> int | None:
+def _as_optional_int(value: object, *, min_value: int | None = None, max_value: int | None = None) -> int | None:
     try:
+        if not isinstance(value, int | float | str):
+            return None
         parsed = int(value)
     except Exception:
         return None
@@ -168,7 +201,16 @@ def _as_optional_int(value: Any, *, min_value: int | None = None, max_value: int
     return parsed
 
 
-def _as_optional_ymd(value: Any) -> str | None:
+def _as_optional_float(value: object) -> float | None:
+    if not isinstance(value, int | float | str):
+        return None
+    try:
+        return float(value)
+    except Exception:
+        return None
+
+
+def _as_optional_ymd(value: object) -> str | None:
     raw = str(value or "").strip()
     if not raw:
         return None
@@ -182,7 +224,7 @@ def _as_optional_ymd(value: Any) -> str | None:
     return raw
 
 
-def _normalize_search_params(params: Dict[str, Any]) -> Dict[str, Any]:
+def _normalize_search_params(params: Mapping[object, object]) -> dict[object, object]:
     normalized = dict(params or {})
 
     query_terms = _normalize_terms(
@@ -283,11 +325,14 @@ def _split_batches(terms: list[str], chunk_size: int) -> list[list[str]]:
     return [clean[i : i + size] for i in range(0, len(clean), size)]
 
 
-def _deep_merge(base: Dict[str, Any], override: Dict[str, Any]) -> Dict[str, Any]:
+def _deep_merge(
+    base: Mapping[_Key, object], override: Mapping[_Key, object],
+) -> dict[_Key, object]:
     merged = dict(base)
     for key, value in override.items():
-        if isinstance(value, dict) and isinstance(merged.get(key), dict):
-            merged[key] = _deep_merge(merged[key], value)
+        current = merged.get(key)
+        if _is_object(value) and _is_object(current):
+            merged[key] = _deep_merge(current, value)
         else:
             merged[key] = value
     return merged
@@ -295,10 +340,10 @@ def _deep_merge(base: Dict[str, Any], override: Dict[str, Any]) -> Dict[str, Any
 
 def _inject_url_params_for_channel(
     *,
-    channel: Dict[str, Any],
-    per_url_params: Dict[str, Any],
+    channel: dict[str, object],
+    per_url_params: dict[object, object],
     url_str: str,
-) -> Dict[str, Any]:
+) -> dict[object, object]:
     """Map a routed URL into channel-specific params for tool channels."""
     provider = str(channel.get("provider") or "").strip().lower()
     kind = str(channel.get("kind") or "").strip().lower()
@@ -315,7 +360,7 @@ def _inject_url_params_for_channel(
         arguments.setdefault("urls", [url_str])
         route_profile = _as_dict(per_url_params.get("frontdoor_route_profile"))
         router_contract = _as_dict(per_url_params.get("frontdoor_router_contract"))
-        if not router_contract and isinstance(route_profile.get("router_contract"), dict):
+        if not router_contract and _is_object(route_profile.get("router_contract")):
             router_contract = _as_dict(route_profile.get("router_contract"))
         if route_profile:
             arguments.setdefault("frontdoor_route_profile", route_profile)
@@ -342,19 +387,20 @@ def _inject_url_params_for_channel(
     return per_url_params
 
 
-def _extract_source_tiering_from_extra(extra: Dict[str, Any]) -> tuple[Any, Any]:
+def _extract_source_tiering_from_extra(extra: Mapping[object, object]) -> tuple[object, object]:
     tier = extra.get("source_tier")
     priority = extra.get("onboarding_priority")
     source_tiering = extra.get("source_tiering")
-    if isinstance(source_tiering, dict):
-        if source_tiering.get("tier") is not None:
-            tier = source_tiering.get("tier")
-        if source_tiering.get("onboarding_priority") is not None:
-            priority = source_tiering.get("onboarding_priority")
+    source_tiering_payload = _object(source_tiering)
+    if source_tiering_payload:
+        if source_tiering_payload.get("tier") is not None:
+            tier = source_tiering_payload.get("tier")
+        if source_tiering_payload.get("onboarding_priority") is not None:
+            priority = source_tiering_payload.get("onboarding_priority")
     return tier, priority
 
 
-def _attach_source_tiering(channel: Dict[str, Any]) -> Dict[str, Any]:
+def _attach_source_tiering(channel: dict[str, object]) -> dict[str, object]:
     normalized = dict(channel)
     extra = _as_dict(normalized.get("extra"))
     explicit_tier, explicit_priority = _extract_source_tiering_from_extra(extra)
@@ -378,7 +424,7 @@ def _attach_source_tiering(channel: Dict[str, Any]) -> Dict[str, Any]:
     return normalized
 
 
-def _is_crawler_channel(channel: Dict[str, Any] | None) -> bool:
+def _is_crawler_channel(channel: dict[str, object] | None) -> bool:
     if not isinstance(channel, dict):
         return False
     provider_type = str(channel.get("provider_type") or "").strip().lower()
@@ -387,7 +433,7 @@ def _is_crawler_channel(channel: Dict[str, Any] | None) -> bool:
 
 def _prefer_crawler_channel_key(
     *,
-    channel_map: Dict[str, Dict[str, Any]],
+    channel_map: dict[str, dict[str, object]],
     project_key: str | None,
 ) -> str | None:
     candidates: list[str] = []
@@ -425,22 +471,22 @@ def _is_retryable_crawler_runtime_error(exc: Exception) -> bool:
 
 def _build_provider_handoff(
     *,
-    channel: Dict[str, Any],
+    channel: dict[str, object],
     channel_key: str,
-    params: Dict[str, Any],
-    result: Dict[str, Any] | None,
+    params: Mapping[object, object],
+    result: Mapping[str, object] | None,
     execution_layer: ExecutionLayer,
     force_url_routing_flow: bool,
     fallback_from_channel_key: str | None = None,
     fallback_reason: str | None = None,
-) -> Dict[str, Any]:
+) -> RunnerObject:
     provider_type = str(channel.get("provider_type") or "").strip().lower() or None
     provider = str(channel.get("provider") or "").strip().lower() or None
     route_profile = _as_dict(params.get("frontdoor_route_profile"))
     router_contract = _as_dict(params.get("frontdoor_router_contract"))
     if not router_contract and isinstance(route_profile.get("router_contract"), dict):
         router_contract = _as_dict(route_profile.get("router_contract"))
-    result_payload = result if isinstance(result, dict) else {}
+    result_payload = dict(result) if result is not None else {}
     route_hint = (
         str(route_profile.get("route_hint") or params.get("frontdoor_route_hint") or "").strip()
         or None
@@ -451,7 +497,7 @@ def _build_provider_handoff(
     )
     render_required = bool(route_profile.get("render_required") or params.get("frontdoor_render_required"))
     is_crawler = _is_crawler_channel(channel)
-    out: Dict[str, Any] = {
+    out: dict[str, object] = {
         "contract_version": PROVIDER_HANDOFF_CONTRACT_VERSION,
         "handoff_kind": "crawler_provider" if is_crawler else "mechanical_fetch",
         "channel_key": channel_key or None,
@@ -477,14 +523,15 @@ def _build_provider_handoff(
         out["router_contract"] = router_contract
         out["router_state"] = router_contract.get("router_state")
         out["router_reason_code"] = router_contract.get("reason_code")
-        if isinstance(router_contract.get("fallback_boundary"), dict):
-            out["fallback_boundary"] = dict(router_contract.get("fallback_boundary") or {})
-    return {key: value for key, value in out.items() if value is not None}
+        fallback_boundary = _object(router_contract.get("fallback_boundary"))
+        if fallback_boundary:
+            out["fallback_boundary"] = fallback_boundary
+    return _as_runner_object({key: value for key, value in out.items() if value is not None})
 
 
-def _is_handler_cluster_item(item: Dict[str, Any] | None) -> bool:
-    extra = (item or {}).get("extra") or {}
-    if not isinstance(extra, dict):
+def _is_handler_cluster_item(item: dict[str, object] | None) -> bool:
+    extra = _object((item or {}).get("extra"))
+    if not extra:
         return False
     return bool(
         extra.get("stable_handler_cluster")
@@ -492,32 +539,32 @@ def _is_handler_cluster_item(item: Dict[str, Any] | None) -> bool:
     )
 
 
-def _has_site_entries(params: Dict[str, Any] | None) -> bool:
-    if not isinstance(params, dict):
+def _has_site_entries(params: Mapping[object, object] | None) -> bool:
+    if params is None:
         return False
     for key in ("site_entries", "site_entry_urls", "official_access_site_entries"):
         raw = params.get(key)
-        if isinstance(raw, list) and any(str(x or "").strip() for x in raw):
+        if _is_object_list(raw) and any(str(x or "").strip() for x in raw):
             return True
     return False
 
 
-def _is_source_library_smoke_only(params: Dict[str, Any] | None) -> bool:
-    if not isinstance(params, dict):
+def _is_source_library_smoke_only(params: Mapping[object, object] | None) -> bool:
+    if params is None:
         return False
     return _as_bool(params.get("_source_library_smoke_only"), False)
 
 
 def _build_source_library_smoke_payload(
     *,
-    item: Dict[str, Any],
-    params: Dict[str, Any],
+    item: dict[str, object],
+    params: Mapping[object, object],
     project_key: str | None,
-) -> Dict[str, Any]:
+) -> dict[str, object]:
     item_key = str(item.get("item_key") or "").strip()
     channel_key = str(item.get("channel_key") or "").strip()
-    runtime_readback = params.get("runtime_readback") if isinstance(params.get("runtime_readback"), dict) else None
-    result = {
+    runtime_readback = _object(params.get("runtime_readback"))
+    result: dict[str, object] = {
         "status": "ok",
         "inserted": 0,
         "updated": 0,
@@ -540,7 +587,7 @@ def _build_source_library_smoke_payload(
     }
     if runtime_readback:
         result["runtime_readback"] = dict(runtime_readback)
-    payload: Dict[str, Any] = {
+    payload: dict[str, object] = {
         "contract_version": SMOKE_ONLY_CONTRACT_VERSION,
         "status": "ok",
         "source_mode": "smoke_only",
@@ -560,11 +607,11 @@ def _build_source_library_smoke_payload(
     return payload
 
 
-def _normalize_site_entries(value: Any) -> list[str]:
+def _normalize_site_entries(value: object) -> list[str]:
     if isinstance(value, str):
-        raw_entries: list[Any] = [value]
-    elif isinstance(value, list):
-        raw_entries = value
+        raw_entries: list[object] = [value]
+    elif _is_object_list(value):
+        raw_entries = list(value)
     else:
         return []
     out: list[str] = []
@@ -577,10 +624,10 @@ def _normalize_site_entries(value: Any) -> list[str]:
 
 def _build_frontdoor_protocol(
     *,
-    item: Dict[str, Any],
-    params: Dict[str, Any],
+    item: dict[str, object],
+    params: Mapping[object, object],
     project_key: str | None,
-    candidate_urls: List[str] | None = None,
+    candidate_urls: list[str] | None = None,
 ) -> FrontDoorExecutionProtocol:
     item_key = str(item.get("item_key") or "").strip() or "_anonymous"
     item_channel_key = str(item.get("channel_key") or "").strip()
@@ -589,9 +636,10 @@ def _build_frontdoor_protocol(
     source_tier = str(item_extra.get("source_tier") or "").strip()
     onboarding_priority = str(item_extra.get("onboarding_priority") or "").strip()
     source_tiering = item_extra.get("source_tiering")
-    if isinstance(source_tiering, dict):
-        source_tier = str(source_tiering.get("tier") or source_tier).strip()
-        onboarding_priority = str(source_tiering.get("onboarding_priority") or onboarding_priority).strip()
+    source_tiering_payload = _object(source_tiering)
+    if source_tiering_payload:
+        source_tier = str(source_tiering_payload.get("tier") or source_tier).strip()
+        onboarding_priority = str(source_tiering_payload.get("onboarding_priority") or onboarding_priority).strip()
     query_terms = _normalize_terms(
         params.get("query_terms")
         or params.get("keywords")
@@ -609,7 +657,12 @@ def _build_frontdoor_protocol(
         or item_params.get("official_access_site_entries")
     )
     routed_urls = _normalize_site_entries(candidate_urls if candidate_urls is not None else params.get("urls"))
-    query_batch_size = _clamp_int(params.get("keyword_batch_size") or params.get("batch_size") or params.get("batch"), 4, min_value=1, max_value=100)
+    query_batch_size = normalize_bounded_int(
+        params.get("keyword_batch_size") or params.get("batch_size") or params.get("batch"),
+        default=4,
+        min_value=1,
+        max_value=100,
+    )
     total_search_tasks = len(_split_batches(query_terms, query_batch_size))
     total_url_tasks = len(routed_urls) if routed_urls else len(site_entries)
     concurrency_plan = build_source_concurrency_plan(
@@ -650,7 +703,7 @@ def _build_frontdoor_protocol(
         expected_entry_type=str(item_extra.get("expected_entry_type") or item_params.get("expected_entry_type") or "").strip() or None,
         write_to_pool=write_to_pool,
         auto_ingest=auto_ingest,
-        ingest_limit=max(1, int(params.get("ingest_limit") or params.get("limit") or 20)),
+        ingest_limit=max(1, _as_optional_int(params.get("ingest_limit") or params.get("limit")) or 20),
         force_url_routing_flow=force_url_routing_flow,
         prefer_crawler_first=prefer_crawler_first,
         search_parallelism=search_parallelism,
@@ -679,8 +732,8 @@ def _select_routed_channel(
 
 
 def _routed_channel_params(
-    channel: dict[str, object], params: dict[str, object], url: str, execution_layer: ExecutionLayer,
-) -> dict[str, object]:
+    channel: dict[str, object], params: Mapping[object, object], url: str, execution_layer: ExecutionLayer,
+) -> dict[object, object]:
     per_url = _deep_merge(channel_default_params(channel.get("default_params") or {}), params)
     per_url.pop("urls", None)
     per_url = _inject_url_params_for_channel(
@@ -690,7 +743,7 @@ def _routed_channel_params(
 
 
 def _execute_routed_channel(
-    channel: dict[str, object], params: dict[str, object], project_key: str | None, item_key: str | None,
+    channel: dict[str, object], params: Mapping[object, object], project_key: str | None, item_key: str | None,
 ) -> RunnerObject:
     with (bind_project(project_key) if project_key else nullcontext()):
         return run_channel(
@@ -699,14 +752,14 @@ def _execute_routed_channel(
 
 
 def _routed_channel_observation(
-    *, url: str, channel_key: str, channel: dict[str, object], params: dict[str, object],
+    *, url: str, channel_key: str, channel: dict[str, object], params: Mapping[object, object],
     result: RunnerObject | None, execution_layer: ExecutionLayer, force_url_routing_flow: bool,
     fallback_from_channel_key: str | None = None, fallback_reason: str | None = None,
     error: str | None = None,
 ) -> RunnerObject:
     handoff = _build_provider_handoff(
         channel=channel, channel_key=channel_key, params=params,
-        result=result if isinstance(result, dict) else None,
+        result=result,
         execution_layer=execution_layer, force_url_routing_flow=force_url_routing_flow,
         fallback_from_channel_key=fallback_from_channel_key, fallback_reason=fallback_reason,
     )
@@ -721,7 +774,7 @@ def _routed_channel_observation(
 
 
 def _run_routed_target(
-    *, url: object, item: dict[str, object], params: dict[str, object], project_key: str | None,
+    *, url: object, item: dict[str, object], params: Mapping[object, object], project_key: str | None,
     channel_map: dict[str, dict[str, object]], has_query_terms: bool, force_url_routing_flow: bool,
     preferred_crawler_channel_key: str | None, fallback_crawler_channel_key: str | None,
     force_crawler_fallback_on_empty: bool, execution_layer: ExecutionLayer = "execute",
@@ -786,32 +839,36 @@ def _run_routed_target(
         )
 
 
-def _result_has_material_output(result: Dict[str, Any]) -> bool:
-    if not isinstance(result, dict):
+def _result_has_material_output(result: object) -> bool:
+    payload = _object(result)
+    if not payload:
         return False
-    if isinstance(result.get("records"), list) and len(result.get("records") or []) > 0:
+    records = _object_list(payload.get("records"))
+    if records:
         return True
-    if int(result.get("fetched") or 0) > 0:
+    if (_as_optional_int(payload.get("fetched")) or 0) > 0:
         return True
-    if int(result.get("inserted") or 0) + int(result.get("updated") or 0) > 0:
+    if (_as_optional_int(payload.get("inserted")) or 0) + (_as_optional_int(payload.get("updated")) or 0) > 0:
         return True
-    by_url = result.get("by_url") if isinstance(result.get("by_url"), list) else []
+    by_url = _object_list(payload.get("by_url"))
     for row in by_url:
-        if not isinstance(row, dict):
-            continue
-        nested = row.get("result")
-        if isinstance(nested, dict) and (
-            nested.get("title")
-            or nested.get("content_text")
-            or nested.get("content_preview")
-            or nested.get("excerpt")
-            or nested.get("status") == "fetched"
+        nested = _object(row).get("result")
+        nested_payload = _object(nested)
+        if nested_payload and (
+            nested_payload.get("title")
+            or nested_payload.get("content_text")
+            or nested_payload.get("content_preview")
+            or nested_payload.get("excerpt")
+            or nested_payload.get("status") == "fetched"
         ):
             return True
     return False
 
 
-def _channel_row_to_dict(row: Any, scope: str) -> Dict[str, Any]:
+def _channel_row_to_dict(
+    row: SharedIngestChannel | IngestChannel,
+    scope: str,
+) -> dict[str, object]:
     return _attach_source_tiering({
         "channel_key": row.channel_key,
         "name": row.name,
@@ -831,7 +888,10 @@ def _channel_row_to_dict(row: Any, scope: str) -> Dict[str, Any]:
     })
 
 
-def _item_row_to_dict(row: Any, scope: str) -> Dict[str, Any]:
+def _item_row_to_dict(
+    row: SharedSourceLibraryItem | SourceLibraryItem,
+    scope: str,
+) -> dict[str, object]:
     payload = {
         "item_key": row.item_key,
         "name": row.name,
@@ -850,7 +910,7 @@ def _item_row_to_dict(row: Any, scope: str) -> Dict[str, Any]:
     return _normalize_item_taxonomy(payload)
 
 
-def _load_shared_channels() -> List[Dict[str, Any]]:
+def _load_shared_channels() -> list[dict[str, object]]:
     try:
         with bind_schema("public"):
             with SessionLocal() as session:
@@ -861,8 +921,8 @@ def _load_shared_channels() -> List[Dict[str, Any]]:
         return []
 
 
-def _load_project_channels(project_key: str | None) -> List[Dict[str, Any]]:
-    file_rows: list[dict[str, Any]] = []
+def _load_project_channels(project_key: str | None) -> list[dict[str, object]]:
+    file_rows: list[dict[str, object]] = []
     file_data = load_project_library_files(project_key)
     for payload in file_data.get("channels", []):
         channel_key = str(payload.get("channel_key", "")).strip()
@@ -906,7 +966,7 @@ def _load_project_channels(project_key: str | None) -> List[Dict[str, Any]]:
         return file_rows
 
 
-def _load_shared_items() -> List[Dict[str, Any]]:
+def _load_shared_items() -> list[dict[str, object]]:
     try:
         with bind_schema("public"):
             with SessionLocal() as session:
@@ -919,8 +979,8 @@ def _load_shared_items() -> List[Dict[str, Any]]:
         return []
 
 
-def _load_project_items(project_key: str | None) -> List[Dict[str, Any]]:
-    file_rows: list[dict[str, Any]] = []
+def _load_project_items(project_key: str | None) -> list[dict[str, object]]:
+    file_rows: list[dict[str, object]] = []
     file_data = load_project_library_files(project_key)
     for payload in file_data.get("items", []):
         item_key = str(payload.get("item_key", "")).strip()
@@ -964,9 +1024,9 @@ def _load_project_items(project_key: str | None) -> List[Dict[str, Any]]:
 
 
 def _merge_channels(
-    shared_channels: List[Dict[str, Any]],
-    project_channels: List[Dict[str, Any]],
-) -> List[Dict[str, Any]]:
+    shared_channels: list[dict[str, object]],
+    project_channels: list[dict[str, object]],
+) -> list[dict[str, object]]:
     shared_map = {x["channel_key"]: x for x in shared_channels}
     effective = dict(shared_map)
 
@@ -982,9 +1042,9 @@ def _merge_channels(
 
 
 def _merge_items(
-    shared_items: List[Dict[str, Any]],
-    project_items: List[Dict[str, Any]],
-) -> List[Dict[str, Any]]:
+    shared_items: list[dict[str, object]],
+    project_items: list[dict[str, object]],
+) -> list[dict[str, object]]:
     shared_map = {x["item_key"]: x for x in shared_items}
     effective = dict(shared_map)
 
@@ -999,43 +1059,15 @@ def _merge_items(
     return list(effective.values())
 
 
-def _refine_handler_cluster_search_template_item(item: Dict[str, Any]) -> Dict[str, Any]:
-    execution_plan = build_item_execution_plan(item)
-    route_buckets = execution_plan.get("route_buckets") if isinstance(execution_plan, dict) else {}
-    plan_meta = execution_plan.get("plan_meta") if isinstance(execution_plan, dict) else {}
-    if not isinstance(route_buckets, dict):
-        return item
-    normalized = dict(item)
-    normalized_params = dict(_as_dict(item.get("params")))
-    normalized_extra = dict(_as_dict(item.get("extra")))
-    normalized_params["site_entries"] = list(route_buckets.get("site_entries") or [])
-    official_access_site_entries = list(route_buckets.get("official_access_site_entries") or [])
-    if official_access_site_entries:
-        normalized_params["official_access_site_entries"] = official_access_site_entries
-    else:
-        normalized_params.pop("official_access_site_entries", None)
-    if isinstance(plan_meta, dict):
-        for key in (
-            "search_template_source_set",
-            "search_template_source_set_counts",
-            "search_template_source_set_drop_reasons",
-        ):
-            if key in plan_meta:
-                normalized_extra[key] = plan_meta[key]
-    normalized["params"] = normalized_params
-    normalized["extra"] = normalized_extra
-    return normalized
-
-
 def _normalize_effective_item(
-    item: Dict[str, Any],
+    item: dict[str, object],
     *,
     include_execution_plan: bool = False,
-) -> Dict[str, Any]:
+) -> dict[str, object]:
     return build_item_definition_view(item, include_execution_plan=include_execution_plan)
 
 
-_URL_POOL_CHANNEL: Dict[str, Any] = {
+_URL_POOL_CHANNEL: dict[str, object] = {
     "channel_key": "url_pool",
     "name": "URL 资源池",
     "kind": "urls",
@@ -1053,7 +1085,7 @@ _URL_POOL_CHANNEL: Dict[str, Any] = {
     "scope": "builtin",
 }
 
-_GENERIC_WEB_RSS_CHANNEL: Dict[str, Any] = {
+_GENERIC_WEB_RSS_CHANNEL: dict[str, object] = {
     "channel_key": "generic_web.rss",
     "name": "Generic Web RSS",
     "kind": "rss",
@@ -1071,7 +1103,7 @@ _GENERIC_WEB_RSS_CHANNEL: Dict[str, Any] = {
     "scope": "builtin",
 }
 
-_GENERIC_WEB_SITEMAP_CHANNEL: Dict[str, Any] = {
+_GENERIC_WEB_SITEMAP_CHANNEL: dict[str, object] = {
     "channel_key": "generic_web.sitemap",
     "name": "Generic Web Sitemap",
     "kind": "sitemap",
@@ -1089,7 +1121,7 @@ _GENERIC_WEB_SITEMAP_CHANNEL: Dict[str, Any] = {
     "scope": "builtin",
 }
 
-_GENERIC_WEB_SEARCH_TEMPLATE_CHANNEL: Dict[str, Any] = {
+_GENERIC_WEB_SEARCH_TEMPLATE_CHANNEL: dict[str, object] = {
     "channel_key": "generic_web.search_template",
     "name": "Generic Web Search Template",
     "kind": "search_template",
@@ -1107,7 +1139,7 @@ _GENERIC_WEB_SEARCH_TEMPLATE_CHANNEL: Dict[str, Any] = {
     "scope": "builtin",
 }
 
-_HANDLER_CLUSTER_CHANNEL: Dict[str, Any] = {
+_HANDLER_CLUSTER_CHANNEL: dict[str, object] = {
     "channel_key": "handler.cluster",
     "name": "Handler Cluster",
     "kind": "cluster",
@@ -1141,7 +1173,7 @@ _HANDLER_CLUSTER_CHANNEL: Dict[str, Any] = {
     "scope": "builtin",
 }
 
-_OFFICIAL_ACCESS_API_CHANNEL: Dict[str, Any] = {
+_OFFICIAL_ACCESS_API_CHANNEL: dict[str, object] = {
     "channel_key": "official_access.api",
     "name": "Official Access API",
     "kind": "api",
@@ -1159,7 +1191,7 @@ _OFFICIAL_ACCESS_API_CHANNEL: Dict[str, Any] = {
     "scope": "builtin",
 }
 
-_EXTERNAL_PROJECT_MANIFEST_CHANNEL: Dict[str, Any] = {
+_EXTERNAL_PROJECT_MANIFEST_CHANNEL: dict[str, object] = {
     "channel_key": EXTERNAL_PROJECT_CHANNEL_KEY,
     "name": "External Project Manifest",
     "kind": "manifest",
@@ -1177,7 +1209,7 @@ _EXTERNAL_PROJECT_MANIFEST_CHANNEL: Dict[str, Any] = {
     "scope": "builtin",
 }
 
-_SPECIAL_WEB_JS_RENDER_CHANNEL: Dict[str, Any] = {
+_SPECIAL_WEB_JS_RENDER_CHANNEL: dict[str, object] = {
     "channel_key": "special_web.js_render",
     "name": "Special Web JS Render",
     "kind": "js_render",
@@ -1195,7 +1227,7 @@ _SPECIAL_WEB_JS_RENDER_CHANNEL: Dict[str, Any] = {
     "scope": "builtin",
 }
 
-_SPECIAL_WEB_ANTI_BOT_CHANNEL: Dict[str, Any] = {
+_SPECIAL_WEB_ANTI_BOT_CHANNEL: dict[str, object] = {
     "channel_key": "special_web.anti_bot",
     "name": "Special Web Anti-Bot",
     "kind": "anti_bot",
@@ -1213,7 +1245,7 @@ _SPECIAL_WEB_ANTI_BOT_CHANNEL: Dict[str, Any] = {
     "scope": "builtin",
 }
 
-_BUILTIN_TOOL_CHANNELS: list[dict[str, Any]] = [
+_BUILTIN_TOOL_CHANNELS: list[dict[str, object]] = [
     _URL_POOL_CHANNEL,
     _GENERIC_WEB_RSS_CHANNEL,
     _GENERIC_WEB_SITEMAP_CHANNEL,
@@ -1226,7 +1258,7 @@ _BUILTIN_TOOL_CHANNELS: list[dict[str, Any]] = [
 ]
 
 
-def list_effective_channels(scope: str = "effective", project_key: str | None = None) -> List[Dict[str, Any]]:
+def list_effective_channels(scope: str = "effective", project_key: str | None = None) -> list[dict[str, object]]:
     shared_channels = _load_shared_channels()
     project_channels = _load_project_channels(project_key)
 
@@ -1245,7 +1277,7 @@ def list_effective_channels(scope: str = "effective", project_key: str | None = 
     return [_attach_source_tiering(x) for x in _merge_channels(shared_channels, project_channels)]
 
 
-_URL_POOL_DEFAULT_ITEM: Dict[str, Any] = {
+_URL_POOL_DEFAULT_ITEM: dict[str, object] = {
     "item_key": "url_pool.default",
     "name": "URL 资源池（默认）",
     "channel_key": "url_pool",
@@ -1260,12 +1292,12 @@ _URL_POOL_DEFAULT_ITEM: Dict[str, Any] = {
 }
 
 
-def list_items_by_symbol(scope: str = "effective", project_key: str | None = None) -> Dict[str, List[Dict[str, Any]]]:
+def list_items_by_symbol(scope: str = "effective", project_key: str | None = None) -> dict[str, list[dict[str, object]]]:
     """Group items by tag (symbol). Items with no tags go under '_untagged'."""
     items = list_effective_items(scope=scope, project_key=project_key)
-    grouped: Dict[str, List[Dict[str, Any]]] = {}
+    grouped: dict[str, list[dict[str, object]]] = {}
     for it in items:
-        tags = it.get("tags") or []
+        tags = _as_list(it.get("tags"))
         if not tags:
             key = "_untagged"
         else:
@@ -1283,10 +1315,10 @@ def list_items_by_symbol(scope: str = "effective", project_key: str | None = Non
     return grouped
 
 
-def list_channels_grouped_by_provider(scope: str = "effective", project_key: str | None = None) -> Dict[str, List[Dict[str, Any]]]:
+def list_channels_grouped_by_provider(scope: str = "effective", project_key: str | None = None) -> dict[str, list[dict[str, object]]]:
     """Group channels by provider (tool type: url_pool, generic_web, official_access, special_web, etc.)."""
     channels = list_effective_channels(scope=scope, project_key=project_key)
-    grouped: Dict[str, List[Dict[str, Any]]] = {}
+    grouped: dict[str, list[dict[str, object]]] = {}
     for ch in channels:
         prov = str(ch.get("provider") or "unknown").strip()
         if prov not in grouped:
@@ -1295,12 +1327,12 @@ def list_channels_grouped_by_provider(scope: str = "effective", project_key: str
     return grouped
 
 
-def list_items_grouped_by_channel(scope: str = "effective", project_key: str | None = None) -> Dict[str, List[Dict[str, Any]]]:
+def list_items_grouped_by_channel(scope: str = "effective", project_key: str | None = None) -> dict[str, list[dict[str, object]]]:
     """Group items by handler key (provider/kind), fallback channel_key."""
     items = list_effective_items(scope=scope, project_key=project_key)
     channels = list_effective_channels(scope=scope, project_key=project_key)
     channel_map = {str(ch.get("channel_key") or "").strip(): ch for ch in channels}
-    grouped: Dict[str, List[Dict[str, Any]]] = {}
+    grouped: dict[str, list[dict[str, object]]] = {}
     for it in items:
         channel_key = str(it.get("channel_key") or "").strip()
         ch = channel_map.get(channel_key) or {}
@@ -1321,7 +1353,7 @@ def list_effective_items(
     project_key: str | None = None,
     *,
     include_execution_plan: bool = False,
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, object]]:
     shared_items = _load_shared_items()
     project_items = _load_project_items(project_key)
 
@@ -1344,10 +1376,10 @@ def list_effective_items(
 
 def run_item_with_url_routing(
     *,
-    item: Dict[str, Any],
-    params: Dict[str, Any],
+    item: dict[str, object],
+    params: Mapping[object, object],
     project_key: str | None,
-    channel_map: Dict[str, Dict[str, Any]],
+    channel_map: dict[str, dict[str, object]],
     execution_layer: ExecutionLayer = "execute",
 ) -> RoutingObservation:
     """
@@ -1355,7 +1387,8 @@ def run_item_with_url_routing(
     Returns aggregated { inserted, skipped, by_url }.
     """
     urls = params.get("urls")
-    if not isinstance(urls, list) or not urls:
+    url_values = _object_list(urls)
+    if not url_values:
         _raise_resolver_failure(
             _resolver_failure(
                 "url_routing_urls_required",
@@ -1364,8 +1397,8 @@ def run_item_with_url_routing(
             )
         )
 
-    runtime_targets: list[tuple[str, dict[str, Any]]] = [
-        (str(url or "").strip(), {"source": "params.urls", "index": idx}) for idx, url in enumerate(urls)
+    runtime_targets: list[tuple[str, dict[str, object]]] = [
+        (str(url or "").strip(), {"source": "params.urls", "index": idx}) for idx, url in enumerate(url_values)
     ]
     return _run_url_routing_materialization(
         item=item,
@@ -1379,17 +1412,17 @@ def run_item_with_url_routing(
 
 def _run_url_routing_materialization(
     *,
-    item: Dict[str, Any],
-    params: Dict[str, Any],
+    item: dict[str, object],
+    params: Mapping[object, object],
     project_key: str | None,
-    channel_map: Dict[str, Dict[str, Any]],
-    runtime_targets: Sequence[Tuple[str, Dict[str, Any]]],
+    channel_map: dict[str, dict[str, object]],
+    runtime_targets: Sequence[tuple[str, dict[str, object]]],
     execution_layer: ExecutionLayer = "execute",
 ) -> RoutingObservation:
     """
     Materialize URL routing results from frozen runtime targets.
     """
-    if not isinstance(runtime_targets, Sequence) or not runtime_targets:
+    if not runtime_targets:
         _raise_resolver_failure(
             _resolver_failure(
                 "frontdoor_runtime_targets_invalid",
@@ -1398,9 +1431,9 @@ def _run_url_routing_materialization(
             )
         )
 
-    normalized_runtime_targets: list[tuple[str, Dict[str, Any]]] = []
+    normalized_runtime_targets: list[tuple[str, dict[str, object]]] = []
     for idx, target in enumerate(runtime_targets):
-        if not isinstance(target, (tuple, list)) or len(target) < 1:
+        if len(target) < 1:
             _raise_resolver_failure(
                 _resolver_failure(
                     "frontdoor_runtime_targets_invalid",
@@ -1410,17 +1443,17 @@ def _run_url_routing_materialization(
                 )
             )
         url_str = str(target[0] or "").strip()
-        target_meta = target[1] if len(target) > 1 and isinstance(target[1], dict) else {}
-        normalized_runtime_targets.append((url_str, dict(target_meta)))
+        target_meta = target[1] if len(target) > 1 else {}
+        normalized_runtime_targets.append((url_str, target_meta))
 
     urls = [url for url, _meta in normalized_runtime_targets]
 
     inserted_total = 0
     updated_total = 0
     skipped_total = 0
-    by_url: List[Dict[str, Any]] = []
-    errors: List[str] = []
-    records: List[Dict[str, Any]] = []
+    by_url: list[RunnerObject] = []
+    errors: list[str] = []
+    records: list[RunnerObject] = []
     protocol = _build_frontdoor_protocol(item=item, params=params, project_key=project_key)
     has_query_terms = bool(protocol.query_terms)
     force_url_routing_flow = protocol.force_url_routing_flow
@@ -1444,7 +1477,7 @@ def _run_url_routing_materialization(
             project_key=project_key,
         )
 
-    rows: List[Dict[str, Any]] = []
+    rows: list[RunnerObject] = []
     for url in urls:
         try:
             rows.append(
@@ -1463,14 +1496,22 @@ def _run_url_routing_materialization(
                 )
             )
         except Exception as exc:  # noqa: BLE001
-            rows.append({"url": str(url or ""), "channel_key": None, "error": str(exc), "result": None})
+            rows.append(
+                _as_runner_object(
+                    {"url": str(url or ""), "channel_key": None, "error": str(exc), "result": None}
+                )
+            )
 
     for row in rows:
-        result = row.get("result")
-        if isinstance(result, dict):
-            inserted_total += int(result.get("inserted") or 0)
-            updated_total += int(result.get("updated") or 0)
-            skipped_total += int(result.get("skipped") or 0)
+        result = _optional_runner_object(row.get("result"))
+        if result:
+            inserted_total += _as_optional_int(result.get("inserted")) or 0
+            updated_total += _as_optional_int(result.get("updated")) or 0
+            skipped_total += _as_optional_int(result.get("skipped")) or 0
+            for error_value in _object_list(result.get("errors")):
+                error_text = str(error_value or "").strip()
+                if error_text:
+                    errors.append(error_text)
             records.extend(
                 _extract_records_from_routed_row(
                     row=row,
@@ -1513,7 +1554,7 @@ def _run_url_routing_materialization(
                 "fail_fast": False,
                 "timeout_seconds": None,
                 "tasks_total": len(urls),
-                "timed_out": sum(1 for row in by_url if isinstance(row, dict) and row.get("timeout")),
+                "timed_out": sum(1 for row in by_url if row.get("timeout")),
             },
         },
         "execution_layer": execution_layer,
@@ -1525,37 +1566,37 @@ def _run_url_routing_materialization(
     return response
 
 
-def _summarize_routed_results(routed: Dict[str, Any]) -> RoutingSummary:
-    legacy_counts = routed.get("legacy_counts") if isinstance(routed.get("legacy_counts"), dict) else {}
-    inserted = int(legacy_counts.get("inserted") or routed.get("inserted") or 0)
-    updated = int(legacy_counts.get("updated") or routed.get("updated") or 0)
-    skipped = int(legacy_counts.get("skipped") or routed.get("skipped") or 0)
-    errors = [str(x) for x in (routed.get("errors") or []) if str(x or "").strip()]
+def _summarize_routed_results(routed: RoutingObservation) -> RoutingSummary:
+    legacy_counts = _object(routed.get("legacy_counts"))
+    inserted = _as_optional_int(legacy_counts.get("inserted")) or _as_optional_int(routed.get("inserted")) or 0
+    updated = _as_optional_int(legacy_counts.get("updated")) or _as_optional_int(routed.get("updated")) or 0
+    skipped = _as_optional_int(legacy_counts.get("skipped")) or _as_optional_int(routed.get("skipped")) or 0
+    errors = [str(x) for x in _object_list(routed.get("errors")) if str(x or "").strip()]
     by_url = routed.get("by_url") or []
 
     inserted_valid = 0
     rejected_count = 0
-    rejection_breakdown: Dict[str, int] = {}
-    error_details: list[dict[str, Any]] = []
+    rejection_breakdown: dict[str, int] = {}
+    error_details: list[RunnerObject] = []
     channels_used: list[str] = []
-    records: list[dict[str, Any]] = []
+    records: list[RunnerObject] = []
 
     for row in by_url:
-        if not isinstance(row, dict):
-            continue
         channel_key = str(row.get("channel_key") or "").strip()
         if channel_key and channel_key not in channels_used:
             channels_used.append(channel_key)
         if row.get("error"):
             error_details.append(
-                {
+                _as_runner_object(
+                    {
                     "url": str(row.get("url") or ""),
                     "channel_key": channel_key or None,
                     "error": str(row.get("error") or ""),
-                }
+                    }
+                )
             )
-        result = row.get("result")
-        if not isinstance(result, dict):
+        result = _optional_runner_object(row.get("result"))
+        if not result:
             continue
         records.extend(
             _extract_records_from_routed_row(
@@ -1565,27 +1606,23 @@ def _summarize_routed_results(routed: Dict[str, Any]) -> RoutingSummary:
                 start_index=len(records),
             )
         )
-        valid = int(result.get("inserted_valid") or 0)
-        inserted_valid += valid if valid > 0 else int(result.get("inserted") or 0)
-        rejected_count += int(result.get("rejected_count") or 0)
-        rb = result.get("rejection_breakdown")
-        if isinstance(rb, dict):
-            for key, value in rb.items():
-                reason = str(key or "").strip()
-                if not reason:
-                    continue
-                try:
-                    count = int(value or 0)
-                except Exception:
-                    count = 0
-                if count <= 0:
-                    continue
-                rejection_breakdown[reason] = int(rejection_breakdown.get(reason) or 0) + count
+        valid = _as_optional_int(result.get("inserted_valid")) or 0
+        inserted_valid += valid if valid > 0 else _as_optional_int(result.get("inserted")) or 0
+        rejected_count += _as_optional_int(result.get("rejected_count")) or 0
+        rb = _object(result.get("rejection_breakdown"))
+        for key, value in rb.items():
+            reason = str(key or "").strip()
+            if not reason:
+                continue
+            count = _as_optional_int(value) or 0
+            if count <= 0:
+                continue
+            rejection_breakdown[reason] = rejection_breakdown.get(reason, 0) + count
 
     if inserted_valid <= 0:
         inserted_valid = inserted
 
-    fetch_stats = routed.get("stats") if isinstance(routed.get("stats"), dict) else {}
+    fetch_stats = _object(routed.get("stats"))
 
     return {
         "inserted": inserted,
@@ -1597,10 +1634,10 @@ def _summarize_routed_results(routed: Dict[str, Any]) -> RoutingSummary:
         "by_url": by_url,
         "records": records,
         "stats": {
-            "fetched": int(fetch_stats.get("fetched") or len(by_url)),
-            "normalized": int(fetch_stats.get("normalized") or len(records)),
-            "dropped": int(fetch_stats.get("dropped") or max(len(by_url) - len(records), 0)),
-            "errors": int(fetch_stats.get("errors") or len(errors)),
+            "fetched": _as_optional_int(fetch_stats.get("fetched")) or len(by_url),
+            "normalized": _as_optional_int(fetch_stats.get("normalized")) or len(records),
+            "dropped": _as_optional_int(fetch_stats.get("dropped")) or max(len(by_url) - len(records), 0),
+            "errors": _as_optional_int(fetch_stats.get("errors")) or len(errors),
         },
         "legacy_counts": {
             "inserted": inserted,
@@ -1615,29 +1652,32 @@ def _summarize_routed_results(routed: Dict[str, Any]) -> RoutingSummary:
 
 def _extract_records_from_routed_row(
     *,
-    row: Dict[str, Any],
-    result: Dict[str, Any],
+    row: RunnerObject,
+    result: RunnerObject,
     channel_key: str,
     start_index: int,
-) -> list[dict[str, Any]]:
-    extracted: list[dict[str, Any]] = []
+) -> list[RunnerObject]:
+    extracted: list[RunnerObject] = []
     record_url = str(row.get("url") or "").strip() or None
-    nested_records = result.get("records") if isinstance(result.get("records"), list) else []
+    nested_records = _object_list(result.get("records"))
     if nested_records:
-        for offset, nested in enumerate(nested_records):
-            if not isinstance(nested, dict):
+        for offset, nested_value in enumerate(nested_records):
+            if not _is_object(nested_value):
                 continue
+            nested = dict(nested_value)
             nested_url = str(nested.get("url") or record_url or "").strip() or None
-            record_meta = dict(nested.get("record_meta") or {}) if isinstance(nested.get("record_meta"), dict) else {}
+            record_meta = _object(nested.get("record_meta"))
             record_meta.setdefault("channel_key", channel_key or None)
             record_meta.setdefault("fallback_from_channel_key", row.get("fallback_from_channel_key"))
             record_meta.setdefault("fallback_reason", row.get("fallback_reason"))
-            if isinstance(row.get("provider_handoff"), dict):
-                record_meta.setdefault("provider_handoff", dict(row.get("provider_handoff") or {}))
-            if isinstance(row.get("frontdoor_route_profile"), dict):
-                record_meta.setdefault("frontdoor_route_profile", dict(row.get("frontdoor_route_profile") or {}))
+            provider_handoff = _object(row.get("provider_handoff"))
+            if provider_handoff:
+                record_meta.setdefault("provider_handoff", provider_handoff)
+            route_profile = _object(row.get("frontdoor_route_profile"))
+            if route_profile:
+                record_meta.setdefault("frontdoor_route_profile", route_profile)
             extracted.append(
-                {
+                _as_runner_object({
                     "record_id": str(nested.get("record_id") or nested_url or f"record:{start_index + offset}"),
                     "url": nested_url,
                     "title": str(nested.get("title") or "").strip() or None,
@@ -1649,23 +1689,25 @@ def _extract_records_from_routed_row(
                     "source_label": str(nested.get("source_label") or channel_key or "").strip() or None,
                     "record_meta": record_meta,
                     "raw_ref": {"source": "result.by_url", "url": nested_url},
-                }
+                })
             )
         return extracted
 
     if result.get("title") or result.get("content_text") or result.get("content_preview"):
-        record_meta = dict(result.get("record_meta") or {}) if isinstance(result.get("record_meta"), dict) else {}
+        record_meta = _object(result.get("record_meta"))
         record_meta.setdefault("channel_key", channel_key or None)
         record_meta["http_status"] = result.get("http_status")
         record_meta["execution_layer"] = result.get("execution_layer")
         record_meta["fallback_from_channel_key"] = row.get("fallback_from_channel_key")
         record_meta["fallback_reason"] = row.get("fallback_reason")
-        if isinstance(row.get("provider_handoff"), dict):
-            record_meta["provider_handoff"] = dict(row.get("provider_handoff") or {})
-        if isinstance(row.get("frontdoor_route_profile"), dict):
-            record_meta["frontdoor_route_profile"] = dict(row.get("frontdoor_route_profile") or {})
+        provider_handoff = _object(row.get("provider_handoff"))
+        if provider_handoff:
+            record_meta["provider_handoff"] = provider_handoff
+        route_profile = _object(row.get("frontdoor_route_profile"))
+        if route_profile:
+            record_meta["frontdoor_route_profile"] = route_profile
         extracted.append(
-            {
+            _as_runner_object({
                 "record_id": str(result.get("record_id") or record_url or f"record:{start_index}"),
                 "url": record_url,
                 "title": str(result.get("title") or "").strip() or None,
@@ -1677,7 +1719,7 @@ def _extract_records_from_routed_row(
                 "source_label": str(result.get("source_label") or channel_key or "").strip() or None,
                 "record_meta": record_meta,
                 "raw_ref": {"source": "result.by_url", "url": record_url},
-            }
+            })
         )
     return extracted
 
@@ -1700,11 +1742,11 @@ def _should_refetch_candidate_only_results(
 def _run_single_handler_search_batch(
     *,
     project_key: str | None,
-    merged_search_item: Dict[str, Any],
-    execution_plan: Dict[str, Any],
+    merged_search_item: dict[str, object],
+    execution_plan: dict[str, object],
     term_batch: list[str],
     candidate_limits: HandlerCandidateLimits,
-    params: Dict[str, Any],
+    params: Mapping[object, object],
 ) -> UnifiedSearchResult:
     from ..resource_pool import unified_search_by_item_payload
 
@@ -1716,7 +1758,7 @@ def _run_single_handler_search_batch(
         max_candidates=batch_max_candidates(candidate_limits, len(term_batch)),
         write_to_pool=bool(params.get("write_to_pool", True)),
         pool_scope=str(params.get("pool_scope") or "project"),
-        probe_timeout=float(params.get("probe_timeout") or 10.0),
+        probe_timeout=_as_optional_float(params.get("probe_timeout")) or 10.0,
         sitemap_max_depth=candidate_limits.sitemap_max_depth,
         sitemap_max_sitemaps=candidate_limits.sitemap_max_sitemaps,
         auto_ingest=False,
@@ -1738,7 +1780,7 @@ class _HandlerSearchFailure:
 
 
 def _run_handler_search_atom(
-    *, item: dict[str, object], params: dict[str, object], query_terms: list[str],
+    *, item: dict[str, object], params: Mapping[object, object], query_terms: list[str],
     project_key: str | None, candidate_limits: HandlerCandidateLimits,
 ) -> UnifiedSearchResult | _HandlerSearchFailure:
     merged_search_item: dict[str, object] = {
@@ -1768,10 +1810,10 @@ def _run_handler_search_atom(
 
 
 def _fetch_handler_candidates(
-    *, item: dict[str, object], params: dict[str, object], project_key: str | None,
+    *, item: dict[str, object], params: Mapping[object, object], project_key: str | None,
     channel_map: dict[str, dict[str, object]], candidates: list[str],
 ) -> tuple[RoutingObservation, RoutingSummary, FrontDoorExecutionProtocol]:
-    routing_params: dict[str, object] = {
+    routing_params: dict[object, object] = {
         **params, "urls": list(candidates),
         "disable_site_seed_expansion": True, "cluster_layer_separated": True,
     }
@@ -1782,7 +1824,7 @@ def _fetch_handler_candidates(
         item=item, params=routing_params, project_key=project_key,
         channel_map=channel_map, execution_layer="terminal_output_only",
     )
-    summary = _summarize_routed_results(dict(routed))
+    summary = _summarize_routed_results(routed)
     if _should_refetch_candidate_only_results(merged_candidates=candidates, routed_summary=summary):
         refetch = run_item_with_url_routing(
             item=item,
@@ -1792,7 +1834,7 @@ def _fetch_handler_candidates(
             },
             project_key=project_key, channel_map=channel_map, execution_layer="terminal_output_only",
         )
-        refetch_summary = _summarize_routed_results(dict(refetch))
+        refetch_summary = _summarize_routed_results(refetch)
         if refetch_summary.get("records"):
             routed, summary = refetch, refetch_summary
     return routed, summary, protocol
@@ -1800,13 +1842,13 @@ def _fetch_handler_candidates(
 
 def _run_handler_cluster_item(
     *,
-    item: Dict[str, Any],
-    params: Dict[str, Any],
+    item: dict[str, object],
+    params: Mapping[object, object],
     project_key: str | None,
-    channel_map: Dict[str, Dict[str, Any]],
+    channel_map: dict[str, dict[str, object]],
 ) -> ExecutionPayload:
-    item_extra = (item or {}).get("extra") or {}
-    item_params = (item or {}).get("params") or {}
+    item_extra = _object((item or {}).get("extra"))
+    item_params = _object((item or {}).get("params"))
     protocol = _build_frontdoor_protocol(item=item, params=params, project_key=project_key)
     q = list(protocol.query_terms)
     term_batches = [q]
@@ -1822,26 +1864,29 @@ def _run_handler_cluster_item(
     merged_site_entries = unique_site_entries([search])
     merged_candidates = unique_candidates([search])
     written_urls_new, written_urls_skipped = aggregate_written_counts([search])
-    merged_runtime_diagnostics: list[dict[str, Any]] = []
-    merged_review_queues: list[dict[str, Any]] = []
+    merged_runtime_diagnostics: list[dict[object, object]] = []
+    merged_review_queues: list[dict[object, object]] = []
     seen_runtime: set[str] = set()
-    merged_error_details: list[dict[str, Any]] = []
+    merged_error_details: list[RunnerObject] = []
     merged_errors: list[str] = []
 
-    runtime_rows = list(getattr(search, "runtime_diagnostics", None) or [])
+    runtime_rows = _object_list(getattr(search, "runtime_diagnostics", None))
     if not runtime_rows:
-        runtime_rows = [dict(entry) for entry in (search.site_entries_used or [])]
+        runtime_rows = list(search.site_entries_used or [])
     for diag in runtime_rows:
-        key = str(diag.get("site_url") or diag.get("id") or "")
+        diagnostic = _object(diag)
+        key = str(diagnostic.get("site_url") or diagnostic.get("id") or "")
         if key and key not in seen_runtime:
             seen_runtime.add(key)
-            merged_runtime_diagnostics.append(diag)
+            merged_runtime_diagnostics.append(diagnostic)
     review_queue = getattr(search, "relevance_review_queue", None)
-    if isinstance(review_queue, dict):
-        merged_review_queues.append(review_queue)
-    for e in (search.errors or []):
-        merged_error_details.append(e)
-        msg = str(e.get("error") or "").strip()
+    review_queue_payload = _object(review_queue)
+    if review_queue_payload:
+        merged_review_queues.append(review_queue_payload)
+    for error_value in search.errors or []:
+        error = _object(error_value)
+        merged_error_details.append(_as_runner_object(error))
+        msg = str(error.get("error") or "").strip()
         if msg and msg not in benign_markers and msg not in merged_errors:
             merged_errors.append(msg)
 
@@ -1853,7 +1898,7 @@ def _run_handler_cluster_item(
         "by_url": [],
     }
     routing_protocol = protocol
-    routed_summary = _summarize_routed_results(dict(routed_result))
+    routed_summary = _summarize_routed_results(routed_result)
     if merged_candidates:
         routed_result, routed_summary, routing_protocol = _fetch_handler_candidates(
             item=item, params=params, project_key=project_key,
@@ -1906,10 +1951,10 @@ def _run_handler_cluster_item(
             if str(entry.get("entry_type") or "").strip()
         }
     )
-    search_service_breakdown: Dict[str, int] = {}
-    policy_breakdown: Dict[str, int] = {}
-    error_class_breakdown: Dict[str, int] = {}
-    slow_lane_reasons: Dict[str, int] = {}
+    search_service_breakdown: dict[str, int] = {}
+    policy_breakdown: dict[str, int] = {}
+    error_class_breakdown: dict[str, int] = {}
+    slow_lane_reasons: dict[str, int] = {}
     slow_lane_deferred_count = 0
     for entry in merged_runtime_diagnostics:
         service = str(entry.get("search_service") or "").strip().lower()
@@ -1923,8 +1968,6 @@ def _run_handler_cluster_item(
             reason = str(entry.get("browser_candidate_reason") or "unknown").strip().lower()
             slow_lane_reasons[reason] = int(slow_lane_reasons.get(reason) or 0) + 1
     for detail in merged_error_details:
-        if not isinstance(detail, dict):
-            continue
         error_class = str(detail.get("error_class") or "").strip().lower()
         if error_class:
             error_class_breakdown[error_class] = int(error_class_breakdown.get(error_class) or 0) + 1
@@ -1978,7 +2021,7 @@ def _run_handler_cluster_item(
     return {
         "item_key": str(item.get("item_key") or ""),
         "channel_key": "handler.cluster",
-        "params": params,
+        "params": dict(params),
         "result": {
             "errors": merged_errors,
             "item_key": str(item.get("item_key") or ""),
@@ -2031,9 +2074,9 @@ def _run_handler_cluster_item(
 
 def _enrich_item_with_channel_tiering(
     *,
-    item: Dict[str, Any],
-    channel_map: Dict[str, Dict[str, Any]],
-) -> Dict[str, Any]:
+    item: dict[str, object],
+    channel_map: dict[str, dict[str, object]],
+) -> dict[str, object]:
     enriched = dict(item)
     extra = _as_dict(enriched.get("extra"))
     channel_key = str(enriched.get("channel_key") or "").strip()
@@ -2042,19 +2085,19 @@ def _enrich_item_with_channel_tiering(
         extra["source_tier"] = str(channel.get("source_tier") or "").strip()
     if not str(extra.get("onboarding_priority") or "").strip():
         extra["onboarding_priority"] = str(channel.get("onboarding_priority") or "").strip()
-    source_tiering = channel.get("extra", {}).get("source_tiering") if isinstance(channel.get("extra"), dict) else None
-    if isinstance(source_tiering, dict) and not isinstance(extra.get("source_tiering"), dict):
-        extra["source_tiering"] = dict(source_tiering)
+    source_tiering = _object(_object(channel.get("extra")).get("source_tiering"))
+    if source_tiering and not _object(extra.get("source_tiering")):
+        extra["source_tiering"] = source_tiering
     enriched["extra"] = extra
     return enriched
 
 def run_item_payload(
     *,
-    item: Dict[str, Any],
-    channels: List[Dict[str, Any]] | None = None,
+    item: dict[str, object],
+    channels: list[dict[str, object]] | None = None,
     project_key: str | None = None,
-    override_params: Dict[str, Any] | None = None,
-) -> Dict[str, Any]:
+    override_params: Mapping[object, object] | None = None,
+) -> dict[str, object]:
     if not item.get("enabled", True):
         _raise_resolver_failure(
             _resolver_failure(
@@ -2066,15 +2109,16 @@ def run_item_payload(
         )
 
     channels = channels if channels is not None else list_effective_channels(scope="effective", project_key=project_key)
-    channel_map = {x["channel_key"]: x for x in channels}
+    channel_map = {str(x["channel_key"]): x for x in channels}
     item = _enrich_item_with_channel_tiering(item=item, channel_map=channel_map)
     item = _normalize_item_taxonomy(item)
     # Base params: item.params + ingest_config + override (no channel yet)
-    params = dict(item.get("params") or {})
+    params = _object(item.get("params"))
     if project_key:
         config = get_ingest_config(project_key, "social_forum")
-        if config and config.get("payload"):
-            params = _deep_merge(params, config["payload"])
+        payload = _object(config.get("payload")) if config is not None else {}
+        if payload:
+            params = _deep_merge(params, payload)
     if override_params:
         params = _deep_merge(params, override_params)
     single_source_guard = validate_single_source_guard(params)

@@ -85,8 +85,8 @@ def _merge_context_meta(meta: ApiMetaModel | None) -> ApiMetaModel:
     return meta.model_copy(update=updates) if updates else meta
 
 
-def ok(data: T = None, *, meta: ApiMetaModel | None = None) -> dict[str, Any]:
-    envelope = ApiEnvelope[T](
+def ok(data: object = None, *, meta: ApiMetaModel | None = None) -> dict[str, Any]:
+    envelope = ApiEnvelope[object](
         status="ok",
         data=data,
         error=None,
@@ -114,7 +114,7 @@ def fail(
 
 
 def ok_page(
-    data: T,
+    data: object,
     *,
     page: int,
     page_size: int,

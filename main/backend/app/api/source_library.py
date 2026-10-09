@@ -128,8 +128,9 @@ def _build_definition_response(
     item_payload: SourceLibraryJsonObject,
 ) -> SourceLibraryJsonObject:
     definition = dict(item_payload)
+    plan_input: dict[str, object] = {key: value for key, value in item_payload.items()}
     definition["execution_plan"] = _json_object(
-        build_item_execution_plan(item_payload),
+        build_item_execution_plan(plan_input),
         path="source_library.execution_plan",
     )
     return _attach_item_type(definition)
@@ -343,11 +344,12 @@ def _resource_handler_keys_for_item(
     raw_params = item.get("params")
     params = raw_params if isinstance(raw_params, dict) else {}
     raw_execution_plan = item.get("execution_plan")
+    plan_input: dict[str, object] = {key: value for key, value in item.items()}
     execution_plan = (
         raw_execution_plan
         if isinstance(raw_execution_plan, dict)
         else _json_object(
-            build_item_execution_plan(item),
+            build_item_execution_plan(plan_input),
             path="source_library.execution_plan",
         )
     )
@@ -435,8 +437,11 @@ def register_external_project(
             path="source_library.registration_context",
         )
         raw_extra = item_payload.get("extra")
+        manifest_extra: dict[str, object] = (
+            {key: value for key, value in raw_extra.items()} if isinstance(raw_extra, dict) else {}
+        )
         raw_manifest = get_external_project_manifest(
-            raw_extra if isinstance(raw_extra, dict) else {},
+            manifest_extra,
             item_key=str(item_payload.get("item_key") or "").strip() or None,
             display_name=str(item_payload.get("name") or "").strip() or None,
         )

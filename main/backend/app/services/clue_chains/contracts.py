@@ -1,8 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
-from typing import Any, Mapping
-
+from typing import Mapping, TypeGuard
 
 STATE_CONTRACT_VERSION = "clue_chain.state.v1"
 CONFIG_KEY = "clue_chains_state_v1"
@@ -37,8 +36,8 @@ class Chain:
     closed_at: str | None = None
     close_reason: str | None = None
     blockers: tuple[str, ...] = ()
-    policy_json: Mapping[str, Any] = field(default_factory=dict)
-    metadata: Mapping[str, Any] = field(default_factory=dict)
+    policy_json: Mapping[str, object] = field(default_factory=dict[str, object])
+    metadata: Mapping[str, object] = field(default_factory=dict[str, object])
 
 
 @dataclass(frozen=True, slots=True)
@@ -49,18 +48,18 @@ class ChainHop:
     input_node_id: str
     mode: str
     tool_name: str
-    query_json: Mapping[str, Any]
+    query_json: Mapping[str, object]
     status: str
     started_at: str
     provider: str | None = None
     actor: str | None = None
     finished_at: str | None = None
-    params: Mapping[str, Any] = field(default_factory=dict)
+    params: Mapping[str, object] = field(default_factory=dict[str, object])
     evidence_ids: tuple[str, ...] = ()
     candidate_ids: tuple[str, ...] = ()
     edge_ids: tuple[str, ...] = ()
     error: str | None = None
-    trace: Mapping[str, Any] = field(default_factory=dict)
+    trace: Mapping[str, object] = field(default_factory=dict[str, object])
 
 
 @dataclass(frozen=True, slots=True)
@@ -69,7 +68,7 @@ class ChainEvidence:
     chain_id: str
     hop_id: str
     source_kind: str
-    source_ref: Mapping[str, Any]
+    source_ref: Mapping[str, object]
     captured_at: str
     status: str
     url: str | None = None
@@ -79,7 +78,7 @@ class ChainEvidence:
     snippet: str | None = None
     provider: str | None = None
     query: str | None = None
-    metadata: Mapping[str, Any] = field(default_factory=dict)
+    metadata: Mapping[str, object] = field(default_factory=dict[str, object])
 
 
 @dataclass(frozen=True, slots=True)
@@ -100,8 +99,8 @@ class ChainCandidate:
     decision_ids: tuple[str, ...] = ()
     merged_into_candidate_id: str | None = None
     graph_node_id: str | None = None
-    properties: Mapping[str, Any] = field(default_factory=dict)
-    metadata: Mapping[str, Any] = field(default_factory=dict)
+    properties: Mapping[str, object] = field(default_factory=dict[str, object])
+    metadata: Mapping[str, object] = field(default_factory=dict[str, object])
 
 
 @dataclass(frozen=True, slots=True)
@@ -117,7 +116,7 @@ class ChainDecision:
     graph_node_id: str | None = None
     evidence_ids: tuple[str, ...] = ()
     edge_ids: tuple[str, ...] = ()
-    metadata: Mapping[str, Any] = field(default_factory=dict)
+    metadata: Mapping[str, object] = field(default_factory=dict[str, object])
 
 
 @dataclass(frozen=True, slots=True)
@@ -133,14 +132,26 @@ class ChainEdge:
     created_at: str
     updated_at: str
     confidence: float | None = None
-    metadata: Mapping[str, Any] = field(default_factory=dict)
+    metadata: Mapping[str, object] = field(default_factory=dict[str, object])
 
 
-def model_to_record(model: Any) -> dict[str, Any]:
-    data = asdict(model)
+def model_to_record(model: Chain | ChainHop | ChainEvidence | ChainCandidate | ChainDecision | ChainEdge) -> dict[str, object]:
+    data = {key: _runtime_value(value) for key, value in asdict(model).items()}
     for key, value in list(data.items()):
-        if isinstance(value, tuple):
+        if _is_object_tuple(value):
             data[key] = list(value)
-        elif isinstance(value, Mapping):
+        elif _is_object_mapping(value):
             data[key] = dict(value)
     return data
+
+
+def _runtime_value(value: object) -> object:
+    return value
+
+
+def _is_object_tuple(value: object) -> TypeGuard[tuple[object, ...]]:
+    return isinstance(value, tuple)
+
+
+def _is_object_mapping(value: object) -> TypeGuard[Mapping[object, object]]:
+    return isinstance(value, Mapping)

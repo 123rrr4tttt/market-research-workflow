@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from datetime import datetime, timezone
 import logging
 import re
@@ -473,7 +474,7 @@ def _load_dispatch_run(
     run_id: str,
     project_key: str,
     actor_id: str,
-) -> tuple[dict[str, Any], list[dict[str, Any]], tuple[dict[str, Any], ...]]:
+) -> tuple[dict[str, Any], list[dict[str, Any]], tuple[Mapping[str, object], ...]]:
     return dispatch_load_run(
         run_id=run_id,
         project_key=project_key,

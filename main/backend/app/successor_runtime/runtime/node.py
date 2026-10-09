@@ -17,8 +17,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import StrEnum
-import builtins
-from typing import Protocol, runtime_checkable
+from typing import NoReturn, Protocol, runtime_checkable
 
 from functorial_kit import Failure
 
@@ -32,7 +31,7 @@ from .claims import ClaimBinding, ClaimBindingMismatch
 from .ports import ControlPlaneScope
 from .reconciliation import ReconciliationHandlerOutcome
 from .transitions import EffectDisposition
-from .failure_policy import raise_runtime_failure, runtime_failure
+from .failure_policy import public_exception_type, raise_runtime_failure, runtime_failure
 
 
 def _node_failure(
@@ -54,7 +53,7 @@ def _raise_node_failure(
     *,
     site: str,
     cause: BaseException | None = None,
-) -> None:
+) -> NoReturn:
     """Raise the exact public exception while retaining typed failure identity."""
 
     raise_runtime_failure(
@@ -72,11 +71,11 @@ def _exception_type_from_failure(
 
     if failure.code == "CLOCK_OBSERVATION_INVALID":
         return ClockObservationError
-    name = (failure.context or {}).get("public_exception")
-    candidate = getattr(builtins, name, None) if isinstance(name, str) else None
-    if isinstance(candidate, type) and issubclass(candidate, Exception):
-        return candidate
-    return default
+    return public_exception_type(failure, default=default)
+
+
+def _runtime_value(value: object) -> object:
+    return value
 
 
 class ClockObservationError(ValueError):
@@ -205,7 +204,7 @@ class RuntimeClaim:
                 ValueError,
                 site="runtime.node.claim.revision",
             )
-        if not isinstance(self.effect_disposition, EffectDisposition):
+        if not isinstance(_runtime_value(self.effect_disposition), EffectDisposition):
             _raise_node_failure(
                 "NODE_CLAIM_REJECTED",
                 "effect disposition must use the frozen runtime enum",
@@ -245,10 +244,12 @@ class InterpreterOutcome:
 
     def __post_init__(self) -> None:
         if self.domain_failure is not None:
-            if not isinstance(self.domain_failure, Failure):
+            if not isinstance(_runtime_value(self.domain_failure), Failure):
                 _raise_node_failure("NODE_PORT_RESULT_INVALID", "domain_failure must be Failure", TypeError,
                                     site="runtime.node.interpreter_outcome.domain_failure.type")
-            if not isinstance(self.failure_code, str) or not isinstance(self.domain_failure.code, str):
+            if not isinstance(_runtime_value(self.failure_code), str) or not isinstance(
+                _runtime_value(self.domain_failure.code), str
+            ):
                 _raise_node_failure("NODE_PORT_RESULT_INVALID", "domain_failure code must be a string", TypeError,
                                     site="runtime.node.interpreter_outcome.domain_failure.code")
             if self.disposition is not EffectDisposition.FAILED or self.domain_failure.code != self.failure_code:
@@ -378,7 +379,9 @@ class RuntimeExecutionContext:
 @runtime_checkable
 class RuntimeHandler(Protocol):
     handler_binding_digest: str
-    interpreter_profile_digest: str | None
+
+    @property
+    def interpreter_profile_digest(self) -> str | None: ...
 
     def execute(
         self,
@@ -627,7 +630,7 @@ class RuntimeNode:
             return _node_failure(
                 "NODE_PORT_RESULT_INVALID",
                 str(exc),
-                type(exc) if isinstance(exc, Exception) else RuntimeError,
+                type(exc),
                 site="runtime.node.run_once.port",
             )
 
@@ -764,20 +767,20 @@ class RuntimeNode:
                 self._error_code(exc, default="AUTHORITY_STALE_BEFORE_EFFECT"),
             )
 
-        outcome: InterpreterOutcome
         try:
-            outcome = handler.execute(
+            raw_outcome = handler.execute(
                 in_flight.assignment,
                 in_flight.claim_binding,
                 RuntimeExecutionContext(node=self.identity, observed_at=self._now()),
             )
-            if not isinstance(outcome, InterpreterOutcome):
+            if not isinstance(raw_outcome, InterpreterOutcome):
                 _raise_node_failure(
                     "NODE_HANDLER_CONTRACT_INVALID",
                     "exact handler returned a non-InterpreterOutcome",
                     TypeError,
                     site="runtime.node.interpreter.handler_result",
                 )
+            outcome = raw_outcome
         except DefiniteInterpreterFailure as exc:
             outcome = InterpreterOutcome.failed(exc.failure_code, domain_failure=exc.domain_failure)
         except OutcomeUncertain as exc:
@@ -848,18 +851,19 @@ class RuntimeNode:
         """
 
         try:
-            outcome = handler.execute(
+            raw_outcome = handler.execute(
                 claim.assignment,
                 claim.claim_binding,
                 RuntimeExecutionContext(node=self.identity, observed_at=self._now()),
             )
-            if not isinstance(outcome, MaterializerCommitOutcome):
+            if not isinstance(raw_outcome, MaterializerCommitOutcome):
                 _raise_node_failure(
                     "NODE_HANDLER_CONTRACT_INVALID",
                     "MATERIALIZE_SUCCESSOR handler returned a non-commit receipt",
                     TypeError,
                     site="runtime.node.materializer.handler_result",
                 )
+            outcome = raw_outcome
             if (
                 outcome.assignment_digest != claim.assignment.assignment_digest
                 or outcome.attempt_id != claim.claim_binding.attempt_id
@@ -899,18 +903,19 @@ class RuntimeNode:
         """Read back one original attempt without entering its effect lifecycle."""
 
         try:
-            outcome = handler.execute(
+            raw_outcome = handler.execute(
                 claim.assignment,
                 claim.claim_binding,
                 RuntimeExecutionContext(node=self.identity, observed_at=self._now()),
             )
-            if not isinstance(outcome, ReconciliationHandlerOutcome):
+            if not isinstance(raw_outcome, ReconciliationHandlerOutcome):
                 _raise_node_failure(
                     "NODE_HANDLER_CONTRACT_INVALID",
                     "RECONCILE handler returned a non-ReconciliationHandlerOutcome",
                     TypeError,
                     site="runtime.node.reconciliation.handler_result",
                 )
+            outcome = raw_outcome
             target_attempt_id = claim.assignment.reconciliation_attempt_id
             if outcome.result.attempt_id != target_attempt_id:
                 _raise_node_failure(

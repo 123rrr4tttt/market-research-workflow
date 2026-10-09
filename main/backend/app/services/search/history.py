@@ -1,7 +1,7 @@
 """搜索历史管理模块"""
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Optional
 import logging
 
@@ -37,4 +37,3 @@ def update_search_time(topic: str) -> None:
         
         session.commit()
         logger.info("search_history: updated topic=%s time=%s", topic, history.last_search_time)
-

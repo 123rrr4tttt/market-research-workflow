@@ -65,6 +65,7 @@ from app.successor_runtime.runtime.ports import RuntimeScope
 from app.successor_runtime.substrate.postgres.runtime_activation import ActiveChildMaterializer, ActiveChildTerminalObservation, ActivationCatalogEntry, OperationActivationCatalog
 from app.successor_runtime.substrate.postgres.nodes import DeploymentCatalog
 from app.successor_runtime.substrate.postgres.runtime_failures import RuntimeFailureRecord
+from app.successor_runtime.substrate.postgres.unit_of_work import RuntimeUnitOfWork
 
 PRODUCTION_ENVIRONMENTS = frozenset({"production", "prod"})
 _ROUTE_BINDING_SCHEMAS = ("mrw.production.route-bindings.v3", "mrw.production.route-bindings.v4")
@@ -76,6 +77,30 @@ _APPROVAL_HEADER = "X-Approval-Id"
 _JSON_OBJECT_ADAPTER = TypeAdapter(dict[str, object])
 _JSON_OBJECTS_ADAPTER = TypeAdapter(list[dict[str, object]])
 _STRING_LIST_ADAPTER = TypeAdapter(list[str])
+
+
+class _ReconciliationUnitOfWorkProjection:
+    connection: Connection
+
+    def __init__(self, engine: Engine) -> None:
+        self._inner = RuntimeUnitOfWork(engine=engine)
+
+    def __enter__(self) -> _ReconciliationUnitOfWorkProjection:
+        entered = self._inner.__enter__()
+        self.connection = entered.connection
+        return self
+
+    def commit(self) -> None:
+        self._inner.commit()
+
+    def __exit__(self, exc_type: object, exc: object, tb: object) -> None:
+        self._inner.__exit__(exc_type, exc, tb)
+
+
+def _reconciliation_uow_factory(
+    engine: Engine,
+) -> Callable[[], _ReconciliationUnitOfWorkProjection]:
+    return lambda: _ReconciliationUnitOfWorkProjection(engine)
 
 
 class _SupportsInt(Protocol):
@@ -1957,7 +1982,6 @@ def execute_successor_work_item(
     from app.successor_runtime.substrate.postgres.runtime_activation import PostgresRuntimeActivationPort
     from app.successor_runtime.substrate.postgres.terminal_commit import PostgresTerminalCommitHook
     from app.successor_runtime.substrate.postgres.models import PUBLIC_TABLES
-    from app.successor_runtime.substrate.postgres.node_adapter import runtime_uow_factory
     from app.successor_runtime.substrate.postgres.nodes import RuntimeNodeRepository
     from app.successor_runtime.substrate.postgres.runtime_journal import ExactBindingConflict, validate_runtime_assignment_row
     from app.successor_runtime.substrate.postgres.session import ServerProjectScopeResolver
@@ -2008,17 +2032,34 @@ def execute_successor_work_item(
     from app.successor_runtime.capabilities import batch_business
     from app.successor_runtime.substrate.postgres.effect_reconciliation import (
         BatchBusinessBrokerReadbackFacade, InstalledBatchTaskBusinessReadbackHandler,
+        InstalledDeliveryReconciliationHandler,
         PostgresBatchTaskBusinessReadbackHandler,
+        PostgresLocalEffectReconciliationHandler,
     )
     wait_contract = batch_business.build_batch_business_wait_contract()
+    url_contract_digests = {
+        atom.operation.contract_ref.contract_digest
+        for atom in program_atoms(program.root)
+        if atom.operation.contract_ref.kind == URL_SINGLE_URL_KIND
+    }
     for installed_entry in catalog.entries:
         if installed_entry.operation_contract_digest == wait_contract.ref.contract_digest:
             handlers += (PostgresBatchTaskBusinessReadbackHandler(
                 InstalledBatchTaskBusinessReadbackHandler(installed_entry.recovery_binding,
                                                          wait_contract.ref.contract_digest),
-                runtime_uow_factory(engine),
+                _reconciliation_uow_factory(engine),
                 readback=BatchBusinessBrokerReadbackFacade(operation_contract_ref=wait_contract.ref, broker=broker),
             ),)
+        if installed_entry.operation_contract_digest in url_contract_digests:
+            handlers += (
+                PostgresLocalEffectReconciliationHandler(
+                    InstalledDeliveryReconciliationHandler(
+                        installed_entry.recovery_binding,
+                        installed_entry.operation_contract_digest,
+                    ),
+                    _reconciliation_uow_factory(engine),
+                ),
+            )
     runtime = compose_postgres_runtime(
         engine=engine, identity=NodeIdentity(node_id, node_id, now),
         profile=RuntimeNodeProfile(deployment.node_profile_digest, frozenset({AssignmentKind.INTERPRET, AssignmentKind.RECONCILE}),

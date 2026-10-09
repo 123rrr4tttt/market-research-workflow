@@ -7,6 +7,7 @@ the matching Alembic revision is the sole production schema authority.
 from __future__ import annotations
 
 from dataclasses import dataclass, fields
+from datetime import datetime
 from typing import Final
 
 import sqlalchemy as sa
@@ -21,11 +22,11 @@ TS = sa.DateTime(timezone=True)
 JSONB = postgresql.JSONB(astext_type=sa.Text())
 
 
-def _created() -> sa.Column:
+def _created() -> sa.Column[datetime]:
     return sa.Column("created_at", TS, nullable=False, server_default=sa.func.now())
 
 
-def _updated() -> sa.Column:
+def _updated() -> sa.Column[datetime]:
     return sa.Column("updated_at", TS, nullable=False, server_default=sa.func.now())
 
 
@@ -496,7 +497,14 @@ runtime_work_items = sa.Table(
         "ELSE FALSE END",
         name="ck_work_assignment_binding",
     ),
-    sa.Index("ix_work_due_claim", "state", "due_at", sa.desc("declared_priority"), "enqueue_seq", "project_key"),
+    sa.Index(
+        "ix_work_due_claim",
+        "state",
+        "due_at",
+        sa.column("declared_priority", sa.Integer).desc(),
+        "enqueue_seq",
+        "project_key",
+    ),
     sa.Index("ix_work_project_run_state", "project_key", "run_id", "state"),
     sa.Index("ix_work_project_lease", "project_key", "lease_expires_at"),
 )

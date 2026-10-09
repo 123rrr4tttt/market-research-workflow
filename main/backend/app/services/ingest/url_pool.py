@@ -638,7 +638,7 @@ def _run_source_library_frontdoor_ingress(
         for channel in channels
         if channel.get("channel_key")
     }
-    synthetic_item = {
+    synthetic_item: dict[str, object] = {
         "item_key": f"{source_name}.single_url_compat",
         "channel_key": "url_pool",
         "params": {},
@@ -650,9 +650,10 @@ def _run_source_library_frontdoor_ingress(
 
     ctx = bind_project(project_key) if project_key else nullcontext()
     with ctx:
+        open_params: dict[object, object] = {key: value for key, value in params.items()}
         routed = run_item_with_url_routing(
             item=synthetic_item,
-            params=params,
+            params=open_params,
             project_key=project_key,
             channel_map=channel_map,
             execution_layer="terminal_output_only",
@@ -726,7 +727,7 @@ def _run_source_library_frontdoor_ingress(
         },
         raw_snapshot={"record": record, "routed": {"by_url": by_url, "errors": errors}},
     )
-    frontdoor_result: JsonObject = run_postprocess_frontdoor(
+    frontdoor_result = run_postprocess_frontdoor(
         ingress_envelope=ingress_envelope,
         run_writer=True,
     )

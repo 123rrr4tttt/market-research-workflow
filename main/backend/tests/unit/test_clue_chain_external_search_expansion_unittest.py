@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-from pathlib import Path
 import unittest
+from pathlib import Path
 from unittest.mock import Mock
 
 import pytest
-
 from app.services.clue_chains.external_search_expansion import (
     ExternalSearchExpansionRequest,
     expand_external_search,
@@ -164,6 +163,22 @@ class ClueChainExternalSearchExpansionTest(unittest.TestCase):
         self.assertTrue(payload["trace"]["network_allowed"])
         self.assertEqual(payload["replay"]["mode"], "live_hook")
         self.assertEqual(payload["candidates"][0]["normalized_url"], "https://live.example/result")
+
+    def test_truthy_noniterable_aliases_keep_provider_type_error(self) -> None:
+        with self.assertRaisesRegex(TypeError, "^external search aliases must be iterable$"):
+            expand_external_search(
+                ExternalSearchExpansionRequest(
+                    chain_id="chain-invalid-aliases",
+                    query="invalid aliases",
+                    injected_results=[
+                        {
+                            "title": "Invalid Alias Result",
+                            "url": "https://example.test/invalid",
+                            "aliases": 7,
+                        }
+                    ],
+                )
+            )
 
     def test_url_normalization_removes_tracking_fragment_and_default_ports(self) -> None:
         self.assertEqual(

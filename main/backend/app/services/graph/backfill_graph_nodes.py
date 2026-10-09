@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Any, NoReturn, Optional, Protocol
+from typing import NoReturn, Protocol
 
 from functorial_kit import Failure
 from mrw_functorial_kit.core.w04_service_semantics import graph_backfill_failures
@@ -10,7 +11,9 @@ from sqlalchemy.orm import Session
 
 from ...models.entities import Document
 from .builder import build_graph
+from .models import Graph, NormalizedSocialPost
 from .persistence import GraphNodeWriter
+from .persistence.graph_node_writer import GraphWriteSummary
 from .ports import GraphDocumentNormalizer
 
 
@@ -19,13 +22,13 @@ class BackfillResult:
     scanned_docs: int = 0
     written_nodes: int = 0
     skipped_docs: int = 0
-    next_resume_token: Optional[int] = None
+    next_resume_token: int | None = None
 
 
 class GraphNodePersistencePort(Protocol):
     """Effect boundary for the graph-node projection writer."""
 
-    def persist_graph_nodes(self, graph: Any) -> Any:
+    def persist_graph_nodes(self, graph: Graph) -> GraphWriteSummary:
         ...
 
 
@@ -54,14 +57,14 @@ def _transaction_failure(exc: BaseException) -> Failure:
 
 def _raise_transaction_failure(failure: Failure) -> NoReturn:
     context = failure.context or {}
+    cause = context.get("cause")
     if (
         not graph_backfill_failures.matches(failure)
         or failure.code != "transaction_failed"
-        or not isinstance(context.get("cause"), BaseException)
+        or not isinstance(cause, BaseException)
     ):
         # kit:boundary owner=graph.backfill.failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w04_graph_backfill_failure_rolls_back_and_keeps_cause
         raise TypeError("graph backfill failure context is incomplete or inconsistent")
-    cause = context["cause"]
     # kit:boundary owner=graph.backfill.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=graph.backfill.failure witness=test:test_w04_graph_backfill_failure_rolls_back_and_keeps_cause
     raise cause from cause
 
@@ -71,8 +74,8 @@ def run_graph_node_backfill_or_raise(
     *,
     normalizer: GraphDocumentNormalizer,
     batch_size: int = 200,
-    limit: Optional[int] = None,
-    resume_token: Optional[int] = None,
+    limit: int | None = None,
+    resume_token: int | None = None,
     dry_run: bool = True,
     persistence_port: GraphNodePersistencePort | None = None,
 ) -> BackfillResult:
@@ -105,8 +108,8 @@ def try_run_graph_node_backfill(
     *,
     normalizer: GraphDocumentNormalizer,
     batch_size: int = 200,
-    limit: Optional[int] = None,
-    resume_token: Optional[int] = None,
+    limit: int | None = None,
+    resume_token: int | None = None,
     dry_run: bool = True,
     persistence_port: GraphNodePersistencePort | None = None,
 ) -> BackfillResult | Failure:
@@ -115,12 +118,12 @@ def try_run_graph_node_backfill(
         query = query.where(Document.id > int(resume_token))
     query = query.order_by(Document.id.asc()).limit(int(limit or batch_size))
 
-    docs = session.execute(query).scalars().all()
+    docs: Sequence[Document] = session.execute(query).scalars().all()
     result = BackfillResult(scanned_docs=len(docs), next_resume_token=(docs[-1].id if docs else resume_token))
     if not docs:
         return result
 
-    normalized_posts = []
+    normalized_posts: list[NormalizedSocialPost] = []
     for doc in docs:
         normalized = normalizer(doc)
         if normalized is None:
@@ -152,8 +155,8 @@ def run_graph_node_backfill(
     *,
     normalizer: GraphDocumentNormalizer,
     batch_size: int = 200,
-    limit: Optional[int] = None,
-    resume_token: Optional[int] = None,
+    limit: int | None = None,
+    resume_token: int | None = None,
     dry_run: bool = True,
     persistence_port: GraphNodePersistencePort | None = None,
 ) -> BackfillResult:

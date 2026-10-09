@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Any, Literal
+from typing import Callable, Literal, NotRequired, TypeVar, TypedDict, Unpack
 
 from functorial_kit import Failure
 
@@ -12,6 +12,7 @@ from pydantic import Field, model_validator
 from .assignments import Digest, FrozenContract, canonical_digest
 
 _RUNTIME_CONTRACT_WITNESS = "test:test_w07_runtime_non_start_proof_negative"
+_T = TypeVar("_T")
 
 
 def _qualification_failure(
@@ -45,7 +46,12 @@ def _public_exception_type(exc: Exception) -> type[Exception]:
     return candidate
 
 
-def _try_qualification(call: Any, *, site: str, code: str = "QUALIFICATION_INVALID") -> object | Failure:
+def _try_qualification(
+    call: Callable[[], _T],
+    *,
+    site: str,
+    code: str = "QUALIFICATION_INVALID",
+) -> _T | Failure:
     try:
         return call()
     except (TypeError, ValueError, OverflowError, KeyError, AttributeError) as exc:
@@ -59,6 +65,23 @@ class AuthoritySourceBinding(FrozenContract):
     source_ref: str = Field(min_length=1)
     source_digest: str = Field(min_length=1)
     source_epoch: int = Field(ge=0)
+
+
+class AuthorityContextContent(TypedDict):
+    actor_id: str
+    project_key: str
+    resolved_schema: str
+    project_registry_revision: int
+    project_scope_digest: str
+    authority_source_bindings: tuple[AuthoritySourceBinding, ...]
+    grants_digest: str
+    grant_epoch: int
+    expires_at: datetime
+    operation_scope_digest: str
+    resource_ceiling_digest: str
+    canonical_base_revision: int
+    canonical_incarnation: str
+    approval_refs: NotRequired[tuple[str, ...]]
 
 
 class AuthorityContext(FrozenContract):
@@ -87,7 +110,9 @@ class AuthorityContext(FrozenContract):
         return self
 
     @classmethod
-    def from_content(cls, **content: object) -> "AuthorityContext":
+    def from_content(
+        cls, **content: Unpack[AuthorityContextContent]
+    ) -> "AuthorityContext":
         provisional = cls.model_construct(**content, context_digest="0" * 64)
         return cls(
             **content,
@@ -134,7 +159,9 @@ class StepAuthorizationBinding(FrozenContract):
         return self
 
     @classmethod
-    def from_content(cls, **content: object) -> "StepAuthorizationBinding":
+    def from_content(
+        cls, **content: Unpack[StepAuthorizationBindingContent]
+    ) -> "StepAuthorizationBinding":
         provisional = cls.model_construct(**content, binding_digest="0" * 64)
         return cls(
             **content,
@@ -143,6 +170,33 @@ class StepAuthorizationBinding(FrozenContract):
             ),
         )
 
+
+class StepAuthorizationBindingContent(TypedDict):
+    run_id: str
+    step_id: str
+    operation_kind: str
+    operation_contract_digest: str
+    capability_id: str
+    claim_owner: Literal["legacy", "successor"]
+    claim_authority_epoch: int
+    claim_policy_digest: str
+    payload_digest: str
+    actor_id: str
+    project_key: str
+    project_registry_revision: int
+    project_scope_digest: str
+    interpreter_binding_digest: str
+    deployment_catalog_digest: str
+    authority_source_bindings: tuple[AuthoritySourceBinding, ...]
+    grants_digest: str
+    approval_refs: NotRequired[tuple[str, ...]]
+    resource_ceiling_digest: str
+    resource_policy_epoch: int
+    queue_eligibility_digest: str
+    grant_epoch: int
+    expires_at: datetime
+    canonical_base_revision: int
+    canonical_incarnation: str
 
 class QualificationFailure(FrozenContract):
     step_id: str = Field(min_length=1)
@@ -159,7 +213,9 @@ class QualificationFailure(FrozenContract):
         return self
 
     @classmethod
-    def from_content(cls, **content: object) -> "QualificationFailure":
+    def from_content(
+        cls, **content: Unpack[QualificationFailureContent]
+    ) -> "QualificationFailure":
         provisional = cls.model_construct(**content, failure_digest="0" * 64)
         return cls(
             **content,
@@ -168,6 +224,11 @@ class QualificationFailure(FrozenContract):
             ),
         )
 
+
+class QualificationFailureContent(TypedDict):
+    step_id: str
+    reason_code: str
+    failure_ref: NotRequired[str | None]
 
 class QualifiedPlan(FrozenContract):
     plan_digest: Digest
@@ -198,7 +259,7 @@ class QualifiedPlan(FrozenContract):
         return self
 
     @classmethod
-    def from_content(cls, **content: object) -> "QualifiedPlan":
+    def from_content(cls, **content: Unpack[QualifiedPlanContent]) -> "QualifiedPlan":
         provisional = cls.model_construct(
             **content,
             qualification_digest="0" * 64,
@@ -216,6 +277,13 @@ class QualifiedPlan(FrozenContract):
             None,
         )
 
+
+class QualifiedPlanContent(TypedDict):
+    plan_digest: Digest
+    authority_context_digest: Digest
+    step_bindings: tuple[StepAuthorizationBinding, ...]
+    awaiting_approval_steps: NotRequired[tuple[str, ...]]
+    denied_steps: NotRequired[tuple[QualificationFailure, ...]]
 
 class AuthorityDrift(ValueError):
     pass
@@ -306,29 +374,53 @@ def require_current_authority(
         raise_runtime_failure(result, AuthorityDrift if result.code.startswith("AUTHORITY_") else ValueError)
 
 
-def try_authority_context_from_content(**content: Any) -> AuthorityContext | Failure:
-    return _try_qualification(lambda: AuthorityContext.from_content(**content), site="qualification.authority_context")  # type: ignore[return-value]
+def try_authority_context_from_content(
+    **content: Unpack[AuthorityContextContent],
+) -> AuthorityContext | Failure:
+    return _try_qualification(
+        lambda: AuthorityContext.from_content(**content),
+        site="qualification.authority_context",
+    )
 
 
-def try_step_authorization_binding_from_content(**content: Any) -> StepAuthorizationBinding | Failure:
-    return _try_qualification(lambda: StepAuthorizationBinding.from_content(**content), site="qualification.step_authorization_binding")  # type: ignore[return-value]
+def try_step_authorization_binding_from_content(
+    **content: Unpack[StepAuthorizationBindingContent],
+) -> StepAuthorizationBinding | Failure:
+    return _try_qualification(
+        lambda: StepAuthorizationBinding.from_content(**content),
+        site="qualification.step_authorization_binding",
+    )
 
 
-def try_qualification_failure_from_content(**content: Any) -> QualificationFailure | Failure:
-    return _try_qualification(lambda: QualificationFailure.from_content(**content), site="qualification.failure")  # type: ignore[return-value]
+def try_qualification_failure_from_content(
+    **content: Unpack[QualificationFailureContent],
+) -> QualificationFailure | Failure:
+    return _try_qualification(
+        lambda: QualificationFailure.from_content(**content),
+        site="qualification.failure",
+    )
 
 
-def try_qualified_plan_from_content(**content: Any) -> QualifiedPlan | Failure:
-    return _try_qualification(lambda: QualifiedPlan.from_content(**content), site="qualification.qualified_plan")  # type: ignore[return-value]
+def try_qualified_plan_from_content(
+    **content: Unpack[QualifiedPlanContent],
+) -> QualifiedPlan | Failure:
+    return _try_qualification(
+        lambda: QualifiedPlan.from_content(**content),
+        site="qualification.qualified_plan",
+    )
 
 
 __all__ = [
     "AuthorityContext",
+    "AuthorityContextContent",
     "AuthorityDrift",
     "AuthoritySourceBinding",
     "QualificationFailure",
+    "QualificationFailureContent",
     "QualifiedPlan",
+    "QualifiedPlanContent",
     "StepAuthorizationBinding",
+    "StepAuthorizationBindingContent",
     "require_current_authority",
     "try_require_current_authority",
     "try_authority_context_from_content",

@@ -1,6 +1,6 @@
 """Invocation identity supplied only by the native dispatch host."""
 
-from collections.abc import Iterator
+from collections.abc import Generator
 from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass
@@ -21,7 +21,7 @@ def current_native_tool_call_context() -> NativeToolCallContext | None:
 
 
 @contextmanager
-def native_tool_call_context(context: NativeToolCallContext) -> Iterator[None]:
+def native_tool_call_context(context: NativeToolCallContext) -> Generator[None, None, None]:
     token = _current_call.set(context)
     try:
         yield

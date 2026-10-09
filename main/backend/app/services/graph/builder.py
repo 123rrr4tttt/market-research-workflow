@@ -7,13 +7,14 @@ import math
 from collections import defaultdict, Counter
 import unicodedata
 import re
-from datetime import datetime, timedelta
+from datetime import UTC, datetime
 from typing import Annotated, List, Optional, Dict, Set, Tuple
 
 from ...settings.graph import (
-    STOPWORDS, COOCCUR_WINDOW, USE_TFIDF, TIME_DECAY_TAU_DAYS,
+    COOCCUR_WINDOW, USE_TFIDF, TIME_DECAY_TAU_DAYS,
     MAX_KEYWORDS_PER_POST
 )
+from ...contracts.json import JSONObject
 from .models import (
     Graph,
     GraphNode,
@@ -36,7 +37,7 @@ def _generate_keyword_id(text: str, lang: str = "en") -> str:
     return hashlib.sha1(content.encode("utf-8"), usedforsecurity=False).hexdigest()
 
 
-def _normalize_text(text: str) -> str:
+def _normalize_text(text: object) -> str:
     """标准化文本：NFKC + 去零宽字符 + 合并空白 + 小写 + strip"""
     if not isinstance(text, str):
         return ""
@@ -48,14 +49,14 @@ def _normalize_text(text: str) -> str:
     return s.lower().strip()
 
 
-def _generate_entity_id(entity: Dict) -> str:
+def _generate_entity_id(entity: JSONObject) -> str:
     """生成实体ID: kb_id or sha1(normalize(canonical_name)+lower(type))"""
     kb_id = entity.get("kb_id")
     if kb_id:
         return f"kb:{kb_id}"
     
     canonical_name = _normalize_text(entity.get("canonical_name") or entity.get("text", ""))
-    entity_type = (entity.get("type", "UNKNOWN") or "UNKNOWN").lower().strip()
+    entity_type = str(entity.get("type", "UNKNOWN") or "UNKNOWN").lower().strip()
     content = f"{canonical_name}{entity_type}"
     return hashlib.sha1(content.encode("utf-8"), usedforsecurity=False).hexdigest()
 
@@ -127,7 +128,7 @@ def _apply_time_decay(
         return weight
     
     if reference_date is None:
-        reference_date = datetime.utcnow()
+        reference_date = datetime.now(UTC).replace(tzinfo=None)
     
     delta_days = (reference_date - post_date).total_seconds() / 86400.0
     # 未来时间点不放大权重（仅允许衰减，不允许增益）
@@ -326,7 +327,7 @@ def build_graph(
             entity_id = _generate_entity_id(entity)
             entity_node = graph.nodes[f"Entity:{entity_id}"]
             
-            edge_props = {}
+            edge_props: JSONObject = {}
             if entity.get("span"):
                 edge_props["positions"] = entity["span"]
             if entity.get("confidence"):
@@ -484,7 +485,7 @@ def build_topic_subgraph(
             if post_node_key in graph.nodes:
                 post_node = graph.nodes[post_node_key]
                 post_date_str = post_node.properties.get("publish_date") or post_node.properties.get("created_at")
-                if post_date_str:
+                if isinstance(post_date_str, str) and post_date_str:
                     try:
                         post_date = datetime.fromisoformat(post_date_str.replace("Z", "+00:00"))
                         if start_date <= post_date <= end_date:
@@ -833,7 +834,7 @@ def build_policy_graph(
             if existing_key and existing_key in graph.nodes:
                 return graph.nodes[existing_key]
 
-            temp_entity = {"canonical_name": text, "type": "UNKNOWN"}
+            temp_entity: JSONObject = {"canonical_name": text, "type": "UNKNOWN"}
             temp_id = _generate_entity_id(temp_entity)
             node_key = f"Entity:{temp_id}"
             if node_key not in graph.nodes:
@@ -850,13 +851,16 @@ def build_policy_graph(
             return graph.nodes[node_key]
 
         for relation in policy.relations:
-            subject_node = _ensure_entity_node(relation.get("subject"))
-            object_node = _ensure_entity_node(relation.get("object"))
+            subject = relation.get("subject")
+            object_ = relation.get("object")
+            subject_node = _ensure_entity_node(subject if isinstance(subject, str) else None)
+            object_node = _ensure_entity_node(object_ if isinstance(object_, str) else None)
             if not subject_node or not object_node:
                 continue
 
-            ann = relation_annotation(relation.get("predicate"))
-            properties = {
+            predicate = relation.get("predicate")
+            ann = relation_annotation(predicate if isinstance(predicate, str) else None)
+            properties: JSONObject = {
                 "predicate": ann["predicate_norm"],
                 "predicate_raw": ann["predicate_raw"],
                 "relation_class": ann["relation_class"],

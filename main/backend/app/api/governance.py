@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import NoReturn
+
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
@@ -13,7 +15,7 @@ from fastapi import HTTPException
 router = APIRouter(prefix="/governance", tags=["governance"])
 
 
-def _raise_mapped_error(exc: Exception) -> None:
+def _raise_mapped_error(exc: Exception) -> NoReturn:
     code, message, details = map_exception_to_error(exc)
     status_code = 400 if code == ErrorCode.INVALID_INPUT else 404 if code == ErrorCode.NOT_FOUND else 429 if code == ErrorCode.RATE_LIMITED else 502 if code in {ErrorCode.UPSTREAM_ERROR, ErrorCode.PARSE_ERROR} else 500
     raise HTTPException(
@@ -27,7 +29,7 @@ class CleanupPayload(BaseModel):
 
 
 @router.post("/cleanup")
-def cleanup(payload: CleanupPayload) -> dict:
+def cleanup(payload: CleanupPayload) -> dict[str, object]:
     try:
         result = cleanup_old_data(retention_days=payload.retention_days)
         return ok({"retention_days": payload.retention_days, **result})

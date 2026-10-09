@@ -511,7 +511,7 @@ def collect_policy_and_regulation(
             ingress_envelope = build_frontdoor_ingress_envelope(
                 ingress_type="discovery",
                 entrypoint=_required_str(data, "entrypoint"),
-                source_mode=_required_str(data, "source_mode"),
+                source_mode=data["source_mode"],
                 project_key=_optional_str(data, "project_key"),
                 source_ref=_required_str_object_dict(data, "source_ref"),
                 collection_payload=_required_str_object_dict(data, "collection_payload"),
