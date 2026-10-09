@@ -5,16 +5,18 @@ from pathlib import Path
 
 from fastapi import FastAPI
 from sqlalchemy import text
-from sqlalchemy.engine import Connection
 from sqlalchemy.sql.schema import Table
 
-from .models.base import Base, engine, require_model_table
-from .models.information_topology_entities import InformationTopologyLink, InformationTopologyState
-from .models.project_retrieval import project_retrieval_tables
+from .models.base import engine, require_model_table
 from .settings.config import settings
 from .services.projects.schema_initialization import (
+    ensure_database_revision_compatible,
     initialize_default_project_schema,
-    run_serialized_schema_ddl,
+)
+from .services.projects.bootstrap import (
+    TENANT_TABLES,
+    ensure_project_schema_ready,
+    validate_project_schema,
 )
 from .services.project_retrieval.topology import build_topology_service
 from .models.entities import (
@@ -24,36 +26,14 @@ from .models.entities import (
     AgentMessage,
     AgentSession,
     AgentTask,
-    ConfigState,
-    Material,
-    Embedding,
-    EtlJobRun,
-    IngestChannel,
-    KeywordHistory,
-    KeywordPrior,
-    LlmServiceConfig,
-    MarketMetricPoint,
-    MarketStat,
-    PriceObservation,
-    Product,
     ResourcePoolCaptureConfig,
-    ResourcePoolSiteEntry,
-    ResourcePoolUrl,
-    SearchHistory,
     SharedIngestChannel,
     SharedResourcePoolSiteEntry,
     SharedResourcePoolUrl,
     SharedSourceLibraryItem,
-    Source,
-    SourceLibraryItem,
-    Topic,
     WorkflowGraphEvent,
     WorkflowGraphRun,
 )
-from .models.llm_report_export_audit import LlmReportExportAuditEvent
-from .models.llm_report_export_token_state import LlmReportExportTokenState
-from .models.llm_report_trends import LlmReportQualityTrend
-from .models.writing_entities import WritingDocument, WritingDocumentCitation, WritingDocumentDraft
 
 
 def register_startup_hooks(app: FastAPI) -> None:
@@ -64,39 +44,9 @@ def register_startup_hooks(app: FastAPI) -> None:
     def _ensure_default_project_schema() -> None:
         initialize_default_project_schema(logger_obj=logger)
 
-    app.router.add_event_handler("startup", _ensure_default_project_schema)
-
-    def _is_missing_vector_type(exc: Exception) -> bool:
-        message = str(exc).lower()
-        return "vector" in message and "does not exist" in message
-
-    def _create_tenant_tables_best_effort(
-        schema_name: str, tenant_tables: list[Table]
-    ) -> None:
-        def _create(conn: Connection) -> None:
-            conn.execute(text(f'CREATE SCHEMA IF NOT EXISTS "{schema_name}"'))
-            conn.execute(text(f'SET search_path TO "{schema_name}", public'))
-            for table in tenant_tables:
-                try:
-                    with conn.begin_nested():
-                        table.create(bind=conn, checkfirst=True)
-                except Exception as exc:  # noqa: BLE001
-                    table_name = getattr(table, "name", "")
-                    if table_name == "embeddings" and _is_missing_vector_type(exc):
-                        logger.warning(
-                            "skip embeddings table for schema=%s because vector type is unavailable "
-                            "in current search_path: %s",
-                            schema_name,
-                            exc,
-                        )
-                        continue
-                    raise
-
-        run_serialized_schema_ddl(
-            engine,
-            schema_name=schema_name,
-            operation=_create,
-        )
+    # This must precede every other FastAPI startup callback, including callbacks
+    # already registered by app.main before this module is composed.
+    app.router.on_startup.insert(0, _ensure_default_project_schema)
 
     def _ensure_bootstrap_projects() -> None:
         """
@@ -106,123 +56,36 @@ def register_startup_hooks(app: FastAPI) -> None:
         - First install: if no projects exist, create "business_survey" (商业调查) as the initial project.
         - All projects are peers. "public" schema is reserved for control-plane and shared tables.
         """
-        try:
-            def _bootstrap(conn: Connection) -> None:
-                conn.execute(text('SET search_path TO "public"'))
-
-                raw_count = conn.execute(text("SELECT COUNT(*) FROM public.projects")).scalar()
-                count = raw_count if isinstance(raw_count, int) else 0
-                if count == 0 and settings.bootstrap_create_initial_project:
-                    conn.execute(
-                        text(
-                            """
-                            INSERT INTO public.projects(
-                                project_key, name, schema_name, enabled,
-                                is_active, created_at, updated_at
-                            )
-                            VALUES (:project_key, :name, :schema_name, true, true, now(), now())
-                            """
-                        ),
-                        {
-                            "project_key": "business_survey",
-                            "name": "商业调查",
-                            "schema_name": "project_business_survey",
-                        },
-                    )
-                elif count == 0:
-                    logging.getLogger("app").info(
-                        "project bootstrap skipped: no projects found and bootstrap_create_initial_project=false"
-                    )
-
-                public_materials_value = conn.execute(
-                    text("SELECT to_regclass('public.materials') IS NOT NULL")
-                ).scalar()
-                has_public_materials = public_materials_value is True
-                neutral_schema = f'{settings.project_schema_prefix}{settings.active_project_key}'
-                target_materials_value = conn.execute(
-                    text(f"SELECT to_regclass('{neutral_schema}.materials') IS NOT NULL")
-                ).scalar()
-                has_target_materials = target_materials_value is True
-                if has_public_materials and not has_target_materials:
-                    conn.execute(text(f'CREATE SCHEMA IF NOT EXISTS "{neutral_schema}"'))
-                    tenant_tables = [
-                        "sources",
-                        "materials",
-                        "market_stats",
-                        "config_states",
-                        "embeddings",
-                        "etl_job_runs",
-                        "search_history",
-                        "llm_service_configs",
-                        "topics",
-                        "ingest_channels",
-                        "source_library_items",
-                        "market_metric_points",
-                        "products",
-                        "price_observations",
-                        "resource_pool_urls",
-                    ]
-                    for t in tenant_tables:
-                        conn.execute(text(f'ALTER TABLE IF EXISTS public."{t}" SET SCHEMA "{neutral_schema}"'))
-                    for t in tenant_tables:
-                        conn.execute(
-                            text(f'ALTER SEQUENCE IF EXISTS public."{t}_id_seq" SET SCHEMA "{neutral_schema}"')
-                        )
-
-            run_serialized_schema_ddl(
-                engine,
-                schema_name="public",
-                operation=_bootstrap,
+        with engine.begin() as conn:
+            ensure_database_revision_compatible(conn)
+            raw_count = conn.execute(text("SELECT COUNT(*) FROM public.projects")).scalar()
+            count = raw_count if isinstance(raw_count, int) else 0
+        if count == 0 and settings.bootstrap_create_initial_project:
+            ensure_project_schema_ready("business_survey", name="商业调查")
+        elif count == 0:
+            logging.getLogger("app").info(
+                "project bootstrap skipped: no projects found and bootstrap_create_initial_project=false"
             )
-        except Exception as exc:  # noqa: BLE001
-            logging.getLogger("app").warning("failed to bootstrap projects: %s", exc)
 
     app.router.add_event_handler("startup", _ensure_bootstrap_projects)
 
     def _ensure_all_project_schemas_ready() -> None:
-        tenant_tables: list[Table] = [
-            require_model_table(table)
-            for table in (
-                Source.__table__,
-                Material.__table__,
-                MarketStat.__table__,
-                ConfigState.__table__,
-                Embedding.__table__,
-                EtlJobRun.__table__,
-                SearchHistory.__table__,
-                KeywordHistory.__table__,
-                KeywordPrior.__table__,
-                LlmServiceConfig.__table__,
-                Topic.__table__,
-                IngestChannel.__table__,
-                SourceLibraryItem.__table__,
-                MarketMetricPoint.__table__,
-                Product.__table__,
-                PriceObservation.__table__,
-                ResourcePoolUrl.__table__,
-                ResourcePoolSiteEntry.__table__,
-                LlmReportQualityTrend.__table__,
-                LlmReportExportAuditEvent.__table__,
-                LlmReportExportTokenState.__table__,
-                WritingDocument.__table__,
-                WritingDocumentDraft.__table__,
-                WritingDocumentCitation.__table__,
-                InformationTopologyState.__table__,
-                InformationTopologyLink.__table__,
-                *project_retrieval_tables(),
-            )
-        ]
-        try:
-            with engine.begin() as conn:
-                rows = conn.execute(
-                    text("SELECT project_key, schema_name FROM public.projects WHERE enabled = true")
-                ).fetchall()
+        with engine.begin() as conn:
+            ensure_database_revision_compatible(conn)
+            rows = conn.execute(
+                text(
+                    "SELECT project_key, schema_name FROM public.projects "
+                    "WHERE enabled = true"
+                )
+            ).fetchall()
             for _project_key, schema_name_value in rows:
                 if not isinstance(schema_name_value, str) or not schema_name_value:
                     continue
-                _create_tenant_tables_best_effort(schema_name_value, tenant_tables)
-        except Exception as exc:  # noqa: BLE001
-            logger.warning("failed to ensure project schemas ready: %s", exc)
+                validate_project_schema(
+                    conn,
+                    schema_name=schema_name_value,
+                    tables=TENANT_TABLES,
+                )
 
     app.router.add_event_handler("startup", _ensure_all_project_schemas_ready)
 
@@ -258,17 +121,12 @@ def register_startup_hooks(app: FastAPI) -> None:
                 WorkflowGraphEvent.__table__,
             )
         ]
-        try:
-            def _create_shared_tables(conn: Connection) -> None:
-                conn.execute(text('SET search_path TO "public"'))
-                Base.metadata.create_all(bind=conn, tables=shared_tables, checkfirst=True)
-
-            run_serialized_schema_ddl(
-                engine,
+        with engine.begin() as conn:
+            ensure_database_revision_compatible(conn)
+            validate_project_schema(
+                conn,
                 schema_name="public",
-                operation=_create_shared_tables,
+                tables=shared_tables,
             )
-        except Exception as exc:  # noqa: BLE001
-            logging.getLogger("app").warning("failed to ensure shared source-library tables ready: %s", exc)
 
     app.router.add_event_handler("startup", _ensure_shared_library_tables_ready)

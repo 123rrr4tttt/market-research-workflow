@@ -3,10 +3,16 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from functools import lru_cache
 import logging
+from pathlib import Path
 from typing import Any, TypeVar
 
+from alembic.config import Config
+from alembic.runtime.migration import MigrationContext
+from alembic.script import ScriptDirectory
 from sqlalchemy import text
+from sqlalchemy.engine import Connection
 
 from ...composition.production import is_production_environment
 from ...models.base import classify_db_exception, engine
@@ -20,6 +26,46 @@ _POSTGRESQL_SCHEMA_DDL_LOCK = text(
     "SELECT pg_advisory_xact_lock(hashtextextended(:lock_scope, 0))"
 )
 _LOCK_NAMESPACE = "mrw.schema-ddl.v1"
+
+
+class DatabaseRevisionIncompatibleError(RuntimeError):
+    """The application schema revision does not match this installed build."""
+
+    def __init__(self, *, actual: frozenset[str], expected: frozenset[str]) -> None:
+        self.actual = actual
+        self.expected = expected
+        actual_text = ",".join(sorted(actual)) or "<none>"
+        expected_text = ",".join(sorted(expected)) or "<none>"
+        super().__init__(
+            "DATABASE_REVISION_INCOMPATIBLE "
+            f"actual={actual_text} expected={expected_text}; run the packaged Alembic migration"
+        )
+
+
+@lru_cache(maxsize=1)
+def packaged_database_heads() -> frozenset[str]:
+    """Read the authoritative heads from the migrations shipped with this build."""
+    backend_root = Path(__file__).resolve().parents[3]
+    config = Config(str(backend_root / "alembic.ini"))
+    config.set_main_option("script_location", str(backend_root / "migrations"))
+    return frozenset(ScriptDirectory.from_config(config).get_heads())
+
+
+def ensure_database_revision_compatible(
+    connection: Connection,
+    *,
+    expected_heads: frozenset[str] | None = None,
+) -> frozenset[str]:
+    """Fail closed unless public.alembic_version matches the packaged graph heads."""
+    expected = packaged_database_heads() if expected_heads is None else expected_heads
+    context = MigrationContext.configure(
+        connection,
+        opts={"version_table_schema": "public"},
+    )
+    actual = frozenset(str(head) for head in context.get_current_heads())
+    if actual != expected:
+        raise DatabaseRevisionIncompatibleError(actual=actual, expected=expected)
+    return actual
 
 
 def schema_ddl_lock_scope(schema_name: str) -> str:
@@ -74,7 +120,7 @@ def initialize_default_project_schema(
     logger_obj: logging.Logger | None = None,
     fail_closed: bool | None = None,
 ) -> bool:
-    """Create the configured default schema at an explicit runtime boundary."""
+    """Validate the database revision before a worker or API may use schemas."""
     target_engine = engine if database_engine is None else database_engine
     target_settings = settings if settings_obj is None else settings_obj
     target_logger = logger_obj or logging.getLogger("app")
@@ -88,11 +134,11 @@ def initialize_default_project_schema(
     try:
         run_serialized_schema_ddl(
             target_engine,
-            schema_name=schema_name,
-            operation=lambda connection: connection.execute(
-                text(f'CREATE SCHEMA IF NOT EXISTS "{schema_name}"')
-            ),
+            schema_name="public",
+            operation=ensure_database_revision_compatible,
         )
+    except DatabaseRevisionIncompatibleError:
+        raise
     except Exception as exc:  # noqa: BLE001
         classification = classify_db_exception(exc)
         target_logger.warning(

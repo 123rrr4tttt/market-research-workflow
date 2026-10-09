@@ -10,6 +10,7 @@ from importlib import import_module
 import os
 from pathlib import Path
 from typing import Any
+from unittest.mock import Mock
 
 from alembic import command
 from alembic.config import Config
@@ -30,11 +31,21 @@ from app.services.information_topology.modules.retrieval import _make_legacy_ret
 from app.services.information_topology.profiles import validate_state
 from app.services.information_topology.repository import InformationTopologyRepository, StateWrite
 from app.settings.config import settings
+from app.services.projects.bootstrap import (
+    ProjectSchemaIncompatibleError,
+    TENANT_TABLES,
+    ensure_project_schema_ready,
+)
+from app.services.projects.schema_initialization import (
+    DatabaseRevisionIncompatibleError,
+    initialize_default_project_schema,
+)
 
 
 BACKEND_DIR = Path(__file__).resolve().parents[2]
 OLD_HEAD = "20260926_000001"
 NEW_HEAD = "20261009_000001"
+FOLLOWUP_HEAD = "20261009_000002"
 DSN = "postgresql+psycopg2://postgres@127.0.0.1:50931/material_migration_test"
 DSN_ENV = "MATERIAL_MIGRATION_TEST_DATABASE_URL"
 
@@ -113,6 +124,49 @@ def _has_table(engine, schema: str, table: str) -> bool:
             ).fetchone()
             is not None
         )
+
+
+def _install_current_tenant_schema(engine, schema: str) -> None:
+    with engine.begin() as conn:
+        conn.execute(text(f"CREATE SCHEMA {_quote(schema)}"))
+        conn.execute(text(f"SET LOCAL search_path TO {_quote(schema)}"))
+        schema_conn = conn.execution_options(schema_translate_map={None: schema})
+        for table in TENANT_TABLES:
+            if table.name == "embeddings":
+                continue
+            table.create(bind=schema_conn, checkfirst=False)
+
+
+def _relation_fingerprint(conn, schema: str, table: str) -> tuple[object, ...]:
+    qualified = f"{schema}.{table}"
+    sequence = conn.execute(
+        text("SELECT pg_get_serial_sequence(:qualified, 'id')"),
+        {"qualified": qualified},
+    ).scalar_one()
+    sequence_identity: tuple[object, ...] | None = None
+    if sequence:
+        sequence_identity = (
+            int(conn.execute(text("SELECT to_regclass(:sequence)::oid"), {"sequence": sequence}).scalar_one()),
+            *tuple(conn.execute(text(f"SELECT last_value, is_called FROM {sequence}")).one()),
+        )
+    return (
+        int(
+            conn.execute(
+                text("SELECT to_regclass(:qualified)::oid"),
+                {"qualified": qualified},
+            ).scalar_one()
+        ),
+        int(conn.execute(text(f"SELECT count(*) FROM {_quote(schema)}.{_quote(table)}")).scalar_one()),
+        str(
+            conn.execute(
+                text(
+                    f"SELECT coalesce(md5(string_agg(row_to_json(row_value)::text, '' ORDER BY row_value.id)), md5('')) "
+                    f"FROM {_quote(schema)}.{_quote(table)} AS row_value"
+                )
+            ).scalar_one()
+        ),
+        sequence_identity,
+    )
 
 
 def _install_projects_table(engine) -> None:
@@ -454,6 +508,319 @@ def test_source_root_parser_is_project_exact_and_keeps_equals(tmp_path: Path) ->
             migration._material_source_roots({"owner"}, [raw])
     with pytest.raises(RuntimeError, match="MATERIAL_SOURCE_ROOT_DUPLICATE"):
         migration._material_source_roots({"owner"}, [argument, argument])
+
+
+def test_required_tenant_table_followup_rejects_model_shape_drift_before_sql(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import sqlalchemy as sa
+
+    migration = import_module(
+        "migrations.versions.20261009_000002_repair_required_tenant_tables"
+    )
+    original = next(
+        table for table in migration._repair_tables() if table.name == "graph_nodes"
+    )
+    metadata = sa.MetaData()
+    changed = original.to_metadata(metadata)
+    changed.columns["node_type"].type = sa.Text()
+    connection = Mock()
+    monkeypatch.setattr(migration, "_repair_tables", lambda: (changed,))
+    monkeypatch.setattr(migration.op, "get_bind", lambda: connection)
+
+    with pytest.raises(RuntimeError, match="TENANT_REPAIR_MODEL_SHAPE_DRIFT"):
+        migration.upgrade()
+
+    connection.execute.assert_not_called()
+
+
+def test_old_head_startup_and_cli_fail_before_publishing_material_shadow(
+    exclusive_engine,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.services.projects import bootstrap as bootstrap_module
+
+    def scenario(dsn: str) -> None:
+        _stamp_old_head(dsn)
+        _install_projects_table(exclusive_engine)
+        _register_project(exclusive_engine, "owner", "project_owner")
+        before = _install_legacy_schema(exclusive_engine, "project_owner", rows=1)
+        monkeypatch.setattr(bootstrap_module, "engine", exclusive_engine)
+
+        with pytest.raises(DatabaseRevisionIncompatibleError):
+            initialize_default_project_schema(
+                database_engine=exclusive_engine,
+                settings_obj=Namespace(env="dev", active_project_key="owner"),
+            )
+        with pytest.raises(DatabaseRevisionIncompatibleError):
+            ensure_project_schema_ready("owner")
+
+        assert _head(exclusive_engine) == OLD_HEAD
+        assert _has_table(exclusive_engine, "project_owner", "documents")
+        assert not _has_table(exclusive_engine, "project_owner", "materials")
+        with exclusive_engine.begin() as conn:
+            assert conn.execute(text("SELECT count(*) FROM public.projects")).scalar_one() == 1
+            assert tuple(
+                conn.execute(
+                    text("SELECT last_value, is_called FROM project_owner.documents_id_seq")
+                ).one()
+            ) == before["sequence_state"]
+
+    _with_test_dsn(scenario)
+
+
+def test_current_head_existing_project_is_validation_only_and_new_project_initializes(
+    exclusive_engine,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.services.projects import bootstrap as bootstrap_module
+
+    def scenario(dsn: str) -> None:
+        command.upgrade(_config(dsn), FOLLOWUP_HEAD)
+        monkeypatch.setattr(bootstrap_module, "engine", exclusive_engine)
+
+        created = ensure_project_schema_ready("new_owner", name="New Owner")
+        assert created == {
+            "project_key": "new_owner",
+            "schema_name": "project_new_owner",
+        }
+        assert _has_table(exclusive_engine, "project_new_owner", "materials")
+        assert not _has_table(exclusive_engine, "project_new_owner", "documents")
+
+        statements: list[str] = []
+
+        def capture(_conn, _cursor, statement, _parameters, _context, _executemany) -> None:
+            statements.append(str(statement))
+
+        from sqlalchemy import event
+
+        event.listen(exclusive_engine, "before_cursor_execute", capture)
+        try:
+            assert initialize_default_project_schema(
+                database_engine=exclusive_engine,
+                settings_obj=Namespace(env="dev", active_project_key="new_owner"),
+            )
+            assert ensure_project_schema_ready("new_owner") == created
+        finally:
+            event.remove(exclusive_engine, "before_cursor_execute", capture)
+
+        ddl = [
+            statement
+            for statement in statements
+            if statement.lstrip().upper().startswith(("CREATE ", "ALTER ", "DROP "))
+        ]
+        assert ddl == []
+
+    _with_test_dsn(scenario)
+
+
+def test_current_head_missing_material_is_reported_without_repair(
+    exclusive_engine,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.services.projects import bootstrap as bootstrap_module
+
+    def scenario(dsn: str) -> None:
+        command.upgrade(_config(dsn), FOLLOWUP_HEAD)
+        monkeypatch.setattr(bootstrap_module, "engine", exclusive_engine)
+        ensure_project_schema_ready("broken_owner")
+        with exclusive_engine.begin() as conn:
+            conn.execute(text("DROP TABLE project_broken_owner.materials"))
+
+        with pytest.raises(ProjectSchemaIncompatibleError, match="materials"):
+            ensure_project_schema_ready("broken_owner")
+
+        assert not _has_table(exclusive_engine, "project_broken_owner", "materials")
+        with exclusive_engine.begin() as conn:
+            assert (
+                conn.execute(
+                    text(
+                        "SELECT schema_name FROM public.projects "
+                        "WHERE project_key='broken_owner'"
+                    )
+                ).scalar_one()
+                == "project_broken_owner"
+            )
+
+    _with_test_dsn(scenario)
+
+
+def test_required_tenant_table_followup_repairs_only_missing_tables(
+    exclusive_engine,
+) -> None:
+    def scenario(dsn: str) -> None:
+        command.upgrade(_config(dsn), NEW_HEAD)
+        schemas = {
+            "alpha": "project_followup_alpha",
+            "beta": "project_followup_beta",
+            "gamma": "project_followup_gamma",
+        }
+        for project_key, schema in schemas.items():
+            _install_current_tenant_schema(exclusive_engine, schema)
+            _register_project(exclusive_engine, project_key, schema)
+
+        with exclusive_engine.begin() as conn:
+            alpha = schemas["alpha"]
+            beta = schemas["beta"]
+            gamma = schemas["gamma"]
+            conn.execute(
+                text(
+                    f"INSERT INTO {_quote(alpha)}.materials "
+                    "(material_type, title, content) VALUES ('report', 'kept', 'material-body')"
+                )
+            )
+            conn.execute(
+                text(
+                    f"INSERT INTO {_quote(alpha)}.graph_nodes "
+                    "(node_type, canonical_id, display_name, source_material_id) "
+                    "VALUES ('entity', 'kept-node', 'Kept node', 1)"
+                )
+            )
+            conn.execute(
+                text(
+                    f"INSERT INTO {_quote(alpha)}.graph_node_aliases "
+                    "(node_id, alias_text, alias_norm) VALUES (1, 'Kept', 'kept')"
+                )
+            )
+            conn.execute(
+                text(
+                    f"INSERT INTO {_quote(alpha)}.graph_edges "
+                    "(edge_type, from_node_id, to_node_id) VALUES ('self', 1, 1)"
+                )
+            )
+            conn.execute(text(f"DROP TABLE {_quote(alpha)}.ingest_submission_registry"))
+            conn.execute(
+                text(
+                    f"DROP TABLE {_quote(beta)}.graph_edges, "
+                    f"{_quote(beta)}.graph_node_aliases, {_quote(beta)}.graph_nodes"
+                )
+            )
+            conn.execute(
+                text(
+                    f"DROP TABLE {_quote(gamma)}.ingest_submission_registry, "
+                    f"{_quote(gamma)}.resource_pool_site_entries"
+                )
+            )
+            before = {
+                (alpha, "materials"): _relation_fingerprint(conn, alpha, "materials"),
+                (alpha, "graph_nodes"): _relation_fingerprint(conn, alpha, "graph_nodes"),
+                (alpha, "graph_node_aliases"): _relation_fingerprint(conn, alpha, "graph_node_aliases"),
+                (alpha, "graph_edges"): _relation_fingerprint(conn, alpha, "graph_edges"),
+                (beta, "materials"): _relation_fingerprint(conn, beta, "materials"),
+            }
+
+        command.upgrade(_config(dsn), FOLLOWUP_HEAD)
+        assert _head(exclusive_engine) == FOLLOWUP_HEAD
+
+        for schema in schemas.values():
+            for table_name in (
+                "graph_nodes",
+                "graph_node_aliases",
+                "graph_edges",
+                "ingest_submission_registry",
+                "resource_pool_site_entries",
+            ):
+                assert _has_table(exclusive_engine, schema, table_name)
+
+        with exclusive_engine.begin() as conn:
+            after = {
+                key: _relation_fingerprint(conn, *key)
+                for key in before
+            }
+            assert after == before
+            assert conn.execute(
+                text(
+                    "SELECT count(*) FROM pg_constraint AS c "
+                    "JOIN pg_class AS source_table ON source_table.oid=c.conrelid "
+                    "JOIN pg_namespace AS source_ns ON source_ns.oid=source_table.relnamespace "
+                    "JOIN pg_class AS target_table ON target_table.oid=c.confrelid "
+                    "JOIN pg_namespace AS target_ns ON target_ns.oid=target_table.relnamespace "
+                    "WHERE c.contype='f' AND source_ns.nspname=:schema "
+                    "AND target_ns.nspname=:schema "
+                    "AND source_table.relname IN ('graph_node_aliases', 'graph_edges') "
+                    "AND target_table.relname='graph_nodes'"
+                ),
+                {"schema": schemas["beta"]},
+            ).scalar_one() == 3
+
+    _with_test_dsn(scenario)
+
+
+def test_required_tenant_table_followup_is_tenant_ddl_noop_when_complete(
+    exclusive_engine,
+) -> None:
+    def scenario(dsn: str) -> None:
+        command.upgrade(_config(dsn), NEW_HEAD)
+        schema = "project_followup_complete"
+        _install_current_tenant_schema(exclusive_engine, schema)
+        _register_project(exclusive_engine, "complete", schema)
+        statements: list[str] = []
+
+        def capture(_conn, _cursor, statement, _parameters, _context, _executemany) -> None:
+            statements.append(str(statement))
+
+        from sqlalchemy import event
+
+        event.listen(exclusive_engine, "before_cursor_execute", capture)
+        try:
+            command.upgrade(_config(dsn), FOLLOWUP_HEAD)
+        finally:
+            event.remove(exclusive_engine, "before_cursor_execute", capture)
+
+        assert _head(exclusive_engine) == FOLLOWUP_HEAD
+        tenant_ddl = [
+            statement
+            for statement in statements
+            if schema in statement
+            and statement.lstrip().upper().startswith(("CREATE ", "ALTER ", "DROP "))
+        ]
+        assert tenant_ddl == []
+
+    _with_test_dsn(scenario)
+
+
+def test_required_tenant_table_followup_conflict_rolls_back_all_schemas(
+    exclusive_engine,
+) -> None:
+    def scenario(dsn: str) -> None:
+        command.upgrade(_config(dsn), NEW_HEAD)
+        first_schema = "project_followup_a_first"
+        conflict_schema = "project_followup_b_conflict"
+        for project_key, schema in (
+            ("a_first", first_schema),
+            ("b_conflict", conflict_schema),
+        ):
+            _install_current_tenant_schema(exclusive_engine, schema)
+            _register_project(exclusive_engine, project_key, schema)
+        with exclusive_engine.begin() as conn:
+            conn.execute(text(f"DROP TABLE {_quote(first_schema)}.ingest_submission_registry"))
+            conn.execute(
+                text(
+                    f"DROP TABLE {_quote(conflict_schema)}.graph_edges, "
+                    f"{_quote(conflict_schema)}.graph_node_aliases, "
+                    f"{_quote(conflict_schema)}.graph_nodes"
+                )
+            )
+            conn.execute(
+                text(
+                    f"CREATE TABLE {_quote(conflict_schema)}.graph_nodes "
+                    "(id BIGINT PRIMARY KEY)"
+                )
+            )
+
+        with pytest.raises(RuntimeError, match="TENANT_REPAIR_COLUMN_CONFLICT"):
+            command.upgrade(_config(dsn), FOLLOWUP_HEAD)
+
+        assert _head(exclusive_engine) == NEW_HEAD
+        assert not _has_table(
+            exclusive_engine,
+            first_schema,
+            "ingest_submission_registry",
+        )
+        assert not _has_table(exclusive_engine, conflict_schema, "graph_node_aliases")
+        assert not _has_table(exclusive_engine, conflict_schema, "graph_edges")
+
+    _with_test_dsn(scenario)
 
 
 def test_each_schema_uses_an_isolated_session_for_equal_primary_keys(exclusive_engine) -> None:

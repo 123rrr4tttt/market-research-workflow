@@ -22,6 +22,8 @@ for path in (str(BACKEND_ROOT), str(REPOSITORY_ROOT / "src")):
         sys.path.insert(0, path)
 
 from app.services.projects.schema_initialization import (
+    DatabaseRevisionIncompatibleError,
+    ensure_database_revision_compatible,
     initialize_cli_project_schema,
     initialize_default_project_schema,
     run_serialized_schema_ddl,
@@ -69,6 +71,9 @@ class _ScalarResult:
 
     def scalar(self) -> object:
         return self.value
+
+    def fetchone(self) -> object:
+        return self.value if isinstance(self.value, tuple) else None
 
 
 class _RecordingEngine:
@@ -124,8 +129,18 @@ assert begin_calls == []
     assert result.returncode == 0, result.stderr
 
 
-def test_explicit_schema_startup_creates_the_configured_schema() -> None:
+def test_explicit_schema_startup_only_validates_revision(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.services.projects import schema_initialization as schema_module
+
     database_engine = _RecordingEngine()
+    calls: list[object] = []
+    monkeypatch.setattr(
+        schema_module,
+        "ensure_database_revision_compatible",
+        lambda connection: calls.append(connection),
+    )
 
     initialize_default_project_schema(
         database_engine=database_engine,
@@ -133,9 +148,54 @@ def test_explicit_schema_startup_creates_the_configured_schema() -> None:
     )
 
     assert database_engine.begin_calls == 1
-    assert database_engine.connection.statements == [
-        'CREATE SCHEMA IF NOT EXISTS "project_startup_demo"'
-    ]
+    assert calls == [database_engine.connection]
+    assert database_engine.connection.statements == []
+
+
+def test_revision_guard_compares_public_heads_and_reports_both_sets(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.services.projects import schema_initialization as schema_module
+
+    context = SimpleNamespace(get_current_heads=lambda: ("old_head",))
+    configure = Mock(return_value=context)
+    monkeypatch.setattr(schema_module.MigrationContext, "configure", configure)
+
+    with pytest.raises(DatabaseRevisionIncompatibleError) as caught:
+        ensure_database_revision_compatible(
+            Mock(),
+            expected_heads=frozenset({"new_head"}),
+        )
+
+    assert caught.value.actual == frozenset({"old_head"})
+    assert caught.value.expected == frozenset({"new_head"})
+    assert "actual=old_head expected=new_head" in str(caught.value)
+    assert configure.call_args.kwargs["opts"] == {"version_table_schema": "public"}
+
+
+def test_revision_incompatibility_is_not_swallowed_in_development(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.services.projects import schema_initialization as schema_module
+
+    database_engine = _RecordingEngine()
+    failure = DatabaseRevisionIncompatibleError(
+        actual=frozenset({"old"}),
+        expected=frozenset({"new"}),
+    )
+    monkeypatch.setattr(
+        schema_module,
+        "ensure_database_revision_compatible",
+        Mock(side_effect=failure),
+    )
+
+    with pytest.raises(DatabaseRevisionIncompatibleError) as caught:
+        initialize_default_project_schema(
+            database_engine=database_engine,
+            settings_obj=_settings(env="dev"),
+        )
+
+    assert caught.value is failure
 
 
 def test_postgresql_schema_ddl_acquires_transaction_lock_before_operation() -> None:
@@ -211,7 +271,6 @@ def test_workflow_graph_compiled_schema_ddl_uses_the_public_schema_process_lock(
     database_engine.dialect = SimpleNamespace(name="postgresql")
     monkeypatch.setattr(store_module, "engine", database_engine)
     monkeypatch.setattr(schema_module.settings, "db_lock_timeout_ms", 1234)
-
     store_module.SqlCompiledGraphStore()
 
     assert database_engine.begin_calls == 1
@@ -278,6 +337,11 @@ def test_project_schema_cli_preflight_is_one_serialized_transaction(
         lambda value: f"project_{value}",
     )
     monkeypatch.setattr(schema_module.settings, "db_lock_timeout_ms", 1234)
+    monkeypatch.setattr(
+        bootstrap_module,
+        "ensure_database_revision_compatible",
+        lambda _connection: frozenset({"head"}),
+    )
 
     result = bootstrap_module.ensure_project_schema_ready("cli_demo", name="CLI Demo")
 
@@ -288,14 +352,17 @@ def test_project_schema_cli_preflight_is_one_serialized_transaction(
         "SELECT pg_advisory_xact_lock(hashtextextended(:lock_scope, 0))",
         'SET search_path TO "public"',
     ]
-    assert "INSERT INTO public.projects" in database_engine.connection.statements[3]
-    assert database_engine.connection.statements[-3:] == [
+    statements = database_engine.connection.statements
+    assert statements[2] == 'SET search_path TO "public"'
+    assert "SELECT project_key, schema_name FROM public.projects" in statements[3]
+    assert "SELECT EXISTS (SELECT 1 FROM pg_class" in statements[4]
+    assert statements[5:7] == [
         'CREATE SCHEMA IF NOT EXISTS "project_cli_demo"',
         'SET search_path TO "project_cli_demo", public',
-        "SELECT EXISTS (SELECT 1 FROM information_schema.tables "
-        "WHERE table_schema=:schema_name AND table_name=:table_name)",
     ]
-    assert database_engine.connection.executions[-1][1] == {
+    assert statements[-2] == 'SET search_path TO "public"'
+    assert "INSERT INTO public.projects" in statements[-1]
+    assert database_engine.connection.executions[-3][1] == {
         "schema_name": "project_cli_demo",
         "table_name": "documents",
     }
@@ -315,6 +382,64 @@ def test_project_tenant_table_manifest_includes_mandatory_ingest_registry_once()
     assert registry_tables == [IngestSubmissionRegistry.__table__]
 
 
+def test_registered_project_uses_stored_schema_and_never_creates_tables(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.services.projects import bootstrap as bootstrap_module
+
+    database_engine = _RecordingEngine()
+    database_engine.dialect = SimpleNamespace(name="postgresql")
+    validated: list[str] = []
+    monkeypatch.setattr(bootstrap_module, "engine", database_engine)
+    monkeypatch.setattr(
+        bootstrap_module,
+        "ensure_database_revision_compatible",
+        lambda _connection: frozenset({"head"}),
+    )
+    monkeypatch.setattr(
+        bootstrap_module,
+        "_registered_project",
+        lambda _connection, _key: ("existing", "tenant_stored"),
+    )
+    monkeypatch.setattr(
+        bootstrap_module,
+        "validate_project_schema",
+        lambda _connection, *, schema_name, tables=None: validated.append(schema_name),
+    )
+
+    result = bootstrap_module.ensure_project_schema_ready("existing")
+
+    assert result == {"project_key": "existing", "schema_name": "tenant_stored"}
+    assert validated == ["tenant_stored"]
+    assert not any("CREATE SCHEMA" in statement for statement in database_engine.connection.statements)
+    assert not any("INSERT INTO public.projects" in statement for statement in database_engine.connection.statements)
+
+
+def test_registered_project_missing_required_column_is_validation_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.services.projects import bootstrap as bootstrap_module
+
+    table = SimpleNamespace(
+        name="materials",
+        columns=[SimpleNamespace(name="id"), SimpleNamespace(name="material_type")],
+    )
+    inspector = SimpleNamespace(
+        has_table=lambda _name, *, schema: schema == "tenant_stored",
+        get_columns=lambda _name, *, schema: [{"name": "id"}],
+    )
+    monkeypatch.setattr(bootstrap_module, "inspect", lambda _connection: inspector)
+
+    with pytest.raises(bootstrap_module.ProjectSchemaIncompatibleError) as caught:
+        bootstrap_module.validate_project_schema(
+            Mock(),
+            schema_name="tenant_stored",
+            tables=[table],
+        )
+
+    assert caught.value.missing_columns == ("materials.material_type",)
+
+
 def test_require_model_table_returns_native_table_identity() -> None:
     from sqlalchemy.sql.schema import Table
 
@@ -327,16 +452,23 @@ def test_require_model_table_returns_native_table_identity() -> None:
     assert require_model_table(table) is table
 
 
-def test_schema_startup_rejects_non_table_model_before_ddl(
+def test_schema_startup_uses_canonical_tenant_manifest_for_validation(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     from app import startup_hooks as startup_module
 
     database_engine = _RecordingEngine()
-    bad_model = SimpleNamespace(__table__=object())
-    monkeypatch.setattr(startup_module, "Source", bad_model)
+    database_engine.connection.execute = Mock(
+        return_value=SimpleNamespace(fetchall=lambda: [])
+    )
+    validated: list[object] = []
     monkeypatch.setattr(startup_module, "engine", database_engine)
     monkeypatch.setattr(startup_module, "build_topology_service", lambda: object())
+    monkeypatch.setattr(
+        startup_module,
+        "ensure_database_revision_compatible",
+        lambda connection: validated.append(connection),
+    )
     app = FastAPI()
     startup_module.register_startup_hooks(app)
     handler = next(
@@ -345,12 +477,10 @@ def test_schema_startup_rejects_non_table_model_before_ddl(
         if callback.__name__ == "_ensure_all_project_schemas_ready"
     )
 
-    with pytest.raises(TypeError) as caught:
-        handler()
+    handler()
 
-    assert str(caught.value) == "mapped model __table__ must be a SQLAlchemy Table"
-    assert database_engine.begin_calls == 0
-    assert database_engine.connection.statements == []
+    assert validated == [database_engine.connection]
+    assert database_engine.begin_calls == 1
 
 
 def test_database_cli_wrapper_runs_preflight_before_command(monkeypatch: pytest.MonkeyPatch) -> None:

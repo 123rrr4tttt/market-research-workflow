@@ -19,12 +19,15 @@ try:
     from app.contracts.errors import ErrorCode
     from app.main import app as backend_app
     from app.api.projects import (
+        InjectInitialProjectPayload,
         _build_initial_project_copy_insert_sql,
         _adapt_legacy_demo_seed_to_materials,
         _execute_seed_sql,
         _filter_seed_sql_text,
         _resolve_inject_target_key,
+        inject_initial_project,
     )
+    from app.services.projects.schema_initialization import DatabaseRevisionIncompatibleError
 
     _IMPORT_ERROR = None
 except Exception as exc:  # noqa: BLE001
@@ -165,6 +168,42 @@ class ProjectsCoreContractTestCase(unittest.TestCase):
             _resolve_inject_target_key("default", source_key="demo_proj", overwrite=False)
         self.assertEqual(getattr(ctx.exception, "status_code", None), 409)
 
+    def test_inject_initial_old_revision_has_no_seed_delete_or_drop_side_effect(self):
+        connection = Mock()
+        transaction = Mock()
+        transaction.__enter__ = Mock(return_value=connection)
+        transaction.__exit__ = Mock(return_value=None)
+        database_engine = Mock()
+        database_engine.begin.return_value = transaction
+        bootstrap_demo = Mock()
+        session_local = Mock()
+
+        with (
+            patch("app.api.projects.engine", database_engine),
+            patch(
+                "app.api.projects.ensure_database_revision_compatible",
+                side_effect=DatabaseRevisionIncompatibleError(
+                    actual=frozenset({"old_head"}),
+                    expected=frozenset({"current_head"}),
+                ),
+            ) as revision_guard,
+            patch("app.api.projects._bootstrap_demo_seed_if_needed", bootstrap_demo),
+            patch("app.api.projects.SessionLocal", session_local),
+        ):
+            with self.assertRaises(DatabaseRevisionIncompatibleError):
+                inject_initial_project(
+                    InjectInitialProjectPayload(
+                        project_key="target_proj",
+                        source_project_key="demo_proj",
+                        overwrite=True,
+                    )
+                )
+
+        revision_guard.assert_called_once_with(connection)
+        bootstrap_demo.assert_not_called()
+        session_local.assert_not_called()
+        connection.execute.assert_not_called()
+
     def test_inject_initial_copy_sql_uses_common_columns_and_jsonb_conversion(self):
         sql = _build_initial_project_copy_insert_sql(
             source_schema="tenant_demo_proj",
@@ -286,7 +325,7 @@ class ProjectsCoreContractTestCase(unittest.TestCase):
         self.assertEqual(response.headers.get("x-error-code"), ErrorCode.INVALID_INPUT.value)
 
     def test_create_project_table_set_includes_writing_workbench_tables(self):
-        from app.api.projects import TENANT_TABLES
+        from app.services.projects.bootstrap import TENANT_TABLES
 
         table_names = {table.name for table in TENANT_TABLES}
         self.assertIn("graph_nodes", table_names)

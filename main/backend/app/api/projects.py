@@ -17,7 +17,6 @@ from sqlalchemy.sql.schema import Table
 from ..contracts import ApiEnvelope, ErrorCode, error_response
 from ..contracts.responses import ok
 from ..models.base import SessionLocal, engine
-from ..models.base import Base
 from ..models.information_topology_entities import InformationTopologyLink, InformationTopologyState
 from ..models.entities import (
     ConfigState,
@@ -42,7 +41,8 @@ from ..services.llm.config_service import LlmConfigService
 from ..services.llm.codex_cli import CodexCliChatModel
 from ..services.llm.provider import get_chat_model
 from ..services.projects import bind_project, bind_schema, normalize_project_key, project_schema_name
-from ..services.projects.bootstrap import TENANT_TABLES, tenant_table_exists
+from ..services.projects.bootstrap import ensure_project_schema_ready
+from ..services.projects.schema_initialization import ensure_database_revision_compatible
 
 
 router = APIRouter(prefix="/projects", tags=["projects"])
@@ -233,23 +233,6 @@ def _set_project_text(record: Project, field: _PROJECT_TEXT_FIELDS, value: str) 
 
 def _set_project_bool(record: Project, field: _PROJECT_BOOL_FIELDS, value: bool) -> None:
     setattr(record, field, value)
-
-
-def _new_project(
-    *,
-    project_key: str,
-    name: str,
-    schema_name: str,
-    enabled: bool,
-    is_active: bool,
-) -> Project:
-    project = Project()
-    _set_project_text(project, "project_key", project_key)
-    _set_project_text(project, "name", name)
-    _set_project_text(project, "schema_name", schema_name)
-    _set_project_bool(project, "enabled", enabled)
-    _set_project_bool(project, "is_active", is_active)
-    return project
 
 
 def _raise_invalid_input(message: str, *, status_code: int = 400) -> NoReturn:
@@ -608,32 +591,12 @@ def _bootstrap_demo_seed_if_needed(source_key: str) -> None:
     sql_text = seed_file.read_text(encoding="utf-8")
     filtered_sql = _filter_seed_sql_text(_adapt_legacy_demo_seed_to_materials(sql_text))
 
-    _create_tenant_tables_best_effort(source_schema)
+    ensure_project_schema_ready(source_key, name="Demo Project")
 
     with engine.begin() as conn:
         conn.execute(text(f'CREATE SCHEMA IF NOT EXISTS "{source_schema}"'))
         _execute_seed_sql(conn, filtered_sql)
 
-    # Ensure full tenant table structure + schema-local id sequence defaults.
-    _create_tenant_tables_best_effort(source_schema)
-
-    with bind_schema("public"):
-        with SessionLocal() as session:
-            row = session.execute(select(Project).where(Project.project_key == source_key)).scalar_one_or_none()
-            if row is None:
-                session.add(
-                    _new_project(
-                        project_key=source_key,
-                        name="Demo Project",
-                        schema_name=source_schema,
-                        enabled=True,
-                        is_active=False,
-                    )
-                )
-            else:
-                _set_project_text(row, "schema_name", source_schema)
-                _set_project_bool(row, "enabled", True)
-            session.commit()
 PROMPT_FACTORY_SERVICE_NAME = "prompt_factory"
 PROMPT_FACTORY_TARGET_SERVICES = [
     "keyword_generation",
@@ -813,79 +776,6 @@ def _project_list_item(row: Project) -> ProjectListItem:
     )
 
 
-def _create_tenant_tables_best_effort(schema_name: str) -> None:
-    """
-    Create tenant tables, but tolerate missing pgvector extension by
-    skipping only the embeddings table instead of failing project creation.
-    """
-    with engine.begin() as conn:
-        conn.execute(text(f'CREATE SCHEMA IF NOT EXISTS "{schema_name}"'))
-    for table in TENANT_TABLES:
-        with engine.begin() as conn:
-            conn.execute(text(f'SET search_path TO "{schema_name}", public'))
-            if tenant_table_exists(
-                conn,
-                schema_name=schema_name,
-                table_name=table.name,
-            ):
-                continue
-            try:
-                table.create(bind=conn, checkfirst=False)
-            except SQLAlchemyError as exc:
-                table_name = table.name
-                message = str(exc).lower()
-                if table_name == "embeddings" and "vector" in message and "does not exist" in message:
-                    logger.warning(
-                        "skip embeddings table for schema=%s because pgvector extension is unavailable: %s",
-                        schema_name,
-                        exc,
-                    )
-                    continue
-                raise
-    _ensure_tenant_id_sequences(schema_name)
-
-
-def _ensure_tenant_id_sequences(schema_name: str) -> None:
-    """
-    Ensure every tenant table uses schema-local id sequence default.
-
-    This prevents cross-schema sequence drift such as:
-    project_x.table.id DEFAULT nextval('project_default.table_id_seq'::regclass)
-    """
-    table_names = [t.name for t in TENANT_TABLES if "id" in t.c]
-    for table_name in table_names:
-        with engine.begin() as conn:
-            conn.execute(
-                text(
-                    """
-                    DO $$
-                    DECLARE
-                      seq_qualified text := format('%I.%I_id_seq', :schema_name, :table_name);
-                      table_qualified text := format('%I.%I', :schema_name, :table_name);
-                      has_table regclass;
-                    BEGIN
-                      EXECUTE format('SELECT to_regclass(%L)', table_qualified) INTO has_table;
-                      IF has_table IS NULL THEN
-                        RETURN;
-                      END IF;
-
-                      EXECUTE format('CREATE SEQUENCE IF NOT EXISTS %s', seq_qualified);
-                      EXECUTE format('ALTER SEQUENCE %s OWNED BY %I.%I.id', seq_qualified, :schema_name, :table_name);
-                      EXECUTE format(
-                        'ALTER TABLE %I.%I ALTER COLUMN id SET DEFAULT nextval(%L::regclass)',
-                        :schema_name, :table_name, seq_qualified
-                      );
-                      EXECUTE format(
-                        'SELECT setval(%L, COALESCE((SELECT MAX(id) FROM %I.%I), 0) + 1, false)',
-                        seq_qualified, :schema_name, :table_name
-                      );
-                    END$$;
-                    """
-                ),
-                {"schema_name": schema_name, "table_name": table_name},
-            )
-
-
 def _apply_llm_configs_to_project(project_key: str, llm_configs: list[AutoLlmConfigPayload]) -> int:
     if not llm_configs:
         return 0
@@ -967,19 +857,16 @@ def create_project(payload: CreateProjectPayload) -> ProjectJsonObject:
             if existed:
                 _raise_invalid_input("project_key already exists", status_code=409)
 
-            row = _new_project(
-                project_key=normalized_key,
-                name=payload.name,
-                schema_name=schema_name,
-                enabled=payload.enabled,
-                is_active=False,
-            )
-            session.add(row)
-            session.commit()
-            session.refresh(row)
-
-    # Initialize tenant tables in target schema (best-effort for optional pgvector).
-    _create_tenant_tables_best_effort(schema_name)
+    ensure_project_schema_ready(
+        normalized_key,
+        name=payload.name,
+        enabled=payload.enabled,
+    )
+    with bind_schema("public"):
+        with SessionLocal() as session:
+            row = session.execute(
+                select(Project).where(Project.project_key == normalized_key)
+            ).scalar_one()
 
     created = _project_projection(row)
     return ok(ProjectCreatedData(id=created.id, schema_name=schema_name).model_dump())
@@ -1000,6 +887,11 @@ def inject_initial_project(payload: InjectInitialProjectPayload) -> ProjectJsonO
     target_schema = project_schema_name(target_key)
     target_name = (payload.name or f"{source_key}（初始注入）").strip()
 
+    # Reject an incompatible database before demo seeding or overwrite can
+    # publish any schema or registry side effect.
+    with engine.begin() as conn:
+        ensure_database_revision_compatible(conn)
+
     # New-deploy convenience: lazily bootstrap demo template from bundled seed archive.
     _bootstrap_demo_seed_if_needed(source_key)
 
@@ -1013,6 +905,10 @@ def inject_initial_project(payload: InjectInitialProjectPayload) -> ProjectJsonO
 
     with bind_schema("public"):
         with SessionLocal() as session:
+            # Keep the destructive overwrite decision in the guarded database
+            # transaction as well, so a revision change cannot race the entry
+            # preflight and delete an existing project first.
+            ensure_database_revision_compatible(session.connection())
             src_project = session.execute(select(Project).where(Project.project_key == source_key)).scalar_one_or_none()
             if src_project is None:
                 _raise_not_found(f"source project not found: {source_key}")
@@ -1027,26 +923,10 @@ def inject_initial_project(payload: InjectInitialProjectPayload) -> ProjectJsonO
                 with engine.begin() as conn:
                     conn.execute(text(f'DROP SCHEMA IF EXISTS "{target_schema}" CASCADE'))
 
-            row = _new_project(
-                project_key=target_key,
-                name=target_name,
-                schema_name=target_schema,
-                enabled=True,
-                is_active=False,
-            )
-            session.add(row)
-            session.commit()
-            session.refresh(row)
+    ensure_project_schema_ready(target_key, name=target_name)
 
     with engine.begin() as conn:
-        conn.execute(text(f'CREATE SCHEMA IF NOT EXISTS "{target_schema}"'))
         conn.execute(text(f'SET search_path TO "{target_schema}"'))
-        Base.metadata.create_all(bind=conn, tables=INITIAL_PROJECT_TABLES, checkfirst=True)
-        # Topology tables are project-local but never cloned from the seed
-        # project's structural state; new projects start with empty topology.
-        for table in _INFORMATION_TOPOLOGY_TABLES:
-            table.create(bind=conn, checkfirst=True)
-
         copied_counts: dict[str, int] = {}
         # Copy only tables that exist in source schema.
         for table in INITIAL_PROJECT_TABLES:
@@ -1090,9 +970,6 @@ def inject_initial_project(payload: InjectInitialProjectPayload) -> ProjectJsonO
             except SQLAlchemyError:
                 # not all copied tables have id sequences; ignore
                 pass
-
-    # Ensure inject path has full tenant tables + schema-local id sequence defaults.
-    _create_tenant_tables_best_effort(target_schema)
 
     if payload.activate:
         with bind_schema("public"):
