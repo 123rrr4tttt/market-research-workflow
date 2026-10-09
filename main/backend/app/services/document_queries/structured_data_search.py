@@ -4,15 +4,15 @@ from typing import Annotated, Iterable, Mapping, TypeGuard
 from ...contracts.materials import normalize_material_dataset
 
 from .contracts import (
-    DOCUMENT_QUERY_CONTRACT_VERSION,
-    DocumentQuery,
-    DocumentQueryFilterInput,
-    DocumentQueryResultEnvelope,
-    DocumentQueryRow,
-    build_document_query,
-    build_document_query_result_envelope,
-    coerce_document_query_result_row,
-    validate_document_query_result_envelope,
+    MATERIAL_QUERY_CONTRACT_VERSION,
+    MaterialQuery,
+    MaterialQueryFilterInput,
+    MaterialQueryResultEnvelope,
+    MaterialQueryRow,
+    build_material_query,
+    build_material_query_result_envelope,
+    coerce_material_query_result_row,
+    validate_material_query_result_envelope,
 )
 
 
@@ -42,23 +42,23 @@ def _as_str_object_mapping(value: object) -> TypeGuard[Mapping[str, object]]:
     return isinstance(value, Mapping)
 
 
-def build_structured_data_search_document_query(
+def build_structured_data_search_material_query(
     *,
     project_key: str | None,
     query: str | None,
     datasets_requested: Iterable[str] = (),
     limit: int,
 ) -> Annotated[
-    DocumentQuery,
-    "kit:prepared-command effect_boundary=app.services.document_queries.statement_builder "
-    "witness=test:test_project_structured_data_search_returns_document_query_projection",
+    MaterialQuery,
+    "kit:prepared-command effect_boundary=app.services.material_queries.statement_builder "
+    "witness=test:test_project_structured_data_search_returns_material_query_projection",
 ]:
     datasets = _clean_sequence(datasets_requested)
-    filters: list[DocumentQueryFilterInput] = []
+    filters: list[MaterialQueryFilterInput] = []
     if datasets:
         filters.append({"field": "dataset", "op": "in", "value": list(datasets)})
 
-    return build_document_query(
+    return build_material_query(
         query or "",
         project_key=_clean_optional_text(project_key),
         consumer=STRUCTURED_DATA_SEARCH_CONSUMER,
@@ -69,7 +69,7 @@ def build_structured_data_search_document_query(
     )
 
 
-def build_structured_data_search_document_query_envelope(
+def build_structured_data_search_material_query_envelope(
     *,
     project_key: str | None,
     query: str | None,
@@ -81,26 +81,26 @@ def build_structured_data_search_document_query_envelope(
     total_stored_rows: int | None = None,
     fallback_used: bool = False,
 ) -> Annotated[
-    DocumentQueryResultEnvelope,
+    MaterialQueryResultEnvelope,
     "kit:non-authoritative derived_as=view fact_source=agent_runtime.structured_data_search "
-    "witness=test:test_helper_builds_document_query_projection_for_structured_search",
+    "witness=test:test_helper_builds_material_query_projection_for_structured_search",
 ]:
-    query_object = build_structured_data_search_document_query(
+    query_object = build_structured_data_search_material_query(
         project_key=project_key,
         query=query,
         datasets_requested=datasets_requested,
         limit=limit,
     )
-    rows = [_structured_item_to_document_query_row(item) for item in items]
+    rows = [_structured_item_to_material_query_row(item) for item in items]
     envelope_total = len(rows) if fallback_used or total_matches is None else max(0, int(total_matches or 0))
-    envelope = build_document_query_result_envelope(
+    envelope = build_material_query_result_envelope(
         query_object,
         rows,
         source=STRUCTURED_DATA_SEARCH_SOURCE,
         result_source_type="structured_record",
         total=envelope_total,
         meta={
-            "contract_version": DOCUMENT_QUERY_CONTRACT_VERSION,
+            "contract_version": MATERIAL_QUERY_CONTRACT_VERSION,
             "service": STRUCTURED_DATA_SEARCH_SOURCE,
             "query_mode": _clean_text(query_mode) or "search",
             "datasets_requested": list(_clean_sequence(datasets_requested)),
@@ -109,14 +109,14 @@ def build_structured_data_search_document_query_envelope(
             "fallback_used": bool(fallback_used),
         },
     )
-    validate_document_query_result_envelope(envelope)
+    validate_material_query_result_envelope(envelope)
     return envelope
 
 
-def _structured_item_to_document_query_row(item: Mapping[str, object]) -> DocumentQueryRow:
-    raw = coerce_document_query_result_row(item)
+def _structured_item_to_material_query_row(item: Mapping[str, object]) -> MaterialQueryRow:
+    raw = coerce_material_query_result_row(item)
     fields_value = raw.get("fields")
-    fields = coerce_document_query_result_row(fields_value) if _as_str_object_mapping(fields_value) else {}
+    fields = coerce_material_query_result_row(fields_value) if _as_str_object_mapping(fields_value) else {}
     dataset = normalize_material_dataset(raw.get("dataset")) or "structured_data"
     record_id = _clean_text(raw.get("record_id") or raw.get("id"))
     row_id = f"{dataset}:{record_id}" if record_id else dataset
@@ -131,7 +131,6 @@ def _structured_item_to_document_query_row(item: Mapping[str, object]) -> Docume
         **raw,
         "dataset": dataset,
         "id": row_id,
-        "document_id": record_id if dataset == "materials" and record_id else None,
         "material_id": record_id if dataset == "materials" and record_id else None,
         "title": _clean_text(raw.get("title") or record_id or dataset) or "Structured record",
         "summary": _clean_text(raw.get("summary") or fields.get("summary") or fields.get("description")),

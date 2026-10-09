@@ -21,7 +21,7 @@ from ..llm.provider import get_chat_model
 from ..llm.config_loader import get_llm_config
 from ...settings.config import settings
 from ...models.base import SessionLocal
-from ...models.entities import Document
+from ...models.entities import Material
 from .candidate_contracts import FailureKind, ProviderObservation, ProviderStatus
 
 # Azure AI Search removed - it's for searching your own data, not web search
@@ -491,7 +491,7 @@ def filter_existing(results: List[SearchResult]) -> List[SearchResult]:
     with SessionLocal() as session:
         existing_urls = {
             row[0] for row in session.execute(
-                select(Document.uri).where(Document.uri.in_(urls))
+                select(Material.uri).where(Material.uri.in_(urls))
             ).all()
         }
     

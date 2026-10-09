@@ -11,6 +11,12 @@ export type WritingDraggedCardPayload = {
   sourceType: string
 }
 
+const MATERIAL_CARD_SOURCES = new Set(['material', 'resource', 'graph'])
+
+function validMaterialCardSource(value: unknown): value is string {
+  return typeof value === 'string' && MATERIAL_CARD_SOURCES.has(value)
+}
+
 export function toDraggedCardPayload(card: WritingKeywordCard | WritingKeywordCardPreview): WritingDraggedCardPayload {
   return {
     cardId: card.card_id,
@@ -18,7 +24,7 @@ export function toDraggedCardPayload(card: WritingKeywordCard | WritingKeywordCa
     snippet: card.snippet || '',
     url: card.url || null,
     publisher: card.publisher || null,
-    sourceType: card.source_type === 'document' ? 'material' : card.source_type,
+    sourceType: card.source_type,
   }
 }
 
@@ -30,7 +36,7 @@ export function toDraggedCardPreview(payload: WritingDraggedCardPayload): Writin
     publisher: payload.publisher || null,
     snippet: payload.snippet || '',
     score: 0,
-    source_type: (payload.sourceType === 'document' ? 'material' : payload.sourceType) as WritingKeywordCardPreview['source_type'],
+    source_type: payload.sourceType as WritingKeywordCardPreview['source_type'],
     quick_actions: [],
   }
 }
@@ -53,13 +59,14 @@ export function readDraggedCard(event: DragEvent): WritingDraggedCardPayload | n
   try {
     const parsed = JSON.parse(raw) as Partial<WritingDraggedCardPayload>
     if (!parsed.cardId || !parsed.title) return null
+    if (!validMaterialCardSource(parsed.sourceType)) return null
     return {
       cardId: parsed.cardId,
       title: parsed.title,
       snippet: parsed.snippet || '',
       url: parsed.url || null,
       publisher: parsed.publisher || null,
-      sourceType: !parsed.sourceType || parsed.sourceType === 'document' ? 'material' : parsed.sourceType,
+      sourceType: parsed.sourceType,
     }
   } catch {
     const fallbackCardId = raw.trim()

@@ -184,7 +184,7 @@ def _manifest(*, execution_mode: str = "http_api") -> dict[str, Any]:
         payload["runtime_config"] = runtime_config
     if execution_mode == "article_extractor":
         payload["normalization"] = {
-            "record_kind": "document_candidate",
+            "record_kind": "material_candidate",
             "frontdoor_strategy": "records_allow_extract",
         }
     return payload
@@ -405,7 +405,7 @@ def _prove_article_extraction_runner_contract() -> dict[str, Any]:
         "fallback_states": states,
         "article_body_record_state": result["records"][0]["record_meta"]["article_extraction"]["state"],
         "metadata_fallback_record_state": result["records"][1]["record_meta"]["article_extraction"]["state"],
-        "frontdoor_has_document_candidate": bool(response["frontdoor_ingress"]["collection_payload"].get("document_candidate")),
+        "frontdoor_has_material_candidate": bool(response["frontdoor_ingress"]["collection_payload"].get("material_candidate")),
         "frontdoor_dispatch_reason": response["frontdoor_ingress"]["collection_payload"]["dispatch_plan"]["reason"],
         "frontdoor_run_extraction": response["frontdoor_ingress"]["collection_payload"]["dispatch_plan"]["run_extraction"],
     }
@@ -560,7 +560,7 @@ def build_contract(*, live_replay_artifact: Path | None = None) -> Annotated[
         at_ext_status,
         "AT-EXT-06",
         "closed_narrow_v1",
-        ["runner records and article-body document candidates map into terminal_output -> frontdoor_ingress -> postprocess_frontdoor authority path"],
+        ["runner records and article-body material candidates map into terminal_output -> frontdoor_ingress -> postprocess_frontdoor authority path"],
     )
     _record_step(
         at_ext_status,
@@ -602,8 +602,8 @@ def build_contract(*, live_replay_artifact: Path | None = None) -> Annotated[
         failures.append("article_extraction_runner: provider binding missing")
     if article_runner.get("fallback_states") != ["article_body_extracted", "metadata_only_fallback"]:
         failures.append("article_extraction_runner: fallback states mismatch")
-    if article_runner.get("frontdoor_has_document_candidate") is not True:
-        failures.append("article_extraction_runner: frontdoor document candidate missing")
+    if article_runner.get("frontdoor_has_material_candidate") is not True:
+        failures.append("article_extraction_runner: frontdoor material candidate missing")
     if article_runner.get("frontdoor_run_extraction") is not False:
         failures.append("article_extraction_runner: frontdoor structured extraction should remain disabled")
     python_cli = evidence.get("python_cli_container_runner", {})

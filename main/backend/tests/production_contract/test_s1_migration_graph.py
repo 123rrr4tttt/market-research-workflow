@@ -16,7 +16,7 @@ MIGRATION_FILE = (
 )
 REVISION = "20260905_000001"
 PARENTS = ("20260525_000001", "20260831_000002", "20260903_000003")
-CURRENT_HEAD = "20260926_000001"
+CURRENT_HEAD = "20261009_000001"
 
 
 def _script_directory() -> ScriptDirectory:
@@ -50,7 +50,7 @@ def test_current_project_retrieval_revision_is_sole_head() -> None:
 
     assert script.get_heads() == [CURRENT_HEAD]
     revisions = _revisions()
-    assert revisions[CURRENT_HEAD].down_revision == "20260924_000001"
+    assert revisions[CURRENT_HEAD].down_revision == "20260926_000001"
     assert REVISION in _ancestors(CURRENT_HEAD, revisions)
 
 

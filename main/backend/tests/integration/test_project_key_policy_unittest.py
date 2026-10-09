@@ -453,11 +453,11 @@ class ProjectKeyPolicyTestCase(unittest.TestCase):
         body = resp.json()
         self.assertEqual(body["error"]["code"], ErrorCode.PROJECT_KEY_REQUIRED.value)
 
-    def test_resource_pool_extract_from_documents_missing_project_key_in_require_mode_fails(self):
+    def test_resource_pool_extract_from_materials_missing_project_key_in_require_mode_fails(self):
         client = TestClient(backend_app)
         with patch("app.api.resource_pool.get_effective_project_key_enforcement_mode", return_value="require"):
             resp = client.post(
-                "/api/v1/resource_pool/extract/from-documents",
+                "/api/v1/resource_pool/extract/from-materials",
                 json={"scope": "project", "filters": {}, "async_mode": False},
             )
         self.assertEqual(resp.status_code, 400)

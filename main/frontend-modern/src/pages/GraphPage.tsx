@@ -368,7 +368,7 @@ type FilterState = {
 
 type ProjectViewMode = ProjectGraphViewSpec['mode']
 
-type NodeRankStrategy = 'doc_body' | 'node_connectivity' | 'doc_id'
+type NodeRankStrategy = 'material_body' | 'node_connectivity' | 'material_id'
 
 type NodeCardAnchor = {
   left: number
@@ -850,8 +850,8 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
     central: RANK_WEIGHT_DEFAULT,
     neighbor: RANK_WEIGHT_DEFAULT,
   }))
-  const [rankingStrategy, setRankingStrategy] = useState<NodeRankStrategy>('doc_body')
-  const [appliedRankingStrategy, setAppliedRankingStrategy] = useState<NodeRankStrategy>('doc_body')
+  const [rankingStrategy, setRankingStrategy] = useState<NodeRankStrategy>('material_body')
+  const [appliedRankingStrategy, setAppliedRankingStrategy] = useState<NodeRankStrategy>('material_body')
   const adjacencyConnectedMapRef = useRef<Map<string, Set<string>>>(new Map())
   const dragFocusNodeKeyRef = useRef<string | null>(null)
   const nodeCardDragRef = useRef<{ active: boolean; offsetX: number; offsetY: number }>({ active: false, offsetX: 0, offsetY: 0 })
@@ -1400,7 +1400,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
 
   const docNodeTypeSetForBuilder = useMemo(() => {
     if (!templateBuilder) return new Set<string>()
-    const cfg = graphConfig.data?.graph_doc_types || {}
+    const cfg = graphConfig.data?.graph_material_types || {}
     const rawTypes = new Set<string>()
     Object.values(cfg).forEach((arr) => {
       if (!Array.isArray(arr)) return
@@ -1408,7 +1408,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
     })
     ;['Post', 'Policy', 'MarketData'].forEach((item) => rawTypes.add(normalizeNodeType(item)))
     return rawTypes
-  }, [templateBuilder, graphConfig.data?.graph_doc_types])
+  }, [templateBuilder, graphConfig.data?.graph_material_types])
 
   const topology = useMemo(() => {
     const nodes = effectiveGraphData.nodes || []
@@ -1531,10 +1531,10 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
         candidateKeys: new Set(orderedDocKeys),
       })
       const rankedPool = (() => {
-        if (appliedRankingStrategy === 'doc_body') {
+        if (appliedRankingStrategy === 'material_body') {
           return orderedDocKeys.length ? orderedDocKeys : ordered
         }
-        if (appliedRankingStrategy === 'doc_id') {
+        if (appliedRankingStrategy === 'material_id') {
           return orderedDocKeysById.length ? orderedDocKeysById : ordered
         }
         return ordered
@@ -5462,9 +5462,9 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
                     <label className="gv2-control-chip">
                       {t('graphPage.field.rankingStrategy')}
                       <select value={rankingStrategy} onChange={(e) => setRankingStrategy(e.target.value as NodeRankStrategy)}>
-                        <option value="doc_body">{t('graphPage.ranking.docBody')}</option>
+                        <option value="material_body">{t('graphPage.ranking.materialBody')}</option>
                         <option value="node_connectivity">{t('graphPage.ranking.nodeConnectivity')}</option>
-                        <option value="doc_id">{t('graphPage.ranking.docId')}</option>
+                        <option value="material_id">{t('graphPage.ranking.materialId')}</option>
                       </select>
                     </label>
                     <label className="gv2-control-chip">
@@ -5532,8 +5532,8 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
                             central: RANK_WEIGHT_DEFAULT,
                             neighbor: RANK_WEIGHT_DEFAULT,
                           })
-                          setRankingStrategy('doc_body')
-                          setAppliedRankingStrategy('doc_body')
+                          setRankingStrategy('material_body')
+                          setAppliedRankingStrategy('material_body')
                           setFilterApplyError('')
                           setStartDate('')
                           setEndDate('')

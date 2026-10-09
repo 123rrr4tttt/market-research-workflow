@@ -13,11 +13,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 pytestmark = [pytest.mark.contract, pytest.mark.mocked]
 
 try:
-    from fastapi import HTTPException
-    from fastapi.testclient import TestClient
-
     from app.contracts.errors import ErrorCode
     from app.main import app as backend_app
+    from fastapi import HTTPException
+    from fastapi.testclient import TestClient
 
     _IMPORT_ERROR = None
 except Exception as exc:  # noqa: BLE001
@@ -63,7 +62,10 @@ class _FakeDashboardSession:
         if self._execute_count == 10:
             return _FakeResult(scalar_value=2)  # task_failed
         if self._execute_count == 11:
-            rows = [SimpleNamespace(doc_type="policy", count=7), SimpleNamespace(doc_type="news", count=5)]
+            rows = [
+                SimpleNamespace(material_type="policy", count=7),
+                SimpleNamespace(material_type="news", count=5),
+            ]
             return _FakeResult(all_value=rows)
         if self._execute_count == 12:
             return _FakeResult(scalar_value=6)  # doc_with_extracted
@@ -146,11 +148,12 @@ class ApiGroupBCoreContractTestCase(unittest.TestCase):
 
     def test_admin_raw_import_async_success_contract(self):
         mock_delay = Mock(return_value=SimpleNamespace(id="admin-raw-import-task-1"))
-        fake_tasks_module = SimpleNamespace(task_raw_import_documents=SimpleNamespace(delay=mock_delay))
-
-        with patch("app.api.admin._tasks_module", return_value=fake_tasks_module):
+        with patch(
+            "app.services.tasks.raw_material_import_task_binding",
+            SimpleNamespace(delay=mock_delay),
+        ):
             resp = self.client.post(
-                "/api/v1/admin/documents/raw-import",
+                "/api/v1/admin/materials/raw-import",
                 headers=self.headers,
                 json={
                     "items": [{"text": "hello group b"}],
@@ -169,11 +172,12 @@ class ApiGroupBCoreContractTestCase(unittest.TestCase):
 
     def test_admin_raw_import_rate_limited_error_contract(self):
         mock_delay = Mock(side_effect=HTTPException(status_code=429, detail="too many requests"))
-        fake_tasks_module = SimpleNamespace(task_raw_import_documents=SimpleNamespace(delay=mock_delay))
-
-        with patch("app.api.admin._tasks_module", return_value=fake_tasks_module):
+        with patch(
+            "app.services.tasks.raw_material_import_task_binding",
+            SimpleNamespace(delay=mock_delay),
+        ):
             resp = self.client.post(
-                "/api/v1/admin/documents/raw-import",
+                "/api/v1/admin/materials/raw-import",
                 headers=self.headers,
                 json={
                     "items": [{"text": "hello group b"}],
@@ -190,26 +194,16 @@ class ApiGroupBCoreContractTestCase(unittest.TestCase):
         self.assertEqual(resp.headers.get("x-error-code"), ErrorCode.RATE_LIMITED.value)
 
     def test_dashboard_stats_success_contract(self):
-        topology_count = Mock(return_value=0)
-        with (
-            patch("app.api.dashboard.SessionLocal", return_value=_FakeSessionLocalOk()),
-            patch.object(
-                backend_app.state,
-                "information_topology_service",
-                SimpleNamespace(count_current_elements=topology_count),
-                create=True,
-            ),
-        ):
+        with patch("app.api.dashboard.SessionLocal", return_value=_FakeSessionLocalOk()):
             resp = self.client.get("/api/v1/dashboard/stats", headers=self.headers)
-        topology_count.assert_called_once_with(self.headers["X-Project-Key"], "material")
 
         self.assertEqual(resp.status_code, 200)
         body = resp.json()
         self._assert_envelope(body)
         self.assertEqual(body["status"], "ok")
         self.assertIsNone(body["error"])
-        self.assertEqual(body["data"]["documents"]["total"], 12)
-        self.assertEqual(body["data"]["documents"]["extraction_rate"], 50.0)
+        self.assertEqual(body["data"]["materials"]["total"], 12)
+        self.assertEqual(body["data"]["materials"]["extraction_rate"], 50.0)
         self.assertIsInstance(body["data"]["pending_actions"], list)
         pending_action_types = {item["type"] for item in body["data"]["pending_actions"]}
         self.assertIn("source_invalid", pending_action_types)

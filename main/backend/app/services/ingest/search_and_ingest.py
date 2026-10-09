@@ -35,7 +35,7 @@ class SearchMaterialWritePayload(TypedDict):
 
 @dataclass(frozen=True, slots=True)
 class SearchIngestTarget:
-    doc_type: str
+    material_type: str
     extraction_enabled: bool
     extraction_flags: Mapping[str, bool]
     extraction_mode: str = "default"
@@ -120,7 +120,7 @@ def build_search_material_payload(
     material = build_material_frontdoor_payload(
         prepared,
         target=MaterialTargetSpec(
-            doc_type=target.doc_type,
+            material_type=target.material_type,
             title=candidate.title or "",
             summary=candidate.snippet or "",
             publish_date=None,
@@ -140,16 +140,16 @@ def build_search_material_payload(
         ),
         extracted_data_base={"platform": candidate.source or provider, "keyword": candidate.keyword},
     )
-    document_candidate: dict[str, object] = dict(material["document_candidate"])
+    material_candidate: dict[str, object] = dict(material["material_candidate"])
     terminal_context: dict[str, object] = dict(material["terminal_context"])
     extraction_plan: dict[str, object] = dict(material["extraction_plan"])
-    document_candidate["source_base_url"] = source.base_url
+    material_candidate["source_base_url"] = source.base_url
     if legacy_payload_shape:
-        document_candidate["text_hash"] = None
+        material_candidate["text_hash"] = None
         extraction_plan.pop("mode", None)
         extraction_plan.pop("chunks", None)
     return {
-        "document_candidate": document_candidate,
+        "material_candidate": material_candidate,
         "terminal_context": terminal_context,
         "extraction_plan": extraction_plan,
     }

@@ -29,7 +29,6 @@ const NODE_DISPLAY_RULE: TopologyDisplayRule = {
 }
 
 export function topologyDisplayRule(typeId: string): TopologyDisplayRule {
-  if (typeId === 'document') return GENERIC_RULES.material
   return typeId.startsWith('node:') ? NODE_DISPLAY_RULE : GENERIC_RULES[typeId] || {
     contentFields: ['name', 'title', 'description'],
     fallbackLabel: '未命名拓扑元素',

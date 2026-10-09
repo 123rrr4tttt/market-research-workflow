@@ -42,11 +42,11 @@ async function mockOps(page: Page, options: { documentError?: boolean; runtimeRe
     if (path === '/api/v1/projects') return fulfill(route, [{ project_key: PROJECT_KEY, name: 'Mocked Ops Project', enabled: true, is_active: true }])
     if (path === '/api/v1/config/env') return fulfill(route, { variables: {} })
     if (path === '/api/v1/codex-auth/status') return fulfill(route, { authenticated: true })
-    if (path === '/api/v1/admin/stats') return fulfill(route, { documents: { total: 1, recent_today: 0 }, social_data: { total: 0 }, sources: { total: 0 }, search_history: { total: 0 } })
+    if (path === '/api/v1/admin/stats') return fulfill(route, { materials: { total: 1, recent_today: 0 }, social_data: { total: 0 }, sources: { total: 0 }, search_history: { total: 0 } })
     if (path === '/api/v1/admin/materials/list') {
       state.documentReads += 1
       if (options.documentError) return route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ status: 'error', error: { message: 'mocked document readback unavailable' } }) })
-      return fulfill(route, { items: [{ id: 101, title: state.completed ? 'Terminal task refreshed this document' : LONG_TITLE, uri: `https://example.test/${'long-path-'.repeat(20)}`, doc_type: 'report', state: 'ready', has_extracted_data: false }], total: 1, page: 1, page_size: 20 })
+      return fulfill(route, { items: [{ material_id: 101, title: state.completed ? 'Terminal task refreshed this material' : LONG_TITLE, uri: `https://example.test/${'long-path-'.repeat(20)}`, material_type: 'report', state: 'ready', has_extracted_data: false }], total: 1, page: 1, page_size: 20 })
     }
     if (['/api/v1/admin/materials/re-extract', '/api/v1/admin/materials/topic-extract'].includes(path)) {
       state.writes += 1
@@ -74,8 +74,8 @@ async function mockOps(page: Page, options: { documentError?: boolean; runtimeRe
         preview,
         task_id: preview ? 'not-an-executed-preview-task' : undefined,
         action_kind: 'bulk_structured_write',
-        source_query: { project_key: PROJECT_KEY, ids: [101] },
-        source_refs: [{ id: 'document:101', type: 'document' }],
+        source_query: { project_key: PROJECT_KEY, material_ids: [101] },
+        source_refs: [{ id: 'material:101', type: 'material', table: 'materials' }],
         trace_chain: { trace_id: 'mock-preview-only' },
         evidence_preview: { execution_result_available: false },
         would_affect_count: 1,
@@ -205,7 +205,7 @@ test('governance previews preserve nonexecution and missing execution evidence s
   await ops.getByRole('button', { name: 'Select Current Page', exact: true }).click()
   await ops.getByRole('button', { name: 'Show advanced details', exact: true }).click()
   await ops.getByRole('button', { name: 'Preview Bulk Write', exact: true }).click()
-  const preview = page.getByTestId('ops-document-governance-preview')
+  const preview = page.getByTestId('ops-material-governance-preview')
   await expect(preview).toBeVisible()
   await expect(preview).toContainText('Preview mode did not execute writes')
   await expect(page.getByTestId('task-submission-notice')).toHaveCount(0)

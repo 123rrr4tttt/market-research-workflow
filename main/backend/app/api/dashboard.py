@@ -1,41 +1,41 @@
 """仪表盘数据API"""
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
-from decimal import Decimal
-from typing import Literal, NoReturn, TypeAlias
-
-from fastapi import APIRouter, Query, HTTPException, Request
-from pydantic import BaseModel, Field, JsonValue, TypeAdapter, ValidationError
-from uuid import uuid4
-from sqlalchemy import select, func, and_, case
-from sqlalchemy.sql.elements import ColumnElement
-from sqlalchemy.orm import Session
-from sqlalchemy.exc import OperationalError, DatabaseError
-from datetime import datetime, date, timedelta
 import logging
 import re
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
+from datetime import date, datetime, timedelta
+from decimal import Decimal
+from typing import Literal, NoReturn, TypeAlias
+from uuid import uuid4
+
+from fastapi import APIRouter, HTTPException, Query, Request
+from pydantic import BaseModel, Field, JsonValue, TypeAdapter, ValidationError
+from sqlalchemy import and_, case, func, select
+from sqlalchemy.exc import DatabaseError, OperationalError
+from sqlalchemy.orm import Session
+from sqlalchemy.sql.elements import ColumnElement
 
 from ..contracts import ApiEnvelope, ErrorCode, error_response
 from ..contracts.responses import ok
 from ..models.base import SessionLocal
 from ..models.entities import (
-    Document,
-    Source,
-    SearchHistory,
     EtlJobRun,
     MarketMetricPoint,
-    Product,
+    Material,
     PriceObservation,
+    Product,
+    SearchHistory,
+    Source,
 )
-from ..services.graph.doc_types import resolve_graph_doc_types
 from ..services import document_queries
 from ..services.document_views import (
     get_social_platform_label,
     get_social_sentiment_orientation,
     get_social_sentiment_terms,
 )
+from ..services.graph.doc_types import resolve_graph_doc_types
 from ..services.llm_report_export import build_llm_report_export_artifact
 from ..services.llm_report_export_audit import (
     list_llm_report_export_audit_events_for_trace,
@@ -783,6 +783,7 @@ def _dashboard_project_key_from_request(
         request,
         fallback=lambda: settings.active_project_key or "default",
         explicit_project_key=explicit_project_key,
+        use_resolved_fallback=True,
     )
     return _normalize_dashboard_project_key(candidate)
 
@@ -966,7 +967,7 @@ def _dashboard_report_quality_trend_record(
     hard_failures = _dashboard_detail_list(gate.get("hard_failures"))
     soft_failures = _dashboard_detail_list(gate.get("soft_failures"))
     sanitized_artifact = _dashboard_detail_without_secret(export_artifact)
-    sanitized_artifact["document_id"] = document.get("id")
+    sanitized_artifact["doc_id"] = document.get("doc_id")
     return {
         "contract_version": "llm_report.quality_trend_metric.v1",
         "trace_id": trace_id,
@@ -1331,8 +1332,8 @@ def _dashboard_pending_action(
 
 def _build_dashboard_pending_actions(
     *,
-    doc_total: int,
-    doc_with_extracted: int,
+    material_total: int,
+    material_with_extracted: int,
     source_total: int,
     source_enabled: int,
     task_failed: int,
@@ -1405,8 +1406,11 @@ def _build_dashboard_pending_actions(
             )
         )
 
-    docs_without_extracted_data = max(0, int(doc_total or 0) - int(doc_with_extracted or 0))
-    if docs_without_extracted_data:
+    materials_without_extracted_data = max(
+        0,
+        int(material_total or 0) - int(material_with_extracted or 0),
+    )
+    if materials_without_extracted_data:
         actions.append(
             _dashboard_pending_action(
                 "report-reference-gap-extracted-data",
@@ -1414,11 +1418,11 @@ def _build_dashboard_pending_actions(
                 severity="medium",
                 title="Report grounding has insufficient extracted references",
                 detail=(
-                    f"{docs_without_extracted_data} document(s) do not expose extracted data, "
+                    f"{materials_without_extracted_data} material(s) do not expose extracted data, "
                     "which limits report citation and drilldown quality."
                 ),
-                source_metric="documents.extraction_rate",
-                source_ref="dashboard.stats.documents",
+                source_metric="materials.extraction_rate",
+                source_ref="dashboard.stats.materials",
                 filters={"extracted_data": "missing"},
                 suggested_action="Run extraction or enrich references before generating dashboard-filtered reports.",
             )
@@ -1595,28 +1599,22 @@ def get_global_stats():
 def get_dashboard_stats(request: Request):
     """获取仪表盘概览统计数据"""
     try:
-        project_key = _dashboard_project_key_from_request(request)
+        _dashboard_project_key_from_request(request)
         with SessionLocal() as session:
-            # 文档统计
-            doc_total = session.execute(select(func.count(Document.id))).scalar() or 0
-            topology_service = getattr(request.app.state, "information_topology_service", None)
-            topology_document_total = (
-                topology_service.count_current_elements(project_key, "material")
-                if topology_service is not None and hasattr(topology_service, "count_current_elements")
-                else 0
-            )
+            # Material statistics describe canonical material rows only.
+            material_total = session.execute(select(func.count(Material.id))).scalar() or 0
             today = datetime.now().date()
-            doc_recent_today = session.execute(
-                select(func.count(Document.id)).where(
-                    func.date(Document.created_at) == today
+            material_recent_today = session.execute(
+                select(func.count(Material.id)).where(
+                    func.date(Material.created_at) == today
                 )
             ).scalar() or 0
             
-            # 最近7天文档增长
+            # 最近7天材料增长
             seven_days_ago = today - timedelta(days=7)
-            doc_recent_7d = session.execute(
-                select(func.count(Document.id)).where(
-                    func.date(Document.created_at) >= seven_days_ago
+            material_recent_7d = session.execute(
+                select(func.count(Material.id)).where(
+                    func.date(Material.created_at) >= seven_days_ago
                 )
             ).scalar() or 0
             
@@ -1641,29 +1639,35 @@ def get_dashboard_stats(request: Request):
                 select(func.count(EtlJobRun.id)).where(EtlJobRun.status == "failed")
             ).scalar() or 0
             
-            # 文档类型分布
-            doc_type_dist = session.execute(
+            # 材料类型分布
+            material_type_dist = session.execute(
                 select(
-                    Document.doc_type,
-                    func.count(Document.id).label("count")
-                ).group_by(Document.doc_type)
+                    Material.material_type,
+                    func.count(Material.id).label("count")
+                ).group_by(Material.material_type)
             ).all()
-            doc_type_distribution = {row.doc_type: row.count for row in doc_type_dist}
+            material_type_distribution = {
+                row.material_type: row.count for row in material_type_dist
+            }
             
             # 结构化数据提取率
-            doc_with_extracted = session.execute(
-                select(func.count(Document.id)).where(
-                    document_queries.document_has_extracted_data_condition()
+            material_with_extracted = session.execute(
+                select(func.count(Material.id)).where(
+                    document_queries.material_has_extracted_data_condition()
                 )
             ).scalar() or 0
-            extraction_rate = (doc_with_extracted / doc_total * 100) if doc_total > 0 else 0
+            extraction_rate = (
+                material_with_extracted / material_total * 100
+                if material_total > 0
+                else 0
+            )
             frontdoor_tri_state_rows = session.execute(
                 select(EtlJobRun.params, EtlJobRun.status).where(EtlJobRun.params.isnot(None))
             ).all() or []
             frontdoor_tri_state = _build_frontdoor_tri_state_summary(frontdoor_tri_state_rows)
             pending_actions = _build_dashboard_pending_actions(
-                doc_total=int(doc_total or 0),
-                doc_with_extracted=int(doc_with_extracted or 0),
+                material_total=int(material_total or 0),
+                material_with_extracted=int(material_with_extracted or 0),
                 source_total=int(source_total or 0),
                 source_enabled=int(source_enabled or 0),
                 task_failed=int(task_failed or 0),
@@ -1671,18 +1675,16 @@ def get_dashboard_stats(request: Request):
             )
             
             return ok({
-                "documents": _with_dashboard_sources(
+                "materials": _with_dashboard_sources(
                     {
-                        "total": doc_total + topology_document_total,
-                        "table_total": doc_total,
-                        "topology_material_total": topology_document_total,
-                        "recent_today": doc_recent_today,
-                        "recent_7d": doc_recent_7d,
-                        "type_distribution": doc_type_distribution,
+                        "total": material_total,
+                        "recent_today": material_recent_today,
+                        "recent_7d": material_recent_7d,
+                        "type_distribution": material_type_distribution,
                         "extraction_rate": round(extraction_rate, 2),
                     },
-                    "documents",
-                    table="documents",
+                    "materials",
+                    table="materials",
                     metrics=[
                         "total",
                         "recent_today",
@@ -1690,8 +1692,8 @@ def get_dashboard_stats(request: Request):
                         "type_distribution",
                         "extraction_rate",
                     ],
-                    columns=["id", "created_at", "doc_type", "extracted_data"],
-                    detail="document_has_extracted_data_condition",
+                    columns=["material_id", "created_at", "material_type", "extracted_data"],
+                    detail="material_has_extracted_data_condition",
                 ),
                 "sources": _with_dashboard_sources(
                     {
@@ -1765,11 +1767,11 @@ def _isoformat_or_none(value: object) -> str | None:
     return str(value)
 
 
-def _serialize_document_drilldown_row(row: object) -> DashboardJsonObject:
+def _serialize_material_drilldown_row(row: object) -> DashboardJsonObject:
     return {
-        "id": getattr(row, "id", None),
+        "material_id": getattr(row, "id", None),
         "title": getattr(row, "title", None),
-        "doc_type": getattr(row, "doc_type", None),
+        "material_type": getattr(row, "material_type", None),
         "status": getattr(row, "status", None),
         "state": getattr(row, "state", None),
         "uri": getattr(row, "uri", None),
@@ -1814,12 +1816,12 @@ def _serialize_task_drilldown_row(row: object) -> DashboardJsonObject:
 
 
 _DASHBOARD_DRILLDOWN_ALIASES = {
-    "documents": "documents",
-    "documents.total": "documents",
-    "documents.recent_today": "documents",
-    "documents.recent_7d": "documents",
-    "documents.type_distribution": "documents",
-    "documents.extraction_rate": "documents",
+    "materials": "materials",
+    "materials.total": "materials",
+    "materials.recent_today": "materials",
+    "materials.recent_7d": "materials",
+    "materials.type_distribution": "materials",
+    "materials.extraction_rate": "materials",
     "sources": "sources",
     "sources.total": "sources",
     "sources.enabled": "sources",
@@ -1834,7 +1836,7 @@ _DASHBOARD_DRILLDOWN_ALIASES = {
 }
 
 DashboardDrilldownResource: TypeAlias = Literal[
-    "documents",
+    "materials",
     "sources",
     "search_history",
     "tasks",
@@ -1865,11 +1867,11 @@ def _normalize_dashboard_drilldown_key(value: str) -> str:
 
 
 def _dashboard_drilldown_config(metric: str) -> DashboardDrilldownConfig:
-    if metric == "documents":
+    if metric == "materials":
         return DashboardDrilldownConfig(
-            resource="documents",
-            table="documents",
-            columns=("id", "title", "doc_type", "status", "state", "uri", "source_id", "created_at"),
+            resource="materials",
+            table="materials",
+            columns=("material_id", "title", "material_type", "status", "state", "uri", "source_id", "created_at"),
             base_filters={},
         )
     if metric == "sources":
@@ -1907,11 +1909,11 @@ def _load_dashboard_drilldown_rows(
     *,
     limit: int,
 ) -> list[DashboardJsonObject]:
-    if config.resource == "documents":
+    if config.resource == "materials":
         rows = session.execute(
-            select(Document).order_by(Document.created_at.desc(), Document.id.desc()).limit(limit)
+            select(Material).order_by(Material.created_at.desc(), Material.id.desc()).limit(limit)
         ).scalars().all()
-        return [_serialize_document_drilldown_row(row) for row in rows]
+        return [_serialize_material_drilldown_row(row) for row in rows]
     if config.resource == "sources":
         rows = session.execute(
             select(Source).order_by(Source.updated_at.desc(), Source.id.desc()).limit(limit)
@@ -1931,8 +1933,8 @@ def _load_dashboard_drilldown_rows(
 
 @router.get("/drilldown", response_model=ApiEnvelope[DashboardJsonInput])
 def get_dashboard_drilldown(
-    metric: str | None = Query(None, description="Dashboard metric key, e.g. documents.total"),
-    source_ref: str | None = Query(None, description="Dashboard source ref id, e.g. dashboard.stats.documents"),
+    metric: str | None = Query(None, description="Dashboard metric key, e.g. materials.total"),
+    source_ref: str | None = Query(None, description="Dashboard source ref id, e.g. dashboard.stats.materials"),
     limit: int = Query(10, ge=1, le=50, description="Maximum sample rows to return"),
 ):
     """Return sample rows and filters for a dashboard metric/source ref."""
@@ -2127,6 +2129,10 @@ def create_dashboard_report_from_filter(payload: DashboardReportFromFilterReques
                 updated_by_user_id="dashboard.report_from_filter",
                 metadata_json=evidence_metadata,
             ))
+            if document.get("doc_id") is None:
+                document["doc_id"] = document.pop("id", None)
+            else:
+                document.pop("id", None)
     except ValueError as exc:
         return _error_json(
             400,
@@ -2158,15 +2164,16 @@ def create_dashboard_report_from_filter(payload: DashboardReportFromFilterReques
     except _DASHBOARD_RUNTIME_FAILURES:
         logger.exception("记录 dashboard report quality trend 失败")
 
-    report_id = f"writing_document:{document.get('id')}"
+    doc_id = document.get("doc_id")
+    report_id = f"writing_document:{doc_id}"
     return ok(
         {
             "contract_version": "dashboard.report_from_filter.v1",
             "report_id": report_id,
             "trace_id": report_trace_id,
             "request_id": report_request_id,
-            "draft_id": document.get("id"),
-            "document_id": document.get("id"),
+            "draft_id": doc_id,
+            "doc_id": doc_id,
             "title": document.get("title") or title,
             "status": document.get("status") or "draft",
             "filters": filters,
@@ -2178,7 +2185,7 @@ def create_dashboard_report_from_filter(payload: DashboardReportFromFilterReques
             "artifact": export_artifact,
             "actor_context": actor_context.to_observability(),
             "draft": {
-                "id": document.get("id"),
+                "doc_id": doc_id,
                 "report_id": report_id,
                 "title": document.get("title") or title,
                 "status": document.get("status") or "draft",
@@ -2202,31 +2209,31 @@ def get_document_analysis(
     with SessionLocal() as session:
         conditions: list[ColumnElement[bool]] = []
         if start:
-            conditions.append(func.date(Document.created_at) >= start)
+            conditions.append(func.date(Material.created_at) >= start)
         if end:
-            conditions.append(func.date(Document.created_at) <= end)
+            conditions.append(func.date(Material.created_at) <= end)
         
-        # 文档类型分布
+        # 材料类型分布
         type_query = select(
-            Document.doc_type,
-            func.count(Document.id).label("count")
-        ).group_by(Document.doc_type)
+            Material.material_type,
+            func.count(Material.id).label("count")
+        ).group_by(Material.material_type)
         if conditions:
             type_query = type_query.where(and_(*conditions))
         type_dist = session.execute(type_query).all()
         type_distribution = [
-            {"type": row.doc_type, "count": row.count}
+            {"material_type": row.material_type, "count": row.count}
             for row in type_dist
         ]
         
         # 文档增长趋势（按日期）
         growth_query = select(
-            func.date(Document.created_at).label("date"),
-            func.count(Document.id).label("count")
-        ).group_by(func.date(Document.created_at))
+            func.date(Material.created_at).label("date"),
+            func.count(Material.id).label("count")
+        ).group_by(func.date(Material.created_at))
         if conditions:
             growth_query = growth_query.where(and_(*conditions))
-        growth_query = growth_query.order_by(func.date(Document.created_at))
+        growth_query = growth_query.order_by(func.date(Material.created_at))
         growth_data = session.execute(growth_query).all()
         growth_trend = [
             {
@@ -2238,9 +2245,9 @@ def get_document_analysis(
         
         # 州分布
         state_query = select(
-            Document.state,
-            func.count(Document.id).label("count")
-        ).where(Document.state.isnot(None)).group_by(Document.state)
+            Material.state,
+            func.count(Material.id).label("count")
+        ).where(Material.state.isnot(None)).group_by(Material.state)
         if conditions:
             state_query = state_query.where(and_(*conditions))
         state_dist = session.execute(state_query).all()
@@ -2253,8 +2260,8 @@ def get_document_analysis(
         source_query = select(
             Source.name,
             Source.id,
-            func.count(Document.id).label("count")
-        ).join(Document, Source.id == Document.source_id, isouter=True)
+            func.count(Material.id).label("count")
+        ).join(Material, Source.id == Material.source_id, isouter=True)
         if conditions:
             source_query = source_query.where(and_(*conditions))
         source_query = source_query.group_by(Source.id, Source.name)
@@ -2266,18 +2273,18 @@ def get_document_analysis(
         
         # 结构化数据提取率（按类型）
         extraction_query = select(
-            Document.doc_type,
-            func.count(Document.id).label("total"),
+            Material.material_type,
+            func.count(Material.id).label("total"),
             func.sum(
-                document_queries.document_extracted_data_present_case()
+                document_queries.material_extracted_data_present_case()
             ).label("with_extracted")
-        ).group_by(Document.doc_type)
+        ).group_by(Material.material_type)
         if conditions:
             extraction_query = extraction_query.where(and_(*conditions))
         extraction_dist = session.execute(extraction_query).all()
         extraction_by_type = [
             {
-                "type": row.doc_type,
+                "material_type": row.material_type,
                 "total": row.total,
                 "with_extracted": row.with_extracted,
                 "rate": round((row.with_extracted / row.total * 100) if row.total > 0 else 0, 2),
@@ -2307,17 +2314,17 @@ def get_sentiment_analysis(
     social_doc_types = graph_doc_types.get("social") or ["social_sentiment", "social_feed"]
     with SessionLocal() as session:
         conditions: list[ColumnElement[bool]] = [
-            *document_queries.social_document_base_conditions(social_doc_types),
+            *document_queries.social_material_base_conditions(social_doc_types),
         ]
         
         if start:
             # 使用发布时间过滤，如果没有发布时间则使用创建时间
-            conditions.append(document_queries.document_publish_or_created_on_or_after_condition(start))
+            conditions.append(document_queries.material_publish_or_created_on_or_after_condition(start))
         if end:
             # 使用发布时间过滤，如果没有发布时间则使用创建时间
-            conditions.append(document_queries.document_publish_or_created_on_or_before_condition(end))
+            conditions.append(document_queries.material_publish_or_created_on_or_before_condition(end))
         
-        query = select(Document).where(and_(*conditions))
+        query = select(Material).where(and_(*conditions))
         docs = session.execute(query).scalars().all()
         
         # 情感分布统计
@@ -2403,7 +2410,7 @@ def get_sentiment_analysis(
             "platform_distribution": platform_distribution,
             "sentiment_trend": trend_series,
             "keyword_ranking": keyword_ranking_list,
-            "total_documents": len(docs),
+            "total_materials": len(docs),
         })
 
 
@@ -2423,17 +2430,17 @@ def get_sentiment_sources(
     social_doc_types = graph_doc_types.get("social") or ["social_sentiment", "social_feed"]
     with SessionLocal() as session:
         conditions: list[ColumnElement[bool]] = [
-            *document_queries.social_document_base_conditions(social_doc_types),
+            *document_queries.social_material_base_conditions(social_doc_types),
         ]
         
         if start:
             # 使用发布时间过滤，如果没有发布时间则使用创建时间
-            conditions.append(document_queries.document_publish_or_created_on_or_after_condition(start))
+            conditions.append(document_queries.material_publish_or_created_on_or_after_condition(start))
         if end:
             # 使用发布时间过滤，如果没有发布时间则使用创建时间
-            conditions.append(document_queries.document_publish_or_created_on_or_before_condition(end))
+            conditions.append(document_queries.material_publish_or_created_on_or_before_condition(end))
         
-        query = select(Document).where(and_(*conditions))
+        query = select(Material).where(and_(*conditions))
         docs = session.execute(query).scalars().all()
         
         # 根据情感和平台筛选
@@ -2465,7 +2472,7 @@ def get_sentiment_sources(
         sources: list[DashboardJsonObject] = []
         for doc in filtered_docs:
             sources.append({
-                "id": getattr(doc, "id", None),
+                "material_id": getattr(doc, "id", None),
                 "title": getattr(doc, "title", None) or "无标题",
                 "uri": getattr(doc, "uri", None),
                 "platform": get_social_platform_label(doc),

@@ -9,7 +9,7 @@ import logging
 from datetime import date, datetime
 from typing import TypeGuard
 
-from ....models.entities import Document
+from ....models.entities import Material
 from ..models import NormalizedSocialPost
 from ..mapping import normalize_graph_json_object
 from ...document_views import (
@@ -50,7 +50,7 @@ def _optional_string(value: object) -> str | None:
 class GenericSocialAdapter:
     """Generic adapter for social docs with sentiment data but no platform-specific format."""
 
-    def to_normalized(self, doc: Document) -> NormalizedSocialPost | None:
+    def to_normalized(self, doc: Material) -> NormalizedSocialPost | None:
         """
         Convert doc with sentiment to NormalizedSocialPost.
         Requires: extracted_data.sentiment and (text or content).
@@ -64,7 +64,7 @@ class GenericSocialAdapter:
 
         text = get_social_text(doc)
         if not text:
-            logger.debug("Document %s has no text content", doc.id)
+            logger.debug("Material %s has no text content", doc.id)
             return None
 
         platform = get_social_platform(doc)

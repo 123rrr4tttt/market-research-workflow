@@ -76,7 +76,7 @@ def _fallback_hit(*, query: str, state: str | None) -> WorkflowJsonObject:
         usedforsecurity=False,
     ).hexdigest()[:10]
     return {
-        "document_id": f"mock-{digest}",
+        "material_id": f"mock-{digest}",
         "score": 1.0,
         "title": f"Mock vector hit for: {query or 'empty-query'}",
         "summary": "fallback vector search result",

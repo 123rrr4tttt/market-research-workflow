@@ -11,30 +11,30 @@ if str(BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(BACKEND_ROOT))
 
 from app.services.document_queries import (  # noqa: E402
-    DOCUMENT_QUERY_CONTRACT_VERSION,
-    build_document_query,
-    build_document_query_result_envelope,
-    rows_for_document_views,
-    validate_document_query_result_envelope,
+    MATERIAL_QUERY_CONTRACT_VERSION,
+    build_material_query,
+    build_material_query_result_envelope,
+    rows_for_material_views,
+    validate_material_query_result_envelope,
 )
 from app.services.document_views import build_keyword_card_from_hybrid_row  # noqa: E402
 
 
 def main() -> int:
-    query = build_document_query(
+    query = build_material_query(
         "robotics policy",
-        consumer="checker.document_queries",
-        sources=("document",),
+        consumer="checker.material_queries",
+        sources=("material",),
         filters=({"field": "state", "op": "eq", "value": "CA"},),
         sort=({"field": "relevance", "direction": "desc"},),
         limit=3,
     )
-    envelope = build_document_query_result_envelope(
+    envelope = build_material_query_result_envelope(
         query,
         [
             {
                 "id": "doc-1",
-                "document_id": 1,
+                "material_id": 1,
                 "title": "Robotics policy note",
                 "summary": "Evidence for robotics policy pilots.",
                 "url": "https://example.org/robotics-policy",
@@ -43,10 +43,10 @@ def main() -> int:
             }
         ],
         source="deterministic_fixture",
-        result_source_type="document",
+        result_source_type="material",
     )
-    validate_document_query_result_envelope(envelope)
-    rows = rows_for_document_views(envelope)
+    validate_material_query_result_envelope(envelope)
+    rows = rows_for_material_views(envelope)
     card = build_keyword_card_from_hybrid_row(rows[0], normalized_query=query.normalized_query)
     checks = {
         "contract_version": envelope["data"]["contract_version"],
@@ -56,7 +56,7 @@ def main() -> int:
         "view_card_backend": card.extra.get("backend"),
     }
     passed = (
-        checks["contract_version"] == DOCUMENT_QUERY_CONTRACT_VERSION
+        checks["contract_version"] == MATERIAL_QUERY_CONTRACT_VERSION
         and checks["result_count"] == 1
         and checks["view_card_source_type"] == "material"
         and checks["view_card_backend"] == "deterministic_fixture"

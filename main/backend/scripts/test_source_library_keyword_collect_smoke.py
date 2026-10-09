@@ -149,9 +149,9 @@ def run_smoke() -> dict:
         "site_entries_used": len(result.site_entries_used or []),
         "candidates_found": len(result.candidates or []),
         "urls_written": result.written,
-        "documents_inserted": inserted,
-        "documents_inserted_valid": inserted_valid,
-        "documents_queued": queued,
+        "materials_inserted": inserted,
+        "materials_inserted_valid": inserted_valid,
+        "materials_queued": queued,
         "errors": result.errors,
         "thresholds": {
             "min_candidates": MIN_CANDIDATES,

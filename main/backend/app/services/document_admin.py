@@ -1,4 +1,4 @@
-"""Typed administration service for authoritative Document-backed resources.
+"""Typed administration service for authoritative Material-backed resources.
 
 This module owns the transaction boundary that historically lived in ``api.admin``.
 The ORM entities remain the facts; returned dictionaries are read-only wire projections.
@@ -19,7 +19,7 @@ from sqlalchemy.sql.elements import ColumnElement
 from typing_extensions import TypedDict
 
 from ..models.base import SessionLocal
-from ..models.entities import Document, SearchHistory, Source
+from ..models.entities import Material, SearchHistory, Source
 from .extraction.topic_workflow import (
     TOPIC_FIELDS,
     empty_topic_structured,
@@ -56,12 +56,12 @@ def optional_json_object(value: object, *, field: str) -> JsonObject | None:
     return parse_json_object(value, field=field)
 
 
-class _DocumentEntityRecord(BaseModel):
+class _MaterialEntityRecord(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
     title: str | None = None
-    doc_type: str | None = None
+    material_type: str | None = None
     state: str | None = None
     status: str | None = None
     publish_date: date | datetime | None = None
@@ -93,20 +93,19 @@ class _SearchHistoryEntityRecord(BaseModel):
     last_search_time: datetime | None = None
 
 
-class MutableDocumentEntity(Protocol):
+class MutableMaterialEntity(Protocol):
     id: int
     extracted_data: JsonValue
 
 
-class MutableContentDocumentEntity(MutableDocumentEntity, Protocol):
+class MutableContentMaterialEntity(MutableMaterialEntity, Protocol):
     content: str | None
 
 
-class AdminDocumentSnapshot(TypedDict):
-    id: int
+class AdminMaterialSnapshot(TypedDict):
     material_id: int
     title: str | None
-    doc_type: str | None
+    material_type: str | None
     state: str | None
     status: str | None
     publish_date: str | None
@@ -119,11 +118,10 @@ class AdminDocumentSnapshot(TypedDict):
     updated_at: str | None
 
 
-class AdminDocumentListItem(TypedDict):
-    id: int
+class AdminMaterialListItem(TypedDict):
     material_id: int
     title: str | None
-    doc_type: str | None
+    material_type: str | None
     state: str | None
     source_id: int | None
     uri: str | None
@@ -135,21 +133,20 @@ class AdminDocumentListItem(TypedDict):
     has_extracted_data: bool
 
 
-class AdminDocumentPage(TypedDict):
-    items: list[AdminDocumentListItem]
+class AdminMaterialPage(TypedDict):
+    items: list[AdminMaterialListItem]
     total: int
     page: int
     page_size: int
 
 
 class AdminExtractedDataResult(TypedDict):
-    id: int
     material_id: int
     extracted_data: JsonValue
 
 
 class AdminMutationError(TypedDict):
-    id: int
+    material_id: int
     error: str
 
 
@@ -159,13 +156,13 @@ class AdminBulkExtractedDataResult(TypedDict):
     skipped: int
     missing: list[int]
     errors: list[AdminMutationError]
-    readback: list[AdminDocumentSnapshot]  # Compatibility key: pre-mutation selection snapshot.
+    readback: list[AdminMaterialSnapshot]  # Compatibility key: pre-mutation selection snapshot.
 
 
-class AdminDeleteDocumentsResult(TypedDict):
+class AdminDeleteMaterialsResult(TypedDict):
     deleted: int
     missing: list[int]
-    readback: list[AdminDocumentSnapshot]  # Compatibility key: pre-mutation selection snapshot.
+    readback: list[AdminMaterialSnapshot]  # Compatibility key: pre-mutation selection snapshot.
 
 
 class AdminReextractResult(TypedDict):
@@ -177,7 +174,7 @@ class AdminReextractResult(TypedDict):
     batch_size: int
     treat_empty_er_as_missing: bool
     missing: list[int]
-    readback: list[AdminDocumentSnapshot]  # Compatibility key: pre-mutation selection snapshot.
+    readback: list[AdminMaterialSnapshot]  # Compatibility key: pre-mutation selection snapshot.
 
 
 TopicName = Literal["company", "product", "operation"]
@@ -207,13 +204,8 @@ class AdminRecentStatsCount(AdminStatsCount):
     recent_today: int
 
 
-class AdminDocumentStatsCount(AdminRecentStatsCount):
-    table_total: int
-    topology_material_total: int
-
-
 class AdminStatsResult(TypedDict):
-    documents: AdminDocumentStatsCount
+    materials: AdminRecentStatsCount
     social_data: AdminRecentStatsCount
     sources: AdminStatsCount
     search_history: AdminStatsCount
@@ -225,7 +217,7 @@ class AdminSourceItem(TypedDict):
     kind: str | None
     base_url: str | None
     enabled: bool
-    document_count: int
+    material_count: int
     created_at: str | None
 
 
@@ -262,11 +254,11 @@ class AdminGraphResult(TypedDict):
     edges: list[JsonObject]
 
 
-class AdminDocumentNotFoundError(LookupError):
+class AdminMaterialNotFoundError(LookupError):
     pass
 
 
-class AdminDocumentInputError(ValueError):
+class AdminMaterialInputError(ValueError):
     pass
 
 
@@ -286,11 +278,11 @@ class AdminGraphBuildError(RuntimeError):
 
 
 @dataclass(frozen=True)
-class AdminDocumentListQuery:
+class AdminMaterialListQuery:
     page: int
     page_size: int
     state: str | None = None
-    doc_type: str | None = None
+    material_type: str | None = None
     has_extracted_data: bool | None = None
     search: str | None = None
     sort_by: Literal["created_at", "publish_date", "id"] = "created_at"
@@ -303,7 +295,7 @@ class AdminSourceListQuery:
     page_size: int
     kind: str | None = None
     enabled: bool | None = None
-    sort_by: Literal["created_at", "id", "name", "document_count"] = "created_at"
+    sort_by: Literal["created_at", "id", "name", "material_count"] = "created_at"
     sort_order: Literal["asc", "desc"] = "desc"
 
 
@@ -326,7 +318,7 @@ class AdminExtractedDataCommand:
 
 @dataclass(frozen=True)
 class AdminReextractCommand:
-    doc_ids: list[int] | None
+    material_ids: list[int] | None
     force: bool
     fetch_missing_content: bool
     batch_size: int
@@ -338,8 +330,8 @@ class AdminReextractCommand:
 class AdminTopicExtractCommand:
     project_key: str
     topics: list[TopicName]
-    doc_ids: list[int] | None
-    doc_types: list[str] | None
+    material_ids: list[int] | None
+    material_types: list[str] | None
     force: bool
     fetch_missing_content: bool
     batch_size: int
@@ -376,43 +368,43 @@ class AdminTopicWorkflowRunner(Protocol):
 
 
 class AdminExtractedDataReader(Protocol):
-    def __call__(self, document: object) -> object: ...
+    def __call__(self, material: object) -> object: ...
 
 
 class AdminMarketGraphAugmenter(Protocol):
     def __call__(
         self,
         graph: Graph,
-        documents: Iterable[object],
+        materials: Iterable[object],
         topic_scope: TopicName | Literal[""] | None = None,
     ) -> None: ...
 
 
-def _document_record(value: object) -> _DocumentEntityRecord:
-    return _DocumentEntityRecord.model_validate(value, from_attributes=True)
+def _material_record(value: object) -> _MaterialEntityRecord:
+    return _MaterialEntityRecord.model_validate(value, from_attributes=True)
 
 
-def _is_mutable_document(value: object) -> TypeGuard[MutableDocumentEntity]:
+def _is_mutable_material(value: object) -> TypeGuard[MutableMaterialEntity]:
     try:
-        _document_record(value)
+        _material_record(value)
     except ValidationError:
         return False
     return hasattr(value, "extracted_data")
 
 
-def _mutable_document(value: object) -> MutableDocumentEntity:
-    if not _is_mutable_document(value):
-        raise TypeError("document admin writer received an incompatible Document entity")
+def _mutable_material(value: object) -> MutableMaterialEntity:
+    if not _is_mutable_material(value):
+        raise TypeError("material admin writer received an incompatible Material entity")
     return value
 
 
-def _is_mutable_content_document(value: object) -> TypeGuard[MutableContentDocumentEntity]:
-    return _is_mutable_document(value) and hasattr(value, "content")
+def _is_mutable_content_material(value: object) -> TypeGuard[MutableContentMaterialEntity]:
+    return _is_mutable_material(value) and hasattr(value, "content")
 
 
-def _mutable_content_document(value: object) -> MutableContentDocumentEntity:
-    if not _is_mutable_content_document(value):
-        raise TypeError("document admin writer received an entity without mutable content")
+def _mutable_content_material(value: object) -> MutableContentMaterialEntity:
+    if not _is_mutable_content_material(value):
+        raise TypeError("material admin writer received an entity without mutable content")
     return value
 
 
@@ -420,13 +412,12 @@ def _iso(value: date | datetime | None) -> str | None:
     return value.isoformat() if value is not None else None
 
 
-def document_snapshot(value: object) -> AdminDocumentSnapshot:
-    doc = _document_record(value)
+def material_snapshot(value: object) -> AdminMaterialSnapshot:
+    doc = _material_record(value)
     return {
-        "id": doc.id,
         "material_id": doc.id,
         "title": doc.title,
-        "doc_type": doc.doc_type,
+        "material_type": doc.material_type,
         "state": doc.state,
         "status": doc.status,
         "publish_date": _iso(doc.publish_date),
@@ -440,17 +431,16 @@ def document_snapshot(value: object) -> AdminDocumentSnapshot:
     }
 
 
-def document_snapshots(values: Iterable[object]) -> list[AdminDocumentSnapshot]:
-    return [document_snapshot(value) for value in values]
+def material_snapshots(values: Iterable[object]) -> list[AdminMaterialSnapshot]:
+    return [material_snapshot(value) for value in values]
 
 
-def _list_item(value: object) -> AdminDocumentListItem:
-    doc = _document_record(value)
+def _list_item(value: object) -> AdminMaterialListItem:
+    doc = _material_record(value)
     return {
-        "id": doc.id,
         "material_id": doc.id,
         "title": doc.title,
-        "doc_type": doc.doc_type,
+        "material_type": doc.material_type,
         "state": doc.state,
         "source_id": doc.source_id,
         "uri": doc.uri,
@@ -476,19 +466,19 @@ def get_admin_stats(project_key: str) -> AdminStatsResult:
     with bind_project(project_key):
         with SessionLocal() as session:
             today = datetime.now().date()
-            doc_total = int(session.execute(select(func.count(Document.id))).scalar() or 0)
-            doc_recent = int(
-                session.execute(select(func.count(Document.id)).where(func.date(Document.created_at) == today)).scalar()
+            material_total = int(session.execute(select(func.count(Material.id))).scalar() or 0)
+            material_recent = int(
+                session.execute(select(func.count(Material.id)).where(func.date(Material.created_at) == today)).scalar()
                 or 0
             )
             social_total = int(
-                session.execute(select(func.count(Document.id)).where(Document.doc_type == "social_sentiment")).scalar()
+                session.execute(select(func.count(Material.id)).where(Material.material_type == "social_sentiment")).scalar()
                 or 0
             )
             social_recent = int(
                 session.execute(
-                    select(func.count(Document.id)).where(
-                        and_(Document.doc_type == "social_sentiment", func.date(Document.created_at) == today)
+                    select(func.count(Material.id)).where(
+                        and_(Material.material_type == "social_sentiment", func.date(Material.created_at) == today)
                     )
                 ).scalar()
                 or 0
@@ -496,11 +486,9 @@ def get_admin_stats(project_key: str) -> AdminStatsResult:
             source_total = int(session.execute(select(func.count(Source.id))).scalar() or 0)
             history_total = int(session.execute(select(func.count(SearchHistory.id))).scalar() or 0)
     return {
-        "documents": {
-            "total": doc_total,
-            "table_total": doc_total,
-            "topology_material_total": 0,
-            "recent_today": doc_recent,
+        "materials": {
+            "total": material_total,
+            "recent_today": material_recent,
         },
         "social_data": {"total": social_total, "recent_today": social_recent},
         "sources": {"total": source_total},
@@ -508,98 +496,98 @@ def get_admin_stats(project_key: str) -> AdminStatsResult:
     }
 
 
-def list_admin_documents(project_key: str, query_spec: AdminDocumentListQuery) -> AdminDocumentPage:
-    from .document_queries import consumer_predicates as document_queries
+def list_admin_materials(project_key: str, query_spec: AdminMaterialListQuery) -> AdminMaterialPage:
+    from .document_queries import consumer_predicates
 
     with bind_project(project_key):
         with SessionLocal() as session:
             conditions: list[ColumnElement[bool]] = []
             if query_spec.state:
-                conditions.append(Document.state == query_spec.state.upper())
-            if query_spec.doc_type:
-                conditions.append(Document.doc_type == query_spec.doc_type)
+                conditions.append(Material.state == query_spec.state.upper())
+            if query_spec.material_type:
+                conditions.append(Material.material_type == query_spec.material_type)
             if query_spec.has_extracted_data is True:
-                conditions.append(document_queries.document_has_extracted_data_condition())
+                conditions.append(consumer_predicates.material_has_extracted_data_condition())
             elif query_spec.has_extracted_data is False:
-                conditions.append(document_queries.document_missing_extracted_data_condition())
+                conditions.append(consumer_predicates.material_missing_extracted_data_condition())
             if query_spec.search:
                 search_term = f"%{query_spec.search}%"
                 conditions.append(
                     or_(
-                        Document.title.ilike(search_term),
-                        Document.summary.ilike(search_term),
-                        Document.uri.ilike(search_term),
+                        Material.title.ilike(search_term),
+                        Material.summary.ilike(search_term),
+                        Material.uri.ilike(search_term),
                     )
                 )
 
-            total_stmt = select(func.count()).select_from(Document)
-            document_stmt = select(Document)
+            total_stmt = select(func.count()).select_from(Material)
+            material_stmt = select(Material)
             if conditions:
                 predicate = and_(*conditions)
                 total_stmt = total_stmt.where(predicate)
-                document_stmt = document_stmt.where(predicate)
+                material_stmt = material_stmt.where(predicate)
             total = int(session.execute(total_stmt).scalar() or 0)
 
             descending = query_spec.sort_order == "desc"
             if query_spec.sort_by == "publish_date":
-                primary = Document.publish_date.desc() if descending else Document.publish_date.asc()
-                secondary = Document.id.desc() if descending else Document.id.asc()
-                document_stmt = document_stmt.order_by(nullslast(primary), secondary)
+                primary = Material.publish_date.desc() if descending else Material.publish_date.asc()
+                secondary = Material.id.desc() if descending else Material.id.asc()
+                material_stmt = material_stmt.order_by(nullslast(primary), secondary)
             elif query_spec.sort_by == "id":
-                document_stmt = document_stmt.order_by(Document.id.desc() if descending else Document.id.asc())
+                material_stmt = material_stmt.order_by(Material.id.desc() if descending else Material.id.asc())
             else:
-                primary = Document.created_at.desc() if descending else Document.created_at.asc()
-                secondary = Document.id.desc() if descending else Document.id.asc()
-                document_stmt = document_stmt.order_by(primary, secondary)
+                primary = Material.created_at.desc() if descending else Material.created_at.asc()
+                secondary = Material.id.desc() if descending else Material.id.asc()
+                material_stmt = material_stmt.order_by(primary, secondary)
 
             offset = (query_spec.page - 1) * query_spec.page_size
-            rows = session.execute(document_stmt.offset(offset).limit(query_spec.page_size)).scalars().all()
+            rows = session.execute(material_stmt.offset(offset).limit(query_spec.page_size)).scalars().all()
             items = [_list_item(row) for row in rows]
     return {"items": items, "total": total, "page": query_spec.page, "page_size": query_spec.page_size}
 
 
-def get_admin_document(doc_id: int) -> AdminDocumentSnapshot | None:
+def get_admin_material(material_id: int) -> AdminMaterialSnapshot | None:
     with SessionLocal() as session:
-        row = session.execute(select(Document).where(Document.id == doc_id)).scalar_one_or_none()
-        return document_snapshot(row) if row is not None else None
+        row = session.execute(select(Material).where(Material.id == material_id)).scalar_one_or_none()
+        return material_snapshot(row) if row is not None else None
 
 
-def update_admin_document_extracted_data(
-    doc_id: int,
+def update_admin_material_extracted_data(
+    material_id: int,
     command: AdminExtractedDataCommand,
 ) -> AdminExtractedDataResult:
     with SessionLocal() as session:
-        row = session.execute(select(Document).where(Document.id == doc_id)).scalar_one_or_none()
+        row = session.execute(select(Material).where(Material.id == material_id)).scalar_one_or_none()
         if row is None:
-            raise AdminDocumentNotFoundError(str(doc_id))
-        doc = _mutable_document(row)
+            raise AdminMaterialNotFoundError(str(material_id))
+        doc = _mutable_material(row)
         if command.extracted_data is None:
             doc.extracted_data = None
         elif command.mode == "merge":
             base = doc.extracted_data or {}
             if not isinstance(base, dict) or not isinstance(command.extracted_data, dict):
-                raise AdminDocumentInputError("merge 模式要求 extracted_data 为 JSON 对象(dict)")
+                raise AdminMaterialInputError("merge 模式要求 extracted_data 为 JSON 对象(dict)")
             doc.extracted_data = deep_merge_json(base, command.extracted_data)
         else:
             doc.extracted_data = command.extracted_data
         session.commit()
-        return {"id": doc.id, "material_id": doc.id, "extracted_data": doc.extracted_data}
+        return {"material_id": doc.id, "extracted_data": doc.extracted_data}
 
 
-def bulk_update_admin_document_extracted_data(
-    doc_ids: list[int],
+def bulk_update_admin_material_extracted_data(
+    material_ids: list[int],
     command: AdminExtractedDataCommand,
 ) -> AdminBulkExtractedDataResult:
     updated = 0
     skipped = 0
     errors: list[AdminMutationError] = []
     with SessionLocal() as session:
-        rows = session.execute(select(Document).where(Document.id.in_(doc_ids))).scalars().all()
-        pre_mutation_docs = document_snapshots(rows)
-        found_ids = {item["id"] for item in pre_mutation_docs}
-        missing = [doc_id for doc_id in doc_ids if doc_id not in found_ids]
+        rows = session.execute(select(Material).where(Material.id.in_(material_ids))).scalars().all()
+        pre_mutation_docs = material_snapshots(rows)
+        found_ids = {item["material_id"] for item in pre_mutation_docs}
+        missing = [material_id for material_id in material_ids if material_id not in found_ids]
         for row in rows:
-            doc = _mutable_document(row)
+            doc = _mutable_material(row)
             try:
                 if command.extracted_data is None:
                     doc.extracted_data = None
@@ -607,7 +595,7 @@ def bulk_update_admin_document_extracted_data(
                     base = doc.extracted_data or {}
                     if not isinstance(base, dict) or not isinstance(command.extracted_data, dict):
                         skipped += 1
-                        errors.append({"id": doc.id, "error": "merge 模式要求 extracted_data 为 JSON 对象(dict)"})
+                        errors.append({"material_id": doc.id, "error": "merge 模式要求 extracted_data 为 JSON 对象(dict)"})
                         continue
                     doc.extracted_data = deep_merge_json(base, command.extracted_data)
                 else:
@@ -615,10 +603,10 @@ def bulk_update_admin_document_extracted_data(
                 updated += 1
             except Exception as exc:  # noqa: BLE001
                 skipped += 1
-                errors.append({"id": doc.id, "error": str(exc)})
+                errors.append({"material_id": doc.id, "error": str(exc)})
         session.commit()
     return {
-        "requested": len(doc_ids),
+        "requested": len(material_ids),
         "updated": updated,
         "skipped": skipped,
         "missing": missing,
@@ -627,26 +615,26 @@ def bulk_update_admin_document_extracted_data(
     }
 
 
-def preview_admin_documents(doc_ids: list[int]) -> list[AdminDocumentSnapshot]:
+def preview_admin_materials(material_ids: list[int]) -> list[AdminMaterialSnapshot]:
     with SessionLocal() as session:
-        rows = session.execute(select(Document).where(Document.id.in_(doc_ids))).scalars().all()
-        return document_snapshots(rows)
+        rows = session.execute(select(Material).where(Material.id.in_(material_ids))).scalars().all()
+        return material_snapshots(rows)
 
 
-def delete_admin_documents(doc_ids: list[int]) -> AdminDeleteDocumentsResult:
+def delete_admin_materials(material_ids: list[int]) -> AdminDeleteMaterialsResult:
     with SessionLocal() as session:
-        rows = session.execute(select(Document).where(Document.id.in_(doc_ids))).scalars().all()
-        pre_mutation_docs = document_snapshots(rows)
-        found_ids = {item["id"] for item in pre_mutation_docs}
-        missing = [doc_id for doc_id in doc_ids if doc_id not in found_ids]
+        rows = session.execute(select(Material).where(Material.id.in_(material_ids))).scalars().all()
+        pre_mutation_docs = material_snapshots(rows)
+        found_ids = {item["material_id"] for item in pre_mutation_docs}
+        missing = [material_id for material_id in material_ids if material_id not in found_ids]
         for row in rows:
             session.delete(row)
         session.commit()
     return {"deleted": len(rows), "missing": missing, "readback": pre_mutation_docs}
 
 
-def _reextract_plan(doc_type: str) -> JsonObject:
-    normalized = doc_type.strip().lower()
+def _reextract_plan(material_type: str) -> JsonObject:
+    normalized = material_type.strip().lower()
     return {
         "enabled": True,
         "mode": "admin_reextract",
@@ -668,13 +656,13 @@ def _has_entities_relations(extracted_data: JsonObject) -> bool:
     return bool(entities or relations)
 
 
-def _select_reextract_rows(session: Session, command: AdminReextractCommand) -> list[Document]:
+def _select_reextract_rows(session: Session, command: AdminReextractCommand) -> list[Material]:
     conditions: list[ColumnElement[bool]] = []
-    if command.doc_ids:
-        conditions.append(Document.id.in_(command.doc_ids))
+    if command.material_ids:
+        conditions.append(Material.id.in_(command.material_ids))
     if not command.fetch_missing_content:
-        conditions.append(Document.content.isnot(None))
-    stmt = select(Document)
+        conditions.append(Material.content.isnot(None))
+    stmt = select(Material)
     if conditions:
         stmt = stmt.where(and_(*conditions))
     if command.limit:
@@ -682,9 +670,9 @@ def _select_reextract_rows(session: Session, command: AdminReextractCommand) -> 
     rows = list(session.execute(stmt).scalars().all())
     if command.force:
         return rows
-    filtered: list[Document] = []
+    filtered: list[Material] = []
     for row in rows:
-        snapshot = document_snapshot(row)
+        snapshot = material_snapshot(row)
         raw_extracted = snapshot["extracted_data"]
         extracted = raw_extracted if isinstance(raw_extracted, dict) else {}
         if not extracted or (command.treat_empty_er_as_missing and not _has_entities_relations(extracted)):
@@ -692,12 +680,12 @@ def _select_reextract_rows(session: Session, command: AdminReextractCommand) -> 
     return filtered
 
 
-def preview_admin_reextract(command: AdminReextractCommand) -> list[AdminDocumentSnapshot]:
+def preview_admin_reextract(command: AdminReextractCommand) -> list[AdminMaterialSnapshot]:
     with SessionLocal() as session:
-        return document_snapshots(_select_reextract_rows(session, command))
+        return material_snapshots(_select_reextract_rows(session, command))
 
 
-def reextract_admin_documents(
+def reextract_admin_materials(
     command: AdminReextractCommand,
     *,
     extraction_runner: AdminExtractionRunner,
@@ -709,12 +697,12 @@ def reextract_admin_documents(
     skipped_count = 0
     with SessionLocal() as session:
         rows = _select_reextract_rows(session, command)
-        pre_mutation_docs = document_snapshots(rows)
-        selected_ids = {snapshot["id"] for snapshot in pre_mutation_docs}
+        pre_mutation_docs = material_snapshots(rows)
+        selected_ids = {snapshot["material_id"] for snapshot in pre_mutation_docs}
         pending = 0
         for row in rows:
-            doc = _mutable_content_document(row)
-            record = _document_record(row)
+            doc = _mutable_content_material(row)
+            record = _material_record(row)
             try:
                 content_text = (record.content or "").strip()
                 if not content_text and command.fetch_missing_content:
@@ -728,7 +716,7 @@ def reextract_admin_documents(
                                 content_text = fetched
                         except Exception as fetch_error:  # noqa: BLE001
                             logger.warning(
-                                "re_extract fetch_content failed doc_id=%s url=%s err=%s",
+                                "re_extract fetch_content failed material_id=%s url=%s err=%s",
                                 record.id,
                                 record.uri,
                                 fetch_error,
@@ -741,7 +729,7 @@ def reextract_admin_documents(
                 outcome_value = extraction_runner(
                     title=title_text,
                     content=text_for_extract,
-                    extraction_plan=_reextract_plan(record.doc_type or ""),
+                    extraction_plan=_reextract_plan(record.material_type or ""),
                 )
                 try:
                     outcome = parse_json_object(outcome_value, field="frontdoor_extraction_result")
@@ -779,14 +767,14 @@ def reextract_admin_documents(
                 success_count += 1
                 pending += 1
             except Exception as exc:  # noqa: BLE001
-                logger.warning("re_extract failed doc_id=%s err=%s", record.id, exc)
+                logger.warning("re_extract failed material_id=%s err=%s", record.id, exc)
                 error_count += 1
             if pending >= command.batch_size:
                 session.commit()
                 pending = 0
         session.commit()
-    requested = command.doc_ids or list(selected_ids)
-    missing = [doc_id for doc_id in requested if doc_id not in selected_ids]
+    requested = command.material_ids or list(selected_ids)
+    missing = [material_id for material_id in requested if material_id not in selected_ids]
     return {
         "total": len(pre_mutation_docs),
         "success": success_count,
@@ -802,7 +790,7 @@ def reextract_admin_documents(
 
 _TOPIC_FIELDS_ADAPTER = TypeAdapter(dict[TopicName, str])
 _TOPIC_FIELDS = _TOPIC_FIELDS_ADAPTER.validate_python(TOPIC_FIELDS, strict=True)
-_DEFAULT_TOPIC_DOC_TYPES = [
+_DEFAULT_TOPIC_MATERIAL_TYPES = [
     "market",
     "market_info",
     "policy",
@@ -896,25 +884,25 @@ def _topic_rule_score(
     return score
 
 
-def _select_topic_rows(session: Session, command: AdminTopicExtractCommand) -> list[Document]:
-    if command.doc_ids:
-        stmt = select(Document).where(Document.id.in_(command.doc_ids))
+def _select_topic_rows(session: Session, command: AdminTopicExtractCommand) -> list[Material]:
+    if command.material_ids:
+        stmt = select(Material).where(Material.id.in_(command.material_ids))
     else:
-        stmt = select(Document).where(Document.doc_type.in_(command.doc_types or _DEFAULT_TOPIC_DOC_TYPES))
+        stmt = select(Material).where(Material.material_type.in_(command.material_types or _DEFAULT_TOPIC_MATERIAL_TYPES))
     if command.limit:
         stmt = stmt.limit(command.limit)
     rows = list(session.execute(stmt).scalars().all())
     if command.force:
         return rows
-    selected: list[Document] = []
+    selected: list[Material] = []
     for row in rows:
-        extracted = _json_object_or_empty(_document_record(row).extracted_data)
+        extracted = _json_object_or_empty(_material_record(row).extracted_data)
         if any(not _topic_has_data(extracted.get(_TOPIC_FIELDS[topic])) for topic in command.topics):
             selected.append(row)
     return selected
 
 
-def topic_extract_admin_documents(
+def topic_extract_admin_materials(
     command: AdminTopicExtractCommand,
     *,
     dictionaries: JsonObject,
@@ -936,8 +924,8 @@ def topic_extract_admin_documents(
             pending = 0
             for row in rows:
                 processed += 1
-                doc = _mutable_content_document(row)
-                record = _document_record(row)
+                doc = _mutable_content_material(row)
+                record = _material_record(row)
                 try:
                     content_text = (record.content or "").strip()
                     if not content_text and command.fetch_missing_content:
@@ -951,7 +939,7 @@ def topic_extract_admin_documents(
                                     content_text = fetched
                             except Exception as fetch_error:  # noqa: BLE001
                                 logger.warning(
-                                    "topic_extract fetch_content failed doc_id=%s err=%s",
+                                    "topic_extract fetch_content failed material_id=%s err=%s",
                                     record.id,
                                     fetch_error,
                                 )
@@ -1022,7 +1010,7 @@ def topic_extract_admin_documents(
                         skipped_count += 1
                     pending += 1
                 except Exception as exc:  # noqa: BLE001
-                    logger.warning("topic_extract failed doc_id=%s err=%s", record.id, exc)
+                    logger.warning("topic_extract failed material_id=%s err=%s", record.id, exc)
                     error_count += 1
                 if pending >= command.batch_size:
                     session.commit()
@@ -1051,7 +1039,7 @@ def topic_extract_admin_documents(
 
 def augment_market_graph_with_topic_structured(
     graph: Graph,
-    documents: Iterable[object],
+    materials: Iterable[object],
     *,
     extracted_data_reader: AdminExtractedDataReader,
     topic_scope: TopicName | Literal[""] | None = None,
@@ -1174,14 +1162,14 @@ def augment_market_graph_with_topic_structured(
         else ["company_structured", "product_structured", "operation_structured"]
     )
 
-    for document in documents:
-        record = _document_record(document)
+    for material in materials:
+        record = _material_record(material)
         market_node = graph.nodes.get(f"MarketData:{record.id}")
         if market_node is None:
             continue
         market_backbone: GraphNode = market_node
-        extracted_value = extracted_data_reader(document)
-        extracted = parse_json_object(extracted_value, field="document.extracted_data")
+        extracted_value = extracted_data_reader(material)
+        extracted = parse_json_object(extracted_value, field="material.extracted_data")
         entity_registry: dict[tuple[str, str], tuple[str, str]] = {}
 
         def ensure_unified_topic_entity(
@@ -1318,7 +1306,7 @@ def _finalize_admin_graph(
     graph_kind: Literal["social", "market", "policy"],
     project_key: str,
     session: Session,
-    documents: list[Document] | None = None,
+    materials: list[Material] | None = None,
     market_deep_view: bool = False,
     topic_scope: TopicName | None = None,
     market_graph_augmenter: AdminMarketGraphAugmenter | None = None,
@@ -1339,7 +1327,7 @@ def _finalize_admin_graph(
         try:
             market_graph_augmenter(
                 graph,
-                documents or [],
+                materials or [],
                 topic_scope,
             )
         except Exception as exc:  # noqa: BLE001
@@ -1414,16 +1402,16 @@ def _finalize_admin_graph(
     return _export_graph(finalized_graph)
 
 
-def export_admin_graph(doc_ids: list[int]) -> AdminGraphResult:
-    from .graph.adapters import normalize_document
+def export_admin_graph(material_ids: list[int]) -> AdminGraphResult:
+    from .graph.adapters import normalize_material
     from .graph.builder import build_graph
     from .graph.models import NormalizedSocialPost
 
     with SessionLocal() as session:
         rows = list(
             session.execute(
-                select(Document).where(
-                    and_(Document.doc_type == "social_sentiment", Document.id.in_(doc_ids))
+                select(Material).where(
+                    and_(Material.material_type == "social_sentiment", Material.id.in_(material_ids))
                 )
             ).scalars().all()
         )
@@ -1431,7 +1419,7 @@ def export_admin_graph(doc_ids: list[int]) -> AdminGraphResult:
             raise AdminGraphNotFoundError("未找到指定的文档")
         posts: list[NormalizedSocialPost] = []
         for row in rows:
-            normalized = normalize_document(row)
+            normalized = normalize_material(row)
             if normalized is not None:
                 posts.append(normalized)
         if not posts:
@@ -1448,20 +1436,20 @@ def get_admin_content_graph(
     topic: str | None,
     limit: int,
 ) -> AdminGraphResult:
-    from .document_queries import consumer_predicates as document_queries
-    from .graph.adapters import normalize_document
+    from .document_queries import consumer_predicates
+    from .graph.adapters import normalize_material
     from .graph.builder import build_graph, build_topic_subgraph
     from .graph.models import NormalizedSocialPost
 
     with bind_project(project_key):
         with SessionLocal() as session:
-            conditions: list[ColumnElement[bool]] = [document_queries.content_graph_structured_condition()]
+            conditions: list[ColumnElement[bool]] = [consumer_predicates.content_graph_structured_condition()]
             if start_date is not None:
-                conditions.append(document_queries.document_publish_or_created_on_or_after_condition(start_date))
+                conditions.append(consumer_predicates.material_publish_or_created_on_or_after_condition(start_date))
             if end_date is not None:
-                conditions.append(document_queries.document_publish_or_created_on_or_before_condition(end_date))
+                conditions.append(consumer_predicates.material_publish_or_created_on_or_before_condition(end_date))
             rows = list(
-                session.execute(select(Document).where(and_(*conditions)).limit(limit)).scalars().all()
+                session.execute(select(Material).where(and_(*conditions)).limit(limit)).scalars().all()
             )
             logger.info("查询到 %s 条文档", len(rows))
             posts: list[NormalizedSocialPost] = []
@@ -1474,18 +1462,18 @@ def get_admin_content_graph(
                         continue
                 if topic:
                     sentiment_value = get_social_sentiment(row)
-                    sentiment = parse_json_object(sentiment_value, field="document.social_sentiment")
+                    sentiment = parse_json_object(sentiment_value, field="material.social_sentiment")
                     if topic.lower() not in str(sentiment.get("topic") or "").lower():
                         skipped_count += 1
                         continue
                 try:
-                    normalized = normalize_document(row)
+                    normalized = normalize_material(row)
                     if normalized is None:
                         skipped_count += 1
                     else:
                         posts.append(normalized)
                 except Exception as exc:  # noqa: BLE001
-                    logger.warning("规范化文档 %s 失败: %s", _document_record(row).id, exc)
+                    logger.warning("规范化文档 %s 失败: %s", _material_record(row).id, exc)
                     skipped_count += 1
             logger.info("规范化成功: %s, 跳过: %s", len(posts), skipped_count)
             if not posts:
@@ -1520,7 +1508,7 @@ def get_admin_market_graph(
     limit: int,
     market_graph_augmenter: AdminMarketGraphAugmenter,
 ) -> AdminGraphResult:
-    from .document_queries import consumer_predicates as document_queries
+    from .document_queries import consumer_predicates
     from .graph.adapters.market import MarketAdapter
     from .graph.builder import build_market_graph
     from .graph.models import NormalizedMarketData
@@ -1528,27 +1516,27 @@ def get_admin_market_graph(
     with bind_project(project_key):
         with SessionLocal() as session:
             conditions: list[ColumnElement[bool]] = [
-                document_queries.market_graph_structured_condition(
+                consumer_predicates.market_graph_structured_condition(
                     deep_view=deep_view,
                     topic_scope=topic_scope,
                 )
             ]
             if state:
-                conditions.append(document_queries.market_state_condition(state))
+                conditions.append(consumer_predicates.market_state_condition(state))
             if game:
-                conditions.append(document_queries.market_game_condition(game))
+                conditions.append(consumer_predicates.market_game_condition(game))
             if start_date is not None:
                 conditions.append(
-                    document_queries.market_publish_created_or_report_on_or_after_condition(start_date)
+                    consumer_predicates.market_publish_created_or_report_on_or_after_condition(start_date)
                 )
             if end_date is not None:
                 conditions.append(
-                    document_queries.market_publish_created_or_report_on_or_before_condition(end_date)
+                    consumer_predicates.market_publish_created_or_report_on_or_before_condition(end_date)
                 )
             stmt = (
-                select(Document)
+                select(Material)
                 .where(and_(*conditions))
-                .order_by(Document.publish_date.desc().nullslast(), Document.created_at.desc())
+                .order_by(Material.publish_date.desc().nullslast(), Material.created_at.desc())
                 .limit(limit)
             )
             rows = list(session.execute(stmt).scalars().all())
@@ -1559,7 +1547,7 @@ def get_admin_market_graph(
             for row in rows:
                 if game:
                     market_value = get_market_data(row)
-                    market = parse_json_object(market_value, field="document.market")
+                    market = parse_json_object(market_value, field="material.market")
                     if game.lower() not in str(market.get("game") or "").lower():
                         skipped_count += 1
                         continue
@@ -1570,7 +1558,7 @@ def get_admin_market_graph(
                     else:
                         normalized_rows.append(normalized)
                 except Exception as exc:  # noqa: BLE001
-                    logger.warning("规范化文档 %s 失败: %s", _document_record(row).id, exc)
+                    logger.warning("规范化文档 %s 失败: %s", _material_record(row).id, exc)
                     skipped_count += 1
             logger.info("规范化成功: %s, 跳过: %s", len(normalized_rows), skipped_count)
             if not normalized_rows:
@@ -1584,14 +1572,14 @@ def get_admin_market_graph(
                 graph_kind="market",
                 project_key=project_key,
                 session=session,
-                documents=rows,
+                materials=rows,
                 market_deep_view=deep_view,
                 topic_scope=topic_scope,
                 market_graph_augmenter=market_graph_augmenter,
             )
 
 
-def _record_dates(record: _DocumentEntityRecord, policy_data: JsonObject) -> list[date]:
+def _record_dates(record: _MaterialEntityRecord, policy_data: JsonObject) -> list[date]:
     dates: list[date] = []
     if record.publish_date is not None:
         dates.append(record.publish_date.date() if isinstance(record.publish_date, datetime) else record.publish_date)
@@ -1615,22 +1603,22 @@ def get_admin_policy_graph(
     policy_type: str | None,
     limit: int,
 ) -> AdminGraphResult:
-    from .document_queries import consumer_predicates as document_queries
+    from .document_queries import consumer_predicates
     from .graph.adapters.policy import PolicyAdapter
     from .graph.builder import build_policy_graph
     from .graph.models import NormalizedPolicyData
 
     with bind_project(project_key):
         with SessionLocal() as session:
-            conditions: list[ColumnElement[bool]] = [document_queries.policy_graph_has_data_condition()]
+            conditions: list[ColumnElement[bool]] = [consumer_predicates.policy_graph_has_data_condition()]
             if state:
-                conditions.append(document_queries.policy_graph_state_condition(state))
+                conditions.append(consumer_predicates.policy_graph_state_condition(state))
             if policy_type:
-                conditions.append(document_queries.policy_graph_type_ilike_condition(policy_type))
+                conditions.append(consumer_predicates.policy_graph_type_ilike_condition(policy_type))
             stmt = (
-                select(Document)
+                select(Material)
                 .where(and_(*conditions))
-                .order_by(Document.publish_date.desc().nullslast(), Document.created_at.desc())
+                .order_by(Material.publish_date.desc().nullslast(), Material.created_at.desc())
                 .limit(min(limit * 3, 6000))
             )
             rows = list(session.execute(stmt).scalars().all())
@@ -1639,9 +1627,9 @@ def get_admin_policy_graph(
             normalized_rows: list[NormalizedPolicyData] = []
             skipped_count = 0
             for row in rows:
-                record = _document_record(row)
+                record = _material_record(row)
                 policy_value = get_policy_data(row)
-                policy_data = parse_json_object(policy_value, field="document.policy")
+                policy_data = parse_json_object(policy_value, field="material.policy")
                 candidate_dates = _record_dates(record, policy_data)
                 if start_date is not None and not any(value >= start_date for value in candidate_dates):
                     skipped_count += 1
@@ -1706,9 +1694,9 @@ def list_admin_sources(query_spec: AdminSourceListQuery) -> AdminSourcePage:
         counts: dict[int, int] = {}
         for record in records:
             counts[record.id] = int(
-                session.execute(select(func.count(Document.id)).where(Document.source_id == record.id)).scalar() or 0
+                session.execute(select(func.count(Material.id)).where(Material.source_id == record.id)).scalar() or 0
             )
-        if query_spec.sort_by == "document_count":
+        if query_spec.sort_by == "material_count":
             records.sort(key=lambda source: counts.get(source.id, 0), reverse=descending)
         offset = (query_spec.page - 1) * query_spec.page_size
         selected = records[offset : offset + query_spec.page_size]
@@ -1719,7 +1707,7 @@ def list_admin_sources(query_spec: AdminSourceListQuery) -> AdminSourcePage:
                 "kind": source.kind,
                 "base_url": source.base_url,
                 "enabled": source.enabled,
-                "document_count": counts.get(source.id, 0),
+                "material_count": counts.get(source.id, 0),
                 "created_at": _iso(source.created_at),
             }
             for source in selected
@@ -1732,42 +1720,42 @@ def list_admin_social_data(
     *,
     projector: Callable[[object], object],
 ) -> AdminSocialDataPage:
-    from .document_queries import consumer_predicates as document_queries
+    from .document_queries import consumer_predicates
 
     with SessionLocal() as session:
-        conditions: list[ColumnElement[bool]] = [Document.doc_type == "social_sentiment"]
+        conditions: list[ColumnElement[bool]] = [Material.material_type == "social_sentiment"]
         if query_spec.platform:
-            conditions.append(document_queries.social_platform_condition(query_spec.platform))
+            conditions.append(consumer_predicates.social_platform_condition(query_spec.platform))
         if query_spec.sentiment_orientation:
             conditions.append(
-                document_queries.social_sentiment_orientation_condition(query_spec.sentiment_orientation)
+                consumer_predicates.social_sentiment_orientation_condition(query_spec.sentiment_orientation)
             )
         if query_spec.search:
             search_term = f"%{query_spec.search}%"
             conditions.append(
                 or_(
-                    Document.title.ilike(search_term),
-                    Document.summary.ilike(search_term),
-                    Document.content.ilike(search_term),
-                    Document.uri.ilike(search_term),
+                    Material.title.ilike(search_term),
+                    Material.summary.ilike(search_term),
+                    Material.content.ilike(search_term),
+                    Material.uri.ilike(search_term),
                 )
             )
         predicate = and_(*conditions)
-        total = int(session.execute(select(func.count()).select_from(Document).where(predicate)).scalar() or 0)
-        document_stmt = select(Document).where(predicate)
+        total = int(session.execute(select(func.count()).select_from(Material).where(predicate)).scalar() or 0)
+        material_stmt = select(Material).where(predicate)
         descending = query_spec.sort_order == "desc"
         if query_spec.sort_by == "publish_date":
-            primary = Document.publish_date.desc() if descending else Document.publish_date.asc()
-            secondary = Document.id.desc() if descending else Document.id.asc()
-            document_stmt = document_stmt.order_by(nullslast(primary), secondary)
+            primary = Material.publish_date.desc() if descending else Material.publish_date.asc()
+            secondary = Material.id.desc() if descending else Material.id.asc()
+            material_stmt = material_stmt.order_by(nullslast(primary), secondary)
         elif query_spec.sort_by == "id":
-            document_stmt = document_stmt.order_by(Document.id.desc() if descending else Document.id.asc())
+            material_stmt = material_stmt.order_by(Material.id.desc() if descending else Material.id.asc())
         else:
-            primary = Document.created_at.desc() if descending else Document.created_at.asc()
-            secondary = Document.id.desc() if descending else Document.id.asc()
-            document_stmt = document_stmt.order_by(primary, secondary)
+            primary = Material.created_at.desc() if descending else Material.created_at.asc()
+            secondary = Material.id.desc() if descending else Material.id.asc()
+            material_stmt = material_stmt.order_by(primary, secondary)
         offset = (query_spec.page - 1) * query_spec.page_size
-        rows = session.execute(document_stmt.offset(offset).limit(query_spec.page_size)).scalars().all()
+        rows = session.execute(material_stmt.offset(offset).limit(query_spec.page_size)).scalars().all()
         items = [parse_json_object(projector(row), field="social_data_item") for row in rows]
     return {"items": items, "total": total, "page": query_spec.page, "page_size": query_spec.page_size}
 
@@ -1793,12 +1781,12 @@ def list_admin_search_history(project_key: str, *, page: int, page_size: int) ->
 
 __all__ = [
     "AdminBulkExtractedDataResult",
-    "AdminDeleteDocumentsResult",
-    "AdminDocumentInputError",
-    "AdminDocumentPage",
-    "AdminDocumentListQuery",
-    "AdminDocumentNotFoundError",
-    "AdminDocumentSnapshot",
+    "AdminDeleteMaterialsResult",
+    "AdminMaterialInputError",
+    "AdminMaterialPage",
+    "AdminMaterialListQuery",
+    "AdminMaterialNotFoundError",
+    "AdminMaterialSnapshot",
     "AdminExtractedDataCommand",
     "AdminExtractedDataResult",
     "AdminGraphBuildError",
@@ -1818,26 +1806,26 @@ __all__ = [
     "JsonObject",
     "TopicName",
     "augment_market_graph_with_topic_structured",
-    "bulk_update_admin_document_extracted_data",
+    "bulk_update_admin_material_extracted_data",
     "deep_merge_json",
-    "delete_admin_documents",
-    "document_snapshot",
-    "document_snapshots",
+    "delete_admin_materials",
+    "material_snapshot",
+    "material_snapshots",
     "export_admin_graph",
     "get_admin_content_graph",
-    "get_admin_document",
+    "get_admin_material",
     "get_admin_market_graph",
     "get_admin_policy_graph",
     "get_admin_stats",
-    "list_admin_documents",
+    "list_admin_materials",
     "list_admin_search_history",
     "list_admin_social_data",
     "list_admin_sources",
     "optional_json_object",
     "parse_json_object",
-    "preview_admin_documents",
+    "preview_admin_materials",
     "preview_admin_reextract",
-    "reextract_admin_documents",
-    "topic_extract_admin_documents",
-    "update_admin_document_extracted_data",
+    "reextract_admin_materials",
+    "topic_extract_admin_materials",
+    "update_admin_material_extracted_data",
 ]

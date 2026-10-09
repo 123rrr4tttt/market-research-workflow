@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from contextlib import contextmanager
-from typing import Any, Literal
+from typing import Any, Literal, TypeGuard
 
 from fastapi import APIRouter, HTTPException, Query, Request, Response
 from pydantic import BaseModel, Field
@@ -20,6 +20,7 @@ from ..contracts.schemas.writing import (
     TemplateValidateRequest,
     TemplateValidateResponse,
     WritingCitationListData,
+    WritingCitationUpsertItem,
     WritingDocumentData,
     WritingDocumentDeleteData,
     WritingDocumentDraftData,
@@ -80,7 +81,7 @@ class WritingDraftAutosaveRequest(BaseModel):
 
 class WritingCitationUpsertRequest(BaseModel):
     project_key: str | None = Field(default=None, max_length=64)
-    citations: list[dict[str, Any]] = Field(default_factory=list)
+    citations: list[WritingCitationUpsertItem] = Field(default_factory=list)
 
 
 class WritingExportMarkdownRequest(BaseModel):
@@ -125,13 +126,28 @@ def _handle_not_found(exc: KeyError) -> HTTPException:
     return HTTPException(status_code=404, detail=error_response(ErrorCode.NOT_FOUND, str(exc)))
 
 
+def _writing_document_payload(value: dict[str, Any]) -> dict[str, Any]:
+    """Expose the writing document's own identifier without material aliases."""
+    payload = dict(value)
+    payload["doc_id"] = payload.pop("id", payload.get("doc_id"))
+    return payload
+
+
+def _is_writing_payload(value: object) -> TypeGuard[dict[str, Any]]:
+    return isinstance(value, dict)
+
+
 def _handle_conflict(exc: WritingVersionConflictError) -> HTTPException:
+    details = dict(exc.server_snapshot)
+    snapshot = details.get("server_snapshot")
+    if _is_writing_payload(snapshot):
+        details["server_snapshot"] = _writing_document_payload(snapshot)
     return HTTPException(
         status_code=409,
         detail=error_response(
             ErrorCode.INVALID_INPUT,
             "writing document version conflict",
-            details=exc.server_snapshot,
+            details=details,
         ),
     )
 
@@ -160,7 +176,14 @@ def _writing_project_context(project_key: str):
 def list_writing_documents(request: Request, project_key: str | None = Query(default=None), limit: int = Query(default=50, ge=1, le=100)):
     resolved_project_key = _resolve_project_key(project_key, request=request)
     with _writing_project_context(resolved_project_key):
-        return success_response({"items": list_documents(project_key=resolved_project_key, limit=limit)})
+        return success_response(
+            {
+                "items": [
+                    _writing_document_payload(document)
+                    for document in list_documents(project_key=resolved_project_key, limit=limit)
+                ]
+            }
+        )
 
 
 @router.post(
@@ -172,12 +195,14 @@ def create_writing_document(payload: WritingDocumentCreateRequest, request: Requ
     resolved_project_key = _resolve_project_key(payload.project_key, request=request)
     with _writing_project_context(resolved_project_key):
         return success_response(
-            create_document(
-                project_key=resolved_project_key,
-                title=payload.title,
-                body_md=payload.body_md,
-                updated_by_user_id=payload.updated_by_user_id,
-                metadata_json=payload.metadata_json,
+            _writing_document_payload(
+                create_document(
+                    project_key=resolved_project_key,
+                    title=payload.title,
+                    body_md=payload.body_md,
+                    updated_by_user_id=payload.updated_by_user_id,
+                    metadata_json=payload.metadata_json,
+                )
             )
         )
 
@@ -191,7 +216,9 @@ def get_writing_document(request: Request, doc_id: int, project_key: str | None 
     resolved_project_key = _resolve_project_key(project_key, request=request)
     with _writing_project_context(resolved_project_key):
         try:
-            return success_response(get_document(doc_id=doc_id, project_key=resolved_project_key))
+            return success_response(
+                _writing_document_payload(get_document(doc_id=doc_id, project_key=resolved_project_key))
+            )
         except KeyError as exc:
             raise _handle_not_found(exc) from exc
 
@@ -208,10 +235,12 @@ def delete_writing_document(doc_id: int, request: Request, project_key: str | No
             return success_response(
                 {
                     "deleted": True,
-                    "document": delete_document(
-                        doc_id=doc_id,
-                        project_key=resolved_project_key,
-                        updated_by_user_id=_resolve_actor_id(request),
+                    "document": _writing_document_payload(
+                        delete_document(
+                            doc_id=doc_id,
+                            project_key=resolved_project_key,
+                            updated_by_user_id=_resolve_actor_id(request),
+                        )
                     ),
                 }
             )
@@ -229,15 +258,17 @@ def patch_writing_document(doc_id: int, payload: WritingDocumentPatchRequest, re
     with _writing_project_context(resolved_project_key):
         try:
             return success_response(
-                save_document_with_conflict(
-                    doc_id=doc_id,
-                    project_key=resolved_project_key,
-                    body_md=payload.body_md,
-                    title=payload.title,
-                    base_version=payload.base_version,
-                    if_match=(request.headers.get("If-Match") or "").strip() or None,
-                    updated_by_user_id=payload.updated_by_user_id,
-                    metadata_json=payload.metadata_json,
+                _writing_document_payload(
+                    save_document_with_conflict(
+                        doc_id=doc_id,
+                        project_key=resolved_project_key,
+                        body_md=payload.body_md,
+                        title=payload.title,
+                        base_version=payload.base_version,
+                        if_match=(request.headers.get("If-Match") or "").strip() or None,
+                        updated_by_user_id=payload.updated_by_user_id,
+                        metadata_json=payload.metadata_json,
+                    )
                 )
             )
         except KeyError as exc:
@@ -286,7 +317,7 @@ def post_writing_document_citations(doc_id: int, payload: WritingCitationUpsertR
                     "items": upsert_citations(
                         doc_id=doc_id,
                         project_key=resolved_project_key,
-                        citations=payload.citations,
+                        citations=[citation.model_dump(mode="json") for citation in payload.citations],
                     )
                 }
             )

@@ -21,7 +21,7 @@ from sqlalchemy import select, or_
 from sqlalchemy.orm.attributes import flag_modified
 
 from app.models.base import SessionLocal
-from app.models.entities import Document
+from app.models.entities import Material
 from app.services.projects import bind_project
 from app.services.discovery.store import fetch_content_from_url
 
@@ -32,7 +32,7 @@ logger = logging.getLogger(__name__)
 def fetch_empty_content(
     project_key: str = "demo_proj",
     limit: int | None = None,
-    doc_ids: list[int] | None = None,
+    material_ids: list[int] | None = None,
     dry_run: bool = False,
 ) -> dict:
     """Fetch and update content for docs with empty content."""
@@ -41,13 +41,13 @@ def fetch_empty_content(
     with bind_project(project_key):
         with SessionLocal() as session:
             conditions = [
-                or_(Document.content.is_(None), Document.content == ""),
-                Document.uri.isnot(None),
-                Document.uri != "",
+                or_(Material.content.is_(None), Material.content == ""),
+                Material.uri.isnot(None),
+                Material.uri != "",
             ]
-            if doc_ids:
-                conditions.append(Document.id.in_(doc_ids))
-            query = select(Document).where(*conditions)
+            if material_ids:
+                conditions.append(Material.id.in_(material_ids))
+            query = select(Material).where(*conditions)
             if limit:
                 query = query.limit(limit)
             docs = list(session.execute(query).scalars().all())
@@ -87,20 +87,27 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Fetch content for docs with empty content")
     parser.add_argument("--project", default="demo_proj", help="Project key")
     parser.add_argument("--limit", type=int, default=None, help="Max docs to process")
-    parser.add_argument("--doc-ids", type=int, nargs="+", default=None, help="Specific doc IDs (e.g. --doc-ids 96)")
+    parser.add_argument(
+        "--material-ids",
+        dest="material_ids",
+        type=int,
+        nargs="+",
+        default=None,
+        help="Specific material IDs (e.g. --material-ids 96)",
+    )
     parser.add_argument("--dry-run", action="store_true", help="Do not persist")
 
     args = parser.parse_args()
 
     print("Fetch empty content")
-    print("  project=%s limit=%s doc_ids=%s dry_run=%s" % (
-        args.project, args.limit or "all", args.doc_ids or "all", args.dry_run))
+    print("  project=%s limit=%s material_ids=%s dry_run=%s" % (
+        args.project, args.limit or "all", args.material_ids or "all", args.dry_run))
     print("-" * 60)
 
     result = fetch_empty_content(
         project_key=args.project,
         limit=args.limit,
-        doc_ids=args.doc_ids,
+        material_ids=args.material_ids,
         dry_run=args.dry_run,
     )
 

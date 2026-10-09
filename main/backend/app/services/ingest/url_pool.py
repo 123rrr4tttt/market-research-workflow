@@ -1,4 +1,4 @@
-"""URL pool channel: fetch URLs from channel or resource pool and ingest as documents."""
+"""URL pool channel: fetch URLs from channel or resource pool and ingest as materials."""
 
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 from functorial_kit import Failure
 from mrw_functorial_kit.core.provider_port_failures import ingest_operation_failures
 
-from ...models.entities import Document
+from ...models.entities import Material
 from .content_extraction import locate_main_text_from_html
 from .frontdoor_router_contract import build_frontdoor_fetch_router_contract, router_contract_from_profile
 from .content_cleaner import normalize_content_for_ingest
@@ -48,7 +48,7 @@ class _DatabaseQuery(Protocol):
 
 
 class _DatabaseSession(Protocol):
-    def query(self, entity: type[Document]) -> _DatabaseQuery: ...
+    def query(self, entity: type[Material]) -> _DatabaseQuery: ...
     def commit(self) -> None: ...
 
 
@@ -345,7 +345,7 @@ def execute_single_url_kernel(
     target: Optional[JsonObject] = None,
     context: Optional[JsonObject] = None,
 ) -> JsonObject:
-    """Execute one prepared URL through fetch and the Document writer."""
+    """Execute one prepared URL through fetch and the Material writer."""
     target_url = str(url or "").strip()
     default_target: JsonObject = {
         "url": target_url,
@@ -400,14 +400,14 @@ def execute_single_url_kernel(
         logger.warning("url_pool url_routing dispatch failed for %s: %s", target_url[:80], exc)
         return {"status": "failed", "inserted": 0, "skipped": 1, "error": _safe_exc(exc)}
     _annotate_url_pool_context(
-        doc_ids=_extract_doc_ids_from_ingest_result(result),
+        material_ids=_extract_material_ids_from_ingest_result(result),
         context=context if _is_object_dict(context) else {},
     )
     return result
 
 
 def invoke_url_single_url(request: UrlSingleUrlRequest) -> UrlSingleUrlOutcome:
-    """Bind one prepared single-URL request to the existing Document kernel."""
+    """Bind one prepared single-URL request to the existing Material kernel."""
 
     result = execute_single_url_kernel(
         url=request.url,
@@ -423,7 +423,7 @@ def invoke_url_single_url(request: UrlSingleUrlRequest) -> UrlSingleUrlOutcome:
         inserted=_as_int(result.get("inserted")),
         updated=_as_int(result.get("updated")),
         skipped=_as_int(result.get("skipped")),
-        document_id=_as_int(result.get("document_id")) or None,
+        material_id=_as_int(result.get("material_id")) or None,
         error=_as_text(result.get("error")) or None,
         task_id=_url_single_url_task_id(result),
         readback=_url_single_url_readback(result),
@@ -554,7 +554,7 @@ def _extract_text_from_html(html: str) -> str:
         return ""
 
 
-def _build_document_candidate_from_record(record: JsonObject) -> JsonObject:
+def _build_material_candidate_from_record(record: JsonObject) -> JsonObject:
     url = str(record.get("url") or "").strip()
     parsed = urlparse(url)
     source_base_url = None
@@ -580,7 +580,7 @@ def _build_document_candidate_from_record(record: JsonObject) -> JsonObject:
         "source_kind": "url_fetch",
         "source_base_url": source_base_url,
         "state": None,
-        "doc_type": "url_fetch",
+        "material_type": "url_fetch",
         "title": str(record.get("title") or "").strip() or None,
         "summary": summary,
         "publish_date": record.get("published_at"),
@@ -674,7 +674,7 @@ def _run_source_library_frontdoor_ingress(
             "rejected_count": 1 if errors else 0,
             "rejection_breakdown": {"fetch_failed": 1} if errors else {},
             "degradation_flags": ["fetch_failed"] if errors else ["empty_records"],
-            "document_id": None,
+            "material_id": None,
             "quality_score": 0.0,
             "errors": errors,
             "error": reason,
@@ -686,7 +686,7 @@ def _run_source_library_frontdoor_ingress(
         }
 
     record = _as_object_dict(records[0])
-    document_candidate = _build_document_candidate_from_record(record)
+    material_candidate = _build_material_candidate_from_record(record)
     ingress_envelope = build_frontdoor_ingress_envelope(
         ingress_type="source_library",
         entrypoint=entrypoint,
@@ -702,7 +702,7 @@ def _run_source_library_frontdoor_ingress(
             "router_reason_code": _as_object_dict(frontdoor_route.get("router_contract")).get("reason_code"),
         },
         collection_payload={
-            "document_candidate": document_candidate,
+            "material_candidate": material_candidate,
             "frontdoor_route": frontdoor_route,
             "terminal_context": {
                 "platform": source_name,
@@ -752,7 +752,7 @@ def _run_source_library_frontdoor_ingress(
         "rejected_count": rejected_count,
         "rejection_breakdown": {reason_code: 1} if rejected_count > 0 and reason_code else {},
         "degradation_flags": degradation_flags,
-        "document_id": writer_result.get("doc_id"),
+        "material_id": writer_result.get("material_id"),
         "quality_score": 0.0,
         "records": records,
         "by_url": by_url,
@@ -1109,24 +1109,24 @@ def prepare_url_pool_targets(
     return runtime_targets, diagnostics
 
 
-def _extract_doc_ids_from_ingest_result(result: JsonObject) -> List[int]:
-    doc_ids: List[int] = []
+def _extract_material_ids_from_ingest_result(result: JsonObject) -> List[int]:
+    material_ids: List[int] = []
     try:
-        direct_id = _as_int(result.get("document_id"))
+        direct_id = _as_int(result.get("material_id"))
         if direct_id > 0:
-            doc_ids.append(direct_id)
+            material_ids.append(direct_id)
     except Exception:
         pass
     crawler_dispatch = result.get("crawler_dispatch")
     if _is_object_dict(crawler_dispatch):
-        for raw in _as_object_list(crawler_dispatch.get("valid_output_doc_ids")):
+        for raw in _as_object_list(crawler_dispatch.get("valid_output_material_ids")):
             try:
-                doc_id = _as_int(raw)
+                material_id = _as_int(raw)
             except Exception:
                 continue
-            if doc_id > 0 and doc_id not in doc_ids:
-                doc_ids.append(doc_id)
-    return doc_ids
+            if material_id > 0 and material_id not in material_ids:
+                material_ids.append(material_id)
+    return material_ids
 
 
 def _frontdoor_route_summary_from_params(params: JsonObject) -> JsonObject:
@@ -1207,18 +1207,18 @@ def _apply_frontdoor_to_search_options(
 
 def _annotate_url_pool_context(
     *,
-    doc_ids: List[int],
+    material_ids: List[int],
     context: JsonObject,
 ) -> None:
-    if not doc_ids:
+    if not material_ids:
         return
     valid_context = {k: v for k, v in context.items() if v is not None}
     if not valid_context:
         return
     with _open_session() as session:
-        id_column = getattr(Document, "id")
+        id_column = getattr(Material, "id")
         in_operator = getattr(id_column, "in_")
-        rows = session.query(Document).filter(in_operator(doc_ids)).all()
+        rows = session.query(Material).filter(in_operator(material_ids)).all()
         for row in rows:
             extracted_data = _as_object_dict(row.extracted_data)
             pool_ctx = _as_object_dict(extracted_data.get("url_pool_context"))

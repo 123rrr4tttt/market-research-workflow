@@ -7,7 +7,7 @@ from datetime import date, datetime
 from sqlalchemy import select, func
 
 from app.models.base import SessionLocal
-from app.models.entities import Document
+from app.models.entities import Material
 
 logger = logging.getLogger(__name__)
 
@@ -16,9 +16,9 @@ def check_doc_details(target_date: date, limit: int = 10):
     """检查指定创建日期的文档详情"""
     with SessionLocal() as session:
         # 查找创建日期为指定日期且publish_date为NULL的文档
-        query = select(Document).where(
-            func.date(Document.created_at) == target_date,
-            Document.publish_date.is_(None)
+        query = select(Material).where(
+            func.date(Material.created_at) == target_date,
+            Material.publish_date.is_(None)
         ).limit(limit)
         
         docs = session.execute(query).scalars().all()

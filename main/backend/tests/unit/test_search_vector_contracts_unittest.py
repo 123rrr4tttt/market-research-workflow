@@ -23,9 +23,9 @@ pytestmark = pytest.mark.unit
 
 
 class SearchVectorContractsUnitTestCase(unittest.TestCase):
-    def test_material_evidence_normalizes_legacy_sources_and_reads_v1(self) -> None:
+    def test_material_evidence_uses_only_v3_material_identity(self) -> None:
         _, hits = build_search_evidence_hits(
-            [{"material_id": 42, "source_type": "document", "object_type": "document", "backend": "opensearch"}],
+            [{"material_id": 42, "material_type": "policy", "source_type": "material", "object_type": "material", "backend": "opensearch"}],
             query="robotics", rank_mode="bm25",
         )
         hit = hits[0]
@@ -33,21 +33,41 @@ class SearchVectorContractsUnitTestCase(unittest.TestCase):
         self.assertEqual(hit["evidence_class"], "material")
         self.assertEqual(hit["material_id"], "42")
         self.assertEqual(hit["global_vector_object"]["object_type"], "material")
-        self.assertEqual(hit["global_vector_object"]["document_id"], "42")
+        self.assertEqual(hit["global_vector_object"]["material_id"], "42")
+        self.assertNotIn("document_id", hit["global_vector_object"])
         hit["global_vector_object"]["material_id"] = "different-body"
-        with self.assertRaises(ValueError, msg="v2 identity aliases cannot disagree"):
+        with self.assertRaisesRegex(ValueError, "material identity differs"):
             validate_search_evidence_hit(hit)
         hit["global_vector_object"]["material_id"] = "42"
         hit["contract_version"] = "search_evidence_hit.v1"
-        hit["global_vector_object"]["contract_version"] = "global_vector_object.v1"
-        hit["global_vector_object"].pop("material_id")
-        validate_search_evidence_hit(hit)
+        with self.assertRaisesRegex(ValueError, "unsupported search evidence hit contract_version"):
+            validate_search_evidence_hit(hit)
+
+    def test_builder_rejects_legacy_material_identity_at_top_level_and_in_provenance(self) -> None:
+        with self.assertRaisesRegex(ValueError, r"legacy_material_identity_fields:\$\.document_id"):
+            build_search_evidence_hits(
+                [{"material_id": 1, "document_id": 1, "backend": "qdrant"}],
+                query="market",
+            )
+        with self.assertRaisesRegex(ValueError, r"legacy_material_identity_fields:\$\.provenance\.doc_id"):
+            build_search_evidence_hits(
+                [{"material_id": 1, "backend": "qdrant", "provenance": {"doc_id": 1}}],
+                query="market",
+            )
+
+    def test_builder_requires_material_id_without_id_fallback(self) -> None:
+        with self.assertRaisesRegex(ValueError, "search row requires material_id"):
+            build_search_evidence_hits(
+                [{"id": "old-id", "backend": "qdrant"}],
+                query="market",
+            )
 
     def test_builder_aligns_bm25_qdrant_and_pgvector_rows_to_evidence_hit_schema(self) -> None:
         query_group_id, hits = build_search_evidence_hits(
             [
                 {
-                    "document_id": 7,
+                    "material_id": 7,
+                    "material_type": "policy",
                     "project_key": "demo_proj",
                     "object_type": "policy_chunk",
                     "object_id": 7,
@@ -65,7 +85,8 @@ class SearchVectorContractsUnitTestCase(unittest.TestCase):
                     "language": "en",
                 },
                 {
-                    "document_id": 8,
+                    "material_id": 8,
+                    "material_type": "policy",
                     "project_key": "demo_proj",
                     "object_type": "policy_chunk",
                     "object_id": 8,
@@ -82,7 +103,8 @@ class SearchVectorContractsUnitTestCase(unittest.TestCase):
                     "source_reference": "qdrant://policy_chunks/policy-8-chunk-0",
                 },
                 {
-                    "document_id": 9,
+                    "material_id": 9,
+                    "material_type": "policy",
                     "object_type": "policy_chunk",
                     "object_id": 9,
                     "source_id": "source-policy",
@@ -156,7 +178,7 @@ class SearchVectorContractsUnitTestCase(unittest.TestCase):
 
     def test_validator_rejects_missing_global_vector_object_field(self) -> None:
         _, hits = build_search_evidence_hits(
-            [{"document_id": "doc-1", "score": 0.5, "mode": "vector", "backend": "qdrant"}],
+            [{"material_id": "material-1", "score": 0.5, "mode": "vector", "backend": "qdrant"}],
             query="market",
             project_key="demo_proj",
         )
@@ -170,8 +192,8 @@ class SearchVectorContractsUnitTestCase(unittest.TestCase):
     def test_retrieval_run_record_persists_branch_hit_readback_contract(self) -> None:
         query_group_id, hits = build_search_evidence_hits(
             [
-                {"document_id": "doc-a", "score": 0.8, "mode": "bm25", "backend": "opensearch"},
-                {"document_id": "doc-b", "score": 0.7, "mode": "vector", "backend": "qdrant"},
+                {"material_id": "material-a", "score": 0.8, "mode": "bm25", "backend": "opensearch"},
+                {"material_id": "material-b", "score": 0.7, "mode": "vector", "backend": "qdrant"},
             ],
             query="market",
             project_key="demo_proj",
@@ -235,7 +257,7 @@ class SearchVectorContractsUnitTestCase(unittest.TestCase):
         self.assertEqual(hit["matrix_branch_id"], "b1")
         self.assertEqual(hit["backend"], "serper")
         self.assertEqual(hit["global_vector_object"]["object_type"], "source_candidate")
-        self.assertEqual(hit["global_vector_object"]["document_id"], "urlsha-report")
+        self.assertEqual(hit["global_vector_object"]["material_id"], "urlsha-report")
         self.assertEqual(hit["global_vector_object"]["provenance"]["provider_payload_kind"], "agent_matrix_candidate")
 
 

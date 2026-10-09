@@ -20,7 +20,7 @@ from sqlalchemy import select
 from bs4 import BeautifulSoup
 
 from app.models.base import SessionLocal
-from app.models.entities import Document, Source
+from app.models.entities import Material, Source
 from app.services.ingest.adapters.http_utils import fetch_html
 
 logger = logging.getLogger(__name__)
@@ -178,10 +178,10 @@ def analyze_missing_dates(limit: int = 10) -> List[Dict]:
     
     with SessionLocal() as session:
         # 查找所有 publish_date 为 NULL 的文档
-        query = select(Document, Source).join(
-            Source, Document.source_id == Source.id, isouter=True
+        query = select(Material, Source).join(
+            Source, Material.source_id == Source.id, isouter=True
         ).where(
-            Document.publish_date.is_(None)
+            Material.publish_date.is_(None)
         ).limit(limit)
         
         docs = session.execute(query).all()
@@ -193,10 +193,10 @@ def analyze_missing_dates(limit: int = 10) -> List[Dict]:
                 continue
             
             result = {
-                "doc_id": doc.id,
+                "material_id": doc.id,
                 "title": doc.title[:80] if doc.title else "N/A",
                 "source": source.name if source else "未知",
-                "doc_type": doc.doc_type,
+                "material_type": doc.material_type,
                 "url_analysis": analyze_url_structure(doc.uri),
             }
             
@@ -220,10 +220,10 @@ def print_analysis_report(results: List[Dict]):
     
     for i, result in enumerate(results, 1):
         print(f"\n【文档 {i}】")
-        print(f"  ID: {result['doc_id']}")
+        print(f"  ID: {result['material_id']}")
         print(f"  标题: {result['title']}")
         print(f"  来源: {result['source']}")
-        print(f"  类型: {result['doc_type']}")
+        print(f"  类型: {result['material_type']}")
         print(f"  URL: {result['url_analysis']['url']}")
         
         # URL分析

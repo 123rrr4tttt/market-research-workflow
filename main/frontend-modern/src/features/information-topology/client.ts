@@ -1,5 +1,4 @@
 import { httpGet, httpPost } from '../../lib/api/client'
-import { normalizeMaterialBoundRef, normalizeMaterialRef } from './materialIdentity'
 import type {
   BoundRef,
   ElementRef,
@@ -28,14 +27,14 @@ export const informationTopologyClient = {
     return httpGet<TopologyList<CurrentTopologyItem>>(`${ROOT}/topologies`)
   },
   resolve(refs: ElementRef[]) {
-    return httpPost<TopologyList<BoundRef>>(`${ROOT}/resolve`, { refs: refs.map(normalizeMaterialRef) })
+    return httpPost<TopologyList<BoundRef>>(`${ROOT}/resolve`, { refs })
   },
   readTopology(topologyRef: TopologyRef, filters: Record<string, unknown> = {}) {
     return httpPost<TopologyReadResult>(`${ROOT}/topologies/read`, { topology_ref: topologyRef, filters })
   },
   findRelations(ref: BoundRef, relationTypes?: string[], direction?: 'incoming' | 'outgoing' | 'both') {
     return httpPost<TopologyList<TopologyRelation>>(`${ROOT}/relations/find`, {
-      ref: normalizeMaterialBoundRef(ref),
+      ref,
       relation_types: relationTypes ?? [],
       direction: direction ?? 'both',
     })

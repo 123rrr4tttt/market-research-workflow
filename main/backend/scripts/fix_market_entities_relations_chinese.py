@@ -17,7 +17,7 @@ os.environ.setdefault("PYTHONPATH", str(backend_dir))
 from sqlalchemy import select
 from sqlalchemy.orm.attributes import flag_modified
 from app.models.base import SessionLocal
-from app.models.entities import Document
+from app.models.entities import Material
 from app.services.llm.provider import get_chat_model
 import json
 import logging
@@ -88,7 +88,7 @@ def fix_entities_relations(dry_run: bool = True, limit: Optional[int] = None) ->
     with SessionLocal() as session:
         try:
             # 查询所有市场文档
-            query = select(Document).where(Document.doc_type == "market")
+            query = select(Material).where(Material.material_type == "market")
             if limit:
                 query = query.limit(limit)
             

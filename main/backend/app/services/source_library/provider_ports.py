@@ -95,7 +95,7 @@ class CrawlerOutputIngestRequest:
     wait_timeout_seconds: float
     poll_interval_seconds: float
     source_name: str
-    doc_type: str
+    material_type: str
     enable_extraction: bool
     max_items: int
 

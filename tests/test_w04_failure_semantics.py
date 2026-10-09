@@ -5,7 +5,7 @@ from functorial_kit import Failure, FailureFamily
 
 from mrw_functorial_kit.core.w04_service_semantics import (
     clue_chain_failures,
-    document_query_failures,
+    material_query_failures,
     graph_backfill_failures,
     search_failures,
     typed_knowledge_contract_failures,
@@ -28,14 +28,15 @@ EXPECTED = (
         ),
     ),
     (
-        document_query_failures,
-        "document_query.failure",
+        material_query_failures,
+        "material_query.failure",
         (
             "filter_invalid",
             "sort_invalid",
             "statement_invalid",
+            "result_row_invalid",
             "result_envelope_invalid",
-            "document_not_found",
+            "material_not_found",
         ),
     ),
     (graph_backfill_failures, "graph.backfill.failure", ("transaction_failed",)),

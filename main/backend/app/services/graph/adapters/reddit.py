@@ -5,7 +5,7 @@ import logging
 from datetime import date, datetime
 from typing import TypeGuard
 
-from ....models.entities import Document
+from ....models.entities import Material
 from ..models import NormalizedSocialPost
 from ..mapping import normalize_graph_json_object
 from ...document_views import (
@@ -46,7 +46,7 @@ def _optional_string(value: object) -> str | None:
 class RedditAdapter:
     """Reddit平台数据适配器"""
     
-    def to_normalized(self, doc: Document) -> NormalizedSocialPost | None:
+    def to_normalized(self, doc: Material) -> NormalizedSocialPost | None:
         """
         将Reddit文档转换为规范化格式
         
@@ -65,13 +65,13 @@ class RedditAdapter:
         # 平台检查
         platform = get_social_platform(doc)
         if platform != "reddit":
-            logger.warning(f"Document {doc.id} platform is '{platform}', expected 'reddit'")
+            logger.warning(f"Material {doc.id} platform is '{platform}', expected 'reddit'")
             return None
 
         # 提取基础字段
         text = get_social_text(doc)
         if not text:
-            logger.debug(f"Document {doc.id} has no text content")
+            logger.debug(f"Material {doc.id} has no text content")
             return None
 
         # 提取用户和子论坛信息

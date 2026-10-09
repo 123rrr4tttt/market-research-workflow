@@ -131,7 +131,7 @@ async function mockDashboardReportApi(
 
     if (pathname === '/api/v1/dashboard/stats') {
       await fulfillJson(route, {
-        documents: {
+        materials: {
           total: 42,
           recent_today: 3,
           recent_7d: 9,
@@ -139,10 +139,10 @@ async function mockDashboardReportApi(
           type_distribution: { report: 7, memo: 2 },
           source_refs: [
             {
-              id: 'dashboard-documents-source',
+              id: 'dashboard-materials-source',
               kind: 'table',
-              table: 'documents',
-              detail: 'dashboard documents source',
+              table: 'materials',
+              detail: 'dashboard materials source',
             },
           ],
         },
@@ -223,8 +223,8 @@ async function mockDashboardReportApi(
             status: 'open',
             severity: 'medium',
             title: 'Review report export evidence',
-            source_metric: 'documents.total',
-            source_refs: ['dashboard-documents-source'],
+            source_metric: 'materials.total',
+            source_refs: ['dashboard-materials-source'],
           },
         ],
       })
@@ -233,29 +233,29 @@ async function mockDashboardReportApi(
 
     if (pathname === '/api/v1/dashboard/drilldown') {
       await fulfillJson(route, {
-        metric: url.searchParams.get('metric') || 'documents.total',
-        source_ref: url.searchParams.get('source_ref') || 'dashboard-documents-source',
-        filters: { source_ref: url.searchParams.get('source_ref') || 'dashboard-documents-source' },
+        metric: url.searchParams.get('metric') || 'materials.total',
+        source_ref: url.searchParams.get('source_ref') || 'dashboard-materials-source',
+        filters: { source_ref: url.searchParams.get('source_ref') || 'dashboard-materials-source' },
         row_count: 1,
         source_query: {
           scope: 'dashboard.stats',
-          table: 'documents',
-          metrics: ['documents.total'],
+          table: 'materials',
+          metrics: ['materials.total'],
           filters: { project_key: 'dashboard_e2e' },
         },
         source_refs: [
           {
-            id: 'dashboard-documents-source',
+            id: 'dashboard-materials-source',
             kind: 'table',
-            table: 'documents',
-            columns: ['id', 'title', 'source_ref'],
+            table: 'materials',
+            columns: ['material_id', 'title', 'source_ref'],
           },
         ],
         sample_rows: [
           {
-            id: 57,
+            material_id: 57,
             title: 'Boundary D dashboard evidence row',
-            source_ref: 'dashboard-documents-source',
+            source_ref: 'dashboard-materials-source',
           },
         ],
       })
@@ -268,10 +268,10 @@ async function mockDashboardReportApi(
         contract_version: 'dashboard.report_from_filter.v1',
         report_id: 'report-dashboard-57',
         draft_id: 5702,
-        document_id: 5702,
+        doc_id: 5702,
         title: 'Boundary D Dashboard Report',
         status: 'draft',
-        source_refs: [{ id: 'dashboard-documents-source', table: 'documents' }],
+        source_refs: [{ id: 'dashboard-materials-source', table: 'materials' }],
         quality: {
           status: 'ready',
           quality_gate_mode: 'strict',
@@ -300,8 +300,8 @@ async function mockDashboardReportApi(
         trace_id: url.searchParams.get('trace_id') || 'trace-dashboard-57',
         request_id: 'req-dashboard-57',
         project_key: 'dashboard_e2e',
-        source_refs: [{ id: 'dashboard-documents-source', table: 'documents' }],
-        source_query: { scope: 'dashboard.stats', table: 'documents' },
+        source_refs: [{ id: 'dashboard-materials-source', table: 'materials' }],
+        source_query: { scope: 'dashboard.stats', table: 'materials' },
         report_artifact: {
           artifact_id: 'artifact-dashboard-57',
           artifact_sha256: 'sha256-dashboard-57',

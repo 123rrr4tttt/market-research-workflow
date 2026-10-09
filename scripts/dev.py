@@ -4,23 +4,23 @@
 from __future__ import annotations
 
 import argparse
-from collections.abc import Sequence
-from dataclasses import dataclass
-import os
 import json
-from pathlib import Path
+import os
 import shutil
 import subprocess
 import sys
 import tomllib
+from collections.abc import Sequence
+from dataclasses import dataclass
+from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlparse
-
 
 ROOT = Path(__file__).resolve().parents[1]
 PYPROJECT = ROOT / "pyproject.toml"
 CATALOG = ROOT / "contributions" / "project_catalog.py"
 PILOT_TESTS = (
     "main/backend/tests/unit/test_project_tool_contribution.py",
+    "main/backend/tests/unit/test_raw_material_import_task_native.py",
     "main/backend/tests/successor_runtime/test_c1_native_catalog.py",
     "main/backend/tests/successor_runtime/test_retrieval_native_catalog.py",
 )

@@ -4,7 +4,7 @@ from __future__ import annotations
 import logging
 from datetime import datetime
 
-from ....models.entities import Document
+from ....models.entities import Material
 from ..models import NormalizedMarketData
 from ...extraction.numeric import normalize_market_payload, normalize_numeric_scalar
 from ...document_views import (
@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 class MarketAdapter:
     """市场数据适配器"""
     
-    def to_normalized(self, doc: Document) -> NormalizedMarketData | None:
+    def to_normalized(self, doc: Material) -> NormalizedMarketData | None:
         """
         将市场文档转换为规范化格式
         
@@ -58,7 +58,7 @@ class MarketAdapter:
                 elif isinstance(report_date, datetime):
                     date = report_date
             except Exception as e:
-                logger.warning(f"Document {doc.id} report_date parsing failed: {e}")
+                logger.warning(f"Material {doc.id} report_date parsing failed: {e}")
         
         if not date and doc.publish_date:
             if isinstance(doc.publish_date, datetime):
@@ -67,7 +67,7 @@ class MarketAdapter:
                 try:
                     date = datetime.combine(doc.publish_date, datetime.min.time())
                 except Exception as e:
-                    logger.warning(f"Document {doc.id} publish_date conversion failed: {e}")
+                    logger.warning(f"Material {doc.id} publish_date conversion failed: {e}")
         
         try:
             market, market_quality = normalize_market_payload(market, scope="market")

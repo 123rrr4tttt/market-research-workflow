@@ -177,7 +177,7 @@ class DocumentViewsUnitTestCase(unittest.TestCase):
             id=21,
             doc_id=11,
             project_key="demo_proj",
-            source_doc_id=42,
+            source_material_id=42,
             source_uri="https://example.test/material/42",
             source_title="Canonical material",
             quote_text="quoted evidence",
@@ -191,9 +191,9 @@ class DocumentViewsUnitTestCase(unittest.TestCase):
         serialized = serialize_writing_citation(citation)
         response = WritingCitationData.model_validate(serialized)
 
-        self.assertEqual(serialized["source_doc_id"], 42)
-        self.assertNotIn("source_material_id", serialized)
-        self.assertNotIn("source_material_id", response.model_dump())
+        self.assertEqual(serialized["source_material_id"], 42)
+        self.assertNotIn("source_document_id", serialized)
+        self.assertNotIn("source_document_id", response.model_dump())
 
     def test_keyword_card_views_normalize_hybrid_and_graph_rows(self):
         hybrid = build_keyword_card_from_hybrid_row(

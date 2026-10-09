@@ -192,7 +192,7 @@ class SourceLibraryRunnerGrayRolloutUnitTestCase(unittest.TestCase):
         self.assertEqual(request.wait_timeout_seconds, 120.0)
         self.assertEqual(request.poll_interval_seconds, 0.5)
         self.assertEqual(request.source_name, "crawler.demo_proj")
-        self.assertEqual(request.doc_type, "news")
+        self.assertEqual(request.material_type, "news")
         self.assertFalse(request.enable_extraction)
         self.assertEqual(request.max_items, 100)
 

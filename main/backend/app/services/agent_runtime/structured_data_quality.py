@@ -6,7 +6,7 @@ from typing import Any, Literal, Protocol, TypedDict, cast as type_cast
 from sqlalchemy import Text, cast, func, select
 
 from app.models.base import SessionLocal
-from app.models.entities import Document, GraphNodeRecord
+from app.models.entities import Material, GraphNodeRecord
 from app.services.projects import bind_project
 
 
@@ -147,13 +147,13 @@ def audit_project_structured_data_quality(
 def _document_scan_statement(scan_limit: int) -> Any:
     return (
         select(
-            Document.id,
-            Document.title,
-            Document.uri,
-            func.substr(cast(Document.summary, Text), 1, _SCAN_TEXT_LIMIT).label("summary_sample"),
-            func.substr(cast(Document.content, Text), 1, _SCAN_TEXT_LIMIT).label("content_sample"),
+            Material.id,
+            Material.title,
+            Material.uri,
+            func.substr(cast(Material.summary, Text), 1, _SCAN_TEXT_LIMIT).label("summary_sample"),
+            func.substr(cast(Material.content, Text), 1, _SCAN_TEXT_LIMIT).label("content_sample"),
         )
-        .order_by(Document.updated_at.desc(), Document.created_at.desc())
+        .order_by(Material.updated_at.desc(), Material.created_at.desc())
         .limit(scan_limit)
     )
 

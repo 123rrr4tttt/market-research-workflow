@@ -57,7 +57,7 @@ from mrw_functorial_kit.core.shared_family_generator_semantics import (
 )
 from mrw_functorial_kit.core.w04_service_semantics import (
     clue_chain_failures,
-    document_query_failures,
+    material_query_failures,
     graph_backfill_failures,
     search_failures,
     typed_knowledge_contract_failures,
@@ -101,7 +101,7 @@ __all__ = [
     "crawler_registry_contract_failures",
     "crawler_runtime_failures",
     "database_session_retry_failures",
-    "document_query_failures",
+    "material_query_failures",
     "first_specimen_capability_failures",
     "graph_backfill_failures",
     "ingest_google_news_failures",

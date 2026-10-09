@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
-E2E test: resource library full chain from document extraction to ingest.
+E2E test: resource library full chain from material extraction to ingest.
 
 Flow:
-  1. extract_from_documents -> resource_pool_urls
+  1. extract_from_materials -> resource_pool_urls
   2. discover_site_entries (write) -> resource_pool_site_entries
   3. unified_search (with temp item) -> candidates -> write to resource_pool_urls
-  4. run url_pool.default -> fetch URLs -> documents
+  4. run url_pool.default -> fetch URLs -> materials
 
 Usage:
   cd main/ops && docker compose run --rm backend python -m scripts.test_resource_library_e2e
@@ -86,8 +86,8 @@ def _remove_temp_item(project_key: str) -> None:
             logger.info("  Removed temp item")
 
 
-def _count_docs_in_schema(project_key: str) -> int:
-    """Count documents in project schema. Ensures schema isolation."""
+def _count_materials_in_schema(project_key: str) -> int:
+    """Count materials in project schema. Ensures schema isolation."""
     from sqlalchemy import text
 
     from app.models.base import engine
@@ -97,10 +97,10 @@ def _count_docs_in_schema(project_key: str) -> int:
     try:
         with engine.connect() as conn:
             conn.execute(text(f'SET search_path TO "{schema}"'))
-            row = conn.execute(text("SELECT COUNT(*) FROM documents")).fetchone()
+            row = conn.execute(text("SELECT COUNT(*) FROM materials")).fetchone()
             return int(row[0]) if row else 0
     except Exception as exc:
-        logger.warning("  _count_docs_in_schema failed (schema may not exist): %s", exc)
+        logger.warning("  _count_materials_in_schema failed (schema may not exist): %s", exc)
         return -1
 
 
@@ -109,7 +109,7 @@ def run_e2e(project_key: str = PROJECT_KEY) -> dict:
     from app.services.projects.bootstrap import ensure_project_schema_ready
     from app.services.resource_pool import (
         discover_site_entries_from_urls,
-        extract_from_documents,
+        extract_from_materials,
         list_site_entries,
         list_urls,
         unified_search_by_item,
@@ -122,26 +122,30 @@ def run_e2e(project_key: str = PROJECT_KEY) -> dict:
     ensure_project_schema_ready(project_key, name="Business Survey")
 
     results: dict = {}
-    doc_count_before = _count_docs_in_schema(project_key)
-    results["schema"] = {"project_key": project_key, "schema": schema_name, "docs_before": doc_count_before}
+    material_count_before = _count_materials_in_schema(project_key)
+    results["schema"] = {
+        "project_key": project_key,
+        "schema": schema_name,
+        "materials_before": material_count_before,
+    }
 
-    # Step 1: Extract URLs from documents
+    # Step 1: Extract URLs from materials
     r1 = _step(
-        "extract_from_documents",
-        extract_from_documents,
+        "extract_from_materials",
+        extract_from_materials,
         project_key=project_key,
         scope="project",
         limit=100,
     )
     results["extract"] = r1
-    if r1.get("documents_scanned", 0) == 0:
-        logger.warning("No documents found. Ensure project has documents with content/uri/extracted_data.")
+    if r1.get("materials_scanned", 0) == 0:
+        logger.warning("No materials found. Ensure project has materials with content/uri/extracted_data.")
         logger.info("  Skipping remaining steps (need URLs in resource_pool_urls)")
         return results
 
     urls_extracted = r1.get("urls_extracted", 0)
     if urls_extracted == 0:
-        logger.warning("No URLs extracted from documents. Check document content/extracted_data.")
+        logger.warning("No URLs extracted from materials. Check material content/extracted_data.")
         return results
 
     # Step 2: Discover site entries from resource_pool_urls
@@ -228,19 +232,19 @@ def run_e2e(project_key: str = PROJECT_KEY) -> dict:
         raise RuntimeError("source-library compat run returned no terminal_output; cannot verify source_library contract")
     results["ingest"] = {"terminal_output": terminal_output}
 
-    # Verify schema isolation: docs should be in project schema only
-    doc_count_after = _count_docs_in_schema(project_key)
+    # Verify schema isolation: materials should be in project schema only
+    material_count_after = _count_materials_in_schema(project_key)
     inserted = int((terminal_output.get("results") or {}).get("inserted") or 0)
-    results["schema"]["docs_after"] = doc_count_after
-    results["schema"]["docs_delta"] = doc_count_after - doc_count_before
-    if inserted > 0 and doc_count_after - doc_count_before != inserted:
+    results["schema"]["materials_after"] = material_count_after
+    results["schema"]["materials_delta"] = material_count_after - material_count_before
+    if inserted > 0 and material_count_after - material_count_before != inserted:
         logger.warning(
             "  Schema isolation check: delta=%d vs inserted=%d (may be from prior runs)",
-            doc_count_after - doc_count_before,
+            material_count_after - material_count_before,
             inserted,
         )
     else:
-        logger.info("  Schema isolation OK: docs in %s", schema_name)
+        logger.info("  Schema isolation OK: materials in %s", schema_name)
 
     return results
 

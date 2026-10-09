@@ -4,7 +4,7 @@ from collections.abc import Mapping
 from typing import Any, NoReturn
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from ..contracts import ApiEnvelope, ErrorCode, error_response, map_exception_to_error
 from ..contracts.responses import ok
@@ -50,7 +50,9 @@ def _raise_indexer_error(
 
 
 class ReindexPolicyRequest(BaseModel):
-    document_ids: list[int] | None = Field(default=None)
+    model_config = ConfigDict(extra="forbid")
+
+    material_ids: list[int] | None = Field(default=None)
     state: str | None = Field(default=None)
 
 
@@ -60,7 +62,7 @@ def reindex_policy(payload: ReindexPolicyRequest):
         _raise_config_error("OPENAI_API_KEY 未配置，无法生成嵌入")
     try:
         result = index_policy_documents(
-            document_ids=payload.document_ids,
+            material_ids=payload.material_ids,
             state=(payload.state.upper() if payload.state else None),
         )
     except ValueError as exc:

@@ -10,7 +10,7 @@ from urllib.parse import urlparse
 
 from ..job_logger import start_job, complete_job, fail_job
 from ..projects import current_project_key
-from .doc_type_mapper import normalize_doc_type
+from .material_type_mapper import normalize_material_type
 from ..resource_pool.http_port import fetch_html, make_html_parser
 from .provider_ports import get_google_news_adapter, get_reddit_adapter
 from .gate_reason_codes import normalize_reason_code
@@ -80,7 +80,7 @@ def collect_official_news_updates(
     url: str,
     source_name: str,
     base_url: str,
-    doc_type: str = "official_update",
+    material_type: str = "official_update",
     default_state: str | None = None,
     job_type: str = "official_news",
     title_fallback: str = "Official Update",
@@ -92,7 +92,7 @@ def collect_official_news_updates(
         items = list(_extract_official_news_items(html, base_url=base_url, title_fallback=title_fallback))
         result = _persist_news_items(
             items=items[: max(limit, 0)],
-            doc_type=doc_type,
+            material_type=material_type,
             source_name=source_name,
             base_url=base_url,
             default_state=default_state,
@@ -144,7 +144,7 @@ def collect_reddit_discussions(
         # 存储额外的Reddit数据到extracted_data
         result = _persist_reddit_items(
             posts=posts,
-            doc_type="social_feed",
+            material_type="social_feed",
             source_name=source_name,
             base_url="reddit.com",
             default_state="CA",
@@ -181,14 +181,14 @@ def _maybe_append_to_resource_pool(link: str, job_type: str, source_ref: JsonRec
 def _persist_news_items(
     *,
     items: Iterable[NewsItem],
-    doc_type: str,
+    material_type: str,
     source_name: str,
     base_url: str,
     default_state: str | None,
     kind: str = "news",
     job_type: str | None = None,
 ) -> ResultRecord:
-    normalized_doc_type = normalize_doc_type(doc_type)
+    normalized_material_type = normalize_material_type(material_type)
     links: List[str] = []
     for item in items:
         link = item.link.strip()
@@ -208,7 +208,7 @@ def _persist_news_items(
         "skipped": _result_int(ingest_result.get("skipped")),
         "queued": _result_int(ingest_result.get("queued")),
         "links": links,
-        "doc_type": normalized_doc_type,
+        "material_type": normalized_material_type,
         "single_write_workflow": "source_library_frontdoor",
         "enforced_body_only": True,
     }
@@ -399,7 +399,7 @@ def _normalize_url(href: str, *, base_url: str) -> str:
 def _persist_reddit_items(
     *,
     posts: Iterable[RedditRecord],
-    doc_type: str,
+    material_type: str,
     source_name: str,
     base_url: str,
     default_state: str | None,
@@ -407,7 +407,7 @@ def _persist_reddit_items(
     query_terms_override: list[str] | None = None,
 ) -> ResultRecord:
     """Store reddit links via single_url body-fetch pipeline (no URL-only docs)."""
-    normalized_doc_type = normalize_doc_type(doc_type)
+    normalized_material_type = normalize_material_type(material_type)
     links: List[str] = []
     query_terms: list[str] = [str(x).strip() for x in (query_terms_override or []) if str(x or "").strip()]
     for post in posts:
@@ -433,7 +433,7 @@ def _persist_reddit_items(
         "skipped": _result_int(ingest_result.get("skipped")),
         "queued": _result_int(ingest_result.get("queued")),
         "links": links,
-        "doc_type": normalized_doc_type,
+        "material_type": normalized_material_type,
         "single_write_workflow": "source_library_frontdoor",
         "enforced_body_only": True,
     }
@@ -521,7 +521,7 @@ def collect_google_news(keywords: List[str], limit: int = 20) -> ResultRecord:
         
         result = _persist_google_news_items(
             items=news_items,
-            doc_type="news",
+            material_type="news",
             source_name="Google News",
             base_url="news.google.com",
             default_state=None,  # Google News可能涉及多个州
@@ -539,14 +539,14 @@ def collect_google_news(keywords: List[str], limit: int = 20) -> ResultRecord:
 def _persist_google_news_items(
     *,
     items: Iterable[GoogleNewsRecord],
-    doc_type: str,
+    material_type: str,
     source_name: str,
     base_url: str,
     default_state: str | None,
     job_type: str | None = None,
 ) -> ResultRecord:
     """Store Google News links via single_url body-fetch pipeline (no URL-only docs)."""
-    normalized_doc_type = normalize_doc_type(doc_type)
+    normalized_material_type = normalize_material_type(material_type)
     links: List[str] = []
     dispatch_links: List[str] = []
     publisher_seed_links: List[str] = []
@@ -659,7 +659,7 @@ def _persist_google_news_items(
         "dispatch_links": dispatch_links,
         "publisher_seed_links": publisher_seed_links,
         "links": links,
-        "doc_type": normalized_doc_type,
+        "material_type": normalized_material_type,
         "single_write_workflow": "source_library_frontdoor",
         "enforced_body_only": True,
     }

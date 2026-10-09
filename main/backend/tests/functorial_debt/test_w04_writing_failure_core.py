@@ -2,13 +2,15 @@ from __future__ import annotations
 
 import ast
 from pathlib import Path
+from unittest.mock import MagicMock
 
 import pytest
-from functorial_kit import Failure
-from mrw_functorial_kit.core.w04_service_semantics import writing_failures
-
+from app.services.document_queries import writing_documents
 from app.services.writing import document_service, keyword_card_service
+from functorial_kit import Failure
+from sqlalchemy.orm import Session
 
+from mrw_functorial_kit.core.w04_service_semantics import writing_failures
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
 
@@ -57,6 +59,50 @@ def test_w04_writing_cache_and_action_not_found_keep_public_messages(monkeypatch
     assert card.code == "card_not_found"
     with pytest.raises(KeyError, match=r"^'card not found: missing-card'$" ):
         keyword_card_service.get_card_preview(type("Payload", (), {"card_id": "missing-card"})())
+
+
+def test_w04_writing_document_query_failure_lift(monkeypatch: pytest.MonkeyPatch) -> None:
+    session = MagicMock(spec=Session)
+
+    def missing_document(
+        _session: Session,
+        *,
+        doc_id: int,
+        project_key: str,
+    ) -> None:
+        del doc_id, project_key
+        return None
+
+    monkeypatch.setattr(writing_documents, "fetch_active_document", missing_document)
+    with pytest.raises(KeyError, match=r"^'writing document not found: 404'$"):
+        writing_documents.require_active_document(
+            session,
+            doc_id=404,
+            project_key="demo",
+        )
+
+    invalid = Failure(family="other.failure", code="bad", message="bad", context={})
+
+    def invalid_failure(
+        _session: Session,
+        *,
+        doc_id: int,
+        project_key: str,
+    ) -> Failure:
+        del doc_id, project_key
+        return invalid
+
+    monkeypatch.setattr(
+        writing_documents,
+        "try_require_active_document",
+        invalid_failure,
+    )
+    with pytest.raises(TypeError, match="failure lift context"):
+        writing_documents.require_active_document(
+            session,
+            doc_id=404,
+            project_key="demo",
+        )
 
 def test_w04_writing_owned_services_have_only_centralized_raise_boundary() -> None:
     paths = (

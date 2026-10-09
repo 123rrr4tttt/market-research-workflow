@@ -46,7 +46,7 @@ class DashboardReportClosureArtifactTestCase(unittest.TestCase):
             "status": status,
             "generated_at": "2026-05-25T00:00:00Z",
             "steps": [
-                self.step("dashboard_stats_source_refs", {"documents_source_ref_count": 1}),
+                self.step("dashboard_stats_source_refs", {"materials_source_ref_count": 1}),
                 self.step(
                     "dashboard_report_from_filter",
                     {
@@ -90,8 +90,19 @@ class DashboardReportClosureArtifactTestCase(unittest.TestCase):
         self.assertEqual(checker.CHECK_SCHEMA_VERSION, report["schema_version"])
         self.assertEqual(checker.STATUS_PASSED, report["status"])
         self.assertEqual([], report["failures"])
-        self.assertEqual(18, report["summary"]["check_count"])
+        self.assertEqual(19, report["summary"]["check_count"])
         self.assertEqual(0, checker.main([str(artifact)]))
+
+    def test_legacy_document_stats_evidence_is_rejected(self) -> None:
+        root = self.make_repo()
+        payload = self.payload()
+        payload["steps"][0]["evidence"] = {"documents_source_ref_count": 1}  # type: ignore[index]
+        artifact = self.write_json(root, payload)
+
+        report = checker.build_check(artifact)
+
+        self.assertEqual(checker.STATUS_FAILED, report["status"])
+        self.assertIn("stats.material_source_refs", report["failures"])
 
     def test_detail_without_export_events_fails(self) -> None:
         root = self.make_repo()

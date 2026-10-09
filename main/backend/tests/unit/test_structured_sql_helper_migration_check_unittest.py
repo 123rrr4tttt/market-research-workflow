@@ -25,25 +25,25 @@ class StructuredSqlHelperMigrationCheckUnitTestCase(unittest.TestCase):
 
         self.assertEqual(result["contract_version"], CONTRACT_VERSION)
         self.assertEqual(result["topic_id"], "2026-03-12-data-structured-service-modularization")
-        self.assertEqual(result["document_query_contract_version"], "document_queries.v2")
+        self.assertEqual(result["material_query_contract_version"], "material_queries.v2")
         self.assertEqual(result["status"], "passed")
         self.assertTrue(result["validation"]["passed"], result["validation"])
         self.assertEqual(result["validation"]["covered_surface_gap_count"], 0)
 
         covered = {item["surface_id"]: item for item in result["covered_query_helpers"]}
         for surface_id in (
-            "document_query_contract",
-            "document_query_statement_builder",
+            "material_query_contract",
+            "material_query_statement_builder",
             "policy_sql_expression_helpers",
             "writing_material_query_helpers",
             "prompt_time_density_sql_helper_consumer",
-            "search_endpoint_document_query_projection",
+            "search_endpoint_material_query_projection",
             "api_search_endpoint_uses_projection",
         ):
             self.assertIn(surface_id, covered)
             self.assertEqual(covered[surface_id]["status"], "covered", covered[surface_id])
 
-        self.assertEqual(covered["search_endpoint_document_query_projection"]["endpoint"], "/api/v1/search")
+        self.assertEqual(covered["search_endpoint_material_query_projection"]["endpoint"], "/api/v1/search")
         self.assertEqual(covered["api_search_endpoint_uses_projection"]["endpoint"], "/api/v1/search")
 
     def test_checker_tracks_admin_structured_sql_predicate_boundaries(self) -> None:
@@ -51,7 +51,7 @@ class StructuredSqlHelperMigrationCheckUnitTestCase(unittest.TestCase):
         boundaries = {item["boundary_id"]: item for item in result["remaining_migration_boundaries"]}
 
         for boundary_id in (
-            "admin_documents_list_has_extracted_data_filter",
+            "admin_materials_list_has_extracted_data_filter",
             "admin_social_data_structured_filters",
             "admin_content_graph_structured_filters",
             "admin_market_graph_structured_filters",

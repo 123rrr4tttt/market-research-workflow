@@ -1,8 +1,8 @@
 import { getMarketGraph, getPolicyGraph, getSocialGraph, listAdminMaterials } from '../../../lib/api'
-import type { AdminDocumentItem, GraphResponse } from '../../../lib/types'
+import type { AdminMaterialItem, GraphResponse } from '../../../lib/types'
 import type { GraphProjectionDefinition } from './contract'
 import { informationTopologyClient } from '../../../features/information-topology'
-import { normalizeMaterialGraph, projectDocumentMaterials } from './materialGraph'
+import { normalizeMaterialGraph, projectAdminMaterials } from './materialGraph'
 import {
   hasProjectRetrievalSemantics,
   projectInformationTopologies,
@@ -34,7 +34,7 @@ export async function readGraphProjection(
       topologyFilter,
     )
   }
-  const materialItems: AdminDocumentItem[] = []
+  const materialItems: AdminMaterialItem[] = []
   const materialLimit = Math.max(1, Math.min(filters.limit, 2000))
   for (let page = 1; materialItems.length < materialLimit; page += 1) {
     const remaining = materialLimit - materialItems.length
@@ -47,7 +47,7 @@ export async function readGraphProjection(
     materialItems.push(...response.items)
     if (!response.items.length || materialItems.length >= response.total) break
   }
-  const materialGraph = projectDocumentMaterials(materialItems, projectKey)
+  const materialGraph = projectAdminMaterials(materialItems, projectKey)
   const common = {
     start_date: filters.startDate,
     end_date: filters.endDate,
@@ -67,6 +67,6 @@ export async function readGraphProjection(
   return normalizeMaterialGraph({
     ...domainGraph,
     nodes: [...materialGraph.nodes, ...domainGraph.nodes],
-    source_kind: materialGraph.nodes.length ? 'document_materials' : domainGraph.source_kind,
+    source_kind: materialGraph.nodes.length ? 'admin_materials' : domainGraph.source_kind,
   })
 }

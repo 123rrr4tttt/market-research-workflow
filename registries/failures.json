@@ -468,16 +468,6 @@
     },
     {
       "codes": [
-        "filter_invalid",
-        "sort_invalid",
-        "statement_invalid",
-        "result_envelope_invalid",
-        "document_not_found"
-      ],
-      "name": "document_query.failure"
-    },
-    {
-      "codes": [
         "transaction_failed"
       ],
       "name": "graph.backfill.failure"
@@ -903,6 +893,17 @@
         "surface_contract_invalid"
       ],
       "name": "projection.evidence-surface.failure"
+    },
+    {
+      "codes": [
+        "filter_invalid",
+        "sort_invalid",
+        "statement_invalid",
+        "result_row_invalid",
+        "result_envelope_invalid",
+        "material_not_found"
+      ],
+      "name": "material_query.failure"
     }
   ],
   "version": "kit-registry.failures.v1"

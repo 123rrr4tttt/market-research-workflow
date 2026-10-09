@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 from functorial_kit import Failure
-from mrw_functorial_kit.core.w04_service_semantics import clue_chain_failures, document_query_failures
+from mrw_functorial_kit.core.w04_service_semantics import clue_chain_failures, material_query_failures
 
 from app.services.clue_chains.source_library_expansion import (
     expand_source_library_hop,
@@ -13,14 +13,14 @@ from app.services.clue_chains.source_library_expansion import (
     try_expand_source_library_hop,
 )
 from app.services.document_queries.contracts import (
-    build_document_query,
-    document_query_failure,
-    raise_document_query_legacy,
-    try_build_document_query,
-    try_validate_document_query_result_envelope,
-    validate_document_query_result_envelope,
+    build_material_query,
+    material_query_failure,
+    raise_material_query_legacy,
+    try_build_material_query,
+    try_validate_material_query_result_envelope,
+    validate_material_query_result_envelope,
 )
-from app.services.document_queries.statement_builder import build_document_query_statement, try_build_document_query_statement
+from app.services.document_queries.statement_builder import build_material_query_statement, try_build_material_query_statement
 
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
@@ -43,20 +43,20 @@ def test_clue_source_validation_is_typed_and_closed() -> None:
         expand_source_library_hop(chain_id="c", project_key="p")
 
 
-def test_document_query_typed_validation_and_legacy_abi() -> None:
-    result = try_build_document_query("", filters=({"field": "state", "op": "wat"},))
+def test_material_query_typed_validation_and_legacy_abi() -> None:
+    result = try_build_material_query("", filters=({"field": "state", "op": "wat"},))
     assert isinstance(result, Failure)
-    assert document_query_failures.matches(result)
+    assert material_query_failures.matches(result)
     assert result.code == "filter_invalid"
     assert result.context["public_exception"] == "ValueError"
-    with pytest.raises(ValueError, match="unsupported document query filter operator: wat"):
-        build_document_query("", filters=({"field": "state", "op": "wat"},))
+    with pytest.raises(ValueError, match="unsupported material query filter operator: wat"):
+        build_material_query("", filters=({"field": "state", "op": "wat"},))
 
-    envelope = try_validate_document_query_result_envelope({"status": "bad"})
+    envelope = try_validate_material_query_result_envelope({"status": "bad"})
     assert isinstance(envelope, Failure)
     assert envelope.code == "result_envelope_invalid"
-    with pytest.raises(ValueError, match="document query result envelope status must be ok"):
-        validate_document_query_result_envelope({"status": "bad"})
+    with pytest.raises(ValueError, match="material query result envelope status must be ok"):
+        validate_material_query_result_envelope({"status": "bad"})
 
     invalid_field_query = {
         "query": "",
@@ -64,11 +64,11 @@ def test_document_query_typed_validation_and_legacy_abi() -> None:
         "limit": 20,
         "offset": 0,
     }
-    statement = try_build_document_query_statement(invalid_field_query)
+    statement = try_build_material_query_statement(invalid_field_query)
     assert isinstance(statement, Failure)
     assert statement.code == "statement_invalid"
-    with pytest.raises(ValueError, match="unsupported document query field"):
-        build_document_query_statement(invalid_field_query)
+    with pytest.raises(ValueError, match="unsupported material query field"):
+        build_material_query_statement(invalid_field_query)
 
 
 def test_source_library_failure_lift_covers_programmer_defect_and_cause() -> None:
@@ -85,17 +85,17 @@ def test_source_library_failure_lift_covers_programmer_defect_and_cause() -> Non
     assert raised.value.__cause__ is cause
 
 
-def test_document_query_failure_lift_covers_programmer_defect_and_cause() -> None:
+def test_material_query_failure_lift_covers_programmer_defect_and_cause() -> None:
     invalid = Failure(family="other.failure", code="bad", message="bad", context={})
     with pytest.raises(TypeError, match="failure lift context"):
-        raise_document_query_legacy(invalid)
+        raise_material_query_legacy(invalid)
 
-    failure = document_query_failure("filter_invalid", "document failure", owner="test")
-    with pytest.raises(ValueError, match="^document failure$"):
-        raise_document_query_legacy(failure)
-    cause = RuntimeError("document cause")
-    with pytest.raises(ValueError, match="^document failure$") as raised:
-        raise_document_query_legacy(failure, cause=cause)
+    failure = material_query_failure("filter_invalid", "material failure", owner="test")
+    with pytest.raises(ValueError, match="^material failure$"):
+        raise_material_query_legacy(failure)
+    cause = RuntimeError("material cause")
+    with pytest.raises(ValueError, match="^material failure$") as raised:
+        raise_material_query_legacy(failure, cause=cause)
     assert raised.value.__cause__ is cause
 
 

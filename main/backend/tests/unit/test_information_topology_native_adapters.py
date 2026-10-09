@@ -4,8 +4,8 @@ from dataclasses import dataclass, field
 import pytest
 from app.services.information_topology.adapters.native import (
     adapt_clue_chain_state,
-    adapt_document,
     adapt_graph,
+    adapt_material,
     adapt_typed_knowledge,
     adapt_writing_document,
     clue_retrieval_correspondence,
@@ -55,12 +55,15 @@ def vocabulary(name, ref, *, node_types=("现场", "组织")):
 
 
 def test_native_adapters_bind_identity_and_report_source_version_capability():
-    document = adapt_document({"id": 12, "title": "Paper", "doc_type": "report", "updated_at": None}, project_key="p")
-    assert document.revision_capability == "schema_only"
-    assert document.state.elements[0].ref.ref.local_id == "12"
-    assert document.state.elements[0].ref.ref.type_id == "material"
-    assert document.state.elements[0].ref.ref.module_id == "materials"
-    assert document.state.profile_id == "native.material"
+    material = adapt_material(
+        {"id": 12, "title": "Paper", "material_type": "report", "updated_at": None}, project_key="p"
+    )
+    assert material.revision_capability == "schema_only"
+    assert material.state.elements[0].ref.ref.local_id == "12"
+    assert material.state.elements[0].ref.ref.type_id == "material"
+    assert material.state.elements[0].ref.ref.module_id == "materials"
+    assert material.state.profile_id == "native.material"
+    assert material.state.elements[0].attributes["material_type"] == "report"
 
     writing = adapt_writing_document({"id": 8, "head_version": 3, "etag": "abc", "title": "Draft"}, project_key="p")
     assert writing.revision_capability == "versioned"
@@ -71,15 +74,15 @@ def test_native_adapters_bind_identity_and_report_source_version_capability():
     assert typed.state.elements[0].ref.ref.local_id == "concept:x"
     assert isinstance(adapt_typed_knowledge({"project_key": "other", "identity_ref": "x"}, project_key="p"), Failure)
     with pytest.raises(ValueError, match="project_key and native identity"):
-        adapt_document({"id": 12}, project_key="")
+        adapt_material({"id": 12}, project_key="")
     with pytest.raises(ValueError, match="project_key and native identity"):
-        adapt_document({"id": ""}, project_key="p")
+        adapt_material({"id": ""}, project_key="p")
 
 
 @pytest.mark.parametrize("bad_id", [None, "", 0, -1, "not-an-integer", 1.5, True])
 def test_native_adapter_rejects_non_positive_material_identity(bad_id: object):
     with pytest.raises(ValueError, match="project_key and native identity are required"):
-        adapt_document({"id": bad_id}, project_key="p")
+        adapt_material({"id": bad_id}, project_key="p")
 
 
 def test_clue_state_is_a_read_only_observation_and_mapping_requires_same_project():

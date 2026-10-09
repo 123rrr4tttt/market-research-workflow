@@ -1,5 +1,4 @@
 import type { BoundRef } from './types'
-import { normalizeMaterialRef } from './materialIdentity'
 
 export type ReferenceStatus = {
   ref: BoundRef
@@ -8,8 +7,7 @@ export type ReferenceStatus = {
 }
 
 function identity(ref: BoundRef['ref']) {
-  const canonical = normalizeMaterialRef(ref)
-  return [canonical.project_key, canonical.module_id, canonical.namespace, canonical.type_id, canonical.local_id].join('\u0000')
+  return [ref.project_key, ref.module_id, ref.namespace, ref.type_id, ref.local_id].join('\u0000')
 }
 
 /** Compare version-bound references with the current refs returned by resolve(). */

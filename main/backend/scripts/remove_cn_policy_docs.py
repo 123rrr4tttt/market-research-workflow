@@ -18,7 +18,7 @@ from typing import Annotated, Any, Iterable, List
 from sqlalchemy import and_, cast, or_, String
 
 from app.models.base import SessionLocal
-from app.models.entities import Document
+from app.models.entities import Material
 
 
 # 常见的中国省级行政区名称（可根据需要扩充）
@@ -85,31 +85,31 @@ def build_query(
     "witness=test:test_c15_backend_misc_cli_report_metadata_preserves_abi",
 ]:
     """构建筛选包含中国区域或中文正文的政策文档的查询。"""
-    json_state = cast(Document.extracted_data["policy"]["state"], String)
+    json_state = cast(Material.extracted_data["policy"]["state"], String)
     region_conditions = []
 
     for region in CHINA_REGIONS + CHINA_KEYWORDS:
-        region_conditions.append(Document.state.ilike(f"%{region}%"))
+        region_conditions.append(Material.state.ilike(f"%{region}%"))
         region_conditions.append(json_state.ilike(f"%{region}%"))
 
     content_condition = and_(
-        Document.content.isnot(None),
-        Document.content.op("~")(r"[^\x00-\x7F]"),
+        Material.content.isnot(None),
+        Material.content.op("~")(r"[^\x00-\x7F]"),
     )
 
     return (
-        session.query(Document)
+        session.query(Material)
         .filter(
             and_(
-                Document.doc_type.in_(["policy", "policy_regulation"]),
+                Material.material_type.in_(["policy", "policy_regulation"]),
                 or_(or_(*region_conditions), content_condition),
             )
         )
-        .order_by(Document.id.asc())
+        .order_by(Material.id.asc())
     )
 
 
-def dry_run(documents: Iterable[Document]) -> int:
+def dry_run(documents: Iterable[Material]) -> int:
     """打印命中的文档信息（预览模式）。"""
     count = 0
     print("📝 预览模式：以下文档将被删除（未执行删除）")
@@ -127,7 +127,7 @@ def dry_run(documents: Iterable[Document]) -> int:
     return count
 
 
-def delete_documents(documents: Iterable[Document], session) -> int:
+def delete_documents(documents: Iterable[Material], session) -> int:
     """删除命中的文档。"""
     count = 0
     ids_to_delete: List[int] = []
@@ -138,7 +138,7 @@ def delete_documents(documents: Iterable[Document], session) -> int:
     if not ids_to_delete:
         return 0
 
-    session.query(Document).filter(Document.id.in_(ids_to_delete)).delete(
+    session.query(Material).filter(Material.id.in_(ids_to_delete)).delete(
         synchronize_session=False
     )
     return count

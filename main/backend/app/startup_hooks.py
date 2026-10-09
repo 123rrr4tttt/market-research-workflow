@@ -25,7 +25,7 @@ from .models.entities import (
     AgentSession,
     AgentTask,
     ConfigState,
-    Document,
+    Material,
     Embedding,
     EtlJobRun,
     IngestChannel,
@@ -134,20 +134,20 @@ def register_startup_hooks(app: FastAPI) -> None:
                         "project bootstrap skipped: no projects found and bootstrap_create_initial_project=false"
                     )
 
-                public_docs_value = conn.execute(
-                    text("SELECT to_regclass('public.documents') IS NOT NULL")
+                public_materials_value = conn.execute(
+                    text("SELECT to_regclass('public.materials') IS NOT NULL")
                 ).scalar()
-                has_public_docs = public_docs_value is True
+                has_public_materials = public_materials_value is True
                 neutral_schema = f'{settings.project_schema_prefix}{settings.active_project_key}'
-                target_docs_value = conn.execute(
-                    text(f"SELECT to_regclass('{neutral_schema}.documents') IS NOT NULL")
+                target_materials_value = conn.execute(
+                    text(f"SELECT to_regclass('{neutral_schema}.materials') IS NOT NULL")
                 ).scalar()
-                has_target_docs = target_docs_value is True
-                if has_public_docs and not has_target_docs:
+                has_target_materials = target_materials_value is True
+                if has_public_materials and not has_target_materials:
                     conn.execute(text(f'CREATE SCHEMA IF NOT EXISTS "{neutral_schema}"'))
                     tenant_tables = [
                         "sources",
-                        "documents",
+                        "materials",
                         "market_stats",
                         "config_states",
                         "embeddings",
@@ -184,7 +184,7 @@ def register_startup_hooks(app: FastAPI) -> None:
             require_model_table(table)
             for table in (
                 Source.__table__,
-                Document.__table__,
+                Material.__table__,
                 MarketStat.__table__,
                 ConfigState.__table__,
                 Embedding.__table__,

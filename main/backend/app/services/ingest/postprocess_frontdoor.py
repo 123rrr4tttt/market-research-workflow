@@ -7,7 +7,7 @@ from uuid import uuid4
 from ..extraction.application import ExtractionApplicationService
 from .canary_handoff import build_single_url_canary_handoff
 from .cleanup_executor import execute_frontdoor_cleanup
-from .content_cleaner import clean_frontdoor_document_candidate
+from .content_cleaner import clean_frontdoor_material_candidate
 from .content_extraction import apply_main_content_extraction, is_extracted_pdf_body
 from .frontdoor_ingress import CONTRACT_VERSION as INGRESS_CONTRACT_VERSION
 from .gate_reason_codes import normalize_reason_code
@@ -17,8 +17,8 @@ from .meaningful_gate import build_gateplus_snapshot, content_quality_check, url
 from .retry_policy import build_retry_observability
 from .structured_extraction import build_structured_summary, extract_structured_enriched_safe
 from .terminal_compat import apply_terminal_compat
-from .terminal_normalizer import build_terminal_ingest_payload
-from .terminal_writer import persist_terminal_document
+from .terminal_normalizer import build_terminal_material_payload
+from .terminal_writer import persist_terminal_material
 from ...settings.config import settings
 
 
@@ -201,15 +201,15 @@ def run_postprocess_frontdoor(
     _stage(envelope, "contract_validated")
 
     collection_payload = _object_view(ingress.get("collection_payload"))
-    document_candidate = _object_view(collection_payload.get("document_candidate"))
+    material_candidate = _object_view(collection_payload.get("material_candidate"))
     dispatch_plan = _object_view(collection_payload.get("dispatch_plan"))
     records = collection_payload.get("records")
     extraction_plan = _object_view(collection_payload.get("extraction_plan"))
     effective_run_writer = bool(dispatch_plan.get("run_writer", True if run_writer is None else run_writer))
     effective_run_extraction = bool(dispatch_plan.get("run_extraction", True))
     admission = "accept"
-    if document_candidate:
-        if not str(document_candidate.get("uri") or "").strip() and not str(document_candidate.get("content") or "").strip():
+    if material_candidate:
+        if not str(material_candidate.get("uri") or "").strip() and not str(material_candidate.get("content") or "").strip():
             admission = "reject"
     elif isinstance(records, list) and records:
         admission = "defer"
@@ -235,16 +235,16 @@ def run_postprocess_frontdoor(
     terminal_context = _object_view(collection_payload.get("terminal_context"))
     if ingress.get("project_key") and not terminal_context.get("project_key"):
         terminal_context["project_key"] = ingress.get("project_key")
-    document_candidate, extraction_profile = apply_main_content_extraction(document_candidate)
+    material_candidate, extraction_profile = apply_main_content_extraction(material_candidate)
     terminal_context["content_extraction"] = _object_view(extraction_profile)
     envelope["data"]["content_extraction"] = deepcopy(extraction_profile)
     _stage(envelope, "content_extracted")
-    document_candidate, cleaning_result = clean_frontdoor_document_candidate(document_candidate)
+    material_candidate, cleaning_result = clean_frontdoor_material_candidate(material_candidate)
     terminal_context["frontdoor_cleaning"] = _object_view(cleaning_result)
     envelope["data"]["cleaning"] = deepcopy(cleaning_result)
     _stage(envelope, "cleaned")
     quality_result = _evaluate_quality_frontdoor(
-        document_candidate=document_candidate,
+        material_candidate=material_candidate,
         terminal_context=terminal_context,
     )
     envelope["data"]["quality_assessment"] = _object_view(quality_result["quality_assessment"])
@@ -256,13 +256,13 @@ def run_postprocess_frontdoor(
     envelope["data"]["admission"] = admission
     if admission != "accept":
         cleanup_execution = _maybe_execute_cleanup(
-            document_candidate=document_candidate,
+            material_candidate=material_candidate,
             terminal_context=terminal_context,
             quality_result=quality_result,
         )
         envelope["data"]["cleanup_execution"] = deepcopy(cleanup_execution)
         if cleanup_execution.get("recovered") and cleanup_execution.get("quality_result"):
-            document_candidate = _object_view(cleanup_execution.get("document_candidate")) or document_candidate
+            material_candidate = _object_view(cleanup_execution.get("material_candidate")) or material_candidate
             terminal_context = _object_view(cleanup_execution.get("terminal_context")) or terminal_context
             quality_result = _object_view(cleanup_execution.get("quality_result")) or quality_result
             envelope["data"]["content_extraction"] = _object_view(terminal_context.get("content_extraction"))
@@ -277,8 +277,8 @@ def run_postprocess_frontdoor(
                 terminal_context=terminal_context,
                 quality_result=quality_result,
             )
-            document_candidate = _merge_document_candidate(
-                document_candidate=document_candidate,
+            material_candidate = _merge_material_candidate(
+                material_candidate=material_candidate,
                 quality_result=quality_result,
             )
         else:
@@ -299,8 +299,8 @@ def run_postprocess_frontdoor(
         terminal_context=terminal_context,
         quality_result=quality_result,
     )
-    document_candidate = _merge_document_candidate(
-        document_candidate=document_candidate,
+    material_candidate = _merge_material_candidate(
+        material_candidate=material_candidate,
         quality_result=quality_result,
     )
 
@@ -310,7 +310,7 @@ def run_postprocess_frontdoor(
             extraction_outcome = _normalize_existing_extraction_outcome(extraction_outcome)
         else:
             extraction_outcome = _run_extraction_plan(
-                document_candidate=document_candidate,
+                material_candidate=material_candidate,
                 extraction_plan=extraction_plan,
             )
     elif extraction_outcome:
@@ -329,13 +329,13 @@ def run_postprocess_frontdoor(
         }
     _stage(envelope, "extraction_completed")
 
-    if not document_candidate.get("publish_date"):
+    if not material_candidate.get("publish_date"):
         derived_publish_date = _derive_publish_date_from_domains(extraction_outcome.get("domains"))
         if derived_publish_date:
-            document_candidate["publish_date"] = derived_publish_date
+            material_candidate["publish_date"] = derived_publish_date
 
-    normalized_payload = build_terminal_ingest_payload(
-        document_candidate=document_candidate,
+    normalized_payload = build_terminal_material_payload(
+        material_candidate=material_candidate,
         ingress_envelope=ingress,
         extraction_outcome=extraction_outcome,
         terminal_context=terminal_context,
@@ -347,7 +347,7 @@ def run_postprocess_frontdoor(
     _stage(envelope, "normalized")
 
     if effective_run_writer:
-        writer_result = persist_terminal_document(normalized_payload)
+        writer_result = persist_terminal_material(normalized_payload)
         envelope["data"]["writer_result"] = writer_result
         _stage(envelope, "writer_completed")
     _attach_canary_handoff(envelope=envelope, ingress=ingress)
@@ -361,7 +361,7 @@ def run_frontdoor_extraction(
     extraction_plan: dict[str, object] | None = None,
 ) -> dict[str, object]:
     return _run_extraction_plan(
-        document_candidate={
+        material_candidate={
             "title": title,
             "content": str(content or ""),
         },
@@ -465,12 +465,12 @@ def _normalize_extraction_plan(extraction_plan: dict[str, object]) -> dict[str, 
 
 def _run_extraction_plan(
     *,
-    document_candidate: dict[str, object],
+    material_candidate: dict[str, object],
     extraction_plan: dict[str, object],
 ) -> dict[str, object]:
     resolved_plan = _normalize_extraction_plan(extraction_plan)
     chunks = _string_list(extraction_plan.get("chunks"))
-    title = _optional_str(document_candidate.get("title"))
+    title = _optional_str(material_candidate.get("title"))
     if chunks:
         outcomes: list[dict[str, object]] = []
         for chunk in chunks:
@@ -496,7 +496,7 @@ def _run_extraction_plan(
         )
     return run_unified_structured_extraction(
         title=title,
-        content=str(document_candidate.get("content") or ""),
+        content=str(material_candidate.get("content") or ""),
         include_policy=resolved_plan["include_policy"],
         include_market=resolved_plan["include_market"],
         include_sentiment=resolved_plan["include_sentiment"],
@@ -604,10 +604,10 @@ def _merge_unique_list_of_dicts(target: list[object], incoming: list[object], ke
 
 def _evaluate_quality_frontdoor(
     *,
-    document_candidate: dict[str, object],
+    material_candidate: dict[str, object],
     terminal_context: dict[str, object],
 ) -> dict[str, object]:
-    candidate = _object_view(document_candidate)
+    candidate = _object_view(material_candidate)
     context = _object_view(terminal_context)
     uri = str(candidate.get("uri") or "").strip()
     title = str(candidate.get("title") or "").strip()
@@ -668,7 +668,7 @@ def _evaluate_quality_frontdoor(
     content_gate = content_quality_check(
         uri=uri,
         content=content,
-        doc_type=str(candidate.get("doc_type") or "unknown"),
+        material_type=str(candidate.get("material_type") or "unknown"),
         extraction_status="pending",
         config=gate_cfg,
         content_profile=content_profile,
@@ -775,12 +775,12 @@ def _merge_terminal_context(
     return context
 
 
-def _merge_document_candidate(
+def _merge_material_candidate(
     *,
-    document_candidate: dict[str, object],
+    material_candidate: dict[str, object],
     quality_result: dict[str, object],
 ) -> dict[str, object]:
-    candidate = _object_view(document_candidate)
+    candidate = _object_view(material_candidate)
     extracted_data_base = _object_view(candidate.get("extracted_data_base"))
     extracted_data_base.setdefault("_quality_frontdoor", {})
     extracted_data_base["_quality_frontdoor"] = {
@@ -816,7 +816,7 @@ def _cleanup_actions_for_reason(reason_code: str) -> list[str]:
 
 def _maybe_execute_cleanup(
     *,
-    document_candidate: dict[str, object],
+    material_candidate: dict[str, object],
     terminal_context: dict[str, object],
     quality_result: dict[str, object],
 ) -> dict[str, object]:
@@ -828,14 +828,14 @@ def _maybe_execute_cleanup(
     if "specialized_extractor_required" in cleanup_actions:
         return {"executed": False, "recovered": False, "skipped_reason": "specialized_extractor_required"}
     cleanup_execution = execute_frontdoor_cleanup(
-        document_candidate=document_candidate,
+        material_candidate=material_candidate,
         terminal_context=terminal_context,
         cleanup_actions=cleanup_actions,
     )
     if not cleanup_execution.get("recovered"):
         return cleanup_execution
     rerun_quality = _evaluate_quality_frontdoor(
-        document_candidate=_object_view(cleanup_execution.get("document_candidate")) or document_candidate,
+        material_candidate=_object_view(cleanup_execution.get("material_candidate")) or material_candidate,
         terminal_context=_object_view(cleanup_execution.get("terminal_context")) or terminal_context,
     )
     cleanup_execution["quality_result"] = rerun_quality

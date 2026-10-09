@@ -26,7 +26,7 @@ class GraphNodeWritePayload(TypedDict):
     canonical_id: str
     display_name: str | None
     properties: JSONObject
-    source_doc_id: int | None
+    source_material_id: int | None
     node_schema_version: str
     quality_flags: JSONObject
     id: str
@@ -56,7 +56,7 @@ class GraphNodeWriter:
         return None
 
     @staticmethod
-    def _source_doc_id(node_type: str, node_id: str) -> int | None:
+    def _source_material_id(node_type: str, node_id: str) -> int | None:
         if node_type not in {"Post", "MarketData", "Policy"}:
             return None
         if not node_id.isdigit():
@@ -69,7 +69,7 @@ class GraphNodeWriter:
             canonical_id=payload["canonical_id"],
             display_name=payload.get("display_name"),
             properties=payload.get("properties") or {},
-            source_doc_id=payload.get("source_doc_id"),
+            source_material_id=payload.get("source_material_id"),
             node_schema_version=payload.get("node_schema_version") or self.schema_version,
             quality_flags=payload.get("quality_flags"),
         )
@@ -78,7 +78,7 @@ class GraphNodeWriter:
             set_={
                 "display_name": stmt.excluded.display_name,
                 "properties": stmt.excluded.properties,
-                "source_doc_id": stmt.excluded.source_doc_id,
+                "source_material_id": stmt.excluded.source_material_id,
                 "node_schema_version": stmt.excluded.node_schema_version,
                 "quality_flags": stmt.excluded.quality_flags,
             },
@@ -183,7 +183,7 @@ class GraphNodeWriter:
                 "canonical_id": canonical_id,
                 "display_name": self._display_name(props),
                 "properties": props,
-                "source_doc_id": self._source_doc_id(node_type, canonical_id),
+                "source_material_id": self._source_material_id(node_type, canonical_id),
                 "node_schema_version": self.schema_version,
                 "quality_flags": {},
                 "id": canonical_id,

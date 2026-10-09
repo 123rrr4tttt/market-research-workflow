@@ -18,8 +18,8 @@ from ..projects import current_project_key
 from ..search.candidate_contracts import CandidateSearchRequest
 from ..search.facets import MARKET_FACET
 from ...models.base import SessionLocal
-from ...models.entities import Document, Source
-from .doc_type_mapper import normalize_doc_type
+from ...models.entities import Material, Source
+from .material_type_mapper import normalize_material_type
 from .frontdoor_ingress import build_frontdoor_ingress_envelope
 from .postprocess_frontdoor import run_postprocess_frontdoor
 from ..resource_pool.http_port import fetch_html
@@ -113,7 +113,7 @@ def collect_market_info(
     )
 
     try:
-        normalized_doc_type = normalize_doc_type("market_info")
+        normalized_material_type = normalize_material_type("market_info")
         effective_project = (project_key or current_project_key() or "").strip() or None
         request = CandidateSearchRequest(
             topic=" ".join(keywords),
@@ -131,7 +131,7 @@ def collect_market_info(
             request=request,
             project_key=effective_project,
             target=SearchIngestTarget(
-                doc_type=normalized_doc_type,
+                material_type=normalized_material_type,
                 extraction_enabled=bool(enable_extraction),
                 extraction_flags={
                     "include_market": True,
@@ -200,7 +200,7 @@ def collect_market_info(
             collection = run_search_and_ingest(
                 spec,
                 SearchIngestPorts(
-                    exists=lambda link: session.query(Document).filter(Document.uri == link).first() is not None,
+                    exists=lambda link: session.query(Material).filter(Material.uri == link).first() is not None,
                     fetch_text=fetch_body,
                     write=write_frontdoor,
                     route_missing=route_missing,
@@ -216,7 +216,7 @@ def collect_market_info(
             "inserted_valid": inserted,
             "skipped": skipped,
             "links": list(collection.links),
-            "doc_type": normalized_doc_type,
+            "material_type": normalized_material_type,
             "body_fetch_routed_urls": len(collection.missing_urls),
             "body_fetch_inserted": _result_int(routed_result.get("inserted")),
             "body_fetch_skipped": _result_int(routed_result.get("skipped")),

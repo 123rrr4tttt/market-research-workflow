@@ -4,7 +4,7 @@ from __future__ import annotations
 import logging
 from datetime import datetime, date
 
-from ....models.entities import Document
+from ....models.entities import Material
 from ..models import NormalizedPolicyData
 from ..mapping import normalize_graph_json_object
 from ...document_views import (
@@ -41,16 +41,16 @@ def _to_datetime(value: object) -> datetime | None:
 class PolicyAdapter:
     """政策数据适配器"""
 
-    def to_normalized(self, doc: Document) -> NormalizedPolicyData | None:
+    def to_normalized(self, doc: Material) -> NormalizedPolicyData | None:
         if not has_structured_data(doc):
-            logger.debug("Document %s 缺少 extracted_data，跳过", doc.id)
+            logger.debug("Material %s 缺少 extracted_data，跳过", doc.id)
             return None
 
         policy_data: dict[str, object] = dict(get_policy_data(doc))
 
         # 如果既没有 policy 数据也没有基本信息，则跳过
-        if not policy_data and doc.doc_type not in ("policy", "policy_regulation"):
-            logger.debug("Document %s doc_type=%s，非政策文档", doc.id, doc.doc_type)
+        if not policy_data and doc.material_type not in ("policy", "policy_regulation"):
+            logger.debug("Material %s material_type=%s，非政策材料", doc.id, doc.material_type)
             return None
 
         state = get_policy_state(doc)

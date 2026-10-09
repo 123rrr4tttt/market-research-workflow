@@ -93,10 +93,10 @@ class LlmDirtyReviewService:
     def _build_prompt(
         self,
         *,
-        doc_id: int,
+        material_id: int,
         uri: str,
         title: str,
-        doc_type: str,
+        material_type: str,
         rule_reason: str,
         content_preview: str,
     ) -> str:
@@ -113,8 +113,8 @@ Output must be JSON only with keys:
 delete (bool), confidence (0..1), category (string), reason (string).
 
 Record:
-id={doc_id}
-doc_type={doc_type}
+material_id={material_id}
+material_type={material_type}
 uri={uri}
 title={title}
 rule_reason={rule_reason}
@@ -124,18 +124,18 @@ content_preview={content_preview}
     def review_candidate(
         self,
         *,
-        doc_id: int,
+        material_id: int,
         uri: str,
         title: str,
-        doc_type: str,
+        material_type: str,
         rule_reason: str,
         content_preview: str,
     ) -> DirtyReviewDecision:
         prompt = self._build_prompt(
-            doc_id=doc_id,
+            material_id=material_id,
             uri=uri,
             title=title,
-            doc_type=doc_type,
+            material_type=material_type,
             rule_reason=rule_reason,
             content_preview=content_preview,
         )
@@ -176,19 +176,19 @@ content_preview={content_preview}
         *,
         max_workers: int = 8,
     ) -> dict[int, DirtyReviewDecision]:
-        """Batch review candidates concurrently. Returns doc_id -> decision."""
+        """Batch review candidates concurrently. Returns material_id -> decision."""
         if not candidates:
             return {}
         workers = max(1, int(max_workers))
         if workers == 1:
             out: dict[int, DirtyReviewDecision] = {}
             for row in candidates:
-                doc_id = int(row.get("doc_id") or 0)
-                out[doc_id] = self.review_candidate(
-                    doc_id=doc_id,
+                material_id = int(row.get("material_id") or 0)
+                out[material_id] = self.review_candidate(
+                    material_id=material_id,
                     uri=str(row.get("uri") or ""),
                     title=str(row.get("title") or ""),
-                    doc_type=str(row.get("doc_type") or ""),
+                    material_type=str(row.get("material_type") or ""),
                     rule_reason=str(row.get("rule_reason") or ""),
                     content_preview=str(row.get("content_preview") or ""),
                 )
@@ -198,24 +198,24 @@ content_preview={content_preview}
         with ThreadPoolExecutor(max_workers=workers) as executor:
             future_map: dict[Future[DirtyReviewDecision], int] = {}
             for row in candidates:
-                doc_id = int(row.get("doc_id") or 0)
+                material_id = int(row.get("material_id") or 0)
                 future = executor.submit(
                     self.review_candidate,
-                    doc_id=doc_id,
+                    material_id=material_id,
                     uri=str(row.get("uri") or ""),
                     title=str(row.get("title") or ""),
-                    doc_type=str(row.get("doc_type") or ""),
+                    material_type=str(row.get("material_type") or ""),
                     rule_reason=str(row.get("rule_reason") or ""),
                     content_preview=str(row.get("content_preview") or ""),
                 )
-                future_map[future] = doc_id
+                future_map[future] = material_id
 
             for future in as_completed(future_map):
-                doc_id = int(future_map[future])
+                material_id = int(future_map[future])
                 try:
-                    out[doc_id] = future.result()
+                    out[material_id] = future.result()
                 except Exception as exc:  # noqa: BLE001
-                    out[doc_id] = DirtyReviewDecision(
+                    out[material_id] = DirtyReviewDecision(
                         delete=False,
                         confidence=0.0,
                         category="llm_error",

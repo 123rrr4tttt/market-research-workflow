@@ -1,31 +1,38 @@
 """数据库管理API"""
 from __future__ import annotations
 
-from collections.abc import Iterable
-from fastapi import APIRouter, Query, Request
-from fastapi.responses import JSONResponse
-from pydantic import AliasChoices, BaseModel, Field, JsonValue
-from typing import TYPE_CHECKING, Literal, Optional, Protocol, TypeGuard, List
-from datetime import datetime, date, timezone
 import hashlib
 import logging
+from collections.abc import Iterable
+from datetime import date, datetime, timezone
+from typing import TYPE_CHECKING, List, Literal, Optional
 
-from ..services.extraction.topic_workflow import run_topic_extraction_workflow
-from ..services.projects import bind_project, current_project_key
-from ..services.projects.context import resolve_request_project_context
+from fastapi import APIRouter, Query, Request
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel, ConfigDict, Field, JsonValue
+
+from ..composition.raw_material_import_task import (
+    RAW_MATERIAL_IMPORT_TASK_DEFINITION,
+    RawMaterialImportAsyncResult,
+    RawMaterialImportTaskBinding,
+    RawMaterialImportTaskDefinition,
+)
 from ..contracts import ApiEnvelope, ErrorCode, success_response, task_result_response
-from ..services.ingest.adapters.http_utils import fetch_html
-from ..services.ingest.postprocess_frontdoor import run_frontdoor_extraction
-from ..services.ingest.raw_import import run_raw_import_documents
-from ..services.ingest.url_pool import _extract_text_from_html
+from ..contracts.raw_material_import import RawImportRequest
+from ..project_customization import get_project_customization
 from ..services import document_admin
+from ..services.document_admin import AdminMaterialSnapshot, JsonObject, optional_json_object, parse_json_object
 from ..services.document_views import (
     build_social_data_item,
     get_extracted_data,
 )
-from ..project_customization import get_project_customization
+from ..services.extraction.topic_workflow import run_topic_extraction_workflow
+from ..services.ingest.adapters.http_utils import fetch_html
+from ..services.ingest.postprocess_frontdoor import run_frontdoor_extraction
+from ..services.ingest.url_pool import _extract_text_from_html
+from ..services.projects import current_project_key
+from ..services.projects.context import resolve_request_project_context
 from ._error_responses import error_json_response as _error_json
-from ..services.document_admin import AdminDocumentSnapshot, JsonObject, optional_json_object, parse_json_object
 
 if TYPE_CHECKING:
     from ..services.graph.models import Graph
@@ -35,36 +42,12 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/admin", tags=["admin"])
 
 
-class _AsyncTaskResult(Protocol):
-    id: str
-
-
-class _RawImportTask(Protocol):
-    def delay(self, payload: JsonObject, project_key: str) -> _AsyncTaskResult: ...
-
-
-class _TasksModule(Protocol):
-    task_raw_import_documents: _RawImportTask
-
-
-def _is_tasks_module(value: object) -> TypeGuard[_TasksModule]:
-    task = getattr(value, "task_raw_import_documents", None)
-    return task is not None and callable(getattr(task, "delay", None))
-
-
-def _tasks_module() -> _TasksModule:
-    from ..services import tasks
-
-    if not _is_tasks_module(tasks):
-        raise RuntimeError("task_raw_import_documents is not registered as an asynchronous task")
-    return tasks
-
-
 def _project_key_fallback() -> str:
     from ..settings.config import settings
     try:
-        from ..models.base import engine
         from sqlalchemy import text
+
+        from ..models.base import engine
         with engine.connect() as conn:
             conn.execute(text('SET search_path TO "public"'))
             row = conn.execute(
@@ -112,29 +95,34 @@ def _parse_iso_date_or_error(value: Optional[str], *, field: str) -> tuple[date 
 
 
 
-class DocumentListRequest(BaseModel):
+class MaterialListRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     page: int = Field(default=1, ge=1)
     page_size: int = Field(default=20, ge=1, le=100)
     state: Optional[str] = None
-    doc_type: Optional[str] = None
+    material_type: Optional[str] = None
     has_extracted_data: Optional[bool] = None
     search: Optional[str] = None
     sort_by: Optional[str] = Field(default="created_at", description="排序字段: created_at, publish_date, id")
     sort_order: Optional[str] = Field(default="desc", pattern="^(asc|desc)$", description="排序方向: asc, desc")
-    include_topology_materials: bool = Field(default=False, deprecated=True, description="兼容旧客户端；所有材料统一由 documents 查询")
 
 
 
 class SourceListRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     page: int = Field(default=1, ge=1)
     page_size: int = Field(default=20, ge=1, le=100)
     kind: Optional[str] = None
     enabled: Optional[bool] = None
-    sort_by: Optional[str] = Field(default="created_at", description="排序字段: created_at, id, name, document_count")
+    sort_by: Optional[str] = Field(default="created_at", description="排序字段: created_at, id, name, material_count")
     sort_order: Optional[str] = Field(default="desc", pattern="^(asc|desc)$", description="排序方向: asc, desc")
 
 
 class SocialDataListRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     page: int = Field(default=1, ge=1)
     page_size: int = Field(default=20, ge=1, le=100)
     platform: Optional[str] = None
@@ -144,7 +132,7 @@ class SocialDataListRequest(BaseModel):
     sort_order: Optional[str] = Field(default="desc", pattern="^(asc|desc)$", description="排序方向: asc, desc")
 
 
-def _document_sort_field(value: str | None) -> Literal["created_at", "publish_date", "id"]:
+def _material_sort_field(value: str | None) -> Literal["created_at", "publish_date", "id"]:
     if value == "publish_date":
         return "publish_date"
     if value == "id":
@@ -152,13 +140,13 @@ def _document_sort_field(value: str | None) -> Literal["created_at", "publish_da
     return "created_at"
 
 
-def _source_sort_field(value: str | None) -> Literal["created_at", "id", "name", "document_count"]:
+def _source_sort_field(value: str | None) -> Literal["created_at", "id", "name", "material_count"]:
     if value == "id":
         return "id"
     if value == "name":
         return "name"
-    if value == "document_count":
-        return "document_count"
+    if value == "material_count":
+        return "material_count"
     return "created_at"
 
 
@@ -176,61 +164,64 @@ def _sentiment_orientation(value: str | None) -> Literal["positive", "negative",
     return None
 
 
-class DeleteDocumentsRequest(BaseModel):
-    ids: List[int] = Field(validation_alias=AliasChoices("material_ids", "ids"))
+class DeleteMaterialsRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    material_ids: List[int]
     preview: bool = Field(default=False, description="仅预览影响范围，不执行删除")
 
 
-def _build_document_delete_preview(docs: list[AdminDocumentSnapshot], requested_ids: list[int]) -> JsonObject:
-    found_ids = {doc["id"] for doc in docs}
-    missing_ids = [int(doc_id) for doc_id in requested_ids if int(doc_id) not in found_ids]
+def _build_material_delete_preview(materials: list[AdminMaterialSnapshot], requested_ids: list[int]) -> JsonObject:
+    found_ids = {material["material_id"] for material in materials}
+    missing_ids = [int(material_id) for material_id in requested_ids if int(material_id) not in found_ids]
     risk_tags = ["destructive_write", "bulk_delete"]
-    if len(docs) >= 10:
+    if len(materials) >= 10:
         risk_tags.append("large_batch")
     if missing_ids:
         risk_tags.append("missing_ids")
 
     samples: list[JsonValue] = []
-    for doc in docs[:5]:
+    for material in materials[:5]:
         samples.append(
             {
-                "id": doc["id"],
-                "material_id": doc["material_id"],
-                "title": doc["title"],
-                "doc_type": doc["doc_type"],
-                "state": doc["state"],
-                "uri": doc["uri"],
-                "source_id": doc["source_id"],
-                "has_extracted_data": doc["extracted_data"] is not None,
+                "material_id": material["material_id"],
+                "title": material["title"],
+                "material_type": material["material_type"],
+                "state": material["state"],
+                "uri": material["uri"],
+                "source_id": material["source_id"],
+                "has_extracted_data": material["extracted_data"] is not None,
             }
         )
 
     evidence = _build_admin_preview_evidence(
-        action="documents.delete",
-        docs=docs,
+        action="materials.delete",
+        materials=materials,
         requested_ids=requested_ids,
         missing_ids=missing_ids,
         risk_tags=risk_tags,
-        filters={"ids": [int(doc_id) for doc_id in requested_ids]},
+        filters={"material_ids": [int(material_id) for material_id in requested_ids]},
     )
 
     return parse_json_object({
         "preview": True,
-        "action": "documents.delete",
-        "action_kind": "documents.delete",
-        "would_affect_count": len(docs),
+        "action": "materials.delete",
+        "action_kind": "materials.delete",
+        "would_affect_count": len(materials),
         "samples": samples,
         "risk_tags": risk_tags,
         "risk_labels": risk_tags,
-        "requires_confirmation": bool(docs),
+        "requires_confirmation": bool(materials),
         "requested": len(requested_ids),
         "missing": missing_ids,
         **evidence,
-    }, field="document_delete_preview")
+    }, field="material_delete_preview")
 
 
 class ReExtractRequest(BaseModel):
-    doc_ids: Optional[List[int]] = Field(default=None, validation_alias=AliasChoices("material_ids", "doc_ids"))
+    model_config = ConfigDict(extra="forbid")
+
+    material_ids: Optional[List[int]] = None
     preview: bool = Field(default=False, description="仅预览影响范围，不执行重抽取")
     force: bool = Field(default=False, description="是否强制重新提取已有数据的文档")
     fetch_missing_content: bool = Field(default=False, description="content为空时，尝试抓取正文后再提取")
@@ -239,63 +230,61 @@ class ReExtractRequest(BaseModel):
     treat_empty_er_as_missing: bool = Field(default=True, description="entities_relations存在但实体/关系为空时仍视为缺失")
 
 
-def _build_document_preview_samples(docs: list[AdminDocumentSnapshot]) -> list[JsonObject]:
+def _build_material_preview_samples(materials: list[AdminMaterialSnapshot]) -> list[JsonObject]:
     samples: list[JsonObject] = []
-    for doc in docs[:5]:
-        content = doc["content"]
+    for material in materials[:5]:
+        content = material["content"]
         samples.append(
             {
-                "id": doc["id"],
-                "material_id": doc["material_id"],
-                "title": doc["title"],
-                "doc_type": doc["doc_type"],
-                "state": doc["state"],
-                "uri": doc["uri"],
-                "source_id": doc["source_id"],
+                "material_id": material["material_id"],
+                "title": material["title"],
+                "material_type": material["material_type"],
+                "state": material["state"],
+                "uri": material["uri"],
+                "source_id": material["source_id"],
                 "has_content": bool(str(content or "").strip()),
-                "has_extracted_data": doc["extracted_data"] is not None,
+                "has_extracted_data": material["extracted_data"] is not None,
             }
         )
     return samples
 
 
-def _admin_preview_doc_ref(doc: AdminDocumentSnapshot, *, action: str) -> JsonObject:
-    doc_id = doc["id"]
+def _admin_preview_material_ref(material: AdminMaterialSnapshot, *, action: str) -> JsonObject:
+    material_id = material["material_id"]
     return {
-        "id": f"admin.preview.{action}.document:{doc_id}",
-        "kind": "document_record",
-        "table": "documents",
-        "document_id": doc_id,
-        "material_id": doc_id,
-        "title": doc["title"],
-        "doc_type": doc["doc_type"],
-        "state": doc["state"],
-        "uri": doc["uri"],
-        "source_id": doc["source_id"],
-        "columns": ["id", "title", "doc_type", "state", "uri", "source_id", "extracted_data"],
+        "id": f"admin.preview.{action}.material:{material_id}",
+        "kind": "material_record",
+        "table": "materials",
+        "material_id": material_id,
+        "title": material["title"],
+        "material_type": material["material_type"],
+        "state": material["state"],
+        "uri": material["uri"],
+        "source_id": material["source_id"],
+        "columns": ["material_id", "title", "material_type", "state", "uri", "source_id", "extracted_data"],
     }
 
 
 def _build_admin_preview_evidence(
     *,
     action: str,
-    docs: list[AdminDocumentSnapshot],
+    materials: list[AdminMaterialSnapshot],
     requested_ids: list[int],
     missing_ids: list[int],
     risk_tags: list[str],
     filters: JsonObject,
 ) -> JsonObject:
-    source_refs = [_admin_preview_doc_ref(doc, action=action) for doc in docs[:20]]
+    source_refs = [_admin_preview_material_ref(material, action=action) for material in materials[:20]]
     source_query = parse_json_object({
         "scope": "admin.preview",
         "action": action,
-        "table": "documents",
+        "table": "materials",
         "filters": filters,
         "selection": {
-            "requested_ids": [int(doc_id) for doc_id in requested_ids],
+            "requested_material_ids": [int(material_id) for material_id in requested_ids],
             "requested_count": len(requested_ids),
-            "matched_count": len(docs),
-            "missing_ids": [int(doc_id) for doc_id in missing_ids],
+            "matched_count": len(materials),
+            "missing_material_ids": [int(material_id) for material_id in missing_ids],
             "missing_count": len(missing_ids),
         },
     }, field="admin_preview.source_query")
@@ -308,24 +297,24 @@ def _build_admin_preview_evidence(
         },
         {
             "stage": "admin.preview.selection",
-            "status": "matched" if docs else "empty",
-            "matched_count": len(docs),
+            "status": "matched" if materials else "empty",
+            "matched_count": len(materials),
             "missing_count": len(missing_ids),
         },
         {
             "stage": "admin.preview.confirmation",
-            "status": "required" if docs else "not_required",
-            "requires_confirmation": bool(docs),
+            "status": "required" if materials else "not_required",
+            "requires_confirmation": bool(materials),
             "risk_tags": list(risk_tags),
         },
     ]
     evidence_preview = parse_json_object({
         "preview": True,
-        "evidence_kind": "document_selection",
+        "evidence_kind": "material_selection",
         "source": "admin_preview",
-        "documents_matched": len(docs),
-        "documents_sampled": len(source_refs),
-        "missing_ids": [int(doc_id) for doc_id in missing_ids],
+        "materials_matched": len(materials),
+        "materials_sampled": len(source_refs),
+        "missing_material_ids": [int(material_id) for material_id in missing_ids],
         "source_ref_ids": [str(ref["id"]) for ref in source_refs],
         "fields_are_predicted": False,
         "execution_result_available": False,
@@ -338,20 +327,19 @@ def _build_admin_preview_evidence(
     }, field="admin_preview_evidence")
 
 
-def _admin_after_action_doc_ref(doc: AdminDocumentSnapshot, *, action: str) -> JsonObject:
-    doc_id = doc["id"]
+def _admin_after_action_material_ref(material: AdminMaterialSnapshot, *, action: str) -> JsonObject:
+    material_id = material["material_id"]
     return {
-        "id": f"admin.after_action.{action}.document:{doc_id}",
-        "kind": "document_record",
-        "table": "documents",
-        "document_id": doc_id,
-        "material_id": doc_id,
-        "title": doc["title"],
-        "doc_type": doc["doc_type"],
-        "state": doc["state"],
-        "uri": doc["uri"],
-        "source_id": doc["source_id"],
-        "columns": ["id", "title", "doc_type", "state", "uri", "source_id", "extracted_data"],
+        "id": f"admin.after_action.{action}.material:{material_id}",
+        "kind": "material_record",
+        "table": "materials",
+        "material_id": material_id,
+        "title": material["title"],
+        "material_type": material["material_type"],
+        "state": material["state"],
+        "uri": material["uri"],
+        "source_id": material["source_id"],
+        "columns": ["material_id", "title", "material_type", "state", "uri", "source_id", "extracted_data"],
     }
 
 
@@ -372,9 +360,9 @@ def _admin_response_trace_id(
     seed = {
         "action_kind": action_kind,
         "project_key": project_key,
-        "requested_ids": [int(doc_id) for doc_id in requested_ids],
+        "requested_material_ids": [int(material_id) for material_id in requested_ids],
         "affected_count": int(affected_count),
-        "missing_ids": [int(doc_id) for doc_id in missing_ids],
+        "missing_material_ids": [int(material_id) for material_id in missing_ids],
         "skipped_count": int(skipped_count),
         "status": status,
     }
@@ -385,7 +373,7 @@ def _admin_response_trace_id(
 def _build_admin_after_action_evidence(
     *,
     action: str,
-    pre_mutation_docs: list[AdminDocumentSnapshot],
+    pre_mutation_docs: list[AdminMaterialSnapshot],
     requested_ids: list[int],
     missing_ids: list[int],
     affected_count: int,
@@ -402,8 +390,8 @@ def _build_admin_after_action_evidence(
     """
     project_key = _admin_response_project_key()
     executed_at = datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
-    normalized_requested_ids = [int(doc_id) for doc_id in requested_ids]
-    normalized_missing_ids = [int(doc_id) for doc_id in missing_ids]
+    normalized_requested_ids = [int(material_id) for material_id in requested_ids]
+    normalized_missing_ids = [int(material_id) for material_id in missing_ids]
     trace_id = _admin_response_trace_id(
         action_kind=action,
         project_key=project_key,
@@ -413,18 +401,18 @@ def _build_admin_after_action_evidence(
         skipped_count=skipped_count,
         status=status,
     )
-    source_refs = [_admin_after_action_doc_ref(doc, action=action) for doc in pre_mutation_docs[:20]]
+    source_refs = [_admin_after_action_material_ref(material, action=action) for material in pre_mutation_docs[:20]]
     source_query = parse_json_object({
         "scope": "admin.after_action.response_readback",
         "action": action,
-        "table": "documents",
+        "table": "materials",
         "filters": filters,
         "selection": {
-            "requested_ids": normalized_requested_ids,
+            "requested_material_ids": normalized_requested_ids,
             "requested_count": len(normalized_requested_ids),
             "matched_count": len(pre_mutation_docs),
             "affected_count": int(affected_count),
-            "missing_ids": normalized_missing_ids,
+            "missing_material_ids": normalized_missing_ids,
             "missing_count": len(normalized_missing_ids),
             "skipped_count": int(skipped_count),
             "source_snapshot_timing": "pre_mutation",
@@ -509,7 +497,7 @@ def _build_admin_after_action_evidence(
 
 
 def _build_bulk_extracted_data_preview(
-    docs: list[AdminDocumentSnapshot],
+    materials: list[AdminMaterialSnapshot],
     *,
     payload: "BulkUpdateExtractedDataRequest",
     missing: list[int],
@@ -521,19 +509,19 @@ def _build_bulk_extracted_data_preview(
         risk_tags.append("merge_write")
     if payload.extracted_data is None:
         risk_tags.append("clears_extracted_data")
-    if len(docs) >= 10:
+    if len(materials) >= 10:
         risk_tags.append("large_batch")
     if missing:
         risk_tags.append("missing_ids")
 
     evidence = _build_admin_preview_evidence(
-        action="documents.bulk_extracted_data",
-        docs=docs,
-        requested_ids=payload.doc_ids,
+        action="materials.bulk_extracted_data",
+        materials=materials,
+        requested_ids=payload.material_ids,
         missing_ids=missing,
         risk_tags=risk_tags,
         filters=parse_json_object({
-            "doc_ids": [int(doc_id) for doc_id in payload.doc_ids],
+            "material_ids": [int(material_id) for material_id in payload.material_ids],
             "mode": payload.mode,
             "clears_extracted_data": payload.extracted_data is None,
         }, field="bulk_extracted_data_preview.filters"),
@@ -541,14 +529,14 @@ def _build_bulk_extracted_data_preview(
 
     return parse_json_object({
         "preview": True,
-        "action": "documents.bulk_extracted_data",
-        "action_kind": "documents.bulk_extracted_data",
-        "would_affect_count": len(docs),
-        "samples": _build_document_preview_samples(docs),
+        "action": "materials.bulk_extracted_data",
+        "action_kind": "materials.bulk_extracted_data",
+        "would_affect_count": len(materials),
+        "samples": _build_material_preview_samples(materials),
         "risk_tags": risk_tags,
         "risk_labels": risk_tags,
-        "requires_confirmation": bool(docs),
-        "requested": len(payload.doc_ids),
+        "requires_confirmation": bool(materials),
+        "requested": len(payload.material_ids),
         "missing": missing,
         "mode": payload.mode,
         "clears_extracted_data": payload.extracted_data is None,
@@ -556,32 +544,32 @@ def _build_bulk_extracted_data_preview(
     }, field="bulk_extracted_data_preview")
 
 
-def _build_reextract_preview(docs: list[AdminDocumentSnapshot], payload: ReExtractRequest) -> JsonObject:
+def _build_reextract_preview(materials: list[AdminMaterialSnapshot], payload: ReExtractRequest) -> JsonObject:
     risk_tags = ["bulk_reextract", "extraction_rerun"]
     if payload.force:
         risk_tags.append("force_overwrite")
     if payload.fetch_missing_content:
         risk_tags.append("may_fetch_missing_content")
-    if not payload.doc_ids:
-        risk_tags.append("implicit_document_selection")
-    if len(docs) >= 10:
+    if not payload.material_ids:
+        risk_tags.append("implicit_material_selection")
+    if len(materials) >= 10:
         risk_tags.append("large_batch")
 
     missing_ids: list[int] = []
-    if payload.doc_ids:
-        found_ids = {doc["id"] for doc in docs}
-        missing_ids = [int(doc_id) for doc_id in payload.doc_ids if int(doc_id) not in found_ids]
+    if payload.material_ids:
+        found_ids = {material["material_id"] for material in materials}
+        missing_ids = [int(material_id) for material_id in payload.material_ids if int(material_id) not in found_ids]
         if missing_ids:
             risk_tags.append("missing_ids")
 
     evidence = _build_admin_preview_evidence(
-        action="documents.re_extract",
-        docs=docs,
-        requested_ids=payload.doc_ids or [],
+        action="materials.re_extract",
+        materials=materials,
+        requested_ids=payload.material_ids or [],
         missing_ids=missing_ids,
         risk_tags=risk_tags,
         filters=parse_json_object({
-            "doc_ids": payload.doc_ids,
+            "material_ids": payload.material_ids,
             "force": bool(payload.force),
             "fetch_missing_content": bool(payload.fetch_missing_content),
             "limit": payload.limit,
@@ -591,17 +579,17 @@ def _build_reextract_preview(docs: list[AdminDocumentSnapshot], payload: ReExtra
 
     return parse_json_object({
         "preview": True,
-        "action": "documents.re_extract",
-        "action_kind": "documents.re_extract",
-        "would_affect_count": len(docs),
-        "samples": _build_document_preview_samples(docs),
+        "action": "materials.re_extract",
+        "action_kind": "materials.re_extract",
+        "would_affect_count": len(materials),
+        "samples": _build_material_preview_samples(materials),
         "risk_tags": risk_tags,
         "risk_labels": risk_tags,
-        "requires_confirmation": bool(docs),
-        "requested": len(payload.doc_ids or []),
+        "requires_confirmation": bool(materials),
+        "requested": len(payload.material_ids or []),
         "missing": missing_ids,
         "selection": {
-            "doc_ids": payload.doc_ids,
+            "material_ids": payload.material_ids,
             "force": bool(payload.force),
             "fetch_missing_content": bool(payload.fetch_missing_content),
             "limit": payload.limit,
@@ -612,45 +600,16 @@ def _build_reextract_preview(docs: list[AdminDocumentSnapshot], payload: ReExtra
 
 
 class TopicExtractRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     topics: List[Literal["company", "product", "operation"]] = Field(default_factory=lambda: ["company", "product", "operation"], min_length=1)
-    doc_ids: Optional[List[int]] = Field(default=None, validation_alias=AliasChoices("material_ids", "doc_ids"))
-    doc_types: Optional[List[str]] = None
+    material_ids: Optional[List[int]] = None
+    material_types: Optional[List[str]] = None
     force: bool = Field(default=False)
     fetch_missing_content: bool = Field(default=False)
     batch_size: int = Field(default=10, ge=1, le=100)
     limit: Optional[int] = Field(default=200, ge=1, le=5000)
     candidate_mode: Literal["rules_then_llm"] = "rules_then_llm"
-
-
-class RawImportItem(BaseModel):
-    title: Optional[str] = None
-    url: Optional[str] = None
-    uri: Optional[str] = None
-    uris: Optional[List[str]] = None
-    text: Optional[str] = Field(default=None, description="粘贴文本/文件文本内容；可留空并用 url/uri 自动抓取")
-    summary: Optional[str] = None
-    doc_type: Optional[str] = None
-    publish_date: Optional[str] = None
-    state: Optional[str] = None
-
-
-class RawImportRequest(BaseModel):
-    items: List[RawImportItem] = Field(default_factory=list, min_length=1, max_length=200)
-    source_name: str = Field(default="raw_import", min_length=1, max_length=255)
-    source_kind: str = Field(default="manual")
-    infer_from_links: bool = Field(default=True, description="从文本中识别首个 URL 作为 uri")
-    enable_extraction: bool = Field(default=True, description="是否直接进入结构化提取流程")
-    default_doc_type: Literal["market_info", "policy", "social_sentiment", "news", "raw_note"] = "raw_note"
-    extraction_mode: Literal["auto", "market", "policy", "social", "comprehensive"] = "auto"
-    overwrite_on_uri: bool = Field(default=False, description="相同 URI 是否覆盖已存在文档内容")
-    chunk_size: int = Field(default=2800, ge=500, le=8000, description="大文本分片长度（字符）")
-    chunk_overlap: int = Field(default=200, ge=0, le=1000, description="分片重叠长度（字符）")
-    max_chunks: int = Field(default=8, ge=1, le=50, description="单条文本最多分片数")
-    fetch_url_when_text_empty: bool = Field(default=True, description="text 为空时是否尝试抓取 url/uri 正文")
-    fetch_url_also_when_text_present: bool = Field(default=True, description="text 不为空时是否仍抓取 url/uri 正文并合并")
-    url_fetch_timeout: float = Field(default=8.0, ge=1.0, le=30.0, description="URL 抓取超时时间（秒）")
-    url_to_market: bool = Field(default=True, description="URL 抓取成功且未显式指定 doc_type 时，按 market_info 入库")
-    async_mode: bool = Field(default=False, description="是否走 Celery 异步任务")
 
 
 def _get_topic_dictionaries(project_key: str) -> JsonObject:
@@ -678,15 +637,15 @@ def _get_topic_dictionaries(project_key: str) -> JsonObject:
 
 def _augment_market_graph_with_topic_structured(
     graph: Graph,
-    documents: Iterable[object],
+    materials: Iterable[object],
     topic_scope: Literal["company", "product", "operation", ""] | None = None,
 ) -> None:
-    def _read_extracted_data(document: object) -> object:
-        return get_extracted_data(document)
+    def _read_extracted_data(material: object) -> object:
+        return get_extracted_data(material)
 
     document_admin.augment_market_graph_with_topic_structured(
         graph,
-        documents,
+        materials,
         extracted_data_reader=_read_extracted_data,
         topic_scope=topic_scope,
     )
@@ -699,14 +658,34 @@ def get_stats(request: Request):
     return success_response(document_admin.get_admin_stats(project_key))
 
 
+def _dispatch_raw_material_import_async(
+    binding: RawMaterialImportTaskBinding,
+    request: RawImportRequest,
+    project_key: str,
+) -> RawMaterialImportAsyncResult:
+    return binding.delay(request, project_key)
+
+
+def _run_raw_material_import_sync(
+    definition: RawMaterialImportTaskDefinition,
+    request: RawImportRequest,
+    project_key: str,
+) -> dict[str, object]:
+    return definition.run_request(request, project_key)
+
+
 @router.post("/materials/raw-import", response_model=ApiEnvelope[JsonObject])
-@router.post("/documents/raw-import", response_model=ApiEnvelope[JsonObject])
-def raw_import_documents(request: Request, payload: RawImportRequest):
+def raw_import_materials(request: Request, payload: RawImportRequest):
     """Raw data direct ingest: skip fetch stage and reuse project-consistent ingest flow."""
     project_key = _project_key_from_request(request)
-    payload_dict = parse_json_object(payload.model_dump(mode="json"), field="raw_import_request")
     if payload.async_mode:
-        task = _tasks_module().task_raw_import_documents.delay(payload_dict, project_key)
+        from ..services.tasks import raw_material_import_task_binding
+
+        task = _dispatch_raw_material_import_async(
+            raw_material_import_task_binding,
+            payload,
+            project_key,
+        )
         task_result = parse_json_object(
             task_result_response(
                 task_id=task.id,
@@ -716,28 +695,29 @@ def raw_import_documents(request: Request, payload: RawImportRequest):
             field="raw_import_task_result",
         )
         return success_response(task_result)
-    with bind_project(project_key):
-        raw_payload: dict[str, object] = {key: value for key, value in payload_dict.items()}
-        result = run_raw_import_documents(raw_payload, project_key)
-        return success_response(parse_json_object(result, field="raw_import_result"))
+    result = _run_raw_material_import_sync(
+        RAW_MATERIAL_IMPORT_TASK_DEFINITION,
+        payload,
+        project_key,
+    )
+    return success_response(parse_json_object(result, field="raw_import_result"))
 
 
-@router.post("/materials/list", response_model=ApiEnvelope[document_admin.AdminDocumentPage])
-@router.post("/documents/list", response_model=ApiEnvelope[document_admin.AdminDocumentPage])
-def list_documents(request: Request, payload: DocumentListRequest):
+@router.post("/materials/list", response_model=ApiEnvelope[document_admin.AdminMaterialPage])
+def list_materials(request: Request, payload: MaterialListRequest):
     """列出文档"""
     project_key = _project_key_from_request(request)
-    query_spec = document_admin.AdminDocumentListQuery(
+    query_spec = document_admin.AdminMaterialListQuery(
         page=payload.page,
         page_size=payload.page_size,
         state=payload.state,
-        doc_type=payload.doc_type,
+        material_type=payload.material_type,
         has_extracted_data=payload.has_extracted_data,
         search=payload.search,
-        sort_by=_document_sort_field(payload.sort_by),
+        sort_by=_material_sort_field(payload.sort_by),
         sort_order=_sort_order(payload.sort_order),
     )
-    return success_response(document_admin.list_admin_documents(project_key, query_spec))
+    return success_response(document_admin.list_admin_materials(project_key, query_spec))
 
 
 class UpdateExtractedDataRequest(BaseModel):
@@ -746,30 +726,31 @@ class UpdateExtractedDataRequest(BaseModel):
 
 
 class BulkUpdateExtractedDataRequest(BaseModel):
-    doc_ids: List[int] = Field(..., validation_alias=AliasChoices("material_ids", "doc_ids"), description="要更新的材料ID列表")
+    model_config = ConfigDict(extra="forbid")
+
+    material_ids: List[int] = Field(..., description="要更新的材料ID列表")
     preview: bool = Field(default=False, description="仅预览影响范围，不执行写入")
     mode: Literal["replace", "merge"] = Field(default="replace", description="replace: 全量替换；merge: 递归合并(对象)")
     extracted_data: JsonValue = Field(default=None, description="要写入的 JSON 值；null 表示清空 extracted_data")
 
 
 @router.post("/materials/bulk/extracted-data", response_model=ApiEnvelope[JsonObject])
-@router.post("/documents/bulk/extracted-data", response_model=ApiEnvelope[JsonObject])
-def bulk_update_document_extracted_data(payload: BulkUpdateExtractedDataRequest):
+def bulk_update_material_extracted_data(payload: BulkUpdateExtractedDataRequest):
     """批量写入/合并文档 extracted_data。"""
-    if not payload.doc_ids:
-        return _error_json(400, ErrorCode.INVALID_INPUT, "doc_ids 不能为空")
+    if not payload.material_ids:
+        return _error_json(400, ErrorCode.INVALID_INPUT, "material_ids 不能为空")
 
     command = document_admin.AdminExtractedDataCommand(
         mode=payload.mode,
         extracted_data=payload.extracted_data,
     )
     if payload.preview:
-        readback_docs = document_admin.preview_admin_documents(payload.doc_ids)
-        found_ids = {doc["id"] for doc in readback_docs}
-        missing = [doc_id for doc_id in payload.doc_ids if doc_id not in found_ids]
+        readback_docs = document_admin.preview_admin_materials(payload.material_ids)
+        found_ids = {material["material_id"] for material in readback_docs}
+        missing = [material_id for material_id in payload.material_ids if material_id not in found_ids]
         return success_response(_build_bulk_extracted_data_preview(readback_docs, payload=payload, missing=missing))
 
-    result = document_admin.bulk_update_admin_document_extracted_data(payload.doc_ids, command)
+    result = document_admin.bulk_update_admin_material_extracted_data(payload.material_ids, command)
     updated = result["updated"]
     skipped = result["skipped"]
     errors = result["errors"]
@@ -780,15 +761,15 @@ def bulk_update_document_extracted_data(payload: BulkUpdateExtractedDataRequest)
     if skipped or errors or missing:
         status = "completed_with_skips"
     evidence = _build_admin_after_action_evidence(
-        action="documents.bulk_extracted_data",
+        action="materials.bulk_extracted_data",
         pre_mutation_docs=pre_mutation_docs,
-        requested_ids=payload.doc_ids,
+        requested_ids=payload.material_ids,
         missing_ids=missing,
         affected_count=updated,
         skipped_count=skipped,
         status=status,
         filters=parse_json_object({
-            "doc_ids": [int(doc_id) for doc_id in payload.doc_ids],
+            "material_ids": [int(material_id) for material_id in payload.material_ids],
             "mode": payload.mode,
             "clears_extracted_data": payload.extracted_data is None,
         }, field="bulk_extracted_data.filters"),
@@ -805,7 +786,7 @@ def bulk_update_document_extracted_data(payload: BulkUpdateExtractedDataRequest)
     )
     return success_response(
         {
-            "requested": len(payload.doc_ids),
+            "requested": len(payload.material_ids),
             "updated": updated,
             "skipped": skipped,
             "missing": missing,
@@ -815,14 +796,13 @@ def bulk_update_document_extracted_data(payload: BulkUpdateExtractedDataRequest)
     )
 
 @router.post("/materials/delete", response_model=ApiEnvelope[JsonObject])
-@router.post("/documents/delete", response_model=ApiEnvelope[JsonObject])
-def delete_documents(payload: DeleteDocumentsRequest):
+def delete_materials(payload: DeleteMaterialsRequest):
     """删除文档"""
     if payload.preview:
-        readback_docs = document_admin.preview_admin_documents(payload.ids)
-        return success_response(_build_document_delete_preview(readback_docs, payload.ids))
+        readback_materials = document_admin.preview_admin_materials(payload.material_ids)
+        return success_response(_build_material_delete_preview(readback_materials, payload.material_ids))
 
-    result = document_admin.delete_admin_documents(payload.ids)
+    result = document_admin.delete_admin_materials(payload.material_ids)
     deleted = result["deleted"]
     missing = result["missing"]
     pre_mutation_docs = result["readback"]
@@ -833,17 +813,17 @@ def delete_documents(payload: DeleteDocumentsRequest):
     elif missing:
         status = "completed_with_missing"
     evidence = _build_admin_after_action_evidence(
-        action="documents.delete",
+        action="materials.delete",
         pre_mutation_docs=pre_mutation_docs,
-        requested_ids=payload.ids,
+        requested_ids=payload.material_ids,
         missing_ids=missing,
         affected_count=deleted,
         skipped_count=0,
         status=status,
-        filters={"ids": [int(doc_id) for doc_id in payload.ids]},
+        filters={"material_ids": [int(material_id) for material_id in payload.material_ids]},
         rollback_hint=(
             "Response-level readback only: delete is not automatically reversible. "
-            "Restore deleted documents from database backup or source re-ingest using the returned source_refs."
+            "Restore deleted materials from database backup or source re-ingest using the returned source_refs."
         ),
         execution_summary={"deleted_count": deleted},
     )
@@ -851,11 +831,10 @@ def delete_documents(payload: DeleteDocumentsRequest):
 
 
 @router.post("/materials/re-extract", response_model=ApiEnvelope[JsonObject])
-@router.post("/documents/re-extract", response_model=ApiEnvelope[JsonObject])
-def re_extract_documents(payload: ReExtractRequest):
+def re_extract_materials(payload: ReExtractRequest):
     """重新提取文档的结构化数据"""
     command = document_admin.AdminReextractCommand(
-        doc_ids=payload.doc_ids,
+        material_ids=payload.material_ids,
         force=payload.force,
         fetch_missing_content=payload.fetch_missing_content,
         batch_size=payload.batch_size,
@@ -876,7 +855,7 @@ def re_extract_documents(payload: ReExtractRequest):
             plan = {key: value for key, value in extraction_plan.items()}
         return run_frontdoor_extraction(title=title, content=content, extraction_plan=plan)
 
-    result = document_admin.reextract_admin_documents(
+    result = document_admin.reextract_admin_materials(
         command,
         extraction_runner=_run_extraction,
         fetch_html=fetch_html,
@@ -887,15 +866,15 @@ def re_extract_documents(payload: ReExtractRequest):
     skipped_count = result["skipped"]
     missing_ids = result["missing"]
     pre_mutation_docs = result["readback"]
-    selected_ids = [doc["id"] for doc in pre_mutation_docs]
-    requested_ids = payload.doc_ids or selected_ids
+    selected_ids = [material["material_id"] for material in pre_mutation_docs]
+    requested_ids = payload.material_ids or selected_ids
     status = "completed"
     if error_count:
         status = "completed_with_errors"
     elif skipped_count or missing_ids:
         status = "completed_with_skips"
     evidence = _build_admin_after_action_evidence(
-        action="documents.re_extract",
+        action="materials.re_extract",
         pre_mutation_docs=pre_mutation_docs,
         requested_ids=requested_ids,
         missing_ids=missing_ids,
@@ -903,7 +882,7 @@ def re_extract_documents(payload: ReExtractRequest):
         skipped_count=skipped_count,
         status=status,
         filters=parse_json_object({
-            "doc_ids": payload.doc_ids,
+            "material_ids": payload.material_ids,
             "force": payload.force,
             "fetch_missing_content": payload.fetch_missing_content,
             "limit": payload.limit,
@@ -937,15 +916,14 @@ def re_extract_documents(payload: ReExtractRequest):
 
 
 @router.post("/materials/topic-extract", response_model=ApiEnvelope[document_admin.AdminTopicExtractResult])
-@router.post("/documents/topic-extract", response_model=ApiEnvelope[document_admin.AdminTopicExtractResult])
-def topic_extract_documents(request: Request, payload: TopicExtractRequest):
+def topic_extract_materials(request: Request, payload: TopicExtractRequest):
     """专题析取（规则筛 + LLM确认），回填 company/product/operation 专题结构化字段。"""
     project_key = _project_key_from_request(request)
     command = document_admin.AdminTopicExtractCommand(
         project_key=project_key,
         topics=payload.topics,
-        doc_ids=payload.doc_ids,
-        doc_types=payload.doc_types,
+        material_ids=payload.material_ids,
+        material_types=payload.material_types,
         force=payload.force,
         fetch_missing_content=payload.fetch_missing_content,
         batch_size=payload.batch_size,
@@ -953,7 +931,7 @@ def topic_extract_documents(request: Request, payload: TopicExtractRequest):
         candidate_mode=payload.candidate_mode,
     )
     return success_response(
-        document_admin.topic_extract_admin_documents(
+        document_admin.topic_extract_admin_materials(
             command,
             dictionaries=_get_topic_dictionaries(project_key),
             workflow_runner=run_topic_extraction_workflow,
@@ -963,29 +941,27 @@ def topic_extract_documents(request: Request, payload: TopicExtractRequest):
     )
 
 
-@router.get("/materials/{doc_id}", response_model=ApiEnvelope[AdminDocumentSnapshot])
-@router.get("/documents/{doc_id}", response_model=ApiEnvelope[AdminDocumentSnapshot])
-def get_document(doc_id: int):
+@router.get("/materials/{material_id}", response_model=ApiEnvelope[AdminMaterialSnapshot])
+def get_material(material_id: int):
     """获取文档详情"""
-    result = document_admin.get_admin_document(doc_id)
+    result = document_admin.get_admin_material(material_id)
     if result is None:
         return _error_json(404, ErrorCode.NOT_FOUND, "文档不存在")
     return success_response(result)
 
 
-@router.post("/materials/{doc_id}/extracted-data", response_model=ApiEnvelope[document_admin.AdminExtractedDataResult])
-@router.post("/documents/{doc_id}/extracted-data", response_model=ApiEnvelope[document_admin.AdminExtractedDataResult])
-def update_document_extracted_data(doc_id: int, payload: UpdateExtractedDataRequest):
+@router.post("/materials/{material_id}/extracted-data", response_model=ApiEnvelope[document_admin.AdminExtractedDataResult])
+def update_material_extracted_data(material_id: int, payload: UpdateExtractedDataRequest):
     """手动写入/合并文档 extracted_data（在库结构化结果）。"""
     command = document_admin.AdminExtractedDataCommand(
         mode=payload.mode,
         extracted_data=payload.extracted_data,
     )
     try:
-        result = document_admin.update_admin_document_extracted_data(doc_id, command)
-    except document_admin.AdminDocumentNotFoundError:
+        result = document_admin.update_admin_material_extracted_data(material_id, command)
+    except document_admin.AdminMaterialNotFoundError:
         return _error_json(404, ErrorCode.NOT_FOUND, "文档不存在")
-    except document_admin.AdminDocumentInputError as exc:
+    except document_admin.AdminMaterialInputError as exc:
         return _error_json(400, ErrorCode.INVALID_INPUT, str(exc))
     return success_response(result)
 
@@ -1013,7 +989,7 @@ def list_social_data(payload: SocialDataListRequest):
         platform=payload.platform,
         search=payload.search,
         sentiment_orientation=_sentiment_orientation(payload.sentiment_orientation),
-        sort_by=_document_sort_field(payload.sort_by),
+        sort_by=_material_sort_field(payload.sort_by),
         sort_order=_sort_order(payload.sort_order),
     )
     return success_response(
@@ -1025,16 +1001,16 @@ def list_social_data(payload: SocialDataListRequest):
 
 
 @router.get("/export-graph", response_model=ApiEnvelope[document_admin.AdminGraphResult])
-def export_graph(doc_ids: str = Query(..., description="文档ID列表，逗号分隔")):
+def export_graph(material_ids: str = Query(..., description="文档ID列表，逗号分隔")):
     """导出指定文档的内容图谱"""
     try:
-        parsed_ids = [int(value.strip()) for value in doc_ids.split(",") if value.strip()]
+        parsed_ids = [int(value.strip()) for value in material_ids.split(",") if value.strip()]
     except ValueError:
         return _error_json(
             400,
             ErrorCode.INVALID_INPUT,
-            "doc_ids must be a comma-separated list of integers",
-            details={"field": "doc_ids", "value": doc_ids},
+            "material_ids must be a comma-separated list of integers",
+            details={"field": "material_ids", "value": material_ids},
         )
     if not parsed_ids:
         return _error_json(400, ErrorCode.INVALID_INPUT, "请提供至少一个文档ID")

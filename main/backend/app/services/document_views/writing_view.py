@@ -54,7 +54,7 @@ def serialize_writing_citation(row: Any) -> dict[str, Any]:
         "id": int(getattr(row, "id")),
         "doc_id": int(getattr(row, "doc_id")),
         "project_key": getattr(row, "project_key", None),
-        "source_doc_id": getattr(row, "source_doc_id", None),
+        "source_material_id": getattr(row, "source_material_id", None),
         "source_uri": getattr(row, "source_uri", None),
         "source_title": getattr(row, "source_title", None),
         "quote_text": getattr(row, "quote_text", None),

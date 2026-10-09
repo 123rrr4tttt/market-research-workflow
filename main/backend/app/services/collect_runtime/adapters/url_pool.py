@@ -71,7 +71,7 @@ def project_url_single_url_outcome(
         updated=outcome.updated,
         skipped=outcome.skipped,
         errors=errors,
-        provider_job_id=str(outcome.document_id) if outcome.document_id is not None else None,
+        provider_job_id=str(outcome.material_id) if outcome.material_id is not None else None,
     )
     result.display_meta = build_display_meta(request, result, summary="URL 池抓取并写入文档")
     return result
@@ -270,7 +270,7 @@ class UrlPoolAdapter:
                     {
                         "url": child.urls[0] if child.urls else None,
                         "status": item.get("status"),
-                        "document_id": item.get("document_id"),
+                        "material_id": item.get("material_id"),
                         "error": item.get("error"),
                     }
                     for child, item in zip(children, raw_results, strict=True)

@@ -21,10 +21,10 @@ from ..models.base import Base
 from ..models.information_topology_entities import InformationTopologyLink, InformationTopologyState
 from ..models.entities import (
     ConfigState,
-    Document,
     IngestChannel,
     KeywordHistory,
     KeywordPrior,
+    Material,
     MarketMetricPoint,
     MarketStat,
     PriceObservation,
@@ -377,7 +377,7 @@ INITIAL_PROJECT_TABLES = [
     _require_model_table(table)
     for table in (
         Source.__table__,
-        Document.__table__,
+        Material.__table__,
         MarketStat.__table__,
         ConfigState.__table__,
         SearchHistory.__table__,
@@ -541,13 +541,13 @@ def _demo_schema_has_seed_data(schema_name: str) -> bool:
         table_exists = conn.execute(
             text(
                 "SELECT EXISTS (SELECT 1 FROM information_schema.tables "
-                "WHERE table_schema=:schema AND table_name='documents')"
+                "WHERE table_schema=:schema AND table_name='materials'"
             ),
             {"schema": schema_name},
         ).scalar()
         if not table_exists:
             return False
-        count = conn.execute(text(f'SELECT COUNT(*) FROM "{schema_name}"."documents"')).scalar()
+        count = conn.execute(text(f'SELECT COUNT(*) FROM "{schema_name}"."materials"')).scalar()
         return int(count or 0) > 0
 
 
@@ -585,6 +585,15 @@ def _filter_seed_sql_text(sql_text: str) -> str:
     return "\n".join(filtered_lines)
 
 
+def _adapt_legacy_demo_seed_to_materials(sql_text: str) -> str:
+    """Load the immutable demo snapshot through the current material schema."""
+    return (
+        sql_text
+        .replace("project_demo_proj.documents", "project_demo_proj.materials")
+        .replace(" doc_type,", " material_type,")
+    )
+
+
 def _bootstrap_demo_seed_if_needed(source_key: str) -> None:
     if source_key != "demo_proj":
         return
@@ -597,7 +606,7 @@ def _bootstrap_demo_seed_if_needed(source_key: str) -> None:
         _raise_internal_error("demo seed file not found under backend/seed_data")
 
     sql_text = seed_file.read_text(encoding="utf-8")
-    filtered_sql = _filter_seed_sql_text(sql_text)
+    filtered_sql = _filter_seed_sql_text(_adapt_legacy_demo_seed_to_materials(sql_text))
 
     _create_tenant_tables_best_effort(source_schema)
 

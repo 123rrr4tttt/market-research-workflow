@@ -140,7 +140,7 @@ function applyResourceMocks() {
     ],
     pagination: { page: 1, pageSize: 24, total: 1, totalPages: 1 },
   } as never)
-  mocked(api.extractResourcePoolFromDocuments).mockResolvedValue({ task_id: 'extract-1' } as never)
+  mocked(api.extractResourcePoolFromMaterials).mockResolvedValue({ task_id: 'extract-1' } as never)
   mocked(api.discoverSiteEntriesAdvanced).mockResolvedValue({ task_id: 'discover-1' } as never)
   mocked(api.simplifySiteEntries).mockResolvedValue({ updated: 1 } as never)
   mocked(api.bindSiteEntry).mockResolvedValue({ ok: true } as never)

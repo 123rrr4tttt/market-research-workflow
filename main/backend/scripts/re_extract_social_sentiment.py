@@ -14,7 +14,7 @@ import logging
 from sqlalchemy import select, and_
 
 from app.models.base import SessionLocal
-from app.models.entities import Document
+from app.models.entities import Material
 from app.services.llm.extraction import extract_structured_sentiment
 from app.services.extraction.extract import extract_entities_relations
 
@@ -48,19 +48,19 @@ def re_extract_social_sentiment(
         # 构建查询条件
         cutoff_date = datetime.now() - timedelta(days=days)
         conditions = [
-            Document.doc_type == "social_sentiment",
-            Document.created_at >= cutoff_date,
-            Document.extracted_data.isnot(None)
+            Material.material_type == "social_sentiment",
+            Material.created_at >= cutoff_date,
+            Material.extracted_data.isnot(None)
         ]
         
         if not force:
             # 只处理没有sentiment字段的数据
             # 使用JSONB查询来检查sentiment字段是否存在
             conditions.append(
-                ~Document.extracted_data.has_key("sentiment")
+                ~Material.extracted_data.has_key("sentiment")
             )
         
-        query = select(Document).where(and_(*conditions))
+        query = select(Material).where(and_(*conditions))
         
         if limit:
             query = query.limit(limit)

@@ -8,12 +8,10 @@ new bounded executor run and retains the saved proposal as its reason.
 
 from __future__ import annotations
 
+import json
 from collections.abc import Mapping, Sequence
 from hashlib import sha256
-import json
 from typing import Annotated, Any, Literal, cast
-
-from functorial_kit import Failure, define_failure_family
 
 from app.services.information_topology.modules.retrieval import DomainVocabulary
 from app.services.project_retrieval.contracts import RetrievalJsonObject
@@ -25,12 +23,12 @@ from app.services.project_retrieval.proposals import (
     ProposalGap,
     ProposalOccurrence,
     ProposalQuery,
-    ProposalSnapshot,
     ProposalSaveObservation,
+    ProposalSnapshot,
     RapidProposal,
     RapidProposalTopologyAdapter,
 )
-
+from functorial_kit import Failure, define_failure_family
 
 rapid_macro_failures = define_failure_family(
     "project_retrieval.rapid_macro",
@@ -150,17 +148,17 @@ def build_round_proposal(
             read = _mapping(material.get("body_read"))
             if material.get("status") != "body_read" or read is None or read.get("status") != "read":
                 continue
-            document_id = read.get("document_id")
+            material_id = read.get("material_id")
             body_digest = _text(read.get("body_digest"))
             candidate_id = _text(material.get("candidate_id"))
             source_ref = _text(read.get("uri")) or _text(material.get("url"))
             if (
-                not document_id or len(body_digest) != 64
+                not material_id or len(body_digest) != 64
                 or any(char not in "0123456789abcdef" for char in body_digest.lower())
                 or not candidate_id or not source_ref
             ):
                 return rapid_macro_failures.fail("ROUND_OBSERVATION_INVALID", "read body lacks source identity or digest")
-            snapshot_ref = f"document:{document_id}@{body_digest}"
+            snapshot_ref = f"material:{material_id}@{body_digest}"
             refs.append(snapshot_ref)
             if snapshot_ref not in snapshot_ids:
                 snapshot_ids.add(snapshot_ref)

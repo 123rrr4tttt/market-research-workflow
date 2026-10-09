@@ -9,9 +9,9 @@ import pytest
 from app.services.agent_runtime import structured_data_search as search_module
 from app.services.agent_runtime.structured_data_search import query_project_structured_data
 from app.services.document_queries import (
-    DOCUMENT_QUERY_CONTRACT_VERSION,
-    build_structured_data_search_document_query_envelope,
-    validate_document_query_result_envelope,
+    MATERIAL_QUERY_CONTRACT_VERSION,
+    build_structured_data_search_material_query_envelope,
+    validate_material_query_result_envelope,
 )
 
 pytestmark = pytest.mark.unit
@@ -30,20 +30,20 @@ class _SessionContext:
         return False
 
 
-class StructuredDataSearchDocumentQueryContractUnitTestCase(unittest.TestCase):
-    def test_helper_builds_document_query_projection_for_structured_search(self) -> None:
-        envelope = build_structured_data_search_document_query_envelope(
+class StructuredDataSearchMaterialQueryContractUnitTestCase(unittest.TestCase):
+    def test_helper_builds_material_query_projection_for_structured_search(self) -> None:
+        envelope = build_structured_data_search_material_query_envelope(
             project_key=" demo_proj ",
             query="  Robotics  ",
-            datasets_requested=("documents", "documents"),
+            datasets_requested=("materials", "materials"),
             limit=999,
             query_mode="search",
             total_matches=4,
             total_stored_rows=11,
             items=[
                 {
-                    "dataset": "documents",
-                    "record_id": "doc-7",
+                    "dataset": "materials",
+                    "record_id": "material-7",
                     "title": "Robot local note",
                     "summary": "stored robot evidence",
                     "source_uri": "https://example.org/robot",
@@ -52,11 +52,11 @@ class StructuredDataSearchDocumentQueryContractUnitTestCase(unittest.TestCase):
             ],
         )
 
-        validate_document_query_result_envelope(envelope)
+        validate_material_query_result_envelope(envelope)
         data = envelope["data"]
         query = data["query"]
 
-        self.assertEqual(data["contract_version"], DOCUMENT_QUERY_CONTRACT_VERSION)
+        self.assertEqual(data["contract_version"], MATERIAL_QUERY_CONTRACT_VERSION)
         self.assertEqual(query["consumer"], "project.structured_data.search")
         self.assertEqual(query["project_key"], "demo_proj")
         self.assertEqual(query["sources"], ["project.structured_data"])
@@ -65,20 +65,19 @@ class StructuredDataSearchDocumentQueryContractUnitTestCase(unittest.TestCase):
         self.assertEqual(data["pagination"]["total"], 4)
         self.assertEqual(envelope["meta"]["total_stored_rows"], 11)
         self.assertEqual(data["results"][0]["source_type"], "structured_record")
-        self.assertEqual(data["results"][0]["document_id"], "doc-7")
         self.assertEqual(data["results"][0]["backend"], "materials")
-        self.assertEqual(data["results"][0]["material_id"], "doc-7")
-        self.assertEqual(data["results"][0]["raw"]["record_id"], "doc-7")
+        self.assertEqual(data["results"][0]["material_id"], "material-7")
+        self.assertEqual(data["results"][0]["raw"]["record_id"], "material-7")
 
-    def test_project_structured_data_search_returns_document_query_projection(self) -> None:
-        def documents_handler(_session, query: str, limit: int):
+    def test_project_structured_data_search_returns_material_query_projection(self) -> None:
+        def materials_handler(_session, query: str, limit: int):
             self.assertEqual(query, "robot")
             self.assertEqual(limit, 5)
             return (
                 [
                     {
                         "dataset": "materials",
-                        "record_id": "doc-1",
+                        "record_id": "material-1",
                         "title": "Robot market note",
                         "summary": "stored robot row",
                         "source_uri": "https://example.org/robot-market",
@@ -89,25 +88,25 @@ class StructuredDataSearchDocumentQueryContractUnitTestCase(unittest.TestCase):
 
         with patch.object(search_module, "bind_project", _project_context):
             with patch.object(search_module, "SessionLocal", _SessionContext):
-                with patch.dict(search_module._DATASET_HANDLERS, {"materials": documents_handler}):
+                with patch.dict(search_module._DATASET_HANDLERS, {"materials": materials_handler}):
                     result = query_project_structured_data(
                         project_key="demo_proj",
                         query="robot",
                         limit=5,
-                        datasets=["documents"],
+                        datasets=["materials"],
                     )
 
         self.assertEqual(result["contract_version"], "project.structured_data.search.v2")
         self.assertEqual(result["datasets_requested"], ["materials"])
         self.assertEqual(result["dataset_counts"], {"materials": 1})
-        self.assertEqual(result["document_query_contract_version"], DOCUMENT_QUERY_CONTRACT_VERSION)
-        self.assertEqual(result["document_query"]["consumer"], "project.structured_data.search")
-        self.assertEqual(result["document_query"]["project_key"], "demo_proj")
-        self.assertEqual(result["document_query"]["filters"], [{"field": "dataset", "op": "in", "value": ["materials"]}])
-        self.assertEqual(result["document_query_results"][0]["title"], "Robot market note")
-        self.assertEqual(result["document_query_results"][0]["source_type"], "structured_record")
-        self.assertEqual(result["document_query_pagination"]["result_count"], 1)
-        self.assertEqual(result["document_query_meta"]["source"], "agent_runtime.structured_data_search")
+        self.assertEqual(result["material_query_contract_version"], MATERIAL_QUERY_CONTRACT_VERSION)
+        self.assertEqual(result["material_query"]["consumer"], "project.structured_data.search")
+        self.assertEqual(result["material_query"]["project_key"], "demo_proj")
+        self.assertEqual(result["material_query"]["filters"], [{"field": "dataset", "op": "in", "value": ["materials"]}])
+        self.assertEqual(result["material_query_results"][0]["title"], "Robot market note")
+        self.assertEqual(result["material_query_results"][0]["source_type"], "structured_record")
+        self.assertEqual(result["material_query_pagination"]["result_count"], 1)
+        self.assertEqual(result["material_query_meta"]["source"], "agent_runtime.structured_data_search")
         self.assertEqual(result["model_evidence_manifest"][0]["read_tool"], "project.structured_data.item.read")
 
 

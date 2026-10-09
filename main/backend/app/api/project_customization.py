@@ -601,7 +601,7 @@ def _normalize_board_layout(
     raw_data_flow = layout.get("data_flow")
     data_flow = _object_list(raw_data_flow)
     if not _is_object_list(raw_data_flow):
-        data_flow = ["documents", "extracted_data", "visualization"]
+        data_flow = ["materials", "extracted_data", "visualization"]
 
     normalized_design = {
         "global_data_type": str(design.get("global_data_type") or "market_info"),

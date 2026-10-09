@@ -54,12 +54,8 @@ type FrontdoorTriStateStatus = 'success' | 'degraded_success' | 'failed'
 
 const EMPTY_SAMPLE_ROWS: Array<Record<string, unknown>> = []
 
-function asNumber(value: number | undefined) {
-  return value ?? 0
-}
-
 function formatNumber(value: number | undefined, locale: string) {
-  return asNumber(value).toLocaleString(locale)
+  return value == null ? '—' : value.toLocaleString(locale)
 }
 
 function formatDashboardTemplate(template: string, values: Record<string, string | number>) {
@@ -254,7 +250,7 @@ export default function DashboardPage({ projectKey, variant = 'dashboard' }: Das
     },
     enabled: Boolean(projectKey && reportDetailSelection?.traceId),
   })
-  const docTypeRows = Object.entries(dashboardStats.data?.documents?.type_distribution || {})
+  const materialTypeRows = Object.entries(dashboardStats.data?.materials?.type_distribution || {})
   const pendingActions = dashboardStats.data?.pending_actions || []
   type DashboardMessageKey = Parameters<typeof translate>[1]
   const t = (key: DashboardMessageKey, fallback?: string) => translate(locale, key, fallback)
@@ -286,9 +282,9 @@ export default function DashboardPage({ projectKey, variant = 'dashboard' }: Das
   }
   const metricDrilldowns = [
     {
-      key: 'documents.total',
+      key: 'materials.total',
       label: t('dashboardPage.kpi.documents'),
-      refs: dashboardStats.data?.documents?.source_refs || [],
+      refs: dashboardStats.data?.materials?.source_refs || [],
     },
     {
       key: 'sources.total',
@@ -372,7 +368,7 @@ export default function DashboardPage({ projectKey, variant = 'dashboard' }: Das
     onSuccess: (data) => {
       setExportMessage('')
       setReportMessage(formatTemplate('dashboardPage.message.reportCreated', {
-        id: data.draft_id || data.document_id || data.report_id || '-',
+        id: data.doc_id || data.draft_id || data.report_id || '-',
       }))
     },
     onError: () => {
@@ -531,8 +527,8 @@ export default function DashboardPage({ projectKey, variant = 'dashboard' }: Das
       <section className="kpi-grid">
         <article className="kpi-card">
           <span>{t('dashboardPage.kpi.documents')}</span>
-          <strong>{formattedNumber(dashboardStats.data?.documents?.total)}</strong>
-          <small>{formatTemplate('dashboardPage.kpi.documentsRecent', { count: formattedNumber(dashboardStats.data?.documents?.recent_7d) })}</small>
+          <strong>{formattedNumber(dashboardStats.data?.materials?.total)}</strong>
+          <small>{formatTemplate('dashboardPage.kpi.documentsRecent', { count: formattedNumber(dashboardStats.data?.materials?.recent_7d) })}</small>
         </article>
         <article className="kpi-card">
           <span>{t('dashboardPage.kpi.sources')}</span>
@@ -556,10 +552,10 @@ export default function DashboardPage({ projectKey, variant = 'dashboard' }: Das
           </button>
         </div>
 
-        <p className="status-line">{formatTemplate('dashboardPage.metric.documentsToday', { count: formattedNumber(dashboardStats.data?.documents?.recent_today) })}</p>
+        <p className="status-line">{formatTemplate('dashboardPage.metric.documentsToday', { count: formattedNumber(dashboardStats.data?.materials?.recent_today) })}</p>
         <p className="status-line">{formatTemplate('dashboardPage.metric.tasksTotal', { count: formattedNumber(dashboardStats.data?.tasks?.total) })}</p>
         <p className="status-line">{formatTemplate('dashboardPage.metric.tasksCompleted', { count: formattedNumber(dashboardStats.data?.tasks?.completed) })}</p>
-        <p className="status-line">{formatTemplate('dashboardPage.metric.extractionRate', { value: asNumber(dashboardStats.data?.documents?.extraction_rate) })}</p>
+        <p className="status-line">{formatTemplate('dashboardPage.metric.extractionRate', { value: formattedNumber(dashboardStats.data?.materials?.extraction_rate) })}</p>
         <p className="status-line">{t('dashboardPage.section.frontdoorTriState')}</p>
         <div className="inline-actions">
           {triStateRows.map((status) => (
@@ -1056,13 +1052,13 @@ export default function DashboardPage({ projectKey, variant = 'dashboard' }: Das
               </tr>
             </thead>
             <tbody>
-              {docTypeRows.map(([type, count]) => (
+              {materialTypeRows.map(([type, count]) => (
                 <tr key={type}>
                   <td>{type || '-'}</td>
                   <td>{formattedNumber(count)}</td>
                 </tr>
               ))}
-              {!docTypeRows.length ? (
+              {!materialTypeRows.length ? (
                 <tr>
                   <td colSpan={2} className="empty-cell">
                     {t('dashboardPage.empty.distribution')}

@@ -47,7 +47,7 @@ class ClueChainServiceUnitTest(unittest.TestCase):
                     {
                         "source_kind": "source_library",
                         "source_item_key": "policy-db",
-                        "document_id": "doc-1",
+                        "material_id": "material-1",
                         "chunk_id": "chunk-7",
                         "title": "ACME supplier filing",
                         "snippet": "ACME appears in an EV supplier filing.",
@@ -72,7 +72,7 @@ class ClueChainServiceUnitTest(unittest.TestCase):
             },
         )
         self.assertEqual(hop_result["hop"]["status"], "completed")
-        self.assertEqual(hop_result["evidence"][0]["source_ref"]["document_id"], "doc-1")
+        self.assertEqual(hop_result["evidence"][0]["source_ref"]["material_id"], "material-1")
         candidate = hop_result["candidates"][0]
         evidence_id = hop_result["evidence"][0]["evidence_id"]
 

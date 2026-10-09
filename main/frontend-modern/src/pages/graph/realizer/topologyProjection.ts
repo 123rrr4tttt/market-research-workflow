@@ -1,5 +1,5 @@
 import type { CurrentTopologyItem, BoundRef } from '../../../features/information-topology/types'
-import { isCanonicalMaterialRef, normalizeMaterialRef } from '../../../features/information-topology/materialIdentity'
+import { isCanonicalMaterialRef } from '../../../features/information-topology/materialIdentity'
 import type { GraphEdgeItem, GraphNodeItem, GraphResponse } from '../../../lib/types'
 import { topologyDisplayName } from './displaySchema'
 import { materialReaderId } from './materialGraph'
@@ -9,7 +9,7 @@ const RELATION_AXIS_MAX_DEPTH = 4
 
 /** Identity follows the complete observed reference so revisions never merge silently. */
 export function topologyBoundIdentity(bound: BoundRef): string {
-  const ref = normalizeMaterialRef(bound.ref)
+  const ref = bound.ref
   return JSON.stringify([
     ref.project_key, ref.module_id, ref.namespace, ref.type_id, ref.local_id,
     bound.observed_revision, bound.content_digest ?? null,
@@ -77,12 +77,12 @@ export function projectInformationTopologies(
   const elementsByIdentity = new Map<string, ProjectedElement>()
   const edgeIds = new Set<string>()
   const ensureNode = (bound: BoundRef, attributes: Record<string, unknown> = {}): string => {
-    const material = attributes.material_ref ?? attributes.document_ref
-    const revision = attributes.material_revision ?? attributes.document_revision
+    const material = attributes.material_ref
+    const revision = attributes.material_revision
     const linked = isCanonicalMaterialRef(material) && revision != null
     const canonical = linked
-      ? { ref: normalizeMaterialRef(material), observed_revision: String(revision), content_digest: null }
-      : { ...bound, ref: normalizeMaterialRef(bound.ref) }
+      ? { ref: material, observed_revision: String(revision), content_digest: null }
+      : bound
     const id = topologyBoundIdentity(canonical)
     if (!nodesByIdentity.has(id)) {
       const ref = canonical.ref
@@ -98,7 +98,7 @@ export function projectInformationTopologies(
         topology_ref: ref,
         material_ref: isCanonicalMaterialRef(ref) ? ref : undefined,
         placement_ref: linked ? bound.ref : undefined,
-        material_id: materialReaderId({ id, type, topology_ref: ref, material_id: attributes.material_id, document_id: attributes.document_id }) ?? undefined,
+        material_id: materialReaderId({ id, type, material_ref: ref, material_id: attributes.material_id }) ?? undefined,
         observed_revision: canonical.observed_revision,
         content_digest: canonical.content_digest,
         topology_attributes: attributes,

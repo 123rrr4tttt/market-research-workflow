@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import dataclasses
+from typing import cast
 
 import pytest
 from functorial_kit.contributions import contribution_failures
@@ -27,6 +28,7 @@ from app.successor_runtime.capabilities.workflow_native_contribution import (
 )
 from app.composition.installed_operation import (
     Dispatch,
+    InstalledOperationContext,
     installed_operation_catalog,
     installed_operation_contribution_catalog,
     installed_operation_for_ref,
@@ -37,24 +39,51 @@ from app.composition.installed_operation import (
 )
 
 
-def test_installed_url_catalog_resolves_legacy_and_current_exact_refs() -> None:
+def test_installed_url_catalog_resolves_both_legacy_and_current_exact_refs() -> None:
     from app.successor_runtime.capabilities import acquisition_url as url
 
-    legacy, current = url.build_url_single_url_contracts()
+    legacy, readback_legacy, current = url.build_url_single_url_contracts()
     assert tuple(
         item.definition.contract.ref for item in url_installed_operations
-    ) == (legacy.ref, current.ref)
+    ) == (legacy.ref, readback_legacy.ref, current.ref)
     assert (
         installed_operation_for_ref(installed_operation_catalog, legacy.ref)
         is url_installed_operations[0]
     )
     assert (
-        installed_operation_for_ref(installed_operation_catalog, current.ref)
+        installed_operation_for_ref(installed_operation_catalog, readback_legacy.ref)
         is url_installed_operations[1]
+    )
+    assert (
+        installed_operation_for_ref(installed_operation_catalog, current.ref)
+        is url_installed_operations[2]
     )
     drifted = dataclasses.replace(current.ref, contract_digest="0" * 64)
     with pytest.raises(ValueError, match="operation ref drift"):
         installed_operation_for_ref(installed_operation_catalog, drifted)
+
+
+def test_historical_url_installations_are_exact_readers_without_effect_handlers() -> None:
+    from app.successor_runtime.capabilities import acquisition_url as url
+
+    legacy, readback_legacy, current = url.build_url_single_url_contracts()
+    for installed, contract in zip(
+        url_installed_operations[:2],
+        (legacy, readback_legacy),
+        strict=True,
+    ):
+        assert installed.definition.input_codec.contract_ref == contract.ref
+        assert installed.definition.input_codec.codec_version == "1"
+        assert installed.definition.output_codec.contract_ref == contract.ref
+        assert installed.definition.output_codec.codec_version == "1"
+        result = installed.assemble(cast(InstalledOperationContext, object()))
+        assert isinstance(result, Failure)
+        assert result.code == "HISTORICAL_OPERATION_READ_ONLY"
+
+    current_installed = url_installed_operations[2]
+    assert current_installed.definition.contract.ref == current.ref
+    assert current_installed.definition.input_codec.codec_version == "2"
+    assert current_installed.definition.output_codec.codec_version == "2"
 
 
 def test_historical_compile_read_and_replay_preserve_exact_bytes_and_hash() -> None:

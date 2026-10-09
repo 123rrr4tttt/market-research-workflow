@@ -53,7 +53,7 @@ def _candidate() -> dict[str, Any]:
         "summary": "summary",
         "content": "Robotics market update with enough meaningful context. " * 8,
         "source_base_url": "example.com",
-        "doc_type": "market",
+        "material_type": "market",
     }
 
 
@@ -84,11 +84,11 @@ def _runtime_checks() -> list[dict[str, Any]]:
         patch("app.services.ingest.guardrail_rollout.settings.ingest_guardrail_canary_projects", "demo_proj"),
     ):
         canary_result = _evaluate_quality_frontdoor(
-            document_candidate=_candidate(),
+            material_candidate=_candidate(),
             terminal_context=_context("demo_proj"),
         )
         non_canary_result = _evaluate_quality_frontdoor(
-            document_candidate=_candidate(),
+            material_candidate=_candidate(),
             terminal_context=_context("other_proj"),
         )
 

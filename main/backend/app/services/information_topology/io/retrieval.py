@@ -13,6 +13,7 @@ from hashlib import sha256
 from pathlib import Path, PurePosixPath
 from typing import Annotated, Callable, Mapping, Protocol, TypeGuard
 
+from app.services.document_queries.identity import canonical_material_identity, material_identity
 from functorial_kit import Failure
 from sqlalchemy.orm import Session
 
@@ -451,24 +452,51 @@ def build_import_preview(
                 endpoints.append(Endpoint(role, bound(target_id)))
         elif category == "material":
             if raw.get("__unresolved_reference__") is True:
-                attrs = {"title": "", "url": "", "grade": "", "reference_status": "unresolved_reference",
+                attrs = {"grade": "", "reference_status": "unresolved_reference",
                          "node_ids": [], "edge_ids": [], "relation_classes": [], "snapshot_path": []}
             else:
                 multi_fields = {
                     "node_ids": _source_multi(raw.get("节点ID")),
                     "edge_ids": _source_multi(raw.get("边ID")),
                     "relation_classes": _source_multi(raw.get("关系类")),
-                    "snapshot_path": _source_multi(raw.get("快照路径")),
                 }
                 failure = next((value for value in multi_fields.values() if isinstance(value, Failure)), None)
                 if failure is not None:
                     return topology_failures.fail("INVALID_WIRE_FORMAT", failure.message, {"id": identity})
-                attrs = {"title": str(raw.get("标题", "")),
-                         "url": raw.get("URL", raw.get("url", "")),
-                         "grade": str(raw.get("档", "")), "outline_section": str(raw.get("大纲节", "")),
+                raw_material_ref = raw.get("material_ref")
+                if raw_material_ref is None:
+                    raw_material_id = raw.get("material_id")
+                    if isinstance(raw_material_id, bool) or not isinstance(raw_material_id, (str, int)):
+                        return topology_failures.fail(
+                            "INVALID_STRUCTURE", "current material placement requires material_ref or material_id",
+                            {"id": identity},
+                        )
+                    material_id_text = str(raw_material_id)
+                    if not material_id_text.isdigit() or int(material_id_text) <= 0:
+                        return topology_failures.fail(
+                            "INVALID_STRUCTURE", "current material placement requires a positive material_id",
+                            {"id": identity},
+                        )
+                    raw_material_ref = material_identity(project_key, int(material_id_text))
+                material_ref_mapping = _string_object_mapping(raw_material_ref)
+                if material_ref_mapping is None:
+                    return topology_failures.fail(
+                        "INVALID_STRUCTURE", "current material_ref must be an object", {"id": identity}
+                    )
+                canonical_ref = canonical_material_identity(project_key, material_ref_mapping)
+                if canonical_ref is None:
+                    return topology_failures.fail(
+                        "INVALID_STRUCTURE", "current material_ref must be canonical", {"id": identity}
+                    )
+                attrs = {"grade": str(raw.get("档", "")),
+                         "outline_section": str(raw.get("大纲节", "")),
                          **multi_fields, "next_hop": str(raw.get("下一跳", "")),
                          "perspective": str(raw.get("问题意识视角", "")), "registration": str(raw.get("注册", "")),
-                         "candidate_key": str(raw.get("候选键", "")), "candidate_id": str(raw.get("候选ID", ""))}
+                         "candidate_key": str(raw.get("候选键", "")), "candidate_id": str(raw.get("候选ID", "")),
+                         "material_ref": canonical_ref}
+                placement_title = raw.get("placement_title", raw.get("放置标题"))
+                if isinstance(placement_title, str) and placement_title.strip():
+                    attrs["placement_title"] = placement_title.strip()
         elif category == "source_route":
             attrs = {"route_id": raw["route_id"], "pool": str(raw["pool"]),
                      "outline_anchor": str(raw.get("outline_anchor", "")),

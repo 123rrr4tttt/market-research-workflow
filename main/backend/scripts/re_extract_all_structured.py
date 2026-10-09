@@ -24,7 +24,7 @@ from sqlalchemy import select
 from sqlalchemy.orm.attributes import flag_modified
 
 from app.models.base import SessionLocal
-from app.models.entities import Document
+from app.models.entities import Material
 from app.services.projects.context import bind_project
 from app.services.llm.extraction import extract_structured_sentiment, extract_market_info
 from app.services.extraction.extract import (
@@ -67,7 +67,7 @@ def _classify_social_to_market_or_sentiment(text: str) -> str:
         return "social_sentiment"
 
 
-# doc_type -> (extract_primary, extract_er, primary_key)
+# material_type -> (extract_primary, extract_er, primary_key)
 _EXTRACTORS = {
     "social_sentiment": (
         extract_structured_sentiment,
@@ -96,7 +96,7 @@ _EXTRACTORS = {
 }
 
 
-def _get_text(doc: Document) -> str:
+def _get_text(doc: Material) -> str:
     """Get text content from document for extraction."""
     text = None
     if doc.extracted_data and isinstance(doc.extracted_data, dict):
@@ -112,8 +112,8 @@ def _get_text(doc: Document) -> str:
     return (text or "").strip()
 
 
-def _min_text_len(doc_type: str) -> int:
-    if doc_type == "social_sentiment":
+def _min_text_len(material_type: str) -> int:
+    if material_type == "social_sentiment":
         return 20
     return 50
 
@@ -126,9 +126,9 @@ def _process_social_docs(
     skip_entities: bool,
     stats: dict,
 ) -> dict:
-    """For demo_proj: classify doc_type=social -> market_info or social_sentiment, then extract."""
-    conditions = [Document.doc_type == "social"]
-    query = select(Document).where(*conditions)
+    """For demo_proj: classify material_type=social -> market_info or social_sentiment, then extract."""
+    conditions = [Material.material_type == "social"]
+    query = select(Material).where(*conditions)
     if limit:
         query = query.limit(limit)
     docs = list(session.execute(query).scalars().all())
@@ -142,7 +142,7 @@ def _process_social_docs(
                 stats["social"]["skipped"] += 1
                 continue
             new_type = _classify_social_to_market_or_sentiment(text)
-            doc.doc_type = new_type
+            doc.material_type = new_type
             logger.info("  Doc %s classified -> %s", doc.id, new_type)
 
             if isinstance(doc.extracted_data, str):
@@ -189,7 +189,7 @@ def _process_social_docs(
 
 def re_extract_all(
     project_key: str = "business_survey",
-    doc_types: Optional[list[str]] = None,
+    material_types: Optional[list[str]] = None,
     limit: Optional[int] = None,
     dry_run: bool = False,
     force: bool = False,
@@ -200,57 +200,57 @@ def re_extract_all(
 
     Args:
         project_key: Project context (business_survey, demo_proj, etc.)
-        doc_types: List of doc_types to process (default: all supported)
+        material_types: List of material_types to process (default: all supported)
         limit: Max documents per type (None = no limit)
         dry_run: If True, do not persist changes
         force: If True, re-extract even when primary key exists
         skip_entities: If True, skip entities_relations extraction
 
     Returns:
-        Stats dict: {doc_type: {total, success, error, skipped}}
+        Stats dict: {material_type: {total, success, error, skipped}}
     """
-    types_to_process = doc_types or list(_EXTRACTORS.keys())
+    types_to_process = material_types or list(_EXTRACTORS.keys())
     if "social" not in types_to_process and project_key == "demo_proj":
         types_to_process = ["social"] + [t for t in types_to_process if t != "social"]
     stats: dict = {t: {"total": 0, "success": 0, "error": 0, "skipped": 0} for t in types_to_process}
 
     with bind_project(project_key):
         with SessionLocal() as session:
-            for doc_type in types_to_process:
-                if doc_type == "social" and project_key == "demo_proj":
+            for material_type in types_to_process:
+                if material_type == "social" and project_key == "demo_proj":
                     stats["social"] = _process_social_docs(
                         session, limit, dry_run, force, skip_entities, stats
                     )
                     continue
-                if doc_type not in _EXTRACTORS:
-                    logger.warning("Unknown doc_type %s, skipping", doc_type)
+                if material_type not in _EXTRACTORS:
+                    logger.warning("Unknown material_type %s, skipping", material_type)
                     continue
 
-                extract_fn, do_er, primary_key, derived_keys = _EXTRACTORS[doc_type]
+                extract_fn, do_er, primary_key, derived_keys = _EXTRACTORS[material_type]
 
-                conditions = [Document.doc_type == doc_type]
+                conditions = [Material.material_type == material_type]
                 if not force:
                     conditions.append(
-                        ~Document.extracted_data.has_key(primary_key)
+                        ~Material.extracted_data.has_key(primary_key)
                         if primary_key
-                        else Document.extracted_data.is_(None)
+                        else Material.extracted_data.is_(None)
                     )
 
-                query = select(Document).where(*conditions)
+                query = select(Material).where(*conditions)
                 if limit:
                     query = query.limit(limit)
                 docs = list(session.execute(query).scalars().all())
-                stats[doc_type]["total"] = len(docs)
+                stats[material_type]["total"] = len(docs)
 
-                logger.info("Processing %d documents of type %s", len(docs), doc_type)
+                logger.info("Processing %d documents of type %s", len(docs), material_type)
 
                 for i, doc in enumerate(docs, 1):
                     try:
                         text = _get_text(doc)
-                        min_len = _min_text_len(doc_type)
+                        min_len = _min_text_len(material_type)
                         if len(text) < min_len:
                             logger.debug("Doc %s text too short (%d chars), skip", doc.id, len(text))
-                            stats[doc_type]["skipped"] += 1
+                            stats[material_type]["skipped"] += 1
                             continue
 
                         if isinstance(doc.extracted_data, str):
@@ -258,7 +258,7 @@ def re_extract_all(
                                 doc.extracted_data = json.loads(doc.extracted_data)
                             except Exception as e:
                                 logger.error("Doc %s invalid extracted_data: %s", doc.id, e)
-                                stats[doc_type]["error"] += 1
+                                stats[material_type]["error"] += 1
                                 continue
 
                         if not isinstance(doc.extracted_data, dict):
@@ -267,7 +267,7 @@ def re_extract_all(
                         updated = False
 
                         # Primary extraction
-                        primary_data = extract_fn(text[:3000] if doc_type != "social_sentiment" else text[:2000])
+                        primary_data = extract_fn(text[:3000] if material_type != "social_sentiment" else text[:2000])
                         if primary_data:
                             doc.extracted_data[primary_key] = primary_data
                             updated = True
@@ -291,17 +291,17 @@ def re_extract_all(
                                 session.add(doc)
                                 if i % 10 == 0:
                                     session.commit()
-                                    logger.info("  Committed %d/%d %s", i, len(docs), doc_type)
-                            stats[doc_type]["success"] += 1
+                                    logger.info("  Committed %d/%d %s", i, len(docs), material_type)
+                            stats[material_type]["success"] += 1
                             logger.debug("Doc %s extracted", doc.id)
                         else:
-                            stats[doc_type]["skipped"] += 1
+                            stats[material_type]["skipped"] += 1
 
                     except Exception as e:
                         logger.error("Doc %s failed: %s", doc.id, e, exc_info=True)
-                        stats[doc_type]["error"] += 1
+                        stats[material_type]["error"] += 1
 
-                if not dry_run and stats[doc_type]["success"] > 0:
+                if not dry_run and stats[material_type]["success"] > 0:
                     session.commit()
 
     return stats
@@ -327,7 +327,7 @@ if __name__ == "__main__":
 
     result = re_extract_all(
         project_key=args.project,
-        doc_types=args.types,
+        material_types=args.types,
         limit=args.limit,
         dry_run=args.dry_run,
         force=args.force,
@@ -335,8 +335,8 @@ if __name__ == "__main__":
     )
 
     print("-" * 60)
-    for doc_type, s in result.items():
+    for material_type, s in result.items():
         print("  %s: total=%d success=%d error=%d skipped=%d" % (
-            doc_type, s["total"], s["success"], s["error"], s["skipped"]))
+            material_type, s["total"], s["success"], s["error"], s["skipped"]))
     if args.dry_run:
         print("\n(dry-run: no changes persisted)")

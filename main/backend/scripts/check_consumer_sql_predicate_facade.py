@@ -15,14 +15,14 @@ except ImportError:  # direct script execution
     from _cli_runtime import repo_root as _repo_root
 
 
-CONTRACT_VERSION = "consumer.sql_predicate_facade.wave15.v1"
+CONTRACT_VERSION = "consumer.sql_predicate_facade.wave15.v2"
 TOPIC_ID = "2026-03-14-consumer-side-modularization"
 QUERY_FACADE = "main/backend/app/services/document_queries/consumer_predicates.py"
 QUERY_BOUNDARY = "main/backend/app/services/document_queries"
 BOUNDARY_RULE = (
     "admin.py delegates query ownership to document_admin; document_admin.py and dashboard.py "
     "consumer SQL JSON predicates must call document_queries; "
-    "Document.extracted_data[...] expressions are owned by the query facade."
+    "Material.extracted_data[...] expressions are owned by the query facade."
 )
 
 CHECKED_SURFACES = (
@@ -39,11 +39,11 @@ REQUIRED_IMPORTS = {
 
 REQUIRED_FACADE_FUNCTIONS = (
     "content_graph_structured_condition",
-    "document_extracted_data_present_case",
-    "document_has_extracted_data_condition",
-    "document_missing_extracted_data_condition",
-    "document_publish_or_created_on_or_after_condition",
-    "document_publish_or_created_on_or_before_condition",
+    "material_extracted_data_present_case",
+    "material_has_extracted_data_condition",
+    "material_missing_extracted_data_condition",
+    "material_publish_or_created_on_or_after_condition",
+    "material_publish_or_created_on_or_before_condition",
     "market_game_condition",
     "market_graph_structured_condition",
     "market_publish_created_or_report_on_or_after_condition",
@@ -53,23 +53,23 @@ REQUIRED_FACADE_FUNCTIONS = (
     "policy_graph_has_data_condition",
     "policy_graph_state_condition",
     "policy_graph_type_ilike_condition",
-    "social_document_base_conditions",
+    "social_material_base_conditions",
     "social_platform_condition",
     "social_sentiment_orientation_condition",
 )
 
 REQUIRED_CALLS = {
     "main/backend/app/api/admin.py": {
-        "list_documents": ("list_admin_documents",),
+        "list_materials": ("list_admin_materials",),
         "list_social_data": ("list_admin_social_data",),
         "get_content_graph": ("get_admin_content_graph",),
         "get_market_graph": ("get_admin_market_graph",),
         "get_policy_graph": ("get_admin_policy_graph",),
     },
     "main/backend/app/services/document_admin.py": {
-        "list_admin_documents": (
-            "document_has_extracted_data_condition",
-            "document_missing_extracted_data_condition",
+        "list_admin_materials": (
+            "material_has_extracted_data_condition",
+            "material_missing_extracted_data_condition",
         ),
         "list_admin_social_data": (
             "social_platform_condition",
@@ -90,10 +90,10 @@ REQUIRED_CALLS = {
         ),
     },
     "main/backend/app/api/dashboard.py": {
-        "get_dashboard_stats": ("document_has_extracted_data_condition",),
-        "get_document_analysis": ("document_extracted_data_present_case",),
-        "get_sentiment_analysis": ("social_document_base_conditions",),
-        "get_sentiment_sources": ("social_document_base_conditions",),
+        "get_dashboard_stats": ("material_has_extracted_data_condition",),
+        "get_document_analysis": ("material_extracted_data_present_case",),
+        "get_sentiment_analysis": ("social_material_base_conditions",),
+        "get_sentiment_sources": ("social_material_base_conditions",),
     },
 }
 
@@ -165,18 +165,18 @@ def _called_names(func: ast.AST) -> set[str]:
     return names
 
 
-def _is_document_extracted_data(node: ast.Attribute) -> bool:
+def _is_material_extracted_data(node: ast.Attribute) -> bool:
     return (
         node.attr == "extracted_data"
         and isinstance(node.value, ast.Name)
-        and node.value.id == "Document"
+        and node.value.id == "Material"
     )
 
 
 def _sql_json_reads(tree: ast.AST, *, function_name: str | None = None) -> list[SqlJsonRead]:
     reads: list[SqlJsonRead] = []
     for node in ast.walk(tree):
-        if isinstance(node, ast.Attribute) and _is_document_extracted_data(node):
+        if isinstance(node, ast.Attribute) and _is_material_extracted_data(node):
             reads.append(
                 SqlJsonRead(
                     line=getattr(node, "lineno", 0),
@@ -208,7 +208,7 @@ def _surface_result(root: Path, rel_path: str) -> dict[str, Any]:
                     "exists": False,
                     "required_facade_calls": list(required_calls),
                     "missing_facade_calls": list(required_calls),
-                    "direct_document_extracted_data_reads": [],
+                    "direct_material_extracted_data_reads": [],
                     "passed": False,
                 }
             )
@@ -223,7 +223,7 @@ def _surface_result(root: Path, rel_path: str) -> dict[str, Any]:
                 "exists": True,
                 "required_facade_calls": list(required_calls),
                 "missing_facade_calls": missing_calls,
-                "direct_document_extracted_data_reads": [read.__dict__ for read in function_direct_reads],
+                "direct_material_extracted_data_reads": [read.__dict__ for read in function_direct_reads],
                 "passed": not missing_calls and not function_direct_reads,
             }
         )
@@ -234,7 +234,7 @@ def _surface_result(root: Path, rel_path: str) -> dict[str, Any]:
         "exists": exists,
         "required_imports": list(required_imports),
         "missing_imports": missing_imports,
-        "direct_document_extracted_data_reads": [read.__dict__ for read in direct_reads],
+        "direct_material_extracted_data_reads": [read.__dict__ for read in direct_reads],
         "functions": function_results,
         "passed": passed,
     }
@@ -252,7 +252,7 @@ def _facade_result(root: Path) -> dict[str, Any]:
         "exists": exists,
         "required_functions": list(REQUIRED_FACADE_FUNCTIONS),
         "missing_functions": missing_functions,
-        "owned_document_extracted_data_expression_count": len(direct_reads),
+        "owned_material_extracted_data_expression_count": len(direct_reads),
         "passed": exists and not missing_functions and bool(direct_reads),
     }
 
@@ -283,7 +283,7 @@ def build_check(
     facade = _facade_result(root)
     exports = _export_result(root)
     surfaces = [_surface_result(root, rel_path) for rel_path in CHECKED_SURFACES]
-    direct_api_reads = sum(len(surface["direct_document_extracted_data_reads"]) for surface in surfaces)
+    direct_api_reads = sum(len(surface["direct_material_extracted_data_reads"]) for surface in surfaces)
     checked_functions = sum(len(surface["functions"]) for surface in surfaces)
     all_passed = facade["passed"] and exports["passed"] and all(surface["passed"] for surface in surfaces)
     return {
@@ -299,13 +299,13 @@ def build_check(
             "passed": all_passed,
             "checked_api_surface_count": len(surfaces),
             "checked_consumer_query_function_count": checked_functions,
-            "direct_admin_dashboard_document_extracted_data_read_count": direct_api_reads,
+            "direct_admin_dashboard_material_extracted_data_read_count": direct_api_reads,
             "covered_scope": (
                 "admin.py delegates query ownership to document_admin; document_admin.py and dashboard.py "
-                "do not own Document.extracted_data SQL JSON expressions and call document_queries helpers."
+                "do not own Material.extracted_data SQL JSON expressions and call document_queries helpers."
             ),
             "remaining_boundary": (
-                "Document.extracted_data SQL JSON paths remain inside document_queries helper modules. "
+                "Material.extracted_data SQL JSON paths remain inside document_queries helper modules. "
                 "This gate does not claim non-admin/dashboard consumers or Python instance-level writer/governance paths."
             ),
         },

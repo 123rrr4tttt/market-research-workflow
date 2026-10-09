@@ -556,7 +556,7 @@ def _normalize_normalization(payload: object, *, capabilities: object) -> dict[s
     record_kind = str(source.get("record_kind") or "").strip().lower()
     if not record_kind:
         if capability_map.get("article_body"):
-            record_kind = "document_candidate"
+            record_kind = "material_candidate"
         elif capability_map.get("article_metadata"):
             record_kind = "article_metadata"
         else:

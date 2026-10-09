@@ -9,7 +9,7 @@ from urllib.parse import urlparse
 
 from fastapi import APIRouter, Query, Request
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from ..contracts import ApiEnvelope, ApiMetaModel, fail, ok, ok_page, task_result_response
 from ..contracts.errors import ErrorCode, map_exception_to_error
@@ -21,7 +21,7 @@ from ..services.resource_pool import (
     classify_site_entries_batch,
     discover_search_contract,
     discover_site_entries_from_urls,
-    extract_from_documents,
+    extract_from_materials,
     extract_from_tasks,
     get_site_entry_by_url,
     import_open_source_preset_pack,
@@ -676,36 +676,41 @@ def _get_project_key_for_project_route_or_error(
     return _get_project_key_or_error(_resolve_request_project_key(project_key, request=request), request=request)
 
 
-class ExtractFromDocumentsPayload(BaseModel):
+class MaterialExtractionFilter(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    material_ids: list[int] | None = None
+    material_type: list[str] | None = None
+    state: list[str] | None = None
+    limit: int = Field(default=500, ge=1, le=5000)
+
+
+class ExtractFromMaterialsPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     project_key: str | None = Field(default=None, description="Project identifier")
     scope: Literal["project", "shared"] = Field(default="project", description="Write to project or shared pool")
-    filters: dict[str, Any] = Field(default_factory=dict)
+    filters: MaterialExtractionFilter = Field(default_factory=MaterialExtractionFilter)
     async_mode: bool = Field(default=False, description="Run via Celery")
 
 
 @router.post("/extract/from-materials", response_model=ResourcePoolAnyEnvelope)
-@router.post("/extract/from-documents", response_model=ResourcePoolAnyEnvelope)
-def extract_from_documents_api(payload: ExtractFromDocumentsPayload, request: Request):
+def extract_from_materials_api(payload: ExtractFromMaterialsPayload, request: Request):
     project_key, error = _get_project_key_for_project_route_or_error(payload.project_key, request=request)
     if error:
         return error
     if project_key is None:
         return _error_json(400, ErrorCode.PROJECT_KEY_REQUIRED, "project_key is required. Please select a project first.")
-    filters = payload.filters or {}
-    doc_type = filters.get("doc_type")
-    state = filters.get("state")
-    document_ids = filters.get("material_ids", filters.get("document_ids"))
-    limit = filters.get("limit", 500)
-    limit = min(max(1, int(limit)), 5000)
+    filters = payload.filters
 
     if payload.async_mode:
-        task = _get_tasks_module().task_extract_resource_pool_from_documents.delay(
+        task = _get_tasks_module().task_extract_resource_pool_from_materials.delay(
             project_key=project_key,
             scope=payload.scope,
-            doc_type=doc_type,
-            state=state,
-            document_ids=document_ids,
-            limit=limit,
+            material_type=filters.material_type,
+            state=filters.state,
+            material_ids=filters.material_ids,
+            limit=filters.limit,
         )
         return JSONResponse(
             status_code=200,
@@ -718,13 +723,13 @@ def extract_from_documents_api(payload: ExtractFromDocumentsPayload, request: Re
             ),
         )
     try:
-        result = extract_from_documents(
+        result = extract_from_materials(
             project_key=project_key,
             scope=payload.scope,
-            doc_type=doc_type,
-            state=state,
-            document_ids=document_ids,
-            limit=limit,
+            material_type=filters.material_type,
+            state=filters.state,
+            material_ids=filters.material_ids,
+            limit=filters.limit,
         )
         return JSONResponse(
             status_code=200,
@@ -1572,8 +1577,8 @@ def _source_library_collect_response(result: UnifiedSearchResult) -> dict[str, A
             "state": "ready" if (inserted_valid + queued) > 0 else "not_ready",
             "candidates_found": len(candidates),
             "materialized_urls": int(written.get("urls_new") or written.get("new") or 0),
-            "documents_inserted_valid": inserted_valid,
-            "documents_queued": queued,
+            "materials_inserted_valid": inserted_valid,
+            "materials_queued": queued,
             "errors": len(result.errors or []),
         },
         "item_key": result.item_key,
@@ -1588,20 +1593,20 @@ def _source_library_collect_response(result: UnifiedSearchResult) -> dict[str, A
             "candidates_found": len(candidates),
             "urls_written_new": int(written.get("urls_new") or written.get("new") or 0),
             "urls_written_skipped": int(written.get("urls_skipped") or written.get("duplicate") or 0),
-            "documents_inserted": inserted,
-            "documents_inserted_valid": inserted_valid,
-            "documents_queued": queued,
-            "documents_skipped": skipped,
-            "documents_rejected": rejected_count,
+            "materials_inserted": inserted,
+            "materials_inserted_valid": inserted_valid,
+            "materials_queued": queued,
+            "materials_skipped": skipped,
+            "materials_rejected": rejected_count,
             "ready_for_project_flows": (inserted_valid + queued) > 0,
         },
         "pipeline": {
             "entrypoint": "resource_pool.source_library.collect",
             "source_search": "resource_pool.unified_search_by_item",
             "candidate_materialization": "resource_pool.urls",
-            "document_ingest": "ingest.url_pool.source_library_frontdoor",
+            "material_ingest": "ingest.url_pool.source_library_frontdoor",
             "structured_extraction": "frontdoor.unified.structured.v1",
-            "project_downstream": ["documents", "writing_materials", "graph_projection", "llm_report_sources"],
+            "project_downstream": ["materials", "writing_materials", "graph_projection", "llm_report_sources"],
         },
     }
 

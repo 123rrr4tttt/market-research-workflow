@@ -16,7 +16,7 @@ from sqlalchemy import select
 
 from app.main import app
 from app.models.base import SessionLocal
-from app.models.entities import Document
+from app.models.entities import Material
 from app.services.projects import bind_project
 
 
@@ -31,13 +31,13 @@ def _insert_fixture(prefix: str, project_key: str) -> list[int]:
     ids: list[int] = []
     with bind_project(project_key):
         with SessionLocal() as session:
-            for row in session.execute(select(Document).where(Document.title.like(f"{prefix}%"))).scalars().all():
+            for row in session.execute(select(Material).where(Material.title.like(f"{prefix}%"))).scalars().all():
                 session.delete(row)
             session.commit()
             rows = [
-                Document(
+                Material(
                     state="CA",
-                    doc_type="news",
+                    material_type="news",
                     title=f"{prefix}-A",
                     publish_date=date(2099, 1, 2),
                     created_at=datetime(2099, 1, 2, 10, 0, 0, tzinfo=timezone.utc),
@@ -45,9 +45,9 @@ def _insert_fixture(prefix: str, project_key: str) -> list[int]:
                     text_hash=f"{prefix}-h-a",
                     extracted_data={"prompt_group_id": "pg-ai", "source_domain": "news.example.com"},
                 ),
-                Document(
+                Material(
                     state="CA",
-                    doc_type="news",
+                    material_type="news",
                     title=f"{prefix}-B",
                     publish_date=date(2099, 1, 2),
                     created_at=datetime(2099, 1, 2, 11, 0, 0, tzinfo=timezone.utc),
@@ -55,9 +55,9 @@ def _insert_fixture(prefix: str, project_key: str) -> list[int]:
                     text_hash=f"{prefix}-h-b",
                     extracted_data={"prompt_group_id": "pg-ai", "source_domain": "news.example.com"},
                 ),
-                Document(
+                Material(
                     state="CA",
-                    doc_type="news",
+                    material_type="news",
                     title=f"{prefix}-C",
                     publish_date=date(2099, 1, 3),
                     created_at=datetime(2099, 1, 3, 8, 0, 0, tzinfo=timezone.utc),
@@ -65,9 +65,9 @@ def _insert_fixture(prefix: str, project_key: str) -> list[int]:
                     text_hash=f"{prefix}-h-c",
                     extracted_data={"prompt_group_id": "pg-ai", "source_domain": "data.example.org"},
                 ),
-                Document(
+                Material(
                     state="CA",
-                    doc_type="news",
+                    material_type="news",
                     title=f"{prefix}-D",
                     publish_date=date(2099, 1, 3),
                     created_at=datetime(2099, 1, 3, 9, 0, 0, tzinfo=timezone.utc),
@@ -88,7 +88,7 @@ def _cleanup(ids: list[int], project_key: str) -> None:
         return
     with bind_project(project_key):
         with SessionLocal() as session:
-            for row in session.execute(select(Document).where(Document.id.in_(ids))).scalars().all():
+            for row in session.execute(select(Material).where(Material.id.in_(ids))).scalars().all():
                 session.delete(row)
             session.commit()
 

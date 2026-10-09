@@ -1,18 +1,18 @@
 from __future__ import annotations
 
-from contextlib import contextmanager
-from contextvars import ContextVar
-from collections.abc import Callable
-from starlette.requests import Request
 import logging
 import re
+from collections.abc import Callable
+from contextlib import contextmanager
+from contextvars import ContextVar
 from typing import Any, NoReturn
 
 from functorial_kit import Failure
+from starlette.requests import Request
+
 from mrw_functorial_kit.core.application_failure_semantics import project_operation_failures
 
 from ...settings.config import get_effective_project_key_enforcement_mode, settings
-
 
 _PROJECT_KEY_VAR: ContextVar[str | None] = ContextVar("project_key", default=None)
 _SCHEMA_VAR: ContextVar[str | None] = ContextVar("project_schema", default=None)
@@ -101,17 +101,19 @@ def resolve_request_project_context(
     explicit = str(explicit_project_key or "").strip()
     if explicit:
         return explicit, "endpoint_payload", False
-    source = str(getattr(request.state, "project_key_source", "") or "")
+    resolved_source = str(getattr(request.state, "project_key_source", "") or "")
     resolved = str(getattr(request.state, "project_key_resolved", "") or "").strip()
-    if resolved and (source in {"header", "query"} or (use_resolved_fallback and source == "fallback")):
-        return resolved, source, source == "fallback"
-    for source, value in (
+    if resolved and resolved_source in {"header", "query"}:
+        return resolved, resolved_source, False
+    for request_source, value in (
         ("header", request.headers.get("X-Project-Key")),
         ("query", request.query_params.get("project_key")),
     ):
         key = str(value or "").strip()
         if key:
-            return key, source, False
+            return key, request_source, False
+    if use_resolved_fallback and resolved and resolved_source == "fallback":
+        return resolved, "fallback", True
     if endpoint_payload:
         return "", "endpoint_payload", False
     return fallback(), "fallback", True

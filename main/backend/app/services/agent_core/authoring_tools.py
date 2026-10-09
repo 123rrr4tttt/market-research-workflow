@@ -64,19 +64,25 @@ from .tool_support import (
 from .tool_contribution import ProjectToolAuthorSource
 
 if TYPE_CHECKING:
-    from app.successor_runtime.capabilities.acquisition_url import UrlSingleUrlOutcome, UrlSingleUrlRequest
+    from app.successor_runtime.capabilities.acquisition_url import (
+        LegacyUrlSingleUrlOutcome,
+        UrlSingleUrlOutcome,
+        UrlSingleUrlRequest,
+    )
     from app.successor_runtime.capabilities.checksum import CanonicalJsonValue
+    from app.successor_runtime.language.object_contracts import OperationContractRef
 
 
 @dataclass(frozen=True, slots=True)
 class _UrlPoolRuntimeEvidence:
     run: JSONObject
     outcome: JSONObject | None = None
-    document: JSONObject | None = None
+    material: JSONObject | None = None
     failure_rows: tuple[JSONObject, ...] = ()
     error: JSONObject | None = None
     pending: bool = False
     verified: bool = False
+    historical: bool = False
 
 
 def _is_object_list(value: object) -> TypeGuard[list[object]]:
@@ -1192,7 +1198,7 @@ def _ingest_url_pool_status_spec() -> CoreToolSpec:
         name="ingest.url_pool.status",
         title="Read URL-Pool Ingest Status",
         description_for_model=(
-            "Read the status of a URL-pool submission from the current Agent session, recent ingest jobs, and already stored project documents/sources. "
+            "Read the status of a URL-pool submission from the current Agent session, recent ingest jobs, and already stored project materials/sources. "
             "Use this before replacing pending writing evidence with verified citations from an approved URL candidate."
         ),
         input_schema={
@@ -1234,10 +1240,16 @@ def _canonical_json_value(value: object) -> CanonicalJsonValue:
     raise TypeError("runtime output is not canonical JSON")
 
 
-def _decode_url_outcome_bytes(exact: bytes) -> UrlSingleUrlOutcome:
+def _decode_url_outcome_bytes(
+    exact: bytes,
+    contract_ref: OperationContractRef,
+) -> LegacyUrlSingleUrlOutcome | UrlSingleUrlOutcome:
     from app.successor_runtime.capabilities.acquisition_url import (
         build_url_single_url_contract,
+        build_url_single_url_legacy_contract,
+        build_url_single_url_legacy_outcome_codec,
         build_url_single_url_outcome_codec,
+        build_url_single_url_readback_legacy_contract,
     )
     from app.successor_runtime.capabilities.checksum import CanonicalJsonObject
 
@@ -1248,20 +1260,28 @@ def _decode_url_outcome_bytes(exact: bytes) -> UrlSingleUrlOutcome:
     payload: CanonicalJsonObject = {
         key: _canonical_json_value(item) for key, item in canonical_root.items()
     }
-    contract = build_url_single_url_contract()
-    return build_url_single_url_outcome_codec(contract.ref).decode_payload(payload)
+    current_ref = build_url_single_url_contract().ref
+    legacy_refs = {
+        build_url_single_url_legacy_contract().ref,
+        build_url_single_url_readback_legacy_contract().ref,
+    }
+    if contract_ref == current_ref:
+        return build_url_single_url_outcome_codec(contract_ref).decode_payload(payload)
+    if contract_ref in legacy_refs:
+        return build_url_single_url_legacy_outcome_codec(contract_ref).decode_payload(payload)
+    raise ValueError("URL runtime output has an unknown exact operation contract ref")
 
 
-def _read_url_pool_document(project_key: str, document_id: int, url: str) -> JSONObject | None:
+def _read_url_pool_material(project_key: str, material_id: int, url: str) -> JSONObject | None:
     with bind_project(project_key), SessionLocal() as session:
         row = session.execute(
             select(Material.id, Material.uri, Material.extracted_data, Source.base_url)
             .join(Source, Material.source_id == Source.id, isouter=True)
-            .where(Material.id == document_id)
+            .where(Material.id == material_id)
         ).first()
     if row is None:
         return None
-    document_url = str(row.uri or "").strip()
+    material_url = str(row.uri or "").strip()
     source_url = str(row.base_url or "").strip()
     extracted_data = row.extracted_data if _is_string_key_dict(row.extracted_data) else {}
     source_ref_value = extracted_data.get("source_ref")
@@ -1271,13 +1291,13 @@ def _read_url_pool_document(project_key: str, document_id: int, url: str) -> JSO
         for key in ("url", "locator")
         if str(source_ref.get(key) or "").strip()
     }
-    if url != document_url and url not in persisted_request_urls:
+    if url != material_url and url not in persisted_request_urls:
         return None
-    match_kind = "material_uri" if url == document_url else "persisted_source_ref"
+    match_kind = "material_uri" if url == material_url else "persisted_source_ref"
     return {
         "project_key": project_key,
-        "document_id": int(row.id),
-        "uri": document_url,
+        "material_id": int(row.id),
+        "uri": material_url,
         "source_base_url": source_url,
         "matched_url": url,
         "match_kind": match_kind,
@@ -1290,24 +1310,40 @@ def _read_url_pool_runtime_url(
     project_key: str,
     actor_id: str,
     run_id: str,
+    contract_ref: OperationContractRef,
 ) -> str:
     from sqlalchemy.engine import Engine
 
     from app.composition.production import read_installed_program_input_bindings
     from app.successor_runtime.capabilities.acquisition_url import (
+        URL_SINGLE_URL_LEGACY_REQUEST_TYPE,
         URL_SINGLE_URL_REQUEST_TYPE,
         build_url_single_url_contract,
+        build_url_single_url_legacy_contract,
+        build_url_single_url_legacy_request_codec,
         build_url_single_url_request_codec,
+        build_url_single_url_readback_legacy_contract,
     )
 
     if not isinstance(runtime_engine, Engine):
         raise TypeError("URL runtime engine is unavailable")
+    current_ref = build_url_single_url_contract().ref
+    legacy_refs = {
+        build_url_single_url_legacy_contract().ref,
+        build_url_single_url_readback_legacy_contract().ref,
+    }
+    if contract_ref == current_ref:
+        request_type = URL_SINGLE_URL_REQUEST_TYPE
+    elif contract_ref in legacy_refs:
+        request_type = URL_SINGLE_URL_LEGACY_REQUEST_TYPE
+    else:
+        raise ValueError("URL runtime input has an unknown exact operation contract ref")
     static_inputs, _started_inputs = read_installed_program_input_bindings(
         engine=runtime_engine,
         project_key=project_key,
         actor_id=actor_id,
         run_id=run_id,
-        static_input_type=URL_SINGLE_URL_REQUEST_TYPE,
+        static_input_type=request_type,
     )
     if len(static_inputs) != 1:
         raise ValueError("URL runtime run does not have one exact request input")
@@ -1316,9 +1352,11 @@ def _read_url_pool_runtime_url(
     canonical_root = _canonical_json_value(raw_value)
     if not _is_string_key_dict(canonical_root):
         raise TypeError("URL runtime request root is not an object")
-    contract = build_url_single_url_contract()
-    request = build_url_single_url_request_codec(contract.ref).decode_payload(
-        {key: _canonical_json_value(item) for key, item in canonical_root.items()}
+    payload = {key: _canonical_json_value(item) for key, item in canonical_root.items()}
+    request = (
+        build_url_single_url_request_codec(contract_ref).decode_payload(payload)
+        if contract_ref == current_ref
+        else build_url_single_url_legacy_request_codec(contract_ref).decode_payload(payload)
     )
     request_url = request.url.strip()
     if request.project_key != project_key or not request_url:
@@ -1409,9 +1447,11 @@ def _url_pool_runtime_evidence(
         )
         from app.models.base import engine as runtime_engine
         from app.successor_runtime.capabilities.acquisition_url import (
+            LegacyUrlSingleUrlOutcome,
             URL_SINGLE_URL_KIND,
             URL_SINGLE_URL_OWNER,
         )
+        from app.successor_runtime.language.object_contracts import OperationContractRef
 
         if not _url_pool_capability_grant_is_current(
             runtime_engine=runtime_engine,
@@ -1441,11 +1481,36 @@ def _url_pool_runtime_evidence(
                 }),
             )
 
+        url_steps = tuple(
+            step
+            for step in steps
+            if str(step.get("operation_kind") or "") == URL_SINGLE_URL_KIND
+        )
+        if len(url_steps) != 1:
+            return _UrlPoolRuntimeEvidence(
+                run=run_view,
+                error=json_object({
+                    "code": "url_pool_runtime_contract_identity_invalid",
+                    "message": "canonical URL runtime run does not have one exact URL contract ref",
+                    "url_step_count": len(url_steps),
+                }),
+            )
+        contract_ref_value = url_steps[0].get("operation_contract_ref")
+        if not isinstance(contract_ref_value, OperationContractRef):
+            return _UrlPoolRuntimeEvidence(
+                run=run_view,
+                error=json_object({
+                    "code": "url_pool_runtime_contract_identity_invalid",
+                    "message": "canonical URL runtime step lacks its exact operation contract ref",
+                }),
+            )
+        contract_ref = contract_ref_value
         runtime_url = _read_url_pool_runtime_url(
             runtime_engine=runtime_engine,
             project_key=project_key,
             actor_id=actor.actor_id,
             run_id=run_id,
+            contract_ref=contract_ref,
         )
         if runtime_url != url:
             return _UrlPoolRuntimeEvidence(
@@ -1518,11 +1583,7 @@ def _url_pool_runtime_evidence(
             actor_id=actor.actor_id,
             run_id=run_id,
         )
-        url_step_ids = {
-            str(step.get("step_id") or "")
-            for step in steps
-            if str(step.get("operation_kind") or "") == URL_SINGLE_URL_KIND
-        }
+        url_step_ids = {str(url_steps[0].get("step_id") or "")}
         exact_outputs = [item for item in outputs if item[0] in url_step_ids]
         if len(url_step_ids) != 1 or len(exact_outputs) != 1:
             return _UrlPoolRuntimeEvidence(
@@ -1536,38 +1597,59 @@ def _url_pool_runtime_evidence(
             )
 
         _step_id, _value_ref, exact = exact_outputs[0]
-        outcome = _decode_url_outcome_bytes(exact)
+        outcome = _decode_url_outcome_bytes(exact, contract_ref)
+        contract_identity = json_object({
+            "kind": contract_ref.kind,
+            "contract_version": contract_ref.contract_version,
+            "contract_digest": contract_ref.contract_digest,
+        })
+        if isinstance(outcome, LegacyUrlSingleUrlOutcome):
+            return _UrlPoolRuntimeEvidence(
+                run=run_view,
+                outcome=json_object({
+                    "status": outcome.status,
+                    "inserted": outcome.inserted,
+                    "updated": outcome.updated,
+                    "skipped": outcome.skipped,
+                    "error": outcome.error,
+                    "task_id": outcome.task_id,
+                    "operation_contract_ref": contract_identity,
+                    "historical": True,
+                }),
+                historical=True,
+            )
         outcome_view = json_object({
             "status": outcome.status,
             "inserted": outcome.inserted,
             "updated": outcome.updated,
             "skipped": outcome.skipped,
-            "document_id": outcome.document_id,
+            "material_id": outcome.material_id,
             "error": outcome.error,
             "task_id": outcome.task_id,
+            "operation_contract_ref": contract_identity,
         })
-        document_id = outcome_view.get("document_id")
-        if str(outcome_view.get("status") or "") != "completed" or not isinstance(document_id, int) or document_id <= 0:
+        material_id = outcome_view.get("material_id")
+        if str(outcome_view.get("status") or "") != "completed" or not isinstance(material_id, int) or material_id <= 0:
             return _UrlPoolRuntimeEvidence(
                 run=run_view,
                 outcome=outcome_view,
                 error=json_object({
                     "code": "url_pool_runtime_output_incomplete",
-                    "message": "completed URL runtime run did not decode to a completed document outcome",
+                    "message": "completed URL runtime run did not decode to a completed material outcome",
                 }),
             )
-        document = _read_url_pool_document(project_key, document_id, url)
-        if document is None:
+        material = _read_url_pool_material(project_key, material_id, url)
+        if material is None:
             return _UrlPoolRuntimeEvidence(
                 run=run_view,
                 outcome=outcome_view,
                 error=json_object({
-                    "code": "url_pool_document_readback_mismatch",
-                    "message": "decoded URL document is absent or does not match the submitted project URL",
-                    "document_id": document_id,
+                    "code": "url_pool_material_readback_mismatch",
+                    "message": "decoded URL material is absent or does not match the submitted project URL",
+                    "material_id": material_id,
                 }),
             )
-        return _UrlPoolRuntimeEvidence(run=run_view, outcome=outcome_view, document=document, verified=True)
+        return _UrlPoolRuntimeEvidence(run=run_view, outcome=outcome_view, material=material, verified=True)
     except Exception as exc:  # noqa: BLE001
         return _url_pool_runtime_error(
             "url_pool_runtime_readback_failed",
@@ -1686,7 +1768,7 @@ def _ingest_url_pool_status_handler(
         if url:
             try:
                 stored_result = json_object(
-                    searcher(project_key=project_key, query=url, limit=limit, datasets=["documents", "sources"])
+                    searcher(project_key=project_key, query=url, limit=limit, datasets=["materials", "sources"])
                 )
             except Exception as exc:  # noqa: BLE001
                 stored_result = {
@@ -1695,7 +1777,7 @@ def _ingest_url_pool_status_handler(
                     "query": url,
                     "items": [],
                     "total_matches": 0,
-                    "errors": [{"dataset": "documents|sources", "type": exc.__class__.__name__, "message": str(exc)}],
+                    "errors": [{"dataset": "materials|sources", "type": exc.__class__.__name__, "message": str(exc)}],
                 }
 
         evidence_items = json_list(stored_result.get("items"))
@@ -1721,6 +1803,12 @@ def _ingest_url_pool_status_handler(
         elif runtime_evidence is not None and runtime_evidence.pending:
             next_gate = "wait_for_canonical_url_runtime_completion"
             writing_guidance = "The canonical URL runtime run is still active; keep writing evidence pending."
+        elif runtime_evidence is not None and runtime_evidence.historical:
+            next_gate = "observe_historical_url_runtime_without_resubmission"
+            writing_guidance = (
+                "The URL runtime run uses a frozen historical contract; its status and exact contract version "
+                "are observable, but it does not establish current material readback or authorize resubmission."
+            )
         elif runtime_evidence is not None:
             error = runtime_evidence.error or {}
             runtime_error_code = str(error.get("code") or "unknown")
@@ -1740,7 +1828,7 @@ def _ingest_url_pool_status_handler(
                 next_gate = "url_pool_canonical_runtime_failed"
                 writing_guidance = (
                     f"Canonical URL runtime readback is not verified ({runtime_error_code}); "
-                    "keep writing evidence pending and inspect the runtime, decoded output, and document readback."
+                    "keep writing evidence pending and inspect the runtime, decoded output, and material readback."
                 )
         elif latest_task_event_status == "failed":
             next_gate = "url_pool_ingest_failed_review_error_or_retry"
@@ -1750,10 +1838,10 @@ def _ingest_url_pool_status_handler(
             writing_guidance = "The URL-pool ingest task was canceled; do not treat it as collected evidence. Read the runtime summary and cancellation observation before deciding whether to submit a new collection request."
         elif latest_task_event_status == "completed":
             next_gate = "ingest_completed_without_verified_project_record"
-            writing_guidance = "The URL-pool task completed, but no stored project document/source matched the URL yet; keep writing evidence pending and inspect ingest output."
+            writing_guidance = "The URL-pool task completed, but no stored project material/source matched the URL yet; keep writing evidence pending and inspect ingest output."
         else:
             next_gate = "wait_for_ingest_completion_or_retry_status"
-            writing_guidance = "No stored document/source evidence found yet; keep writing language marked as pending or retry status later."
+            writing_guidance = "No stored material/source evidence found yet; keep writing language marked as pending or retry status later."
         payload = {
             "contract_version": "ingest.url_pool.status.v1",
             "project_key": project_key,
@@ -1783,8 +1871,8 @@ def _ingest_url_pool_status_handler(
                 max_items=8,
                 max_depth=4,
             ),
-            "document_readback": compact_json_value(
-                runtime_evidence.document if runtime_evidence is not None else None,
+            "material_readback": compact_json_value(
+                runtime_evidence.material if runtime_evidence is not None else None,
                 max_items=12,
                 max_depth=4,
             ),
@@ -1796,7 +1884,7 @@ def _ingest_url_pool_status_handler(
             "causal_evidence": {
                 "runtime_run": runtime_evidence.run if runtime_evidence is not None else {},
                 "runtime_output": runtime_evidence.outcome if runtime_evidence is not None else None,
-                "document": runtime_evidence.document if runtime_evidence is not None else None,
+                "material": runtime_evidence.material if runtime_evidence is not None else None,
                 "runtime_failures": list(runtime_evidence.failure_rows if runtime_evidence is not None else ()),
             },
             "stored_evidence": compact_json_value(stored_result, max_items=20, max_depth=5),
@@ -3003,7 +3091,7 @@ def _writing_document_citations_upsert_spec() -> CoreToolSpec:
                         "type": "object",
                         "properties": {
                             "card_id": {"type": "string"},
-                            "source_doc_id": {"type": "integer", "minimum": 1},
+                            "source_material_id": {"type": "integer", "minimum": 1},
                             "source_uri": {"type": "string"},
                             "source_title": {"type": "string"},
                             "quote_text": {"type": "string"},
@@ -3021,7 +3109,7 @@ def _writing_document_citations_upsert_spec() -> CoreToolSpec:
                 "source_refs": {
                     "type": "array",
                     "items": {"type": "string"},
-                    "description": "Fallback citation references such as record:94, artifact ids, document ids, or URLs.",
+                    "description": "Fallback citation references such as record:94, artifact ids, material ids, or URLs.",
                 },
                 "position_anchor": {"type": "string"},
                 "provenance": {"type": "object", "additionalProperties": True},
@@ -3132,18 +3220,18 @@ def _normalize_writing_citation_inputs(arguments: Mapping[str, object]) -> list[
             str(item.get("quote_text") or item.get("quote") or item.get("snippet") or item.get("summary") or "").strip()
             or None
         )
-        source_doc_id = safe_int(item.get("source_doc_id") or item.get("doc_id"))
+        source_material_id = safe_int(item.get("source_material_id") or item.get("material_id"))
         position_anchor = str(item.get("position_anchor") or item.get("anchor") or root_anchor or "").strip() or None
         metadata_json = json_object(item.get("metadata_json"))
         if provenance:
             metadata_json.setdefault("provenance", provenance)
-        if not any([card_id, source_doc_id, source_uri, source_title, quote_text]):
+        if not any([card_id, source_material_id, source_uri, source_title, quote_text]):
             continue
         out.append(
             _prune_empty_citation(
                 {
                     "card_id": card_id,
-                    "source_doc_id": source_doc_id,
+                    "source_material_id": source_material_id,
                     "source_uri": source_uri,
                     "source_title": source_title,
                     "quote_text": quote_text,
@@ -3185,7 +3273,7 @@ def _merge_writing_citations(existing: list[JSONObject], incoming: list[JSONObje
     for item in [*existing, *incoming]:
         normalized = _prune_empty_citation(json_object(
             {
-                "source_doc_id": safe_int(item.get("source_doc_id")),
+                "source_material_id": safe_int(item.get("source_material_id")),
                 "source_uri": str(item.get("source_uri") or "").strip() or None,
                 "source_title": str(item.get("source_title") or item.get("title") or "").strip() or None,
                 "quote_text": str(item.get("quote_text") or item.get("quote") or "").strip() or None,
@@ -3203,7 +3291,7 @@ def _merge_writing_citations(existing: list[JSONObject], incoming: list[JSONObje
 
 
 def _writing_citation_identity(item: JSONObject) -> tuple[str, str]:
-    for key in ("card_id", "source_uri", "source_doc_id"):
+    for key in ("card_id", "source_uri", "source_material_id"):
         value = item.get(key)
         if value not in (None, ""):
             return key, str(value)

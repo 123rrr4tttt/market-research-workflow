@@ -5,22 +5,20 @@ from hashlib import sha256
 from types import SimpleNamespace
 
 import pytest
-
-from app.services.ingest.material_input import (
-    FetchedResource,
-    GivenContent,
-    MaterialPreparationError,
-    ResourceRef,
-    prepare_material,
-    prepare_resource_via_http_port,
-)
 from app.services.ingest.material_ingress import (
     MaterialSourceContext,
     MaterialTargetSpec,
     build_material_frontdoor_payload,
 )
-from app.services.ingest.material_input import RawSnapshot
-
+from app.services.ingest.material_input import (
+    FetchedResource,
+    GivenContent,
+    MaterialPreparationError,
+    RawSnapshot,
+    ResourceRef,
+    prepare_material,
+    prepare_resource_via_http_port,
+)
 
 pytestmark = pytest.mark.unit
 
@@ -195,7 +193,7 @@ def test_frontdoor_payload_is_pure_and_uses_target_and_source_decisions():
     payload = build_material_frontdoor_payload(
         prepared,
         target=MaterialTargetSpec(
-            doc_type="raw_note",
+            material_type="raw_note",
             title="Given report",
             summary=None,
             publish_date=date(2026, 9, 24),
@@ -216,7 +214,7 @@ def test_frontdoor_payload_is_pure_and_uses_target_and_source_decisions():
         extracted_data_base={"_raw_input": {"raw_content_digest": prepared.raw_content_digest}},
     )
 
-    candidate = payload["document_candidate"]
+    candidate = payload["material_candidate"]
     assert candidate["content"] == "Given report"
     assert candidate["text_hash"] == sha256(b"Given report").hexdigest()
     assert candidate["publish_date"] == date(2026, 9, 24)
@@ -267,16 +265,16 @@ def test_raw_import_given_text_reaches_existing_frontdoor_without_fetch(monkeypa
 
     def postprocess(*, ingress_envelope, run_writer):
         observed.append((ingress_envelope, run_writer))
-        return {"data": {"writer_result": {"inserted": 1, "doc_id": 42}}}
+        return {"data": {"writer_result": {"inserted": 1, "material_id": 42}}}
 
     monkeypatch.setattr(raw_import, "run_postprocess_frontdoor", postprocess)
-    result = raw_import.run_raw_import_documents(
+    result = raw_import.run_raw_import_materials(
         {
             "items": [{
                 "text": "  Given report  ",
                 "uri": "https://example.test/provenance",
                 "material_input_kind": "given",
-                "doc_type": "raw_note",
+                "material_type": "raw_note",
             }],
             "enable_extraction": False,
         },
@@ -288,10 +286,10 @@ def test_raw_import_given_text_reaches_existing_frontdoor_without_fetch(monkeypa
     assert session.committed
     assert len(observed) == 1 and observed[0][1] is True
     payload = observed[0][0]["collection_payload"]
-    assert payload["document_candidate"]["content"] == "Given report"
-    assert payload["document_candidate"]["uri"] == "https://example.test/provenance"
-    assert payload["document_candidate"]["text_hash"] == sha256(b"Given report").hexdigest()
-    assert payload["document_candidate"]["extracted_data_base"]["_raw_input"]["material_input"]["raw_content_digest"] == sha256(b"  Given report  ").hexdigest()
+    assert payload["material_candidate"]["content"] == "Given report"
+    assert payload["material_candidate"]["uri"] == "https://example.test/provenance"
+    assert payload["material_candidate"]["text_hash"] == sha256(b"Given report").hexdigest()
+    assert payload["material_candidate"]["extracted_data_base"]["_raw_input"]["material_input"]["raw_content_digest"] == sha256(b"  Given report  ").hexdigest()
 
 
 def _install_raw_import_observation(monkeypatch, *, fetch_html, writer_result):
@@ -365,9 +363,9 @@ def test_raw_import_explicit_text_resource_preserves_large_exact_body_with_one_f
     observed = _install_raw_import_observation(
         monkeypatch,
         fetch_html=fetch_html,
-        writer_result={"data": {"writer_result": {"inserted": 1, "doc_id": 77}}},
+        writer_result={"data": {"writer_result": {"inserted": 1, "material_id": 77}}},
     )
-    result = raw_import.run_raw_import_documents(
+    result = raw_import.run_raw_import_materials(
         {
             "items": [{"uri": "https://example.test/rfc"}],
             "enable_extraction": False,
@@ -379,7 +377,7 @@ def test_raw_import_explicit_text_resource_preserves_large_exact_body_with_one_f
     assert result["inserted"] == 1
     assert calls == [("https://example.test/rfc", 8.0, 1)]
     payload = observed[0]["collection_payload"]
-    candidate = payload["document_candidate"]
+    candidate = payload["material_candidate"]
     material = candidate["extracted_data_base"]["_raw_input"]["material_input"]
     assert candidate["content"] == body.strip()
     assert len(candidate["content"]) > 400000
@@ -411,15 +409,15 @@ def test_raw_import_missing_content_type_keeps_html_extraction_and_one_fetch(mon
     observed = _install_raw_import_observation(
         monkeypatch,
         fetch_html=fetch_html,
-        writer_result={"data": {"writer_result": {"inserted": 1, "doc_id": 78}}},
+        writer_result={"data": {"writer_result": {"inserted": 1, "material_id": 78}}},
     )
-    raw_import.run_raw_import_documents(
+    raw_import.run_raw_import_materials(
         {"items": [{"uri": "https://example.test/html"}], "enable_extraction": False},
         "project-a",
     )
 
     assert calls == ["https://example.test/html"]
-    candidate = observed[0]["collection_payload"]["document_candidate"]
+    candidate = observed[0]["collection_payload"]["material_candidate"]
     assert candidate["content"] == ("Stable article body from HTML. " * 5).rstrip()
     assert candidate["extracted_data_base"]["_raw_input"]["fetched_from_url"] is True
     assert "material_input" not in candidate["extracted_data_base"]["_raw_input"]
@@ -443,9 +441,9 @@ def test_raw_import_mixed_given_and_plain_url_preserves_merge_semantics(monkeypa
     observed = _install_raw_import_observation(
         monkeypatch,
         fetch_html=fetch_html,
-        writer_result={"data": {"writer_result": {"inserted": 1, "doc_id": 79}}},
+        writer_result={"data": {"writer_result": {"inserted": 1, "material_id": 79}}},
     )
-    raw_import.run_raw_import_documents(
+    raw_import.run_raw_import_materials(
         {
             "items": [{"text": "Given note.", "uri": "https://example.test/source"}],
             "enable_extraction": False,
@@ -454,7 +452,7 @@ def test_raw_import_mixed_given_and_plain_url_preserves_merge_semantics(monkeypa
     )
 
     assert calls == ["https://example.test/source"]
-    candidate = observed[0]["collection_payload"]["document_candidate"]
+    candidate = observed[0]["collection_payload"]["material_candidate"]
     assert candidate["content"] == (
         "Given note.\n\n[URL_CONTENT]\n" + plain_url_body
     )
@@ -470,7 +468,7 @@ def test_raw_import_overwrite_from_plain_to_html_clears_stale_material_witness(m
         id=80,
         source_id=1,
         state=None,
-        doc_type="market_info",
+        material_type="market_info",
         title=None,
         publish_date=None,
         content="old",
@@ -531,7 +529,7 @@ def test_raw_import_overwrite_from_plain_to_html_clears_stale_material_witness(m
         )[1],
     )
 
-    result = raw_import.run_raw_import_documents(
+    result = raw_import.run_raw_import_materials(
         {
             "items": [{"uri": "https://example.test/source"}],
             "overwrite_on_uri": True,
@@ -541,10 +539,10 @@ def test_raw_import_overwrite_from_plain_to_html_clears_stale_material_witness(m
     )
 
     assert result["updated"] == 1
-    raw_input = observed[0]["collection_payload"]["document_candidate"]["extracted_data_base"]["_raw_input"]
+    raw_input = observed[0]["collection_payload"]["material_candidate"]["extracted_data_base"]["_raw_input"]
     assert "material_input" not in raw_input
     assert raw_input["fetched_from_url"] is True
-    assert observed[0]["collection_payload"]["document_candidate"]["extracted_data_base"]["preserved_existing_projection"] is True
+    assert observed[0]["collection_payload"]["material_candidate"]["extracted_data_base"]["preserved_existing_projection"] is True
 
 
 def test_raw_import_invalid_utf8_plain_resource_is_not_success(monkeypatch):
@@ -566,7 +564,7 @@ def test_raw_import_invalid_utf8_plain_resource_is_not_success(monkeypatch):
         fetch_html=fetch_html,
         writer_result={"data": {"writer_result": {"inserted": 1}}},
     )
-    result = raw_import.run_raw_import_documents(
+    result = raw_import.run_raw_import_materials(
         {"items": [{"uri": "https://example.test/invalid"}], "enable_extraction": False},
         "project-a",
     )

@@ -250,8 +250,8 @@ test('extract route shows an extraction-only workspace and a real task detail li
   await page.route('**/api/v1/resource_pool/site_entries?**', (route) =>
     fulfillJson(route, { items: [] }, pageMeta(1, 0)),
   )
-  await page.route('**/api/v1/resource_pool/extract/from-documents?**', (route) => {
-    captured.push({ method: 'POST', pathname: '/api/v1/resource_pool/extract/from-documents' })
+  await page.route('**/api/v1/resource_pool/extract/from-materials?**', (route) => {
+    captured.push({ method: 'POST', pathname: '/api/v1/resource_pool/extract/from-materials' })
     return fulfillJson(route, { task_id: 'resource-extract-e2e', async: true, trace_id: 'trace-e2e' })
   })
   await page.route('**/api/v1/process/resource-extract-e2e?**', (route) =>

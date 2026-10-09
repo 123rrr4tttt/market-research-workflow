@@ -13,7 +13,7 @@ from sqlalchemy import Float, select
 from sqlalchemy.sql.elements import ColumnElement
 
 from ...models.base import SessionLocal
-from ...models.entities import Document, Embedding
+from ...models.entities import Material, Embedding
 from ..llm.provider import get_embeddings
 from ..projects import bind_project, current_project_key
 from functorial_kit import Failure
@@ -283,7 +283,7 @@ def bm25_search(
         )
         hits.append(
             {
-                "document_id": source.get("document_id"),
+                "material_id": source.get("material_id"),
                 "project_key": source.get("project_key"),
                 "object_type": source.get("object_type"),
                 "object_id": source.get("object_id"),
@@ -417,7 +417,7 @@ def try_qdrant_vector_search(
             payload.get("source_uri"), payload.get("url"), payload.get("uri")
         )
         source_id = _first_present(
-            payload.get("source_id"), payload.get("source"), payload.get("document_id")
+            payload.get("source_id"), payload.get("source"), payload.get("material_id")
         )
         vector_version = _first_present(
             payload.get("vector_version"),
@@ -473,7 +473,7 @@ def try_qdrant_vector_search(
         }
         hits.append(
             {
-                "document_id": payload.get("document_id"),
+                "material_id": payload.get("material_id"),
                 "project_key": payload.get("project_key"),
                 "object_type": payload.get("object_type"),
                 "object_id": payload.get("object_id"),
@@ -584,13 +584,13 @@ def vector_search(
                 logger.warning("pgvector model does not expose the public distance operator")
                 return []
             stmt = (
-                select(Embedding, Document)
-                .join(Document, Document.id == Embedding.object_id)
+                select(Embedding, Material)
+                .join(Material, Material.id == Embedding.object_id)
                 .filter(Embedding.object_type == "policy_chunk")
                 .order_by(distance)
             )
             if state:
-                stmt = stmt.filter(Document.state == state)
+                stmt = stmt.filter(Material.state == state)
             raw_results: object = session.execute(stmt.limit(top_k)).all()
 
     hits: list[SearchRow] = []
@@ -598,7 +598,7 @@ def vector_search(
         if not isinstance(raw_embedding, _EmbeddingRecord) or not isinstance(
             raw_document, _DocumentRecord
         ):
-            logger.warning("pgvector returned a row outside the embedding/document boundary")
+            logger.warning("pgvector returned a row outside the embedding/material boundary")
             continue
         stored_vector = _float_vector(raw_embedding.vector)
         if stored_vector is None:
@@ -608,26 +608,26 @@ def vector_search(
         if used_fallback:
             tags.append("fallback")
         score = float(np.dot(vector, np.array(stored_vector)))
-        document_id = _provider_json_value(raw_document.id, field="document.id")
-        raw_source_id = _provider_json_value(raw_document.source_id, field="document.source_id")
-        source_id = raw_source_id or document_id
-        source_uri = _provider_json_value(raw_document.uri, field="document.uri")
+        material_id = _provider_json_value(raw_document.id, field="material.id")
+        raw_source_id = _provider_json_value(raw_document.source_id, field="material.source_id")
+        source_id = raw_source_id or material_id
+        source_uri = _provider_json_value(raw_document.uri, field="material.uri")
         vector_version = "v1"
         raw_provider = _provider_json_value(raw_embedding.provider, field="embedding.provider")
         embedding_provider = raw_provider or "pgvector"
         embedding_model = _provider_json_value(raw_embedding.model, field="embedding.model")
         source_reference: SearchJsonValue = (
-            source_uri if source_uri else f"document:{document_id}"
+            source_uri if source_uri else f"material:{material_id}"
         )
         object_type = _provider_json_value(raw_embedding.object_type, field="embedding.object_type")
         object_id = _provider_json_value(raw_embedding.object_id, field="embedding.object_id")
         embedding_dim = _provider_json_value(raw_embedding.dim, field="embedding.dim")
-        title = _provider_json_value(raw_document.title, field="document.title")
-        summary = _provider_json_value(raw_document.summary, field="document.summary")
-        text = _provider_json_value(raw_document.content, field="document.content")
-        document_state = _provider_json_value(raw_document.state, field="document.state")
+        title = _provider_json_value(raw_document.title, field="material.title")
+        summary = _provider_json_value(raw_document.summary, field="material.summary")
+        text = _provider_json_value(raw_document.content, field="material.content")
+        document_state = _provider_json_value(raw_document.state, field="material.state")
         publish_date = _provider_json_value(
-            raw_document.publish_date, field="document.publish_date"
+            raw_document.publish_date, field="material.publish_date"
         )
         provenance: SearchJsonObject = {
             "provider": embedding_provider,
@@ -638,7 +638,7 @@ def vector_search(
             "embedding_model_version": vector_version,
             "embedding_dim": embedding_dim,
             "vector_version": vector_version,
-            "source": f"document:{document_id}",
+            "source": f"material:{material_id}",
             "source_id": source_id,
             "source_reference": source_reference,
             "reference": source_reference,
@@ -648,7 +648,7 @@ def vector_search(
         }
         hits.append(
             {
-                "document_id": document_id,
+                "material_id": material_id,
                 "object_type": object_type,
                 "object_id": object_id,
                 "source_id": source_id,
@@ -680,9 +680,9 @@ def vector_search(
 
 
 def _fusion_identity(hit: SearchRow, rank: int, backend: str) -> str:
-    document_id = hit.get("document_id")
-    if isinstance(document_id, (str, int, float, bool)):
-        return f"{type(document_id).__name__}:{document_id}"
+    material_id = hit.get("material_id")
+    if isinstance(material_id, (str, int, float, bool)):
+        return f"{type(material_id).__name__}:{material_id}"
     return f"{backend}:{rank}"
 
 

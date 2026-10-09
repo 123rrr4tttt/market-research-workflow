@@ -37,17 +37,17 @@ def _copy_or_empty(value: object) -> object:
     return deepcopy(value) if value else {}
 
 
-def build_terminal_ingest_payload(
+def build_terminal_material_payload(
     *,
-    document_candidate: dict[str, object],
+    material_candidate: dict[str, object],
     ingress_envelope: dict[str, object],
     extraction_outcome: dict[str, object],
     terminal_context: dict[str, object] | None = None,
 ) -> Annotated[
     dict[str, object],
-    "kit:non-authoritative derived_as=view fact_source=document_candidate+ingress_envelope+extraction_outcome+terminal_context witness=test:test_w03_ingest_ports_authority_metadata",
+    "kit:non-authoritative derived_as=view fact_source=material_candidate+ingress_envelope+extraction_outcome+terminal_context witness=test:test_w03_ingest_ports_authority_metadata",
 ]:
-    candidate = dict(document_candidate or {})
+    candidate = dict(material_candidate or {})
     ingress = dict(ingress_envelope or {})
     extraction = dict(extraction_outcome or {})
     context = dict(terminal_context or {})
@@ -127,7 +127,7 @@ def build_terminal_ingest_payload(
         "source_name": str(candidate.get("source_name") or extracted_data.get("platform") or ingress.get("ingress_type") or "unknown"),
         "source_kind": str(candidate.get("source_kind") or "external"),
         "source_base_url": candidate.get("source_base_url"),
-        "doc_type": str(candidate.get("doc_type") or "unknown"),
+        "material_type": str(candidate.get("material_type") or "unknown"),
         "title": candidate.get("title"),
         "summary": candidate.get("summary"),
         "content": candidate.get("content"),
@@ -182,4 +182,4 @@ def _safe_int(value: object) -> int | None:
         return None
 
 
-__all__ = ["build_terminal_ingest_payload"]
+__all__ = ["build_terminal_material_payload"]

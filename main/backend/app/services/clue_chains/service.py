@@ -530,7 +530,7 @@ class ClueChainService:
         now: str,
     ) -> dict[str, Any]:
         source_ref = _dict(payload.get("source_ref"))
-        for key in ("source_item_key", "channel", "document_id", "chunk_id", "rank", "local_index_mode"):
+        for key in ("source_item_key", "channel", "material_id", "chunk_id", "rank", "local_index_mode"):
             value = payload.get(key)
             if value not in (None, ""):
                 source_ref.setdefault(key, value)
@@ -826,7 +826,7 @@ class ClueChainService:
         if payload.get("evidence_id"):
             return str(payload["evidence_id"])
         source_ref = _dict(payload.get("source_ref"))
-        for key in ("source_item_key", "channel", "document_id", "chunk_id", "rank", "local_index_mode"):
+        for key in ("source_item_key", "channel", "material_id", "chunk_id", "rank", "local_index_mode"):
             value = payload.get(key)
             if value not in (None, ""):
                 source_ref.setdefault(key, value)

@@ -407,9 +407,9 @@ export async function replayWorkflowGraphHandoff(runId: string, handoffId: strin
   )
 }
 
-export async function exportGraph(docIds: number[] | string) {
-  const value = Array.isArray(docIds) ? docIds.join(',') : String(docIds || '')
-  return get<GraphExportResponse>(`${endpoints.admin.exportGraph}?doc_ids=${encodeURIComponent(value)}`)
+export async function exportGraph(materialIds: number[]) {
+  const value = materialIds.join(',')
+  return get<GraphExportResponse>(`${endpoints.admin.exportGraph}?material_ids=${encodeURIComponent(value)}`)
 }
 
 export type GraphKind = 'policy' | 'social' | 'market' | 'market_deep_entities' | 'company' | 'product' | 'operation'

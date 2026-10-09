@@ -85,7 +85,7 @@ class WritingDocumentCitation(BigIDMixin, Base):
         index=True,
     )
     project_key: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
-    source_doc_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    source_material_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     source_uri: Mapped[str | None] = mapped_column(Text, nullable=True)
     source_title: Mapped[str | None] = mapped_column(String(500), nullable=True)
     quote_text: Mapped[str | None] = mapped_column(Text, nullable=True)

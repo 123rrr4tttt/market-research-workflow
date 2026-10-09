@@ -35,7 +35,6 @@ _INGEST_OPERATIONS = frozenset(
 
 _RESOURCE_POOL_OPERATIONS = frozenset(
     (
-        ("POST", "/api/v1/resource_pool/extract/from-documents"),
         ("POST", "/api/v1/resource_pool/extract/from-materials"),
         ("GET", "/api/v1/resource_pool/urls"),
         ("GET", "/api/v1/resource_pool/open-source-presets"),
@@ -71,6 +70,9 @@ _EXPECTED_RESPONSE_MODELS = {
 }
 
 try:
+    from pydantic import ValidationError
+
+    from app.api.resource_pool import ExtractFromMaterialsPayload
     from app.main import app as backend_app
     from scripts.generate_api_schema_inventory import build_inventory
 
@@ -124,6 +126,21 @@ class ApiSchemaIngestResourceContractTestCase(unittest.TestCase):
             {"$ref": "#/components/schemas/JsonValue"},
             envelope["properties"]["data"]["anyOf"],
         )
+
+    def test_from_materials_payload_rejects_retired_document_filters(self):
+        for filters in (
+            {"doc_type": ["policy"]},
+            {"doc_ids": [1]},
+            {"document_ids": [1]},
+        ):
+            with self.subTest(filters=filters), self.assertRaises(ValidationError):
+                ExtractFromMaterialsPayload.model_validate({"filters": filters})
+
+        payload = ExtractFromMaterialsPayload.model_validate(
+            {"filters": {"material_ids": [1], "material_type": ["policy"]}}
+        )
+        self.assertEqual(payload.filters.material_ids, [1])
+        self.assertEqual(payload.filters.material_type, ["policy"])
 
 
 if __name__ == "__main__":

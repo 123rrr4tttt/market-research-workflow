@@ -1,17 +1,27 @@
 from dataclasses import replace
 
 import pytest
-from functorial_kit import Failure
-
-from app.services.information_topology.contracts import BoundRef, Element, ElementRef, Endpoint, TopologyState
-from app.services.information_topology.profiles import ProfileSpec, validate_state
+from app.services.document_queries.identity import material_identity
+from app.services.information_topology.contracts import (
+    BoundRef,
+    Element,
+    ElementRef,
+    Endpoint,
+    TopologyState,
+    topology_state_codec,
+)
 from app.services.information_topology.modules.retrieval import (
-    DomainVocabulary, domain_vocabulary_element, make_retrieval_profile,
-    profile_from_state_payload, semantic_successor_id, validate_evidence_v2,
+    DomainVocabulary,
+    domain_vocabulary_element,
+    make_retrieval_profile,
+    profile_from_state_payload,
+    semantic_successor_id,
+    validate_evidence_v2,
     vocabulary_record_attributes,
 )
-from app.services.information_topology.contracts import topology_state_codec
+from app.services.information_topology.profiles import ProfileSpec, validate_state
 from app.services.information_topology.structural_schema import derive_read_model_attributes
+from functorial_kit import Failure
 
 
 def bound(kind: str, local: str, revision: str = "r1") -> BoundRef:
@@ -64,6 +74,7 @@ def test_profile_identity_is_source_scoped_and_observation_versioned():
     cross_project_profile = make_retrieval_profile(other_project)
     revised_profile = make_retrieval_profile(revised)
     redigested_profile = make_retrieval_profile(redigested)
+    assert original_profile.version.startswith("3+")
     assert original_profile.profile_id != cross_project_profile.profile_id
     assert original_profile.profile_id == revised_profile.profile_id == redigested_profile.profile_id
     assert original_profile.version != revised_profile.version
@@ -163,7 +174,9 @@ def test_routes_plans_registry_attempt_material_and_report_binding_are_distinct(
         Element(bound("attempt", "attempt:1"), {"attempt_id": "attempt:1", "query_id": "query:1",
                 "round_id": "run:2026-09-24:1", "clue_key": "clue:1", "executed_at": "imported-value",
                 "tool": "source-record", "actual_query": "recorded query", "result": "access_failed"}),
-        Element(bound("material", "item:1"), {"title": "Imported material", "grade": "A"}),
+        Element(bound("material", "item:1"), {
+            "material_ref": material_identity("p", 1), "placement_title": "Imported material", "grade": "A"
+        }),
         Element(bound("gap", "gap:1"), {"gap_kind": "format", "description": "missing source field",
                 "investigation_gap": False, "owner": "format"}),
         Element(bound("report_source_binding", "report:1"), {"report_ref": {"id": "report:1"},
@@ -175,6 +188,45 @@ def test_routes_plans_registry_attempt_material_and_report_binding_are_distinct(
     assert validate_state(profile, state_for(profile, state.elements + (unexecuted_with_result,))).code == "INVALID_STRUCTURE"
     missing_timestamp = Element(bound("source_registry", "src:2"), {"source_id": "src:2", "url": "url", "status": "verified"})
     assert validate_state(profile, state_for(profile, state.elements + (missing_timestamp,))).code == "INVALID_STRUCTURE"
+
+
+def test_material_migration_source_evidence_is_typed_and_bound_to_the_body() -> None:
+    profile = make_retrieval_profile(vocabulary())
+    evidence = {
+        "locator": "source.txt",
+        "raw_sha256": "a" * 64,
+        "mime_type": "text/plain",
+        "extractor": "material_input.prepare_material",
+        "extraction_status": "extracted",
+        "reason": None,
+        "snapshot_text_hash": "b" * 64,
+        "material_text_hash": "b" * 64,
+        "selected_for_material_body": True,
+        "legacy_material_identity": {
+            "project_key": "p",
+            "module_id": "retrieval",
+            "namespace": "legacy",
+            "type_id": "material",
+            "local_id": "old-1",
+        },
+    }
+    placement = Element(bound("material", "item:1"), {
+        "grade": "A",
+        "material_ref": material_identity("p", 1),
+        "migration_source_evidence": [evidence],
+    })
+
+    assert validate_state(profile, state_for(profile, (placement,))) is None
+    missing_pair = replace(placement, attributes={
+        **placement.attributes,
+        "migration_source_evidence": [{key: value for key, value in evidence.items() if key != "reason"}],
+    })
+    assert validate_state(profile, state_for(profile, (missing_pair,))).code == "INVALID_STRUCTURE"
+    mismatched_body = replace(placement, attributes={
+        **placement.attributes,
+        "migration_source_evidence": [{**evidence, "material_text_hash": "c" * 64}],
+    })
+    assert validate_state(profile, state_for(profile, (mismatched_body,))).code == "INVALID_STRUCTURE"
 
 
 def test_formal_judgment_preserves_schema_fields_and_semantic_successor():

@@ -7,7 +7,7 @@ from sqlalchemy import select, func, and_
 from sqlalchemy.orm import Session
 
 from app.models.base import SessionLocal
-from app.models.entities import Document
+from app.models.entities import Material
 
 logger = logging.getLogger(__name__)
 
@@ -17,14 +17,14 @@ def check_date_distribution():
     with SessionLocal() as session:
         # 查找所有有发布日期的文档，按日期分组统计
         query = select(
-            Document.publish_date,
-            func.count(Document.id).label('count')
+            Material.publish_date,
+            func.count(Material.id).label('count')
         ).where(
-            Document.publish_date.isnot(None)
+            Material.publish_date.isnot(None)
         ).group_by(
-            Document.publish_date
+            Material.publish_date
         ).order_by(
-            Document.publish_date.desc()
+            Material.publish_date.desc()
         )
         
         results = session.execute(query).all()
@@ -43,7 +43,7 @@ def check_date_distribution():
         
         # 检查2025-11-16的数据
         target_date = date(2025, 11, 16)
-        query_target = select(Document).where(Document.publish_date == target_date)
+        query_target = select(Material).where(Material.publish_date == target_date)
         docs_target = session.execute(query_target).scalars().all()
         
         print(f"\n2025-11-16 的数据: {len(docs_target)} 个文档")

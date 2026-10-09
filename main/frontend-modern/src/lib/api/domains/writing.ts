@@ -34,7 +34,7 @@ export type WritingCitation = {
   id?: number
   doc_id?: number
   project_key?: string
-  source_doc_id?: number | null
+  source_material_id?: number | null
   source_uri?: string | null
   source_title?: string | null
   quote_text?: string | null
@@ -126,7 +126,7 @@ export type WritingContextEnvelope = {
   typed_knowledge_context?: TypedKnowledgeWritingContext | null
 }
 
-export type WritingKeywordCardSource = 'material' | 'document' | 'resource' | 'graph'
+export type WritingKeywordCardSource = 'material' | 'resource' | 'graph'
 
 export type WritingKeywordCard = {
   card_id: string
@@ -502,13 +502,9 @@ export async function validateWritingTemplate(payload: ValidateWritingTemplatePa
 export async function getWritingKeywordCards(payload: WritingKeywordCardRequest) {
   const result = await post<WritingKeywordCardListResponse>(endpoints.writing.keywordCards, {
     ...payload,
-    sources: payload.sources?.map(source => source === 'document' ? 'material' : source),
+    sources: payload.sources,
   })
-  return { ...result, cards: result.cards.map(normalizeMaterialCard) }
-}
-
-function normalizeMaterialCard<T extends { source_type: WritingKeywordCardSource }>(card: T): T {
-  return card.source_type === 'document' ? { ...card, source_type: 'material' } : card
+  return result
 }
 
 export async function seedTypedKnowledgeLiveSample(projectKey: string) {
@@ -535,17 +531,17 @@ export async function updateTypedKnowledgeReviewState(payload: TypedKnowledgeGov
 }
 
 export async function previewWritingKeywordCard(payload: WritingKeywordCardPreviewRequest) {
-  return normalizeMaterialCard(await post<WritingKeywordCardPreview>(endpoints.writing.keywordCardPreview, payload))
+  return post<WritingKeywordCardPreview>(endpoints.writing.keywordCardPreview, payload)
 }
 
 export async function getWritingCardDetail(cardId: string, params: WritingCardDetailParams = {}) {
-  return normalizeMaterialCard(await get<WritingKeywordCardDetail>(
+  return get<WritingKeywordCardDetail>(
     withQuery(endpoints.writing.cardById(cardId), {
       project_key: params.project_key,
       include_provenance: params.include_provenance ?? true,
       max_provenance_items: params.max_provenance_items ?? 20,
     }),
-  ))
+  )
 }
 
 export async function getWritingSuggest(query: string, params: WritingSuggestParams = {}) {

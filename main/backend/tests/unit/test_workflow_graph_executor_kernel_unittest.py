@@ -71,12 +71,12 @@ def test_vector_search_kernel_reports_success_without_runtime_state() -> None:
 
     with patch(
         "app.services.workflow_graph.executors.vector_search._vector_search_service",
-        return_value=[{"document_id": "doc-1"}],
+        return_value=[{"material_id": "material-1"}],
     ) as search:
         result = run_vector_search_kernel(context)
 
     assert result.status == "SUCCEEDED"
-    assert result.payload["hits"] == [{"document_id": "doc-1"}]
+    assert result.payload["hits"] == [{"material_id": "material-1"}]
     assert result.payload["degraded"] is False
     assert search.call_count == 1
 

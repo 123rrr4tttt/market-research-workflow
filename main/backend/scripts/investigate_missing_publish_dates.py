@@ -34,7 +34,7 @@ from sqlalchemy.orm import Session
 from bs4 import BeautifulSoup
 
 from app.models.base import SessionLocal
-from app.models.entities import Document, Source
+from app.models.entities import Material, Source
 from app.services.ingest.adapters.http_utils import fetch_html
 
 logger = logging.getLogger(__name__)
@@ -337,7 +337,7 @@ def investigate_missing_publish_dates(limit: Optional[int] = None, try_fetch: bo
     stats = {
         "total_missing": 0,
         "by_source": defaultdict(int),
-        "by_doc_type": defaultdict(int),
+        "by_material_type": defaultdict(int),
         "has_url": 0,
         "has_content": 0,
         "has_extracted_data": 0,
@@ -357,8 +357,8 @@ def investigate_missing_publish_dates(limit: Optional[int] = None, try_fetch: bo
     
     with SessionLocal() as session:
         # 查找所有 publish_date 为 NULL 的文档
-        query = select(Document, Source).join(Source, Document.source_id == Source.id, isouter=True).where(
-            Document.publish_date.is_(None)
+        query = select(Material, Source).join(Source, Material.source_id == Source.id, isouter=True).where(
+            Material.publish_date.is_(None)
         )
         
         if limit:
@@ -372,13 +372,13 @@ def investigate_missing_publish_dates(limit: Optional[int] = None, try_fetch: bo
         for doc, source in results:
             source_name = source.name if source else "未知来源"
             stats["by_source"][source_name] += 1
-            stats["by_doc_type"][doc.doc_type] += 1
+            stats["by_material_type"][doc.material_type] += 1
             
             extraction_results = {
-                "doc_id": doc.id,
+                "material_id": doc.id,
                 "title": doc.title[:80] if doc.title else "N/A",
                 "source": source_name,
-                "doc_type": doc.doc_type,
+                "material_type": doc.material_type,
                 "uri": doc.uri[:100] if doc.uri else None,
                 "has_content": bool(doc.content),
                 "has_extracted_data": bool(doc.extracted_data),
@@ -457,8 +457,8 @@ def print_report(stats: dict):
         print(f"  {source}: {count}")
     
     print("\n按文档类型统计:")
-    for doc_type, count in sorted(stats['by_doc_type'].items(), key=lambda x: x[1], reverse=True):
-        print(f"  {doc_type}: {count}")
+    for material_type, count in sorted(stats['by_material_type'].items(), key=lambda x: x[1], reverse=True):
+        print(f"  {material_type}: {count}")
     
     print("\n数据可用性:")
     print(f"  有URL: {stats['has_url']}")
@@ -492,10 +492,10 @@ def print_report(stats: dict):
             print(f"\n【可从{method}提取的示例】")
             for i, ex in enumerate(examples, 1):
                 print(f"\n  示例 {i}:")
-                print(f"    ID: {ex['doc_id']}")
+                print(f"    ID: {ex['material_id']}")
                 print(f"    标题: {ex['title']}")
                 print(f"    来源: {ex['source']}")
-                print(f"    类型: {ex['doc_type']}")
+                print(f"    类型: {ex['material_type']}")
                 print(f"    URL: {ex['uri']}")
                 print(f"    提取方法: {ex['extraction_method']}")
                 print(f"    提取到的日期: {ex['extracted_date']}")

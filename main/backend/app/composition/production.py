@@ -18,7 +18,7 @@ import json
 import os
 from pathlib import Path
 from types import MappingProxyType
-from typing import Annotated, Protocol, TypeGuard, cast, runtime_checkable
+from typing import Annotated, Protocol, Required, TypeGuard, TypedDict, cast, runtime_checkable
 
 from fastapi import HTTPException, Request
 from pydantic import TypeAdapter, ValidationError
@@ -77,6 +77,40 @@ _APPROVAL_HEADER = "X-Approval-Id"
 _JSON_OBJECT_ADAPTER = TypeAdapter(dict[str, object])
 _JSON_OBJECTS_ADAPTER = TypeAdapter(list[dict[str, object]])
 _STRING_LIST_ADAPTER = TypeAdapter(list[str])
+
+
+class InstalledProgramStepView(TypedDict, total=False):
+    project_key: str
+    run_id: str
+    step_id: str
+    operation_id: str
+    operation_kind: str
+    operation_version: str
+    state: str
+    revision: int
+    execution_epoch: int
+    input_digest: str | None
+    output_digest: str | None
+    failure_digest: str | None
+    effect_class: str
+    resource_class: str
+    concurrency_key: str | None
+    capability_id: str
+    claim_owner: str
+    claim_authority_epoch: int
+    claim_policy_digest: str
+    attempt_count: int
+    max_attempts: int
+    next_retry_at: datetime | None
+    lease_token: str | None
+    lease_owner: str | None
+    lease_expires_at: datetime | None
+    heartbeat_at: datetime | None
+    started_at: datetime | None
+    finished_at: datetime | None
+    created_at: datetime
+    updated_at: datetime
+    operation_contract_ref: Required[OperationContractRef | None]
 
 
 class _ReconciliationUnitOfWorkProjection:
@@ -1567,10 +1601,17 @@ def submit_installed_program(
 
 def read_installed_program(
     *, engine: Engine, project_key: str, actor_id: str, run_id: str,
-) -> tuple[Mapping[str, object], tuple[Mapping[str, object], ...], tuple[Mapping[str, object], ...]]:
+) -> tuple[
+    Mapping[str, object],
+    tuple[InstalledProgramStepView, ...],
+    tuple[Mapping[str, object], ...],
+]:
     """Read canonical run facts for an actor authorized by the existing API boundary."""
     from app.successor_runtime.substrate.postgres.models import PUBLIC_TABLES
-    from app.successor_runtime.substrate.postgres.runtime_journal import RuntimeJournalRepository
+    from app.successor_runtime.substrate.postgres.runtime_journal import (
+        ExactBindingConflict,
+        RuntimeJournalRepository,
+    )
     from app.successor_runtime.substrate.postgres.session import ServerProjectScopeResolver
     from app.successor_runtime.substrate.postgres.plans import PlanRepository
     from app.successor_runtime.substrate.postgres.models import project_tables
@@ -1585,9 +1626,51 @@ def read_installed_program(
         rows = {str(row["step_id"]): dict(row) for row in connection.execute(select(steps).where(
             steps.c.project_key == project_key, steps.c.run_id == run_id,
         )).mappings()}
-        plan = PlanRepository(connection, project_tables(MetaData(), project.resolved_schema)).get(scope, str(run["plan_digest"]))
-        ordered = tuple(rows[step.step_id] for step in plan.ordered_steps if step.step_id in rows)
-        return run, ordered, tuple(dict(event) for event in journal.load_events(run_id))
+        plan = PlanRepository(
+            connection,
+            project_tables(MetaData(), project.resolved_schema),
+        ).get(scope, str(run["plan_digest"]))
+        if (
+            run["resolved_schema"] != project.resolved_schema
+            or run["project_registry_revision"] != project.project_registry_revision
+            or run["project_scope_digest"] != project.scope_digest
+            or plan.plan_id != run["plan_id"]
+            or plan.plan_digest != run["plan_digest"]
+            or plan.program_id != run["program_id"]
+            or plan.program_digest != run["program_digest"]
+        ):
+            raise ExactBindingConflict("runtime readback Run/Plan/project identity drift")
+        plan_step_ids = {step.step_id for step in plan.ordered_steps}
+        if set(rows) - plan_step_ids:
+            raise ExactBindingConflict("runtime readback contains a step outside the exact Plan")
+        ordered: list[InstalledProgramStepView] = []
+        for plan_step in plan.ordered_steps:
+            row = rows.get(plan_step.step_id)
+            if row is None:
+                continue
+            contract_ref = plan_step.operation_contract_ref
+            if (
+                row.get("project_key") != project_key
+                or row.get("run_id") != run_id
+                or row.get("step_id") != plan_step.step_id
+                or (
+                    plan_step.operation_id is not None
+                    and row.get("operation_id") != plan_step.operation_id
+                )
+                or (
+                    contract_ref is not None
+                    and (
+                        row.get("operation_kind") != contract_ref.kind
+                        or row.get("operation_version") != contract_ref.contract_version
+                    )
+                )
+            ):
+                raise ExactBindingConflict("runtime readback step differs from the exact Plan")
+            ordered.append(cast(
+                InstalledProgramStepView,
+                {**row, "operation_contract_ref": contract_ref},
+            ))
+        return run, tuple(ordered), tuple(dict(event) for event in journal.load_events(run_id))
 
 
 def read_installed_program_outputs(

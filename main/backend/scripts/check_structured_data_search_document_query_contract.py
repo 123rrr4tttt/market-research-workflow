@@ -11,19 +11,19 @@ if str(BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(BACKEND_ROOT))
 
 from app.services.document_queries import (  # noqa: E402
-    DOCUMENT_QUERY_CONTRACT_VERSION,
-    build_structured_data_search_document_query_envelope,
-    validate_document_query_result_envelope,
+    MATERIAL_QUERY_CONTRACT_VERSION,
+    build_structured_data_search_material_query_envelope,
+    validate_material_query_result_envelope,
 )
 
 
 SERVICE_PATH = REPO_ROOT / "main" / "backend" / "app" / "services" / "agent_runtime" / "structured_data_search.py"
 REQUIRED_SERVICE_MARKERS = (
-    "build_structured_data_search_document_query_envelope",
-    "document_query_contract_version",
-    "document_query_results",
-    "document_query_pagination",
-    "document_query_meta",
+    "build_structured_data_search_material_query_envelope",
+    "material_query_contract_version",
+    "material_query_results",
+    "material_query_pagination",
+    "material_query_meta",
 )
 
 
@@ -33,10 +33,10 @@ def _service_marker_gaps() -> list[str]:
 
 
 def main() -> int:
-    envelope = build_structured_data_search_document_query_envelope(
+    envelope = build_structured_data_search_material_query_envelope(
         project_key="demo_proj",
         query=" robotics ",
-        datasets_requested=("documents",),
+        datasets_requested=("materials",),
         limit=999,
         query_mode="search",
         total_matches=3,
@@ -44,8 +44,8 @@ def main() -> int:
         fallback_used=False,
         items=[
             {
-                "dataset": "documents",
-                "record_id": "doc-1",
+                "dataset": "materials",
+                "record_id": "material-1",
                 "title": "Robotics local note",
                 "summary": "Stored robotics evidence.",
                 "source_uri": "https://example.org/robotics",
@@ -53,7 +53,7 @@ def main() -> int:
             }
         ],
     )
-    validate_document_query_result_envelope(envelope)
+    validate_material_query_result_envelope(envelope)
     data = envelope["data"]
     query = data["query"]
     result = data["results"][0] if data["results"] else {}
@@ -73,15 +73,15 @@ def main() -> int:
         "service_marker_gaps": gaps,
     }
     passed = (
-        checks["contract_version"] == DOCUMENT_QUERY_CONTRACT_VERSION
+        checks["contract_version"] == MATERIAL_QUERY_CONTRACT_VERSION
         and checks["consumer"] == "project.structured_data.search"
         and checks["project_key"] == "demo_proj"
-        and checks["dataset_filter"] == {"field": "dataset", "op": "in", "value": ["documents"]}
+        and checks["dataset_filter"] == {"field": "dataset", "op": "in", "value": ["materials"]}
         and checks["limit"] == 100
         and checks["result_count"] == 1
         and checks["pagination_total"] == 3
         and checks["result_source_type"] == "structured_record"
-        and checks["result_backend"] == "documents"
+        and checks["result_backend"] == "materials"
         and checks["meta_source"] == "agent_runtime.structured_data_search"
         and checks["meta_total_stored_rows"] == 9
         and not gaps

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Document dedup tool (safe two-step):
+Material dedup tool (safe two-step):
 
 1) Dry-run:
    python scripts/dedup_documents.py --project demo_proj
@@ -60,7 +60,7 @@ def _dedup_plan_for_schema(schema: str) -> dict[str, Any]:
             text(
                 f"""
                 SELECT id, title, uri, created_at
-                FROM "{schema}".documents
+                FROM "{schema}".materials
                 ORDER BY created_at DESC, id DESC
                 """
             )
@@ -104,7 +104,7 @@ def _dedup_plan_for_schema(schema: str) -> dict[str, Any]:
 
     return {
         "schema": schema,
-        "total_docs": len(rows),
+        "total_materials": len(rows),
         "duplicate_group_count": len(duplicate_groups),
         "delete_count": len(delete_ids),
         "delete_ids": sorted(set(delete_ids)),
@@ -117,7 +117,7 @@ def _apply_delete(schema: str, delete_ids: list[int]) -> int:
         return 0
     with engine.begin() as conn:
         conn.execute(
-            text(f'DELETE FROM "{schema}".documents WHERE id = ANY(:ids)'),
+            text(f'DELETE FROM "{schema}".materials WHERE id = ANY(:ids)'),
             {"ids": delete_ids},
         )
     return len(delete_ids)
@@ -129,7 +129,7 @@ def run(project_key: str, *, apply: bool, sample_limit: int) -> int:
 
     print(f"[dedup] project={project_key} schema={schema}")
     print(
-        f"[dedup] total_docs={plan['total_docs']} duplicate_groups={plan['duplicate_group_count']} "
+        f"[dedup] total_materials={plan['total_materials']} duplicate_groups={plan['duplicate_group_count']} "
         f"delete_count={plan['delete_count']}"
     )
     if plan["duplicate_group_count"] > 0:
@@ -150,7 +150,7 @@ def run(project_key: str, *, apply: bool, sample_limit: int) -> int:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Deduplicate documents by title + canonical URI")
+    parser = argparse.ArgumentParser(description="Deduplicate materials by title + canonical URI")
     parser.add_argument("--project", default="demo_proj", help="Project key, e.g. demo_proj/default")
     parser.add_argument("--apply", action="store_true", help="Actually delete duplicate rows")
     parser.add_argument("--sample-limit", type=int, default=10, help="Dry-run sample group count")
@@ -168,4 +168,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

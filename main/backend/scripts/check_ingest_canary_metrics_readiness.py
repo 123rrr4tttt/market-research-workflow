@@ -84,13 +84,13 @@ def _build_demo_handoff() -> dict[str, Any]:
             "fetch_strategy": "search_candidate_route",
         },
         collection_payload={
-            "document_candidate": {
+            "material_candidate": {
                 "uri": "https://example.com/search?q=robotics",
                 "title": "Search page",
                 "summary": "summary",
                 "content": "Robotics market update with enough meaningful context. " * 8,
                 "source_base_url": "example.com",
-                "doc_type": "market",
+                "material_type": "market",
             },
             "terminal_context": {
                 "project_key": "demo_proj",

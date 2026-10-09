@@ -26,6 +26,7 @@ from sqlalchemy.orm import sessionmaker
 from app.composition.production import (
     build_program_activation,
     execute_successor_work_item,
+    read_installed_program,
     read_installed_program_input_bindings,
     read_installed_program_outputs,
 )
@@ -42,7 +43,7 @@ from app.services import tasks as tasks_module
 from app.services.project_retrieval import topology as retrieval_topology
 from app.models import base as models_base
 from app.models.base import Base
-from app.models.entities import Document, Source
+from app.models.entities import Material, Source
 from app.models.information_topology_entities import (
     InformationTopologyLink,
     InformationTopologyState,
@@ -460,18 +461,18 @@ def _run_real_task(work_item_id: str) -> dict[str, object]:
 
 
 @contextmanager
-def _persisted_documents(
+def _persisted_materials(
     live_database: LiveDatabase,
     rows: tuple[dict[str, object], ...],
 ):
-    tables = (Source.__table__, Document.__table__)
+    tables = (Source.__table__, Material.__table__)
     with live_database.engine.begin() as connection:
         scoped = connection.execution_options(schema_translate_map={None: PROJECT_SCHEMA})
         Base.metadata.create_all(scoped, tables=tables, checkfirst=True)
         inserted = tuple(
             int(
                 scoped.execute(
-                    sa.insert(Document.__table__).values(**row).returning(Document.__table__.c.id)
+                    sa.insert(Material.__table__).values(**row).returning(Material.__table__.c.id)
                 ).scalar_one()
             )
             for row in rows
@@ -1305,21 +1306,21 @@ def test_retrieval_n2_real_task_frontier_rebuilds_children_and_reads_real_bodies
         query["expression"] = "水务政策 " + query["id"]
         query["language"] = "zh"
 
-    with _persisted_documents(
+    with _persisted_materials(
         live_database,
         (
             {
-                "doc_type": "web", "title": "英国水务政策", "status": "active",
+                "material_type": "web", "title": "英国水务政策", "status": "active",
                 "content": "英国政府发布的水务政策正文。",
                 "uri": "https://www.gov.uk/water-policy", "text_hash": _digest("gov-body"),
             },
             {
-                "doc_type": "web", "title": "美国环保署水务政策", "status": "active",
+                "material_type": "web", "title": "美国环保署水务政策", "status": "active",
                 "content": "美国环保署发布的水务政策正文。",
                 "uri": "https://epa.gov/water-policy", "text_hash": _digest("epa-body"),
             },
         ),
-    ) as document_ids:
+    ) as material_ids:
         urls = ("https://www.gov.uk/water-policy", "https://epa.gov/water-policy")
 
         def discover(request: Any) -> CandidateBundle:
@@ -1339,7 +1340,7 @@ def test_retrieval_n2_real_task_frontier_rebuilds_children_and_reads_real_bodies
             acquired_urls.append(request.url)
             return UrlSingleUrlOutcome(
                 status="completed", inserted=1, updated=0, skipped=0,
-                document_id=document_ids[urls.index(request.url)],
+                material_id=material_ids[urls.index(request.url)],
             )
 
         monkeypatch.setattr(candidate_search, "discover_candidates", discover)
@@ -1477,7 +1478,7 @@ def test_retrieval_n2_real_task_frontier_rebuilds_children_and_reads_real_bodies
             "英国政府发布的水务政策正文。",
             "美国环保署发布的水务政策正文。",
         }
-        assert {work.body["document_id"] for work in works if work.body is not None} == set(document_ids)
+        assert {work.body["material_id"] for work in works if work.body is not None} == set(material_ids)
 
 
 @pytest.mark.integration
@@ -1569,11 +1570,11 @@ def test_retrieval_gap_followup_consumes_suffix_budget_without_replaying_prefix(
     monkeypatch.setattr(models_base, "engine", live_database.engine)
     monkeypatch.setattr(retrieval_topology, "SessionLocal", models_base.SessionLocal)
 
-    with _persisted_documents(
+    with _persisted_materials(
         live_database,
         (
             {
-                "doc_type": "web",
+                "material_type": "web",
                 "title": "EPA water research",
                 "status": "active",
                 "content": "EPA initial body leaves a regulatory mechanism gap.",
@@ -1581,7 +1582,7 @@ def test_retrieval_gap_followup_consumes_suffix_budget_without_replaying_prefix(
                 "text_hash": _digest("followup-initial-body"),
             },
             {
-                "doc_type": "web",
+                "material_type": "web",
                 "title": "CDC environmental health",
                 "status": "active",
                 "content": "CDC follow-up body supplies a second bounded observation.",
@@ -1589,8 +1590,8 @@ def test_retrieval_gap_followup_consumes_suffix_budget_without_replaying_prefix(
                 "text_hash": _digest("followup-second-body"),
             },
         ),
-    ) as document_ids, _persisted_retrieval_plan(live_database, plan):
-        document_by_url = dict(zip(urls, document_ids, strict=True))
+    ) as material_ids, _persisted_retrieval_plan(live_database, plan):
+        material_by_url = dict(zip(urls, material_ids, strict=True))
 
         def discover(request: Any) -> CandidateBundle:
             index = len(candidate_topics)
@@ -1619,7 +1620,7 @@ def test_retrieval_gap_followup_consumes_suffix_budget_without_replaying_prefix(
                 inserted=1,
                 updated=0,
                 skipped=0,
-                document_id=document_by_url[request.url],
+                material_id=material_by_url[request.url],
             )
 
         def no_claim(payload: dict[str, Any]) -> dict[str, Any]:
@@ -1831,5 +1832,52 @@ def test_core_url_submit_reaches_canonical_runtime_and_preserves_abort(
         assert connection.execute(sa.select(sa.func.count()).select_from(attempts).where(
             attempts.c.run_id == run_id,
         )).scalar_one() == 1
+    readback_run, readback_steps, _events = read_installed_program(
+        engine=live_database.engine,
+        project_key=PROJECT_KEY,
+        actor_id=live_database.runtime_scope.actor_id,
+        run_id=run_id,
+    )
+    assert readback_run["state"] == "COMPLETED"
+    url_steps = tuple(
+        step for step in readback_steps
+        if step["operation_kind"] == URL_SINGLE_URL_KIND
+    )
+    assert len(url_steps) == 1
+    assert url_steps[0]["operation_contract_ref"] == build_url_single_url_contract().ref
+
+    runtime_steps = PUBLIC_TABLES["runtime_steps"]
+    with live_database.engine.begin() as connection:
+        original_version = connection.execute(
+            sa.select(runtime_steps.c.operation_version).where(
+                runtime_steps.c.project_key == PROJECT_KEY,
+                runtime_steps.c.run_id == run_id,
+                runtime_steps.c.step_id == url_steps[0]["step_id"],
+            )
+        ).scalar_one()
+        connection.execute(
+            sa.update(runtime_steps).where(
+                runtime_steps.c.project_key == PROJECT_KEY,
+                runtime_steps.c.run_id == run_id,
+                runtime_steps.c.step_id == url_steps[0]["step_id"],
+            ).values(operation_version="1.1.0")
+        )
+    try:
+        with pytest.raises(ExactBindingConflict, match="step differs from the exact Plan"):
+            read_installed_program(
+                engine=live_database.engine,
+                project_key=PROJECT_KEY,
+                actor_id=live_database.runtime_scope.actor_id,
+                run_id=run_id,
+            )
+    finally:
+        with live_database.engine.begin() as connection:
+            connection.execute(
+                sa.update(runtime_steps).where(
+                    runtime_steps.c.project_key == PROJECT_KEY,
+                    runtime_steps.c.run_id == run_id,
+                    runtime_steps.c.step_id == url_steps[0]["step_id"],
+                ).values(operation_version=original_version)
+            )
     assert acquired == ["https://example.invalid/url-core"]
     assert service.list_artifacts(session_id)

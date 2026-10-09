@@ -321,8 +321,8 @@ test('real-backend business line smoke [line_key=dashboard_admin_governance] cla
   await probeEndpoint(request, lineKey, '/api/v1/dashboard/stats', {
     requireData: (data) => {
       const payload = requireObject(data, 'Dashboard stats')
-      if (!payload.documents && !payload.sources && !payload.tasks) {
-        throw new Error('Dashboard stats payload is missing documents/sources/tasks evidence.')
+      if (!payload.materials && !payload.sources && !payload.tasks) {
+        throw new Error('Dashboard stats payload is missing materials/sources/tasks evidence.')
       }
     },
   })
@@ -375,7 +375,7 @@ test('real-backend business line smoke [line_key=writing_knowledge_graph_agent] 
         page: 1,
         page_size: 100,
         state: null,
-        doc_type: null,
+        material_type: null,
         has_extracted_data: null,
         search: null,
         sort_by: 'created_at',

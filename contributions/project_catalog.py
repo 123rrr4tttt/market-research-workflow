@@ -2,35 +2,40 @@
 
 from __future__ import annotations
 
+from typing import Any
+
+from app.composition.installed_operation import installed_operation_contribution_catalog
+from app.composition.raw_material_import_task import (
+    raw_material_import_task_contribution_catalog,
+)
+from app.successor_runtime.capabilities.workflow_common import (
+    WORKFLOW_DEFINITION_FAILURES,
+)
 from functorial_kit.contributions import (
+    Contribution,
     ContributionCatalog,
     ContributionSpec,
     contribution_failures,
     define_contribution,
 )
 
-from app.successor_runtime.capabilities.workflow_common import (
-    WORKFLOW_DEFINITION_FAILURES,
-)
-from app.composition.installed_operation import installed_operation_contribution_catalog
-
+from mrw_functorial_kit.contributions.batch import batch_contribution_catalog
+from mrw_functorial_kit.contributions.retrieval import retrieval_contribution_catalog
+from mrw_functorial_kit.contributions.source import source_contribution_catalog
+from mrw_functorial_kit.contributions.task import task_contribution_catalog
 from mrw_functorial_kit.core.application_failure_semantics import (
     source_library_contract_failures,
 )
 from mrw_functorial_kit.core.provider_port_failures import (
     ingest_operation_failures,
 )
-from mrw_functorial_kit.contributions.source import source_contribution_catalog
-from mrw_functorial_kit.contributions.batch import batch_contribution_catalog
-from mrw_functorial_kit.contributions.task import task_contribution_catalog
-from mrw_functorial_kit.contributions.retrieval import retrieval_contribution_catalog
-
+from mrw_functorial_kit.core.w04_service_semantics import material_query_failures
 
 # Family modules remain the authored semantic sources.  This tuple is the
 # only project-level composition used by the CLI and architecture check.
-project_contribution_catalog = (
+project_contribution_catalog: tuple[Contribution[Any, Any], ...] = (
     define_contribution(
-        ContributionSpec(
+        ContributionSpec[object, object](
             id="mrw.project.failure.metadata.v1",
             owner="mrw.project",
             failures=(
@@ -38,12 +43,14 @@ project_contribution_catalog = (
                 contribution_failures,
                 source_library_contract_failures,
                 ingest_operation_failures,
+                material_query_failures,
             ),
         )
     ),
     *source_contribution_catalog,
     *batch_contribution_catalog,
     *task_contribution_catalog,
+    *raw_material_import_task_contribution_catalog,
     *installed_operation_contribution_catalog,
     *retrieval_contribution_catalog,
 )

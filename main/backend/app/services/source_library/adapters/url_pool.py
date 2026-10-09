@@ -5,24 +5,19 @@ from __future__ import annotations
 from collections.abc import Mapping
 from hashlib import sha256
 from importlib import import_module
-from io import BytesIO
 from pathlib import Path
 from tempfile import gettempdir
 from typing import Any, Protocol, SupportsFloat, SupportsIndex, SupportsInt, TypeGuard, runtime_checkable
-from typing_extensions import Buffer
 from urllib.parse import urlparse
 
-from pypdf import PdfReader
+from typing_extensions import Buffer
 
 from ...ingest.adapters.http_utils import fetch_html, make_html_parser, request_html
 from ...ingest.retry_policy import RateGate, RequestScope
 from ...resource_pool.article_extraction_service import extract_article_content_from_html
 from ..external_project import validate_external_http_url
+from ..pdf_extraction import PdfTextExtractionRejected, extract_pdf_text_result
 
-
-_MAX_PDF_BYTES = 20 * 1024 * 1024
-_MAX_PDF_PAGES = 100
-_MAX_CONTENT_CHARS = 50000
 _PDF_ARTIFACT_REQUEST_SCOPE = RequestScope(provider="source_library_pdf_artifact")
 _PDF_ARTIFACT_RATE_GATE = RateGate(
     rate_limit_interval_seconds=1.0,
@@ -108,33 +103,15 @@ def _html_response_text(html: str, response: object) -> str:
 
 
 def _extract_pdf_text(body: bytes, url: str) -> tuple[str, str, int]:
-    if not body or len(body) > _MAX_PDF_BYTES:
-        raise ValueError(f"PDF response size must be between 1 and {_MAX_PDF_BYTES} bytes")  # noqa: TRY003
-    reader = PdfReader(BytesIO(body), strict=True)
-    if reader.is_encrypted:
-        raise ValueError("PDF is encrypted")  # noqa: TRY003
-    page_count = len(reader.pages)
-    if not 1 <= page_count <= _MAX_PDF_PAGES:
-        raise ValueError(f"PDF page count must be between 1 and {_MAX_PDF_PAGES}")  # noqa: TRY003
-
-    parts: list[str] = []
-    remaining = _MAX_CONTENT_CHARS
-    for page in reader.pages:
-        if remaining <= 0:
-            break
-        page_text = str(page.extract_text() or "").strip()
-        if page_text:
-            parts.append(page_text[:remaining])
-            remaining -= len(parts[-1])
-    content_text = "\n\n".join(parts).strip()
-    if not content_text or not any(char.isalnum() for char in content_text):
-        raise ValueError("PDF contains no extractable text")  # noqa: TRY003
-
-    metadata_title = str(getattr(reader.metadata, "title", None) or "").strip()
+    result = extract_pdf_text_result(body)
+    if isinstance(result, PdfTextExtractionRejected):
+        raise ValueError(result.message)
+    metadata_title = result.metadata_title or ""
+    content_text = result.content
     first_line = next((line.strip() for line in content_text.splitlines() if line.strip()), "")
     url_title = Path(urlparse(url).path).stem.replace("_", " ").replace("-", " ").strip()
     title = (metadata_title or first_line or url_title or url)[:300]
-    return title, content_text, page_count
+    return title, content_text, result.page_count
 
 
 def _normalize_urls_from_params(params: Mapping[object, object]) -> tuple[list[str], list[str], bool]:

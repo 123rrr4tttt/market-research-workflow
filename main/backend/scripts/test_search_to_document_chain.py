@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Test: unified search -> write to pool -> auto_ingest -> Documents.
+Test: unified search -> write to pool -> auto_ingest -> Materials.
 
-Verifies the search chain can automatically obtain documents in one call.
+Verifies the search chain can automatically obtain materials in one call.
 
 Usage:
   cd main/ops && docker compose exec backend python -m scripts.test_search_to_document_chain
@@ -36,7 +36,7 @@ def main() -> int:
     from app.services.resource_pool.open_source_source_importer import import_open_source_preset_pack
 
     project_key = os.environ.get("PROJECT_KEY", PROJECT_KEY)
-    logger.info("Testing search->document chain (auto_ingest) for project_key=%s", project_key)
+    logger.info("Testing search->material chain (auto_ingest) for project_key=%s", project_key)
     ensure_project_schema_ready(project_key, name="Business Survey")
 
     # Ensure we have site entries and a temp item
@@ -76,7 +76,7 @@ def main() -> int:
                         item_key=TEST_ITEM_KEY,
                         name="E2E Test Unified Search",
                         channel_key="generic_web.rss",
-                        description="Temporary item for search->document test",
+                        description="Temporary item for search->material test",
                         params={"site_entries": site_urls},
                         tags=["e2e", "temp"],
                         enabled=True,
@@ -110,11 +110,11 @@ def main() -> int:
             skipped = result.ingest_result.get("skipped", 0)
             urls = result.ingest_result.get("urls", 0)
             queued = result.ingest_result.get("queued", 0)
-            logger.info("  -> Documents: inserted=%d, skipped=%d, urls_fetched=%d", inserted, skipped, urls)
+            logger.info("  -> Materials: inserted=%d, skipped=%d, urls_fetched=%d", inserted, skipped, urls)
             if inserted > 0:
-                logger.info("  SUCCESS: auto_ingest produced %d new document(s)", inserted)
+                logger.info("  SUCCESS: auto_ingest produced %d new material(s)", inserted)
             else:
-                logger.info("  NOTE: inserted=0 (URLs may already exist as documents)")
+                logger.info("  NOTE: inserted=0 (URLs may already exist as materials)")
         else:
             logger.warning("  No ingest_result (auto_ingest may have failed)")
 

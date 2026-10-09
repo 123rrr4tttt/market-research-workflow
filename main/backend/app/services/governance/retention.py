@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy import delete
 
 from ...models.base import SessionLocal
-from ...models.entities import Document, MarketMetricPoint, PriceObservation, EtlJobRun
+from ...models.entities import Material, MarketMetricPoint, PriceObservation, EtlJobRun
 
 
 def cleanup_old_data(retention_days: int = 90) -> dict[str, int]:
@@ -14,7 +14,7 @@ def cleanup_old_data(retention_days: int = 90) -> dict[str, int]:
 
     with SessionLocal() as session:
         res_docs = session.execute(
-            delete(Document).where(Document.created_at < cutoff_dt)
+            delete(Material).where(Material.created_at < cutoff_dt)
         )
         res_metrics = session.execute(
             delete(MarketMetricPoint).where(MarketMetricPoint.date < cutoff_date)

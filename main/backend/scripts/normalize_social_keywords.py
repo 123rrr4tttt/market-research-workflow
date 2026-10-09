@@ -13,7 +13,7 @@
   --fix-tags        同时统一 sentiment.sentiment_tags 为小写并去重（默认开启）
   --limit N         只处理前 N 条（调试用）
 
-注意：只处理 doc_type = 'social_sentiment' 且 extracted_data 非空的文档。
+注意：只处理 material_type = 'social_sentiment' 且 extracted_data 非空的文档。
 """
 from __future__ import annotations
 
@@ -30,7 +30,7 @@ sys.path.insert(0, str(project_root))
 from sqlalchemy import select, and_  # type: ignore
 
 from app.models.base import SessionLocal  # type: ignore
-from app.models.entities import Document  # type: ignore
+from app.models.entities import Material  # type: ignore
 
 
 def normalize_list_lower_dedup(values: List[Any]) -> List[str]:
@@ -110,8 +110,8 @@ def main() -> None:
     processed = 0
 
     with SessionLocal() as session:
-        stmt = select(Document).where(
-            and_(Document.doc_type == "social_sentiment", Document.extracted_data.isnot(None))
+        stmt = select(Material).where(
+            and_(Material.material_type == "social_sentiment", Material.extracted_data.isnot(None))
         )
         if args.limit:
             stmt = stmt.limit(args.limit)
@@ -137,7 +137,7 @@ def main() -> None:
                     new_keywords = new_payload.get("keywords") if isinstance(new_payload.get("keywords"), list) else None
                     new_sentiment = ensure_dict(new_payload.get("sentiment"))
                     new_tags = new_sentiment.get("sentiment_tags") if isinstance(new_sentiment.get("sentiment_tags"), list) else None
-                    print(f"[变更] doc_id={doc.id}")
+                    print(f"[变更] material_id={doc.id}")
                     if old_keywords is not None or new_keywords is not None:
                         print(f"  keywords: {old_keywords} -> {new_keywords}")
                     if args.fix_tags and (old_tags is not None or new_tags is not None):

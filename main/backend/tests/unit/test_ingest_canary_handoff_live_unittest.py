@@ -64,10 +64,11 @@ class IngestCanaryHandoffLiveUnitTestCase(unittest.TestCase):
                 "canary_handoff": _handoff("strict_blocked", reason_code="domain_blocked"),
             },
             db_readback={
-                "accepted_doc_count": 1,
-                "accepted_doc_ids": [101],
-                "rejected_doc_count": 0,
-                "rejected_doc_ids": [],
+                "accepted_material_count": 1,
+                "accepted_material_ids": [101],
+                "accepted_titles": ["Article"],
+                "rejected_material_count": 0,
+                "rejected_material_ids": [],
             },
         )
         validation = validate_production_like_handoff_evidence(evidence)
@@ -76,6 +77,35 @@ class IngestCanaryHandoffLiveUnitTestCase(unittest.TestCase):
         self.assertFalse(evidence["closure_claim"])
         self.assertEqual(validation["status"], "passed")
         self.assertTrue(validation["passed"])
+
+    def test_db_readback_classification_uses_current_material_shape(self):
+        common = {
+            "project_key": "wave55_canary",
+            "accepted_url": "https://example.com/article",
+            "rejected_url": "https://example.com/search?q=wave55",
+            "accepted_status_code": 200,
+            "rejected_status_code": 200,
+            "accepted_result": {
+                "status": "success",
+                "canary_handoff": _handoff("strict_passed"),
+            },
+            "rejected_result": {
+                "status": "failed",
+                "canary_handoff": _handoff("strict_blocked", reason_code="domain_blocked"),
+            },
+        }
+        evidence = build_production_like_handoff_evidence(
+            **common,
+            db_readback={
+                "accepted_material_count": 1,
+                "accepted_material_ids": [101],
+                "accepted_titles": ["Article"],
+                "rejected_material_count": 0,
+                "rejected_material_ids": [],
+            },
+        )
+
+        self.assertTrue(evidence["validation_checks"]["db_readback_validated"])
 
     def test_live_evidence_promotes_handoff_without_closure_claim(self):
         evidence = build_production_like_handoff_evidence(
@@ -92,7 +122,13 @@ class IngestCanaryHandoffLiveUnitTestCase(unittest.TestCase):
                 "status": "failed",
                 "canary_handoff": _handoff("strict_blocked", reason_code="domain_blocked"),
             },
-            db_readback={"accepted_doc_count": 1, "accepted_doc_ids": [101], "rejected_doc_count": 0},
+            db_readback={
+                "accepted_material_count": 1,
+                "accepted_material_ids": [101],
+                "accepted_titles": ["Article"],
+                "rejected_material_count": 0,
+                "rejected_material_ids": [],
+            },
         )
         postprocess = {
             "status": "ok",

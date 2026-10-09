@@ -63,7 +63,13 @@ def _live_evidence() -> dict:
             "status": "failed",
             "canary_handoff": _handoff("strict_blocked", reason_code="domain_blocked"),
         },
-        db_readback={"accepted_doc_count": 1, "accepted_doc_ids": [101], "rejected_doc_count": 0},
+        db_readback={
+            "accepted_material_count": 1,
+            "accepted_material_ids": [101],
+            "accepted_titles": ["Article"],
+            "rejected_material_count": 0,
+            "rejected_material_ids": [],
+        },
     )
 
 

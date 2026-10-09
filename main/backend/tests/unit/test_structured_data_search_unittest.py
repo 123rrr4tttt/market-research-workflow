@@ -6,7 +6,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from app.models.entities import Document
+from app.models.entities import Material
 from app.services.agent_runtime.structured_data_quality import detect_structured_record_noise
 from app.services.agent_runtime.structured_data_search import (
     _normalize_datasets,
@@ -41,12 +41,12 @@ class _FakeRows:
 
 
 class StructuredDataSearchUnitTest(unittest.TestCase):
-    def test_legacy_document_dataset_and_read_handles_normalize_to_materials(self):
-        self.assertEqual(_normalize_datasets(["documents", "materials"]), ["materials"])
+    def test_canonical_material_dataset_and_read_handles_remain_material_native(self):
+        self.assertEqual(_normalize_datasets(["materials"]), ["materials"])
         for ref in (
-            {"dataset": "documents", "record_id": "42"},
-            {"item_id": "structured:documents:42"},
-            {"resource_uri": "project://structured/demo/documents/42"},
+            {"dataset": "materials", "record_id": "42"},
+            {"item_id": "structured:materials:42"},
+            {"resource_uri": "project://structured/demo/materials/42"},
         ):
             parsed = _parse_structured_data_read_ref(
                 project_key="demo", **{"dataset": None, "record_id": None, "item_id": None, "resource_uri": None, **ref}
@@ -60,19 +60,19 @@ class StructuredDataSearchUnitTest(unittest.TestCase):
             dataset=None,
             record_id=None,
             item_id=None,
-            resource_uri="project://structured/project-b/documents/42",
+            resource_uri="project://structured/project-b/materials/42",
         )
         self.assertEqual(parsed["project_key"], "project-a")
         self.assertEqual(parsed["scope_error"], "cross_project_reference")
         result = read_project_structured_data_item(
             project_key="project-a",
-            resource_uri="project://structured/project-b/documents/42",
+            resource_uri="project://structured/project-b/materials/42",
         )
         self.assertEqual(result["item"], None)
         self.assertEqual(result["errors"][0]["type"], "cross_project_reference")
         batch = read_project_structured_data_items(
             project_key="project-a",
-            items=[{"project_key": "project-b", "dataset": "documents", "record_id": "42"}],
+            items=[{"project_key": "project-b", "dataset": "materials", "record_id": "42"}],
         )
         self.assertEqual(batch["total_returned"], 0)
         self.assertEqual(batch["errors"][0]["type"], "cross_project_reference")
@@ -84,8 +84,8 @@ class StructuredDataSearchUnitTest(unittest.TestCase):
 
         items, total_rows = _query_model(
             session,
-            Document,
-            dataset="documents",
+            Material,
+            dataset="materials",
             query="robot",
             limit=3,
             mapper=lambda item: {"title": item.title},
@@ -93,7 +93,7 @@ class StructuredDataSearchUnitTest(unittest.TestCase):
         )
 
         self.assertIsNone(total_rows)
-        self.assertEqual(items, [{"title": "Robot market note", "dataset": "documents"}])
+        self.assertEqual(items, [{"title": "Robot market note", "dataset": "materials"}])
         self.assertEqual(session.execute.call_count, 1)
 
     def test_targeted_search_filters_matches_without_visible_query_evidence(self):
@@ -106,8 +106,8 @@ class StructuredDataSearchUnitTest(unittest.TestCase):
 
         items, total_rows = _query_model(
             session,
-            Document,
-            dataset="documents",
+            Material,
+            dataset="materials",
             query="robot",
             limit=3,
             mapper=lambda item: {"title": item.title, "summary": getattr(item, "summary", ""), "fields": getattr(item, "fields", {})},
@@ -125,8 +125,8 @@ class StructuredDataSearchUnitTest(unittest.TestCase):
 
         items, total_rows = _query_model(
             session,
-            Document,
-            dataset="documents",
+            Material,
+            dataset="materials",
             query="",
             limit=3,
             mapper=lambda item: {"title": item.title},
@@ -134,7 +134,7 @@ class StructuredDataSearchUnitTest(unittest.TestCase):
         )
 
         self.assertEqual(total_rows, 42)
-        self.assertEqual(items, [{"title": "Inventory note", "dataset": "documents"}])
+        self.assertEqual(items, [{"title": "Inventory note", "dataset": "materials"}])
         self.assertEqual(session.execute.call_count, 2)
 
     def test_record_omits_web_script_noise_from_display_summary(self):

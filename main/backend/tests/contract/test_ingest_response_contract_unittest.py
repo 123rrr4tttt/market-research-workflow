@@ -115,7 +115,7 @@ class IngestResponseContractTestCase(unittest.TestCase):
             "rejected_count": 1,
             "rejection_breakdown": {"content_gate_rejected": 1},
             "degradation_flags": ["content_gate_rejected:content_gate_rejected"],
-            "document_id": None,
+            "material_id": None,
             "quality_score": 0.0,
         }
 

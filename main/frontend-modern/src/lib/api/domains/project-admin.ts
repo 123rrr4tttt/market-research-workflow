@@ -11,9 +11,9 @@ import {
 } from '../services/projects'
 import type {
   AdminActionResponse,
-  AdminDeleteDocumentsPayload,
-  AdminDocumentListPayload,
-  AdminDocumentListResponse,
+  AdminDeleteMaterialsPayload,
+  AdminMaterialListPayload,
+  AdminMaterialListResponse,
   AdminReExtractPayload,
   AdminStats,
   AdminTopicExtractPayload,
@@ -22,10 +22,11 @@ import type {
   DashboardReportFromFilterResponse,
   DashboardLlmReportDetailParams,
   DashboardLlmReportDetailResponse,
+  DashboardGlobalStats,
   DashboardStats,
-  DocumentBulkExtractedPayload,
-  DocumentExtractedPayload,
-  DocumentItem,
+  MaterialBulkExtractedPayload,
+  MaterialExtractedPayload,
+  MaterialItem,
   RawImportPayload,
   RawImportResult,
   SearchHistoryItem,
@@ -33,6 +34,10 @@ import type {
 
 export async function getDashboardStats() {
   return get<DashboardStats>(endpoints.dashboard.stats)
+}
+
+export async function getDashboardGlobalStats() {
+  return get<DashboardGlobalStats>(endpoints.dashboard.globalStats)
 }
 
 export async function createDashboardReportFromFilter(payload: DashboardReportFromFilterPayload) {
@@ -85,12 +90,12 @@ export async function getSearchHistory(page = 1, pageSize = 50) {
   return asList<SearchHistoryItem>(data)
 }
 
-export async function listAdminMaterials(payload: AdminDocumentListPayload = {}) {
-  return post<AdminDocumentListResponse>(endpoints.admin.materialList, {
+export async function listAdminMaterials(payload: AdminMaterialListPayload = {}) {
+  return post<AdminMaterialListResponse>(endpoints.admin.materialList, {
     page: payload.page ?? 1,
     page_size: payload.page_size ?? 20,
     state: payload.state ?? null,
-    doc_type: payload.doc_type ?? null,
+    material_type: payload.material_type ?? null,
     has_extracted_data: payload.has_extracted_data ?? null,
     search: payload.search ?? null,
     sort_by: payload.sort_by ?? 'created_at',
@@ -99,44 +104,37 @@ export async function listAdminMaterials(payload: AdminDocumentListPayload = {})
 }
 
 export async function getAdminMaterial(materialId: number) {
-  return get<DocumentItem>(endpoints.admin.materialById(materialId))
+  return get<MaterialItem>(endpoints.admin.materialById(materialId))
 }
 
-export const listAdminDocuments = listAdminMaterials
-export const getAdminDocument = getAdminMaterial
-
-export async function updateDocumentExtractedData(docId: number, payload: DocumentExtractedPayload) {
-  return post<{ id?: number; extracted_data?: unknown }>(endpoints.admin.documentExtractedData(docId), payload)
+export async function updateMaterialExtractedData(materialId: number, payload: MaterialExtractedPayload) {
+  return post<{ material_id?: number; extracted_data?: unknown }>(endpoints.admin.materialExtractedData(materialId), payload)
 }
 
-export async function bulkUpdateDocumentExtractedData(payload: DocumentBulkExtractedPayload) {
-  return post<AdminActionResponse>(endpoints.admin.documentsBulkExtractedData, payload)
+export async function bulkUpdateMaterialExtractedData(payload: MaterialBulkExtractedPayload) {
+  return post<AdminActionResponse>(endpoints.admin.materialsBulkExtractedData, payload)
 }
 
-export async function clearDocumentExtractedData(docIds: number[]) {
-  return bulkUpdateDocumentExtractedData({
-    doc_ids: docIds,
+export async function clearMaterialExtractedData(materialIds: number[]) {
+  return bulkUpdateMaterialExtractedData({
+    material_ids: materialIds,
     mode: 'replace',
     extracted_data: null,
   })
 }
 
-export async function deleteAdminDocuments(payload: AdminDeleteDocumentsPayload | number[]) {
-  const ids = Array.isArray(payload) ? payload : payload.ids
-  const preview = Array.isArray(payload) ? undefined : payload.preview
-  return post<AdminActionResponse>(endpoints.admin.documentsDelete, { ids, ...(preview === undefined ? {} : { preview }) })
+export async function deleteAdminMaterials(payload: AdminDeleteMaterialsPayload) {
+  return post<AdminActionResponse>(endpoints.admin.materialsDelete, payload)
 }
 
-export async function reExtractDocuments(payload: AdminReExtractPayload = {}) {
-  return post<AdminActionResponse>(endpoints.admin.documentsReExtract, payload)
+export async function reExtractMaterials(payload: AdminReExtractPayload = {}) {
+  return post<AdminActionResponse>(endpoints.admin.materialsReExtract, payload)
 }
 
-export async function topicExtractDocuments(payload: AdminTopicExtractPayload = {}) {
-  return post<AdminTopicExtractResponse>(endpoints.admin.documentsTopicExtract, payload)
+export async function topicExtractMaterials(payload: AdminTopicExtractPayload = {}) {
+  return post<AdminTopicExtractResponse>(endpoints.admin.materialsTopicExtract, payload)
 }
 
 export async function rawImportMaterials(payload: RawImportPayload) {
-  return post<RawImportResult>(endpoints.admin.documentsRawImport, payload)
+  return post<RawImportResult>(endpoints.admin.materialsRawImport, payload)
 }
-
-export const rawImportDocuments = rawImportMaterials

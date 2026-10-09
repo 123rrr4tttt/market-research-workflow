@@ -180,7 +180,7 @@ def test_INVARIANT__scrapyd_output_ingest_adapter_interprets_typed_source_librar
         wait_timeout_seconds=120.0,
         poll_interval_seconds=0.5,
         source_name="crawler.demo_proj",
-        doc_type="news",
+        material_type="news",
         enable_extraction=False,
         max_items=100,
     )
@@ -200,7 +200,7 @@ def test_INVARIANT__scrapyd_output_ingest_adapter_interprets_typed_source_librar
         wait_timeout_seconds=120.0,
         poll_interval_seconds=0.5,
         source_name="crawler.demo_proj",
-        doc_type="news",
+        material_type="news",
         enable_extraction=False,
         max_items=100,
     )

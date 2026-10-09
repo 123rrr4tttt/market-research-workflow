@@ -207,28 +207,28 @@ def dashboard_payload(project_key: str, smoke_id: str) -> dict[str, Any]:
         "dashboard": {
             "variant": "dashboard",
             "trace_id": trace_id,
-            "selected_label": "Documents",
-            "selected_metric": "documents",
-            "selected_source_ref": "dashboard.stats.documents",
-            "filters": {"limit": 1, "doc_type": "policy"},
+            "selected_label": "Materials",
+            "selected_metric": "materials",
+            "selected_source_ref": "dashboard.stats.materials",
+            "filters": {"limit": 1, "material_type": "policy"},
             "source_query": {
                 "scope": "dashboard.stats",
-                "card": "documents",
-                "table": "documents",
-                "metrics": ["documents"],
-                "filters": {"doc_type": "policy"},
+                "card": "materials",
+                "table": "materials",
+                "metrics": ["materials"],
+                "filters": {"material_type": "policy"},
             },
             "source_refs": [
                 {
-                    "id": "dashboard.stats.documents",
+                    "id": "dashboard.stats.materials",
                     "kind": "sql_table",
-                    "table": "documents",
-                    "columns": ["id", "title"],
+                    "table": "materials",
+                    "columns": ["material_id", "title"],
                     "published_at": "2026-05-01",
                     "trust_score": 0.92,
                 }
             ],
-            "sample_rows": [{"id": 101, "title": "Policy sample"}],
+            "sample_rows": [{"material_id": 101, "title": "Policy sample"}],
             "sample_row_count": 1,
         },
         "report_options": {"include_dashboard_sample_rows": True, "as_of_date": "2026-05-24", "trace_id": trace_id},
@@ -300,13 +300,13 @@ def build_artifact(
     if stats_data is None:
         return blocked_or_failed(artifact, stats_step)
     stats_evidence = {
-        "documents_source_ref_count": len(stats_data.get("documents", {}).get("source_refs") or []),
+        "materials_source_ref_count": len(stats_data.get("materials", {}).get("source_refs") or []),
         "pending_action_count": len(stats_data.get("pending_actions") or []),
         "llm_report_quality_present": isinstance(stats_data.get("llm_report_quality"), dict),
     }
     stats_step["evidence"] = stats_evidence
-    if stats_evidence["documents_source_ref_count"] <= 0:
-        return fail_step(artifact, stats_step, failures, "dashboard_stats_missing_source_refs", ["documents.source_refs"])
+    if stats_evidence["materials_source_ref_count"] <= 0:
+        return fail_step(artifact, stats_step, failures, "dashboard_stats_missing_source_refs", ["materials.source_refs"])
     stats_step["status"] = STATUS_PASSED
 
     report_step = append_step(artifact, "dashboard_report_from_filter", "/api/v1/dashboard/report-from-filter")

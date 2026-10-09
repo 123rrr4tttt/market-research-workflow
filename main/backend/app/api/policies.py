@@ -19,7 +19,7 @@ from ..contracts.schemas.policies import (
     PolicyStats,
 )
 from ..models.base import SessionLocal
-from ..models.entities import Document
+from ..models.entities import Material
 from ..services.document_views import (
     build_policy_detail,
     build_policy_summary,
@@ -56,12 +56,12 @@ def _json_error(status_code: int, code: ErrorCode, message: str) -> JSONResponse
     )
 
 
-def _extract_policy_data(doc: Document) -> dict[str, Any]:
+def _extract_policy_data(doc: Material) -> dict[str, Any]:
     """从文档中提取政策数据"""
     return build_policy_summary(doc)
 
 
-def _extract_policy_detail(doc: Document) -> dict[str, Any]:
+def _extract_policy_detail(doc: Material) -> dict[str, Any]:
     return build_policy_detail(doc)
 
 
@@ -104,7 +104,7 @@ def list_policies(
             return _json_error(422, ErrorCode.INVALID_INPUT, str(exc))
 
         with SessionLocal() as session:
-            conditions = [Document.doc_type.in_(["policy", "policy_regulation"]), policy_has_data_condition()]
+            conditions = [Material.material_type.in_(["policy", "policy_regulation"]), policy_has_data_condition()]
             policy_time = policy_time_expr()
             policy_effective = policy_effective_date_expr()
 
@@ -115,7 +115,7 @@ def list_policies(
                 conditions.append(policy_type_condition(policy_type))
 
             if status:
-                conditions.append(Document.status == status)
+                conditions.append(Material.status == status)
 
             if start_dt:
                 conditions.append(policy_time >= start_dt)
@@ -123,58 +123,58 @@ def list_policies(
             if end_dt:
                 conditions.append(policy_time <= end_dt)
 
-            total_query = select(func.count(Document.id)).where(and_(*conditions))
+            total_query = select(func.count(Material.id)).where(and_(*conditions))
             total = session.execute(total_query).scalar() or 0
 
-            query = select(Document).where(and_(*conditions))
+            query = select(Material).where(and_(*conditions))
             logger.info("政策列表排序: sort_by=%s, sort_order=%s", sort_by, sort_order)
 
             if sort_by == "publish_date":
                 if sort_order == "desc":
-                    query = query.order_by(policy_time.desc().nullslast(), Document.id.desc())
+                    query = query.order_by(policy_time.desc().nullslast(), Material.id.desc())
                 else:
-                    query = query.order_by(policy_time.asc().nullslast(), Document.id.asc())
+                    query = query.order_by(policy_time.asc().nullslast(), Material.id.asc())
             elif sort_by == "effective_date":
                 if sort_order == "desc":
                     query = query.order_by(
                         policy_effective.desc().nullslast(),
                         policy_time.desc().nullslast(),
-                        Document.id.desc(),
+                        Material.id.desc(),
                     )
                 else:
                     query = query.order_by(
                         policy_effective.asc().nullslast(),
                         policy_time.asc().nullslast(),
-                        Document.id.asc(),
+                        Material.id.asc(),
                     )
             elif sort_by == "title":
                 if sort_order == "desc":
-                    query = query.order_by(Document.title.desc().nullslast(), Document.id.desc())
+                    query = query.order_by(Material.title.desc().nullslast(), Material.id.desc())
                 else:
-                    query = query.order_by(Document.title.asc().nullslast(), Document.id.asc())
+                    query = query.order_by(Material.title.asc().nullslast(), Material.id.asc())
             elif sort_by == "state":
                 if sort_order == "desc":
-                    query = query.order_by(Document.state.desc().nullslast(), Document.id.desc())
+                    query = query.order_by(Material.state.desc().nullslast(), Material.id.desc())
                 else:
-                    query = query.order_by(Document.state.asc().nullslast(), Document.id.asc())
+                    query = query.order_by(Material.state.asc().nullslast(), Material.id.asc())
             elif sort_by == "policy_type":
                 if sort_order == "desc":
                     query = query.order_by(
                         policy_type_order_expr().desc().nullslast(),
-                        Document.id.desc(),
+                        Material.id.desc(),
                     )
                 else:
                     query = query.order_by(
                         policy_type_order_expr().asc().nullslast(),
-                        Document.id.asc(),
+                        Material.id.asc(),
                     )
             elif sort_by == "status":
                 if sort_order == "desc":
-                    query = query.order_by(Document.status.desc().nullslast(), Document.id.desc())
+                    query = query.order_by(Material.status.desc().nullslast(), Material.id.desc())
                 else:
-                    query = query.order_by(Document.status.asc().nullslast(), Document.id.asc())
+                    query = query.order_by(Material.status.asc().nullslast(), Material.id.asc())
             else:
-                query = query.order_by(Document.created_at.desc(), Document.id.desc())
+                query = query.order_by(Material.created_at.desc(), Material.id.desc())
 
             offset = (page - 1) * page_size
             query = query.offset(offset).limit(page_size)
@@ -215,7 +215,7 @@ def get_policy_stats(
             return _json_error(422, ErrorCode.INVALID_INPUT, str(exc))
 
         with SessionLocal() as session:
-            conditions = [Document.doc_type.in_(["policy", "policy_regulation"]), policy_has_data_condition()]
+            conditions = [Material.material_type.in_(["policy", "policy_regulation"]), policy_has_data_condition()]
             policy_time = policy_time_expr()
 
             if start_dt:
@@ -224,7 +224,7 @@ def get_policy_stats(
             if end_dt:
                 conditions.append(policy_time <= end_dt)
 
-            docs_query = select(Document).where(and_(*conditions))
+            docs_query = select(Material).where(and_(*conditions))
             docs = session.execute(docs_query).scalars().all()
 
             state_counts: dict[str, int] = {}
@@ -246,15 +246,15 @@ def get_policy_stats(
             type_distribution = [{"policy_type": k, "count": v} for k, v in type_counts.items()]
 
             status_query = (
-                select(Document.status, func.count(Document.id).label("count"))
+                select(Material.status, func.count(Material.id).label("count"))
                 .where(and_(*conditions))
-                .group_by(Document.status)
+                .group_by(Material.status)
             )
             status_dist = session.execute(status_query).all()
             status_distribution = [{"status": row.status or "unknown", "count": row.count} for row in status_dist]
 
             trend_query = (
-                select(func.date_trunc("month", policy_time).label("month"), func.count(Document.id).label("count"))
+                select(func.date_trunc("month", policy_time).label("month"), func.count(Material.id).label("count"))
                 .where(and_(*conditions))
                 .group_by("month")
                 .order_by("month")
@@ -265,10 +265,10 @@ def get_policy_stats(
                 for row in trend_data
             ]
 
-            total_query = select(func.count(Document.id)).where(and_(*conditions))
+            total_query = select(func.count(Material.id)).where(and_(*conditions))
             total = session.execute(total_query).scalar() or 0
 
-            active_query = select(func.count(Document.id)).where(and_(*conditions, Document.status == "active"))
+            active_query = select(func.count(Material.id)).where(and_(*conditions, Material.status == "active"))
             active_count = session.execute(active_query).scalar() or 0
             states_count = len([s for s in state_distribution if s["state"]])
 
@@ -311,7 +311,7 @@ def get_state_policies(
 
         with SessionLocal() as session:
             conditions = [
-                Document.doc_type.in_(["policy", "policy_regulation"]),
+                Material.material_type.in_(["policy", "policy_regulation"]),
                 policy_state_condition(state),
             ]
             policy_time = policy_time_expr()
@@ -322,7 +322,7 @@ def get_state_policies(
             if end_dt:
                 conditions.append(policy_time <= end_dt)
 
-            query = select(Document).where(and_(*conditions)).order_by(policy_time.desc().nullslast(), Document.id.desc())
+            query = select(Material).where(and_(*conditions)).order_by(policy_time.desc().nullslast(), Material.id.desc())
             documents = session.execute(query).scalars().all()
             policies = [_extract_policy_data(doc) for doc in documents]
 
@@ -386,9 +386,9 @@ def get_policy_detail(policy_id: int = Path(..., description="政策ID")):
     try:
         with SessionLocal() as session:
             doc = session.execute(
-                select(Document).where(
-                    Document.id == policy_id,
-                    Document.doc_type.in_(["policy", "policy_regulation"]),
+                select(Material).where(
+                    Material.id == policy_id,
+                    Material.material_type.in_(["policy", "policy_regulation"]),
                 )
             ).scalar_one_or_none()
             if not doc:

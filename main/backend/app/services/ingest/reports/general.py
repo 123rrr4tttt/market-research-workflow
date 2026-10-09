@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from mrw_functorial_kit.core.provider_port_failures import ingest_operation_failures
 
 from ....models.base import SessionLocal
-from ....models.entities import Document, Source
+from ....models.entities import Material, Source
 from ...job_logger import complete_job, fail_job, start_job
 from ...projects import current_project_key
 from ...search.web import SearchResult, search_sources
@@ -28,7 +28,7 @@ _REPORT_FAILURE_WITNESS = (
 class ReportIngestResult(TypedDict):
     inserted: int
     skipped: int
-    doc_type: str
+    material_type: str
     links: list[str]
 
 
@@ -52,10 +52,10 @@ class _SourceRow(Protocol):
     base_url: str | None
 
 
-class _DocumentRow(Protocol):
+class _MaterialRow(Protocol):
     source_id: int | None
     state: str | None
-    doc_type: str
+    material_type: str
     title: str | None
     summary: str | None
     uri: str | None
@@ -65,8 +65,8 @@ def _is_source_row(value: object) -> TypeGuard[_SourceRow]:
     return isinstance(value, Source)
 
 
-def _is_document_row(value: object) -> TypeGuard[_DocumentRow]:
-    return isinstance(value, Document)
+def _is_material_row(value: object) -> TypeGuard[_MaterialRow]:
+    return isinstance(value, Material)
 
 
 def _report_failure(
@@ -165,14 +165,14 @@ def _append_resource_pool_url(
     port: _ResourcePoolAppendPort,
     *,
     url: str,
-    doc_type: str,
+    material_type: str,
     project_key: str,
     job_type: str,
 ) -> None:
     port.append_url(
         url,
         source="ingest",
-        source_ref={"doc_type": doc_type},
+        source_ref={"material_type": material_type},
         project_key=project_key,
         job_type=job_type,
     )
@@ -189,9 +189,9 @@ def collect_weekly_market_reports(limit: int = 10) -> ReportIngestResult:
         results: list[SearchResult] = []
         for keyword in keywords:
             results.extend(search_sources(keyword, language="en", max_results=limit))
-        result = _store_documents(
+        result = _store_materials(
             results,
-            doc_type="weekly_report",
+            material_type="weekly_report",
             limit=limit,
             job_type="weekly_market_reports",
             failure_code="weekly_report_collection_failed",
@@ -224,9 +224,9 @@ def collect_monthly_financial_reports(limit: int = 8) -> ReportIngestResult:
         results: list[SearchResult] = []
         for keyword in keywords:
             results.extend(search_sources(keyword, language="en", max_results=limit))
-        result = _store_documents(
+        result = _store_materials(
             results,
-            doc_type="monthly_report",
+            material_type="monthly_report",
             limit=limit,
             job_type="monthly_financial_reports",
             failure_code="monthly_report_collection_failed",
@@ -248,9 +248,9 @@ def collect_monthly_financial_reports(limit: int = 8) -> ReportIngestResult:
         )
 
 
-def _store_documents(
+def _store_materials(
     results: Iterable[SearchResult],
-    doc_type: str,
+    material_type: str,
     limit: int,
     job_type: str | None = None,
     *,
@@ -266,7 +266,7 @@ def _store_documents(
                 item,
                 "link",
                 failure_code=failure_code,
-                operation="store_report_documents",
+                operation="store_report_materials",
             ) or ""
             if not link:
                 continue
@@ -281,13 +281,13 @@ def _store_documents(
                         _append_resource_pool_url(
                             append_port,
                             url=link,
-                            doc_type=doc_type,
+                            material_type=material_type,
                             project_key=pk,
                             job_type=job_type,
                         )
                 except Exception:  # noqa: BLE001
                     pass
-            existed = session.query(Document).filter(Document.uri == link).one_or_none()
+            existed = session.query(Material).filter(Material.uri == link).one_or_none()
             if existed:
                 skipped += 1
                 continue
@@ -296,13 +296,13 @@ def _store_documents(
                 item,
                 "domain",
                 failure_code=failure_code,
-                operation="store_report_documents",
+                operation="store_report_materials",
             )
             source_name = domain or _optional_text(
                 item,
                 "source",
                 failure_code=failure_code,
-                operation="store_report_documents",
+                operation="store_report_materials",
             ) or "external"
             source = _ensure_source(
                 session,
@@ -311,40 +311,45 @@ def _store_documents(
                 failure_code=failure_code,
             )
 
-            document_candidate: object = Document()
-            if not _is_document_row(document_candidate):
-                message = "Document ORM row does not expose the report fields"
+            material_candidate: object = Material()
+            if not _is_material_row(material_candidate):
+                message = "Material ORM row does not expose the report fields"
                 _raise_report_failure(
                     _report_failure(
                         failure_code,
                         message,
-                        operation="construct_report_document",
-                        site="app.services.ingest.reports.general._store_documents",
+                        operation="construct_report_material",
+                        site="app.services.ingest.reports.general._store_materials",
                         public_exception="TypeError",
                     ),
                 )
-            document_candidate.source_id = source.id
-            document_candidate.state = None
-            document_candidate.doc_type = doc_type
-            document_candidate.title = _optional_text(
+            material_candidate.source_id = source.id
+            material_candidate.state = None
+            material_candidate.material_type = material_type
+            material_candidate.title = _optional_text(
                 item,
                 "title",
                 failure_code=failure_code,
-                operation="store_report_documents",
+                operation="store_report_materials",
             )
-            document_candidate.summary = _optional_text(
+            material_candidate.summary = _optional_text(
                 item,
                 "snippet",
                 failure_code=failure_code,
-                operation="store_report_documents",
+                operation="store_report_materials",
             )
-            document_candidate.uri = link
-            session.add(document_candidate)
+            material_candidate.uri = link
+            session.add(material_candidate)
             inserted += 1
 
         session.commit()
 
-    return {"inserted": inserted, "skipped": skipped, "doc_type": doc_type, "links": stored_links}
+    return {
+        "inserted": inserted,
+        "skipped": skipped,
+        "material_type": material_type,
+        "links": stored_links,
+    }
 
 
 def _ensure_source(

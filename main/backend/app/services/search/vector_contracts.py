@@ -11,8 +11,8 @@ from mrw_functorial_kit.core.w04_service_semantics import search_failures
 
 from ...contracts.materials import normalize_material_source_type
 
-GLOBAL_VECTOR_OBJECT_CONTRACT_VERSION = "global_vector_object.v2"
-SEARCH_EVIDENCE_HIT_CONTRACT_VERSION = "search_evidence_hit.v2"
+GLOBAL_VECTOR_OBJECT_CONTRACT_VERSION = "global_vector_object.v3"
+SEARCH_EVIDENCE_HIT_CONTRACT_VERSION = "search_evidence_hit.v3"
 SEARCH_RETRIEVAL_RUN_CONTRACT_VERSION = "search_retrieval_run.v1"
 SEARCH_RETRIEVAL_BRANCH_CONTRACT_VERSION = "search_retrieval_branch.v1"
 SEARCH_RETRIEVAL_HIT_CONTRACT_VERSION = "search_retrieval_hit.v1"
@@ -25,8 +25,8 @@ GLOBAL_VECTOR_OBJECT_REQUIRED_FIELDS = (
     "object_id",
     "chunk_id",
     "source_id",
-    "document_id",
     "material_id",
+    "material_type",
     "vector_version",
     "embedding_model",
     "embedding_dim",
@@ -36,6 +36,8 @@ GLOBAL_VECTOR_OBJECT_REQUIRED_FIELDS = (
 
 SEARCH_EVIDENCE_HIT_REQUIRED_FIELDS = (
     "contract_version",
+    "material_id",
+    "material_type",
     "hit_id",
     "rank",
     "query_group_id",
@@ -84,6 +86,7 @@ GLOBAL_VECTOR_OBJECT_PROVENANCE_REQUIRED_FIELDS = (
 
 _VECTOR_RETRIEVAL_MODES = {"vector", "hybrid"}
 _DEFAULT_VECTOR_VERSION = "v1"
+_LEGACY_MATERIAL_IDENTITY_FIELDS = frozenset({"document_id", "doc_id"})
 _SEARCH_FAILURE_WITNESS = "test:test_w04_graph_search_contract_core"
 _SEARCH_FAILURE_CONTEXT_KEYS = frozenset(
     {
@@ -166,6 +169,10 @@ def _is_object_list(value: object) -> TypeGuard[list[object]]:
     return isinstance(value, list)
 
 
+def _is_object_sequence(value: object) -> TypeGuard[list[object] | tuple[object, ...]]:
+    return isinstance(value, (list, tuple))
+
+
 def _mapping(value: Any) -> Mapping[str, Any]:
     return value if _is_mapping(value) else {}
 
@@ -184,6 +191,49 @@ def _payload_provenance(row: Mapping[str, Any]) -> dict[str, Any]:
         if _is_mapping(value):
             provenance.update(dict(value))
     return provenance
+
+
+def _legacy_material_identity_paths(value: object, *, path: str = "$") -> tuple[str, ...]:
+    paths: list[str] = []
+    if _is_mapping(value):
+        for key, item in value.items():
+            item_path = f"{path}.{key}"
+            if key in _LEGACY_MATERIAL_IDENTITY_FIELDS:
+                paths.append(item_path)
+            paths.extend(_legacy_material_identity_paths(item, path=item_path))
+    elif _is_object_sequence(value):
+        for index, item in enumerate(value):
+            paths.extend(_legacy_material_identity_paths(item, path=f"{path}[{index}]"))
+    return tuple(paths)
+
+
+def _legacy_material_identity_failure(
+    value: object,
+    *,
+    operation: str,
+    site: str,
+) -> Failure | None:
+    paths = _legacy_material_identity_paths(value)
+    if not paths:
+        return None
+    return search_contract_failure(
+        "global_vector_object_invalid",
+        f"legacy_material_identity_fields:{','.join(paths)}",
+        operation=operation,
+        site=site,
+        fields=paths,
+    )
+
+
+def _reject_legacy_material_identity(
+    value: object,
+    *,
+    operation: str,
+    site: str,
+) -> None:
+    failure = _legacy_material_identity_failure(value, operation=operation, site=site)
+    if failure is not None:
+        raise_search_contract_legacy(failure)
 
 
 def _lookup_with_payload_provenance(row: Mapping[str, Any], *keys: str) -> Any:
@@ -279,28 +329,42 @@ def _infer_object_type(row: Mapping[str, Any], retrieval_mode: str) -> str:
     return normalize_material_source_type(_lookup(row, "source_type")) or "material"
 
 
-def _infer_document_id(row: Mapping[str, Any]) -> str:
-    return _clean_text(_lookup(row, "material_id", "document_id", "doc_id", "id")) or "unknown_material"
+def _infer_material_id(row: Mapping[str, Any]) -> str:
+    material_id = _clean_text(_lookup(row, "material_id"))
+    if material_id:
+        return material_id
+    failure = search_contract_failure(
+        "global_vector_object_invalid",
+        "search row requires material_id",
+        operation="build_global_vector_object",
+        site="search.vector_contracts.build_global_vector_object",
+        field="material_id",
+    )
+    raise_search_contract_legacy(failure)
 
 
-def _infer_object_id(row: Mapping[str, Any], document_id: str) -> str:
-    return _clean_text(_lookup(row, "object_id", "item_key")) or document_id
+def _infer_material_type(row: Mapping[str, Any]) -> str:
+    return normalize_material_source_type(_lookup(row, "material_type")) or "material"
 
 
-def _infer_chunk_id(row: Mapping[str, Any], document_id: str) -> str:
+def _infer_object_id(row: Mapping[str, Any], material_id: str) -> str:
+    return _clean_text(_lookup(row, "object_id", "item_key")) or material_id
+
+
+def _infer_chunk_id(row: Mapping[str, Any], material_id: str) -> str:
     chunk_id = _clean_text(_lookup(row, "chunk_id"))
     if chunk_id:
         return chunk_id
     chunk_index = _lookup(row, "chunk_index")
     if chunk_index is not None:
-        return f"{document_id}:chunk:{chunk_index}"
-    return f"{document_id}:material"
+        return f"{material_id}:chunk:{chunk_index}"
+    return f"{material_id}:material"
 
 
-def _infer_source_id(row: Mapping[str, Any], document_id: str) -> str:
+def _infer_source_id(row: Mapping[str, Any], material_id: str) -> str:
     return (
         _clean_text(_lookup_with_payload_provenance(row, "source_id", "source", "publisher", "channel_key"))
-        or f"material:{document_id}"
+        or f"material:{material_id}"
     )
 
 
@@ -359,11 +423,17 @@ def build_global_vector_object(
     "fact_source=search_row+projection_parameters "
     "witness=test:test_w04_authority_metadata",
 ]:
-    document_id = _infer_document_id(row)
+    _reject_legacy_material_identity(
+        row,
+        operation="build_global_vector_object",
+        site="search.vector_contracts.build_global_vector_object",
+    )
+    material_id = _infer_material_id(row)
+    material_type = _infer_material_type(row)
     object_type = _infer_object_type(row, retrieval_mode or _infer_retrieval_mode(row, None))
-    object_id = _infer_object_id(row, document_id)
-    chunk_id = _infer_chunk_id(row, document_id)
-    source_id = _infer_source_id(row, document_id)
+    object_id = _infer_object_id(row, material_id)
+    chunk_id = _infer_chunk_id(row, material_id)
+    source_id = _infer_source_id(row, material_id)
     vector_version = _infer_vector_version(row, retrieval_mode or _infer_retrieval_mode(row, None))
     source_uri = _clean_optional_text(_lookup_with_payload_provenance(row, "source_uri", "url", "uri"))
     normalized_backend = _infer_backend(row)
@@ -405,7 +475,7 @@ def build_global_vector_object(
         )
         or source_uri
         or source_id
-        or document_id
+        or material_id
     )
     source = (
         _clean_optional_text(_lookup_with_payload_provenance(row, "source", "publisher", "channel_key"))
@@ -445,8 +515,8 @@ def build_global_vector_object(
         "object_id": object_id,
         "chunk_id": chunk_id,
         "source_id": source_id,
-        "document_id": document_id,
-        "material_id": document_id,
+        "material_id": material_id,
+        "material_type": material_type,
         "vector_version": vector_version,
         "embedding_model": embedding_model,
         "embedding_dim": embedding_dim,
@@ -500,8 +570,8 @@ def build_search_evidence_hit(
     provenance = {
         **dict(vector_object["provenance"]),
         "project_key": vector_object["project_key"],
-        "document_id": vector_object["document_id"],
         "material_id": vector_object["material_id"],
+        "material_type": vector_object["material_type"],
         "source_id": vector_object["source_id"],
         "chunk_id": vector_object["chunk_id"],
         "vector_version": vector_object["vector_version"],
@@ -512,7 +582,7 @@ def build_search_evidence_hit(
         {
             "backend": backend,
             "chunk_id": vector_object["chunk_id"],
-            "document_id": vector_object["document_id"],
+            "material_id": vector_object["material_id"],
             "matrix_branch_id": matrix_branch_id,
             "object_id": vector_object["object_id"],
             "query_group_id": query_group_id,
@@ -522,6 +592,7 @@ def build_search_evidence_hit(
     return {
         "contract_version": SEARCH_EVIDENCE_HIT_CONTRACT_VERSION,
         "material_id": vector_object["material_id"],
+        "material_type": vector_object["material_type"],
         "source_type": normalize_material_source_type(_lookup(raw, "source_type")) or "material",
         "hit_id": hit_id,
         "rank": max(1, int(rank)),
@@ -624,8 +695,8 @@ def build_retrieval_run_record(
             branch["verification_states"].append(verification_state)
         vector_object = _mapping(hit.get("global_vector_object"))
         vector_ref = {
-            "material_id": _clean_text(vector_object.get("material_id") or vector_object.get("document_id")),
-            "document_id": _clean_text(vector_object.get("document_id")),
+            "material_id": _clean_text(vector_object.get("material_id")),
+            "material_type": _clean_text(vector_object.get("material_type")),
             "chunk_id": _clean_text(vector_object.get("chunk_id")),
             "source_id": _clean_text(vector_object.get("source_id")),
             "vector_version": _clean_text(vector_object.get("vector_version")),
@@ -684,8 +755,8 @@ def build_retrieval_run_record(
                 "object_type": _clean_text(vector_object.get("object_type")),
                 "object_id": _clean_text(vector_object.get("object_id")),
                 "chunk_id": _clean_text(vector_object.get("chunk_id")),
-                "document_id": _clean_text(vector_object.get("document_id")),
-                "material_id": _clean_text(vector_object.get("material_id") or vector_object.get("document_id")),
+                "material_id": _clean_text(vector_object.get("material_id")),
+                "material_type": _clean_text(vector_object.get("material_type")),
                 "source_id": _clean_text(vector_object.get("source_id")),
                 "evidence_class": _clean_text(hit.get("evidence_class")),
                 "verification_state": _clean_text(hit.get("verification_state")),
@@ -781,11 +852,12 @@ def build_agent_matrix_evidence_hits(
         trust_score = _coerce_float(trust.get("trust_score"), default=_coerce_float(candidate.get("score")))
         rows.append(
             {
-                "document_id": _clean_optional_text(candidate.get("url_checksum"))
+                "material_id": _clean_optional_text(candidate.get("url_checksum"))
                 or _clean_optional_text(trust.get("url_checksum"))
                 or url
                 or f"agent-candidate-{index}",
                 "object_type": "source_candidate",
+                "material_type": "source_candidate",
                 "object_id": _clean_optional_text(candidate.get("url_checksum"))
                 or _clean_optional_text(trust.get("url_checksum"))
                 or url
@@ -820,7 +892,14 @@ def try_validate_global_vector_object(vector_object: Mapping[str, Any]) -> Failu
     operation = "validate_global_vector_object"
     site = "search.vector_contracts.validate_global_vector_object"
     vector_object = _mapping(vector_object)
-    if vector_object.get("contract_version") not in {"global_vector_object.v1", GLOBAL_VECTOR_OBJECT_CONTRACT_VERSION}:
+    legacy_failure = _legacy_material_identity_failure(
+        vector_object,
+        operation=operation,
+        site=site,
+    )
+    if legacy_failure is not None:
+        return legacy_failure
+    if vector_object.get("contract_version") != GLOBAL_VECTOR_OBJECT_CONTRACT_VERSION:
         return search_contract_failure(
             "global_vector_object_invalid",
             "unsupported global vector object contract_version",
@@ -828,10 +907,7 @@ def try_validate_global_vector_object(vector_object: Mapping[str, Any]) -> Failu
             site=site,
             field="contract_version",
         )
-    required_fields = GLOBAL_VECTOR_OBJECT_REQUIRED_FIELDS
-    if vector_object.get("contract_version") == "global_vector_object.v1":
-        required_fields = tuple(field for field in required_fields if field != "material_id")
-    missing = [field for field in required_fields if field not in vector_object]
+    missing = [field for field in GLOBAL_VECTOR_OBJECT_REQUIRED_FIELDS if field not in vector_object]
     if missing:
         return search_contract_failure(
             "global_vector_object_invalid",
@@ -840,14 +916,15 @@ def try_validate_global_vector_object(vector_object: Mapping[str, Any]) -> Failu
             site=site,
             fields=tuple(missing),
         )
-    if vector_object.get("contract_version") == GLOBAL_VECTOR_OBJECT_CONTRACT_VERSION and (
-        _clean_text(vector_object.get("material_id")) != _clean_text(vector_object.get("document_id"))
+    for field in (
+        "object_type",
+        "object_id",
+        "chunk_id",
+        "source_id",
+        "material_id",
+        "material_type",
+        "vector_version",
     ):
-        return search_contract_failure(
-            "global_vector_object_invalid", "material_id and document_id must identify the same body",
-            operation=operation, site=site, field="material_id",
-        )
-    for field in ("object_type", "object_id", "chunk_id", "source_id", "document_id", "vector_version"):
         if not _clean_text(vector_object.get(field)):
             return search_contract_failure(
                 "global_vector_object_invalid",
@@ -912,7 +989,14 @@ def try_validate_search_evidence_hit(hit: Mapping[str, Any]) -> Failure | None:
     operation = "validate_search_evidence_hit"
     site = "search.vector_contracts.validate_search_evidence_hit"
     hit = _mapping(hit)
-    if hit.get("contract_version") not in {"search_evidence_hit.v1", SEARCH_EVIDENCE_HIT_CONTRACT_VERSION}:
+    legacy_failure = _legacy_material_identity_failure(
+        hit,
+        operation=operation,
+        site=site,
+    )
+    if legacy_failure is not None:
+        return legacy_failure
+    if hit.get("contract_version") != SEARCH_EVIDENCE_HIT_CONTRACT_VERSION:
         return search_contract_failure(
             "evidence_hit_invalid",
             "unsupported search evidence hit contract_version",
@@ -929,7 +1013,16 @@ def try_validate_search_evidence_hit(hit: Mapping[str, Any]) -> Failure | None:
             site=site,
             fields=tuple(missing),
         )
-    for field in ("hit_id", "query_group_id", "matrix_branch_id", "retrieval_mode", "backend", "evidence_class"):
+    for field in (
+        "material_id",
+        "material_type",
+        "hit_id",
+        "query_group_id",
+        "matrix_branch_id",
+        "retrieval_mode",
+        "backend",
+        "evidence_class",
+    ):
         if not _clean_text(hit.get(field)):
             return search_contract_failure(
                 "evidence_hit_invalid",
@@ -971,6 +1064,18 @@ def try_validate_search_evidence_hit(hit: Mapping[str, Any]) -> Failure | None:
             site=site,
             cause_failure_code=vector_failure.code,
             cause_failure_context=dict(vector_failure.context or {}),
+        )
+    vector_object = _mapping(hit.get("global_vector_object"))
+    if (
+        _clean_text(hit.get("material_id")) != _clean_text(vector_object.get("material_id"))
+        or _clean_text(hit.get("material_type")) != _clean_text(vector_object.get("material_type"))
+    ):
+        return search_contract_failure(
+            "evidence_hit_invalid",
+            "search_evidence_hit material identity differs from global_vector_object",
+            operation=operation,
+            site=site,
+            fields=("material_id", "material_type"),
         )
     return None
 

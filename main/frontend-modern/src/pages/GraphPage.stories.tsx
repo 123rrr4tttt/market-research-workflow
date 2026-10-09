@@ -19,7 +19,7 @@ function applyGraphMocks(mode: 'ready' | 'error' | 'loading') {
     graph_relation_labels: {
       related_to: '关联',
     },
-    graph_doc_types: {
+    graph_material_types: {
       market: ['MarketData'],
     },
   } as never)

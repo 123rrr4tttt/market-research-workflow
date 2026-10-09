@@ -21,18 +21,18 @@ from sqlalchemy import select
 from bs4 import BeautifulSoup
 
 from app.models.base import SessionLocal
-from app.models.entities import Document, Source
+from app.models.entities import Material, Source
 
 logger = logging.getLogger(__name__)
 
 
-def analyze_document_structure(doc: Document, source: Source) -> Dict:
+def analyze_document_structure(doc: Material, source: Source) -> Dict:
     """深入分析单个文档的结构，查找所有可能的日期来源"""
     analysis = {
-        "doc_id": doc.id,
+        "material_id": doc.id,
         "title": doc.title[:100] if doc.title else None,
         "source": source.name if source else "未知",
-        "doc_type": doc.doc_type,
+        "material_type": doc.material_type,
         "uri": doc.uri,
         "created_at": str(doc.created_at),
         "date_sources": {
@@ -300,7 +300,7 @@ def analyze_sample_documents(limit: int = 20) -> Dict:
     results = {
         "total_analyzed": 0,
         "by_source": defaultdict(list),
-        "by_doc_type": defaultdict(list),
+        "by_material_type": defaultdict(list),
         "date_source_statistics": {
             "url": 0,
             "content_html": 0,
@@ -312,10 +312,10 @@ def analyze_sample_documents(limit: int = 20) -> Dict:
     }
     
     with SessionLocal() as session:
-        query = select(Document, Source).join(
-            Source, Document.source_id == Source.id, isouter=True
+        query = select(Material, Source).join(
+            Source, Material.source_id == Source.id, isouter=True
         ).where(
-            Document.publish_date.is_(None)
+            Material.publish_date.is_(None)
         ).limit(limit)
         
         results_list = session.execute(query).all()
@@ -327,7 +327,7 @@ def analyze_sample_documents(limit: int = 20) -> Dict:
             
             source_name = source.name if source else "未知"
             results["by_source"][source_name].append(analysis)
-            results["by_doc_type"][doc.doc_type].append(analysis)
+            results["by_material_type"][doc.material_type].append(analysis)
             
             # 统计日期来源
             has_date = False
@@ -363,8 +363,8 @@ def print_analysis_report(results: Dict):
         print(f"  {source}: {len(analyses)} 个文档")
     
     print("\n按文档类型统计:")
-    for doc_type, analyses in sorted(results['by_doc_type'].items(), key=lambda x: len(x[1]), reverse=True):
-        print(f"  {doc_type}: {len(analyses)} 个文档")
+    for material_type, analyses in sorted(results['by_material_type'].items(), key=lambda x: len(x[1]), reverse=True):
+        print(f"  {material_type}: {len(analyses)} 个文档")
     
     print("\n日期来源统计:")
     stats = results['date_source_statistics']
@@ -381,10 +381,10 @@ def print_analysis_report(results: Dict):
     
     for i, analysis in enumerate(results['detailed_analyses'][:5], 1):
         print(f"\n【文档 {i}】")
-        print(f"  ID: {analysis['doc_id']}")
+        print(f"  ID: {analysis['material_id']}")
         print(f"  标题: {analysis['title']}")
         print(f"  来源: {analysis['source']}")
-        print(f"  类型: {analysis['doc_type']}")
+        print(f"  类型: {analysis['material_type']}")
         print(f"  URL: {analysis['uri'][:80] if analysis['uri'] else 'N/A'}...")
         
         print(f"\n  日期来源分析:")

@@ -626,7 +626,7 @@ def _crawler_output_ingest_request(
             name="output_ingest.poll_interval_seconds",
         ),
         source_name=str(config.get("source_name") or channel.get("channel_key") or f"crawler.{request.project}"),
-        doc_type=str(config.get("doc_type") or "news"),
+        material_type=str(config.get("material_type") or "news"),
         enable_extraction=bool(config.get("enable_extraction", False)),
         max_items=_bounded_int(
             config.get("max_items"),

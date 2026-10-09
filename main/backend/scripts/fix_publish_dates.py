@@ -28,7 +28,7 @@ from sqlalchemy.orm import Session
 from bs4 import BeautifulSoup
 
 from app.models.base import SessionLocal
-from app.models.entities import Document
+from app.models.entities import Material
 
 logger = logging.getLogger(__name__)
 
@@ -648,7 +648,7 @@ def fix_publish_dates(dry_run: bool = True, limit: Optional[int] = None, enable_
     
     with SessionLocal() as session:
         # 查找所有 publish_date 为 NULL 的文档
-        query = select(Document).where(Document.publish_date.is_(None))
+        query = select(Material).where(Material.publish_date.is_(None))
         
         if limit:
             query = query.limit(limit)
@@ -800,8 +800,8 @@ def fix_publish_dates(dry_run: bool = True, limit: Optional[int] = None, enable_
                     else:
                         # 更新数据库
                         session.execute(
-                            update(Document)
-                            .where(Document.id == doc.id)
+                            update(Material)
+                            .where(Material.id == doc.id)
                             .values(publish_date=new_date)
                         )
                         logger.info(f"已更新文档 {doc.id} 的发布时间为 {new_date}")

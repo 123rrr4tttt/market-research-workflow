@@ -29,8 +29,8 @@ class ConsumerSqlPredicateFacadeUnitTestCase(unittest.TestCase):
         self.assertEqual(result["topic_id"], "2026-03-14-consumer-side-modularization")
         self.assertEqual(result["status"], "passed")
         self.assertTrue(result["validation"]["passed"])
-        self.assertEqual(result["validation"]["direct_admin_dashboard_document_extracted_data_read_count"], 0)
-        self.assertGreater(result["facade"]["owned_document_extracted_data_expression_count"], 0)
+        self.assertEqual(result["validation"]["direct_admin_dashboard_material_extracted_data_read_count"], 0)
+        self.assertGreater(result["facade"]["owned_material_extracted_data_expression_count"], 0)
         self.assertFalse(result["facade"]["missing_functions"])
         self.assertFalse(result["exports"]["missing_exports"])
 
@@ -46,11 +46,11 @@ class ConsumerSqlPredicateFacadeUnitTestCase(unittest.TestCase):
         self.assertEqual(result["validation"]["checked_api_surface_count"], 3)
         for surface in surfaces.values():
             self.assertTrue(surface["passed"], surface)
-            self.assertFalse(surface["direct_document_extracted_data_reads"], surface)
+            self.assertFalse(surface["direct_material_extracted_data_reads"], surface)
             for function in surface["functions"]:
                 self.assertTrue(function["passed"], function)
                 self.assertFalse(function["missing_facade_calls"], function)
-                self.assertFalse(function["direct_document_extracted_data_reads"], function)
+                self.assertFalse(function["direct_material_extracted_data_reads"], function)
 
     def test_consumer_predicate_helpers_compile_to_expected_json_paths(self) -> None:
         compiled = {
@@ -89,14 +89,14 @@ class ConsumerSqlPredicateFacadeUnitTestCase(unittest.TestCase):
         self.assertIn("DATE", compiled["market_report_date"])
         self.assertIn("policy_type", compiled["policy_type"])
 
-    def test_document_date_range_helpers_use_publish_or_created_columns_in_both_bounds(self) -> None:
+    def test_material_date_range_helpers_use_publish_or_created_columns_in_both_bounds(self) -> None:
         after = str(
-            document_queries.document_publish_or_created_on_or_after_condition("2025-01-01").compile(
+            document_queries.material_publish_or_created_on_or_after_condition("2025-01-01").compile(
                 compile_kwargs={"literal_binds": True}
             )
         )
         before = str(
-            document_queries.document_publish_or_created_on_or_before_condition("2025-12-31").compile(
+            document_queries.material_publish_or_created_on_or_before_condition("2025-12-31").compile(
                 compile_kwargs={"literal_binds": True}
             )
         )

@@ -1,4 +1,4 @@
-"""Provider-backed proposal of domain claims from one persisted document body.
+"""Provider-backed proposal of domain claims from one persisted material body.
 
 The result is deliberately below the topology write boundary.  It contains
 local keys and source provenance, while the retrieval executor remains the
@@ -7,25 +7,24 @@ only owner of persistent identities, references, and graph writes.
 
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping, Sequence
-from hashlib import sha256
 import json
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import asdict, dataclass
+from hashlib import sha256
 from typing import Any, cast
 
+from app.services.information_topology.modules.retrieval import validate_evidence_v2
+from app.successor_runtime.capabilities.retrieval_common import ProjectRetrievalFailureCode, retrieval_failure
 from functorial_kit import Failure
 
-from app.services.information_topology.modules.retrieval import validate_evidence_v2
 from .contracts import FormalizationResult
-from app.successor_runtime.capabilities.retrieval_common import ProjectRetrievalFailureCode, retrieval_failure
-
 
 ModelInvoke = Callable[[str], object]
 
 
 @dataclass(frozen=True, slots=True)
-class FormalizationDocument:
-    document_id: str
+class FormalizationMaterial:
+    material_id: str
     title: str
     url: str
     updated_at: str
@@ -59,7 +58,7 @@ class FormalizationInput:
     route_id: str
     query_id: str
     candidate_id: str
-    document: FormalizationDocument
+    material: FormalizationMaterial
     domain_vocabulary: FormalizationVocabulary
     route: FormalizationRoute
     run_id: str | None = None
@@ -223,47 +222,42 @@ def _input(payload: Mapping[str, Any]) -> FormalizationInput | Failure:
             return member
         identity["session_id"] = member
 
-    nested_document = payload.get("material", payload.get("document"))
-    if payload.get("material") is not None and payload.get("document") is not None:
-        if payload["material"] != payload["document"]:
-            return _invalid("FORMALIZATION_INPUT_INVALID", "conflicting material body aliases", "material")
-    if nested_document is None:
-        document: Mapping[str, Any] = {
-            "document_id": payload.get("material_id", payload.get("document_id")), "title": payload.get("title"),
+    if "document" in payload:
+        return _invalid("FORMALIZATION_INPUT_INVALID", "material body alias is not accepted", "material")
+    nested_material = payload.get("material")
+    if nested_material is None:
+        material: Mapping[str, Any] = {
+            "material_id": payload.get("material_id"), "title": payload.get("title"),
             "url": payload.get("url"), "body": payload.get("body"),
-            "updated_at": payload.get("material_updated_at", payload.get("document_updated_at")), "body_digest": payload.get("body_digest"),
+            "updated_at": payload.get("material_updated_at"), "body_digest": payload.get("body_digest"),
         }
     else:
-        document_value = _object(nested_document, "document", code="FORMALIZATION_INPUT_INVALID")
-        if isinstance(document_value, Failure):
-            return document_value
-        document = document_value
-    normalized_document: dict[str, str] = {}
-    if document.get("material_id") is not None and document.get("document_id") is not None:
-        if str(document["material_id"]) != str(document["document_id"]):
-            return _invalid("FORMALIZATION_INPUT_INVALID", "conflicting material identity aliases", "material.material_id")
-    if payload.get("material_id") is not None and payload.get("document_id") is not None:
-        if str(payload["material_id"]) != str(payload["document_id"]):
-            return _invalid("FORMALIZATION_INPUT_INVALID", "conflicting material identity aliases", "material_id")
-    document_id = _identity(document.get("material_id", document.get("document_id")), "document.document_id",
+        material_value = _object(nested_material, "material", code="FORMALIZATION_INPUT_INVALID")
+        if isinstance(material_value, Failure):
+            return material_value
+        material = material_value
+    if "document_id" in payload or "document_id" in material:
+        return _invalid("FORMALIZATION_INPUT_INVALID", "document identity alias is not accepted", "material_id")
+    normalized_material: dict[str, str] = {}
+    material_id = _identity(material.get("material_id"), "material.material_id",
                             code="FORMALIZATION_INPUT_INVALID")
-    if isinstance(document_id, Failure):
-        return document_id
-    normalized_document["document_id"] = document_id
+    if isinstance(material_id, Failure):
+        return material_id
+    normalized_material["material_id"] = material_id
     for key in ("title", "url", "updated_at", "body_digest"):
-        member = _text(document.get(key), f"document.{key}", code="FORMALIZATION_INPUT_INVALID")
+        member = _text(material.get(key), f"material.{key}", code="FORMALIZATION_INPUT_INVALID")
         if isinstance(member, Failure):
             return member
-        normalized_document[key] = member
-    body = _source_text(document.get("body"), "document.body", code="FORMALIZATION_INPUT_INVALID")
+        normalized_material[key] = member
+    body = _source_text(material.get("body"), "material.body", code="FORMALIZATION_INPUT_INVALID")
     if isinstance(body, Failure):
         return body
-    normalized_document["body"] = body
-    actual_digest = sha256(normalized_document["body"].encode("utf-8")).hexdigest()
-    if normalized_document["body_digest"] != actual_digest:
+    normalized_material["body"] = body
+    actual_digest = sha256(normalized_material["body"].encode("utf-8")).hexdigest()
+    if normalized_material["body_digest"] != actual_digest:
         return _invalid(
             "FORMALIZATION_INPUT_INVALID", "body digest does not match the supplied body",
-            "document.body_digest",
+            "material.body_digest",
         )
 
     vocabulary = _vocabulary(payload.get("domain_vocabulary"))
@@ -330,12 +324,12 @@ def _input(payload: Mapping[str, Any]) -> FormalizationInput | Failure:
         project_key=identity["project_key"], plan_id=identity["plan_id"],
         route_id=identity["route_id"], query_id=identity["query_id"],
         candidate_id=identity["candidate_id"],
-        document=FormalizationDocument(
-            document_id=normalized_document["document_id"],
-            title=normalized_document["title"], url=normalized_document["url"],
-            updated_at=normalized_document["updated_at"],
-            body_digest=normalized_document["body_digest"],
-            body=normalized_document["body"],
+        material=FormalizationMaterial(
+            material_id=normalized_material["material_id"],
+            title=normalized_material["title"], url=normalized_material["url"],
+            updated_at=normalized_material["updated_at"],
+            body_digest=normalized_material["body_digest"],
+            body=normalized_material["body"],
         ),
         domain_vocabulary=vocabulary, route=normalized_route,
         run_id=identity.get("run_id"), session_id=identity.get("session_id"),
@@ -371,12 +365,12 @@ def _prompt(value: FormalizationInput) -> str:
     model_input = {
         "project_key": value.project_key, "plan_id": value.plan_id,
         "route_id": value.route_id, "query_id": value.query_id,
-        "candidate_id": value.candidate_id, "document": asdict(value.document),
+        "candidate_id": value.candidate_id, "material": asdict(value.material),
         "domain_vocabulary": asdict(value.domain_vocabulary), "route": asdict(value.route),
     }
     return (
-        "Read the supplied document and return exactly one JSON object. Do not use markdown. "
-        "Propose one semantic claim only when an exact quote in document.body warrants it. "
+        "Read the supplied material and return exactly one JSON object. Do not use markdown. "
+        "Propose one semantic claim only when an exact quote in material.body warrants it. "
         "For no_claim return only status and nonempty gaps; omit proposal entirely. "
         "For proposed return status, proposal and optional gaps. "
         "Use only route-constrained domain vocabulary values. Do not invent topology IDs, refs, "
@@ -523,8 +517,8 @@ def _proposal(raw: object, source: FormalizationInput) -> dict[str, Any] | Failu
     if normalized_evidence["grade"] not in source.domain_vocabulary.grades:
         return _invalid(code, "evidence grade is outside the domain vocabulary",
                         "response.proposal.evidence.grade")
-    if normalized_evidence["original_excerpt"] not in source.document.body:
-        return _invalid(code, "evidence excerpt is not an exact substring of document.body",
+    if normalized_evidence["original_excerpt"] not in source.material.body:
+        return _invalid(code, "evidence excerpt is not an exact substring of material.body",
                         "response.proposal.evidence.original_excerpt")
     evidence_failure = validate_evidence_v2(normalized_evidence)
     if evidence_failure is not None:
@@ -547,13 +541,13 @@ def _proposal(raw: object, source: FormalizationInput) -> dict[str, Any] | Failu
         return _invalid(code, "clue scene_key must refer to a proposed node:现场 node",
                         "response.proposal.clue.scene_key")
 
-    document = source.document
+    material = source.material
     provenance = {
         "project_key": source.project_key, "plan_id": source.plan_id,
         "route_id": source.route_id, "query_id": source.query_id,
         "candidate_id": source.candidate_id,
-        "document_id": document.document_id, "document_url": document.url,
-        "document_updated_at": document.updated_at, "body_digest": document.body_digest,
+        "material_id": material.material_id, "material_url": material.url,
+        "material_updated_at": material.updated_at, "body_digest": material.body_digest,
     }
     if source.run_id is not None:
         provenance["run_id"] = source.run_id
@@ -590,7 +584,7 @@ def _validated_response(response: Mapping[str, Any], source: FormalizationInput)
     return {"status": "proposed", "proposal": proposal, "gaps": gaps}
 
 
-def formalize_document(
+def formalize_material(
     payload: object, *, model_invoke: ModelInvoke | None = None,
 ) -> FormalizationResult:
     """Return one validated proposal/no-claim result without writing topology state.
@@ -654,24 +648,3 @@ def formalize_normalized(
     if isinstance(corrected_result, Failure):
         return _failure_result(corrected_result)
     return cast(FormalizationResult, corrected_result)
-
-
-def formalize_material(
-    payload: object, *, model_invoke: ModelInvoke | None = None,
-) -> FormalizationResult:
-    """Canonical material capability; legacy provenance keys remain read aliases."""
-    result = cast(dict[str, Any], dict(formalize_document(payload, model_invoke=model_invoke)))
-    if isinstance(result.get("proposal"), Mapping):
-        proposal = dict(cast(Mapping[str, Any], result["proposal"]))
-        provenance_value = proposal.get("provenance")
-        provenance = (
-            dict(cast(Mapping[str, Any], provenance_value))
-            if isinstance(provenance_value, Mapping)
-            else {}
-        )
-        for key in ("id", "url", "updated_at"):
-            if "document_" + key in provenance:
-                provenance["material_" + key] = provenance["document_" + key]
-        proposal["provenance"] = provenance
-        result["proposal"] = proposal
-    return cast(FormalizationResult, result)

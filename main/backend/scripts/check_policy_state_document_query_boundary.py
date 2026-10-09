@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Wave17 policy state endpoint document-query boundary gate."""
+"""Wave17 policy state endpoint material-query boundary gate."""
 
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ except ImportError:  # direct script execution
     from _cli_runtime import repo_root as _repo_root
 
 
-CONTRACT_VERSION = "policy-state-document-query-boundary.wave17.v1"
+CONTRACT_VERSION = "policy-state-material-query-boundary.wave17.v2"
 TOPIC_ID = "2026-03-14-consumer-side-modularization"
 STRUCTURED_TOPIC_ID = "2026-03-12-data-structured-service-modularization"
 SURFACE_PATH = "main/backend/app/api/policies.py"
@@ -50,23 +50,23 @@ def _called_names(func: ast.AST) -> set[str]:
     return names
 
 
-def _is_document_extracted_data(node: ast.Attribute) -> bool:
+def _is_material_extracted_data(node: ast.Attribute) -> bool:
     return (
         node.attr == "extracted_data"
         and isinstance(node.value, ast.Name)
-        and node.value.id == "Document"
+        and node.value.id == "Material"
     )
 
 
-def _direct_document_extracted_data_reads(func: ast.AST) -> list[dict[str, Any]]:
+def _direct_material_extracted_data_reads(func: ast.AST) -> list[dict[str, Any]]:
     reads: list[dict[str, Any]] = []
     for node in ast.walk(func):
-        if isinstance(node, ast.Attribute) and _is_document_extracted_data(node):
+        if isinstance(node, ast.Attribute) and _is_material_extracted_data(node):
             reads.append(
                 {
                     "line": getattr(node, "lineno", 0),
                     "column": getattr(node, "col_offset", 0),
-                    "expression": "Document.extracted_data",
+                    "expression": "Material.extracted_data",
                 }
             )
     return reads
@@ -106,7 +106,7 @@ def build_check(root: Path | None = None) -> Annotated[
         direct_reads: list[dict[str, Any]] = []
     else:
         calls = _called_names(target)
-        direct_reads = _direct_document_extracted_data_reads(target)
+        direct_reads = _direct_material_extracted_data_reads(target)
 
     imports = _import_tokens(surface_tree)
     helper_functions = set(_function_map(helper_tree))
@@ -115,13 +115,13 @@ def build_check(root: Path | None = None) -> Annotated[
     missing_helper_defs = [name for name in REQUIRED_HELPER_CALLS if name not in helper_functions]
 
     if missing_imports:
-        problems.append(f"missing document_queries imports: {missing_imports}")
+        problems.append(f"missing material-query helper imports: {missing_imports}")
     if missing_calls:
         problems.append(f"{FUNCTION_NAME} missing helper calls: {missing_calls}")
     if missing_helper_defs:
         problems.append(f"missing helper definitions: {missing_helper_defs}")
     if direct_reads:
-        problems.append(f"{FUNCTION_NAME} still reads Document.extracted_data directly")
+        problems.append(f"{FUNCTION_NAME} still reads Material.extracted_data directly")
 
     return {
         "contract_version": CONTRACT_VERSION,
@@ -135,7 +135,7 @@ def build_check(root: Path | None = None) -> Annotated[
             "required_helper_calls": list(REQUIRED_HELPER_CALLS),
             "missing_imports": missing_imports,
             "missing_calls": missing_calls,
-            "direct_document_extracted_data_reads": direct_reads,
+            "direct_material_extracted_data_reads": direct_reads,
         },
         "helper": {
             "path": QUERY_HELPER,

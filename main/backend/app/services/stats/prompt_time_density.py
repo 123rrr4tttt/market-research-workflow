@@ -14,7 +14,7 @@ from functorial_kit import Failure
 from mrw_functorial_kit.core.application_failure_semantics import prompt_time_density_request_failures
 
 from ...models.base import SessionLocal
-from ...models.entities import Document, PromptTimePolicyDecisionLog
+from ...models.entities import Material, PromptTimePolicyDecisionLog
 from ..document_queries import prompt_time_density_time_expr
 from ..document_views import (
     get_prompt_time_density_fields,
@@ -168,7 +168,7 @@ def _parse_iso_day(value: Any) -> date | None:
         return None
 
 
-def resolve_document_effective_time_provenance(doc: Document) -> dict[str, object]:
+def resolve_document_effective_time_provenance(doc: Material) -> dict[str, object]:
     prompt_time_fields = get_prompt_time_density_fields(doc)
     created_at = getattr(doc, "created_at", None)
     created_day = created_at.date() if created_at else None
@@ -225,7 +225,7 @@ def resolve_document_effective_time_provenance(doc: Document) -> dict[str, objec
     }
 
 
-def resolve_document_effective_day(doc: Document) -> date | None:
+def resolve_document_effective_day(doc: Material) -> date | None:
     effective_day = resolve_document_effective_time_provenance(doc).get("effective_day")
     return _parse_iso_day(effective_day)
 
@@ -241,11 +241,11 @@ def _normalize_json_text(value: Any) -> str | None:
     return s or None
 
 
-def _prompt_group_of(doc: Document) -> str:
+def _prompt_group_of(doc: Material) -> str:
     return get_prompt_time_density_group(doc)
 
 
-def _source_domain_of(doc: Document) -> str:
+def _source_domain_of(doc: Material) -> str:
     return get_prompt_time_density_source_domain(doc)
 
 
@@ -774,8 +774,8 @@ def query_prompt_time_density(
 
     with SessionLocal() as session:
         docs = session.execute(
-            select(Document).where(
-                Document.doc_type.in_(["policy", "policy_regulation", "news", "social"]),
+            select(Material).where(
+                Material.material_type.in_(["policy", "policy_regulation", "news", "social"]),
                 policy_time >= start,
                 policy_time <= end,
             )
@@ -784,8 +784,8 @@ def query_prompt_time_density(
         # Baseline window defaults to 90d ending at current query end.
         baseline_start = end - timedelta(days=89)
         baseline_docs = session.execute(
-            select(Document).where(
-                Document.doc_type.in_(["policy", "policy_regulation", "news", "social"]),
+            select(Material).where(
+                Material.material_type.in_(["policy", "policy_regulation", "news", "social"]),
                 policy_time >= baseline_start,
                 policy_time <= end,
             )

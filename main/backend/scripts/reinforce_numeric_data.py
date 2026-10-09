@@ -2,10 +2,10 @@
 """Backfill numeric normalization on existing stored data.
 
 Use cases:
-- Normalize `Document.extracted_data.market` numeric fields that were stored as text.
+- Normalize `Material.extracted_data.market` numeric fields that were stored as text.
 
 Usage:
-  python scripts/reinforce_numeric_data.py --scope market --doc-types market_info market --limit 200
+  python scripts/reinforce_numeric_data.py --scope market --material-types market_info,market --limit 200
 """
 from __future__ import annotations
 
@@ -25,7 +25,7 @@ project_root = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(project_root))
 
 from app.models.base import SessionLocal
-from app.models.entities import Document
+from app.models.entities import Material
 from app.services.extraction.numeric import normalize_market_payload
 from app.services.extraction.json_utils import extract_json_payload
 from app.services.projects.context import bind_project
@@ -165,7 +165,7 @@ def _has_dict_value(payload: Dict[str, Any], key: str) -> bool:
     return not (v is None or (isinstance(v, str) and not v.strip()))
 
 
-def _extract_text_candidates(document: Document) -> str:
+def _extract_text_candidates(document: Material) -> str:
     parts = [document.title, document.summary, document.content]
     return "\n\n".join([x for x in parts if isinstance(x, str) and x.strip()]).strip()
 
@@ -380,7 +380,7 @@ def _fallback_infer_market_payload_from_llm(text: str, *, target_fields: Sequenc
 def reinforce_documents(
     session,
     *,
-    doc_types: Sequence[str] | None = None,
+    material_types: Sequence[str] | None = None,
     scope: str = "market",
     limit: int | None = None,
     dry_run: bool = False,
@@ -388,11 +388,11 @@ def reinforce_documents(
     infer_from_text: bool = False,
     llm_fallback: bool = False,
 ) -> Dict[str, int]:
-    conditions = [Document.extracted_data.isnot(None)]
-    if doc_types:
-        conditions.append(Document.doc_type.in_(doc_types))
+    conditions = [Material.extracted_data.isnot(None)]
+    if material_types:
+        conditions.append(Material.material_type.in_(material_types))
 
-    query = select(Document).where(*conditions)
+    query = select(Material).where(*conditions)
     if limit:
         query = query.limit(int(limit))
     documents = list(session.execute(query).scalars().all())
@@ -498,7 +498,7 @@ def reinforce_documents(
                 session.commit()
                 pending = 0
         except Exception as exc:  # noqa: BLE001
-            logger.warning("document reinforce failed doc_id=%s err=%s", document.id, exc)
+            logger.warning("document reinforce failed material_id=%s err=%s", document.id, exc)
             stats["errors"] += 1
 
     if pending and not dry_run:
@@ -508,7 +508,7 @@ def reinforce_documents(
     return stats
 
 
-def _parse_doc_types(raw: str | None) -> List[str] | None:
+def _parse_material_types(raw: str | None) -> List[str] | None:
     if not raw:
         return None
     values = [v.strip() for v in raw.split(",") if v.strip()]
@@ -520,9 +520,10 @@ def main() -> int:
     parser.add_argument("--project-key", default=None, help="绑定项目")
     parser.add_argument("--scope", default="market", help="normalize_market_payload scope")
     parser.add_argument(
-        "--doc-types",
+        "--material-types",
+        dest="material_types",
         default="market_info,market",
-        help="文档类型过滤，逗号分隔；空值表示处理所有 doc_type",
+        help="文档类型过滤，逗号分隔；空值表示处理所有 material_type",
     )
     parser.add_argument("--limit", type=int, default=None, help="限制处理记录数（可选）")
     parser.add_argument("--batch-size", type=int, default=100, help="批量提交大小")
@@ -539,13 +540,13 @@ def main() -> int:
     )
 
     args = parser.parse_args()
-    doc_types = _parse_doc_types(args.doc_types)
+    material_types = _parse_material_types(args.material_types)
 
     with _to_project_ctx(args.project_key):
         with SessionLocal() as session:
-            doc_stats = reinforce_documents(
+            material_stats = reinforce_documents(
                 session,
-                doc_types=doc_types,
+                material_types=material_types,
                 scope=args.scope,
                 limit=args.limit,
                 dry_run=args.dry_run,
@@ -556,8 +557,8 @@ def main() -> int:
             if args.dry_run:
                 session.rollback()
 
-            logger.info("documents stats=%s", doc_stats)
-            print("documents:", doc_stats)
+            logger.info("materials stats=%s", material_stats)
+            print("materials:", material_stats)
             return 0
 
 

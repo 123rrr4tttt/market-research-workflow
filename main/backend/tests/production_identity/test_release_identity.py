@@ -7,7 +7,6 @@ import tomllib
 from pathlib import Path
 
 import pytest
-
 from app.release_identity import (
     RELEASE_BUILD_COMMIT_ENV,
     RELEASE_BUILD_DIGEST_ENV,
@@ -16,7 +15,6 @@ from app.release_identity import (
     read_build_identity,
 )
 
-
 pytestmark = pytest.mark.unit
 
 BACKEND_ROOT = Path(__file__).resolve().parents[2]
@@ -24,7 +22,7 @@ REPOSITORY_ROOT = BACKEND_ROOT.parent.parent
 
 
 def test_canonical_release_version_is_stable() -> None:
-    assert RELEASE_VERSION == "1.0.0"
+    assert RELEASE_VERSION == "1.0.1"
 
 
 def test_reader_preserves_explicit_build_coordinates() -> None:

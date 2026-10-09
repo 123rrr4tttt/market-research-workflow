@@ -20,6 +20,7 @@ try:
     from app.main import app as backend_app
     from app.api.projects import (
         _build_initial_project_copy_insert_sql,
+        _adapt_legacy_demo_seed_to_materials,
         _execute_seed_sql,
         _filter_seed_sql_text,
         _resolve_inject_target_key,
@@ -224,7 +225,7 @@ class ProjectsCoreContractTestCase(unittest.TestCase):
         driver_connection = Mock()
         driver_connection.cursor.return_value = cursor
         conn = SimpleNamespace(connection=SimpleNamespace(driver_connection=driver_connection))
-        seed_sql = "INSERT INTO project_demo_proj.documents (content) VALUES ('87% success');"
+        seed_sql = "INSERT INTO project_demo_proj.materials (content) VALUES ('87% success');"
 
         _execute_seed_sql(conn, seed_sql)
 
@@ -237,8 +238,8 @@ class ProjectsCoreContractTestCase(unittest.TestCase):
                 [
                     r"\restrict abc",
                     "SET transaction_timeout = 0;",
-                    "SELECT pg_catalog.setval('project_demo_proj.documents_id_seq', 146, true);",
-                    "INSERT INTO project_demo_proj.documents (id, doc_type) VALUES (1, 'market_info');",
+                    "SELECT pg_catalog.setval('project_demo_proj.materials_id_seq', 146, true);",
+                    "INSERT INTO project_demo_proj.materials (id, material_type) VALUES (1, 'market_info');",
                     r"\&gt; quoted html entity inside a seed string should stay",
                     r"\unrestrict abc",
                 ]
@@ -247,8 +248,20 @@ class ProjectsCoreContractTestCase(unittest.TestCase):
 
         self.assertEqual(
             filtered,
-            "INSERT INTO project_demo_proj.documents (id, doc_type) VALUES (1, 'market_info');\n"
+            "INSERT INTO project_demo_proj.materials (id, material_type) VALUES (1, 'market_info');\n"
             r"\&gt; quoted html entity inside a seed string should stay",
+        )
+
+    def test_legacy_demo_seed_is_adapted_to_canonical_materials(self):
+        adapted = _adapt_legacy_demo_seed_to_materials(
+            "INSERT INTO project_demo_proj.documents (id, source_id, doc_type, title) "
+            "VALUES (1, 2, 'policy', 'Policy');"
+        )
+
+        self.assertEqual(
+            adapted,
+            "INSERT INTO project_demo_proj.materials (id, source_id, material_type, title) "
+            "VALUES (1, 2, 'policy', 'Policy');",
         )
 
     def test_create_project_duplicate_key_maps_to_invalid_input_error_code(self):

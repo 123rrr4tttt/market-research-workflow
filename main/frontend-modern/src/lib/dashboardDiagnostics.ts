@@ -88,7 +88,7 @@ export function dashboardArtifactForExport(data: DashboardReportFromFilterRespon
 }
 
 export function dashboardReportDocumentId(data: DashboardReportFromFilterResponse | undefined) {
-  const docId = data?.document_id || data?.draft_id
+  const docId = data?.doc_id || data?.draft_id
   if (!docId) throw new Error(REPORT_DRAFT_DOCUMENT_ID_REQUIRED)
   return docId
 }

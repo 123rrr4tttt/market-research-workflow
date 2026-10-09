@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from datetime import date, datetime
 from typing import Any, Mapping, Protocol, Sequence, TypeGuard
 
-from app.services.document_queries.identity import DocumentRevisionSource, material_identity, material_revision
+from app.services.document_queries.identity import MaterialRevisionSource, material_identity, material_revision
 from functorial_kit import Failure
 
 from ..bindings import resolve_project_semantics
@@ -103,31 +103,28 @@ def _state(profile: str, version: str, elements: list[Element]) -> TopologyState
 
 
 def adapt_material(
-    document: Mapping[str, object] | DocumentRevisionSource,
+    material: Mapping[str, object] | MaterialRevisionSource,
     *,
     project_key: str,
     namespace: str = "materials",
 ) -> NativeObservation:
     """Adapt a material value returned by the sole body owner."""
-    local_id = _read(document, "id")
+    local_id = _read(material, "id")
     material_id = _positive_material_id(local_id)
     if not project_key or material_id is None:
-        # kit:boundary owner=information_topology.adapters.native.document_identity class=PROGRAMMER_DEFECT failure_family=none witness=test:test_native_adapter_rejects_non_positive_material_identity
+        # kit:boundary owner=information_topology.adapters.native.material_identity class=PROGRAMMER_DEFECT failure_family=none witness=test:test_native_adapter_rejects_non_positive_material_identity
         raise ValueError("project_key and native identity are required")
-    updated = _time_revision(_read(document, "updated_at"))
-    revision = material_revision(document)
+    updated = _time_revision(_read(material, "updated_at"))
+    revision = material_revision(material)
     capability = "timestamp" if updated else "schema_only"
     ref = BoundRef(ElementRef(**material_identity(project_key, material_id, namespace=namespace)), revision or "current")
     element = Element(ref, {
-        "title": str(_read(document, "title") or ""),
-        "doc_type": str(_read(document, "doc_type") or ""),
-        "status": str(_read(document, "status") or ""),
-        "source_ref": {"source_id": _read(document, "source_id"), "uri": _read(document, "uri")},
+        "title": str(_read(material, "title") or ""),
+        "material_type": str(_read(material, "material_type") or ""),
+        "status": str(_read(material, "status") or ""),
+        "source_ref": {"source_id": _read(material, "source_id"), "uri": _read(material, "uri")},
     })
     return NativeObservation(_state("native.material", "2", [element]), ref.observed_revision, capability, False)
-
-
-adapt_document = adapt_material
 
 
 def adapt_typed_knowledge(record: object, *, project_key: str) -> NativeObservation | Failure:

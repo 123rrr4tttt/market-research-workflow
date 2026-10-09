@@ -35,7 +35,7 @@ def _round_result():
         "materials": [{
             "candidate_id": "candidate:1", "status": "body_read",
             "body_read": {
-                "status": "read", "document_id": 42, "uri": "https://example.org/1", "body_digest": "a" * 64,
+                "status": "read", "material_id": 42, "uri": "https://example.org/1", "body_digest": "a" * 64,
             },
         }],
     }
@@ -71,7 +71,7 @@ def test_round_digest_and_frontier_have_closed_observed_provenance():
     frontier = proposal.frontier[0]
     assert digest.query_ids == ("query:1",)
     assert digest.attempt_ids == ("attempt:1",)
-    assert digest.material_refs == (f"document:42@{'a' * 64}",)
+    assert digest.material_refs == (f"material:42@{'a' * 64}",)
     assert digest.body_digests == ("a" * 64,)
     assert digest.gap_ids == (proposal.gaps[0].gap_id,)
     assert (frontier.parent_digest_id, frontier.gap_id) == (digest.digest_id, proposal.gaps[0].gap_id)
@@ -213,7 +213,6 @@ def test_retrieval_persistence_and_provider_skills_declare_effect_labels():
         "project_retrieval.current": ("write_shared", "optional"),
         "project_retrieval.preview": ("write_shared", "optional"),
         "project_retrieval.formalize_material": ("write_external", "optional"),
-        "project_retrieval.formalize_document": ("write_external", "optional"),
     }
     by_skill = {item["skill_id"]: item for item in list_registered_skills()}
     for skill_id, (concurrency_class, approval_default) in expected.items():

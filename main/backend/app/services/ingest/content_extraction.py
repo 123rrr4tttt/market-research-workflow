@@ -162,8 +162,8 @@ def analyze_frontdoor_content(
     }
 
 
-def apply_main_content_extraction(document_candidate: dict[str, object] | None) -> tuple[dict[str, object], dict[str, object]]:
-    candidate = dict(document_candidate or {})
+def apply_main_content_extraction(material_candidate: dict[str, object] | None) -> tuple[dict[str, object], dict[str, object]]:
+    candidate = dict(material_candidate or {})
     if is_declared_prepared_text_body(candidate):
         body = str(candidate.get("content") or "").strip()
         analysis = analyze_frontdoor_content(

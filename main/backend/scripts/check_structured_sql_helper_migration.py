@@ -15,9 +15,9 @@ except ImportError:  # direct script execution
     from _cli_runtime import repo_root as _repo_root
 
 
-CONTRACT_VERSION = "structured-sql-helper-migration.wave15.v1"
+CONTRACT_VERSION = "structured-sql-helper-migration.wave15.v2"
 TOPIC_ID = "2026-03-12-data-structured-service-modularization"
-DOCUMENT_QUERY_CONTRACT_VERSION = "document_queries.v2"
+MATERIAL_QUERY_CONTRACT_VERSION = "material_queries.v2"
 
 
 @dataclass(frozen=True)
@@ -44,36 +44,36 @@ class DeferredBoundary:
 
 COVERED_SURFACES: tuple[CoveredSurface, ...] = (
     CoveredSurface(
-        surface_id="document_query_contract",
+        surface_id="material_query_contract",
         path="main/backend/app/services/document_queries/contracts.py",
         role="query_object_and_result_envelope",
         required_definitions=(
-            "DocumentQuery",
-            "DocumentQueryFilter",
-            "DocumentQuerySort",
-            "build_document_query",
-            "build_document_query_result_envelope",
-            "rows_for_document_views",
-            "validate_document_query_result_envelope",
+            "MaterialQuery",
+            "MaterialQueryFilter",
+            "MaterialQuerySort",
+            "build_material_query",
+            "build_material_query_result_envelope",
+            "rows_for_material_views",
+            "validate_material_query_result_envelope",
         ),
-        required_text=(f'DOCUMENT_QUERY_CONTRACT_VERSION = "{DOCUMENT_QUERY_CONTRACT_VERSION}"',),
+        required_text=(f'MATERIAL_QUERY_CONTRACT_VERSION = "{MATERIAL_QUERY_CONTRACT_VERSION}"',),
     ),
     CoveredSurface(
-        surface_id="document_query_statement_builder",
+        surface_id="material_query_statement_builder",
         path="main/backend/app/services/document_queries/statement_builder.py",
-        role="generic_document_query_to_sqlalchemy_statement_builder",
+        role="generic_material_query_to_sqlalchemy_statement_builder",
         required_definitions=(
-            "apply_document_query_to_statement",
-            "build_document_query_statement",
-            "compile_document_query_statement",
-            "document_query_to_statement",
+            "apply_material_query_to_statement",
+            "build_material_query_statement",
+            "compile_material_query_statement",
+            "material_query_to_statement",
         ),
-        required_imports=("Document", "DocumentQuery", "select"),
-        required_text=('DOCUMENT_QUERY_STATEMENT_BUILDER_VERSION = "document_query_statement_builder.v1"',),
+        required_imports=("Material", "MaterialQuery", "select"),
+        required_text=('MATERIAL_QUERY_STATEMENT_BUILDER_VERSION = "material_query_statement_builder.v1"',),
         required_calls=(
-            ("build_document_query_statement", ("apply_document_query_to_statement",)),
-            ("document_query_to_statement", ("build_document_query_statement",)),
-            ("compile_document_query_statement", ("build_document_query_statement",)),
+            ("build_material_query_statement", ("apply_material_query_to_statement",)),
+            ("material_query_to_statement", ("build_material_query_statement",)),
+            ("compile_material_query_statement", ("build_material_query_statement",)),
         ),
     ),
     CoveredSurface(
@@ -81,7 +81,7 @@ COVERED_SURFACES: tuple[CoveredSurface, ...] = (
         path="main/backend/app/services/document_queries/policy_filters.py",
         role="sqlalchemy_json_predicate_helper",
         required_definitions=(
-            "document_json_iso_date_expr",
+            "material_json_iso_date_expr",
             "policy_effective_date_expr",
             "policy_has_data_condition",
             "policy_state_condition",
@@ -95,78 +95,78 @@ COVERED_SURFACES: tuple[CoveredSurface, ...] = (
     CoveredSurface(
         surface_id="writing_material_query_helpers",
         path="main/backend/app/services/document_queries/writing_material_queries.py",
-        role="document_query_envelope_before_legacy_rows",
+        role="material_query_envelope_before_rows",
         required_definitions=(
-            "query_hybrid_document_envelope",
+            "query_hybrid_material_envelope",
             "query_report_source_envelope",
             "query_source_library_material_envelope",
-            "query_hybrid_document_rows",
+            "query_hybrid_material_rows",
             "query_report_source_rows",
             "query_source_library_material_rows",
         ),
-        required_imports=("build_document_query", "build_document_query_result_envelope", "rows_for_document_views"),
+        required_imports=("build_material_query", "build_material_query_result_envelope", "rows_for_material_views"),
         required_calls=(
-            ("query_hybrid_document_envelope", ("build_document_query", "build_document_query_result_envelope")),
-            ("query_report_source_envelope", ("build_document_query", "build_document_query_result_envelope")),
-            ("query_source_library_material_envelope", ("build_document_query", "build_document_query_result_envelope")),
-            ("query_hybrid_document_rows", ("rows_for_document_views",)),
-            ("query_report_source_rows", ("rows_for_document_views",)),
-            ("query_source_library_material_rows", ("rows_for_document_views",)),
+            ("query_hybrid_material_envelope", ("build_material_query", "build_material_query_result_envelope")),
+            ("query_report_source_envelope", ("build_material_query", "build_material_query_result_envelope")),
+            ("query_source_library_material_envelope", ("build_material_query", "build_material_query_result_envelope")),
+            ("query_hybrid_material_rows", ("rows_for_material_views",)),
+            ("query_report_source_rows", ("rows_for_material_views",)),
+            ("query_source_library_material_rows", ("rows_for_material_views",)),
         ),
     ),
     CoveredSurface(
         surface_id="prompt_time_density_sql_helper_consumer",
         path="main/backend/app/services/stats/prompt_time_density.py",
-        role="consumer_uses_document_query_sql_time_helper",
+        role="consumer_uses_material_query_sql_time_helper",
         required_imports=("prompt_time_density_time_expr",),
         required_calls=(("query_prompt_time_density", ("prompt_time_density_time_expr",)),),
     ),
     CoveredSurface(
-        surface_id="search_endpoint_document_query_projection",
+        surface_id="search_endpoint_material_query_projection",
         path="main/backend/app/services/document_queries/search_endpoint.py",
-        role="api_search_document_query_projection_helper",
+        role="api_search_material_query_projection_helper",
         endpoint="/api/v1/search",
         required_definitions=(
-            "build_search_endpoint_document_query",
-            "build_search_endpoint_document_query_envelope",
+            "build_search_endpoint_material_query",
+            "build_search_endpoint_material_query_envelope",
         ),
-        required_imports=("build_document_query", "build_document_query_result_envelope"),
+        required_imports=("build_material_query", "build_material_query_result_envelope"),
         required_text=(
             'SEARCH_ENDPOINT_CONSUMER = "api.search"',
             'SEARCH_ENDPOINT_SOURCE = "api.search.hybrid"',
         ),
         required_calls=(
-            ("build_search_endpoint_document_query", ("build_document_query",)),
-            ("build_search_endpoint_document_query_envelope", ("build_search_endpoint_document_query",)),
-            ("build_search_endpoint_document_query_envelope", ("build_document_query_result_envelope",)),
-            ("build_search_endpoint_document_query_envelope", ("validate_document_query_result_envelope",)),
+            ("build_search_endpoint_material_query", ("build_material_query",)),
+            ("build_search_endpoint_material_query_envelope", ("build_search_endpoint_material_query",)),
+            ("build_search_endpoint_material_query_envelope", ("build_material_query_result_envelope",)),
+            ("build_search_endpoint_material_query_envelope", ("validate_material_query_result_envelope",)),
         ),
     ),
     CoveredSurface(
         surface_id="api_search_endpoint_uses_projection",
         path="main/backend/app/api/search.py",
-        role="endpoint_emits_document_query_v1_projection",
+        role="endpoint_emits_material_query_v2_projection",
         endpoint="/api/v1/search",
-        required_imports=("DOCUMENT_QUERY_CONTRACT_VERSION", "build_search_endpoint_document_query_envelope"),
+        required_imports=("MATERIAL_QUERY_CONTRACT_VERSION", "build_search_endpoint_material_query_envelope"),
         required_text=(
-            "document_query_contract_version",
-            "document_query_results",
-            "document_query_pagination",
-            "document_query_meta",
+            "material_query_contract_version",
+            "material_query_results",
+            "material_query_pagination",
+            "material_query_meta",
         ),
-        required_calls=(("search", ("build_search_endpoint_document_query_envelope",)),),
+        required_calls=(("search", ("build_search_endpoint_material_query_envelope",)),),
     ),
 )
 
 
 DEFERRED_BOUNDARIES: tuple[DeferredBoundary, ...] = (
     DeferredBoundary(
-        boundary_id="admin_documents_list_has_extracted_data_filter",
+        boundary_id="admin_materials_list_has_extracted_data_filter",
         path="main/backend/app/api/admin.py",
-        function_name="list_documents",
-        endpoint="/api/v1/admin/documents/list",
+        function_name="list_materials",
+        endpoint="/api/v1/admin/materials/list",
         boundary_type="admin_endpoint_sql_json_predicate",
-        reason="has_extracted_data filters still build Document.extracted_data predicates inline.",
+        reason="has_extracted_data filters still build Material.extracted_data predicates inline.",
     ),
     DeferredBoundary(
         boundary_id="admin_social_data_structured_filters",
@@ -262,19 +262,19 @@ def _called_names(node: ast.AST) -> set[str]:
     return names
 
 
-def _is_document_extracted_data_attr(node: ast.Attribute) -> bool:
+def _is_material_extracted_data_attr(node: ast.Attribute) -> bool:
     return (
         node.attr == "extracted_data"
         and isinstance(node.value, ast.Name)
-        and node.value.id == "Document"
+        and node.value.id == "Material"
     )
 
 
-def _document_extracted_data_count(node: ast.AST) -> int:
+def _material_extracted_data_count(node: ast.AST) -> int:
     return sum(
         1
         for child in ast.walk(node)
-        if isinstance(child, ast.Attribute) and _is_document_extracted_data_attr(child)
+        if isinstance(child, ast.Attribute) and _is_material_extracted_data_attr(child)
     )
 
 
@@ -333,7 +333,7 @@ def _check_deferred_boundary(root: Path, boundary: DeferredBoundary) -> dict[str
     tree = _parse(path) if exists else None
     functions = _function_map(tree) if tree is not None else {}
     function = functions.get(boundary.function_name)
-    count = _document_extracted_data_count(function) if function is not None else 0
+    count = _material_extracted_data_count(function) if function is not None else 0
     return {
         "boundary_id": boundary.boundary_id,
         "path": boundary.path,
@@ -366,11 +366,11 @@ def build_check(repo_root: Path | str | None = None) -> Annotated[
     return {
         "contract_version": CONTRACT_VERSION,
         "topic_id": TOPIC_ID,
-        "document_query_contract_version": DOCUMENT_QUERY_CONTRACT_VERSION,
+        "material_query_contract_version": MATERIAL_QUERY_CONTRACT_VERSION,
         "status": "passed" if status_passed else "failed",
         "migration_boundary": {
             "covered_scope": (
-                "DocumentQuery envelope helpers, generic DocumentQuery-to-SQLAlchemy statement builder, "
+                "MaterialQuery envelope helpers, generic MaterialQuery-to-SQLAlchemy statement builder, "
                 "policy SQL expression helpers, prompt-time-density SQL time helper consumption, writing "
                 "material query helpers, and /api/v1/search projection."
             ),

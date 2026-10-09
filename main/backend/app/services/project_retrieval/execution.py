@@ -6,34 +6,31 @@ have separate identities. Only the last of these is committed as formal graph.
 
 from __future__ import annotations
 
-from datetime import datetime, UTC
-from hashlib import sha256
 import json
-from dataclasses import dataclass, replace
-from functools import partial
-from typing import Annotated, Any, Literal, cast
 from collections.abc import Callable, Mapping
-
-from functorial_kit import Failure
-from sqlalchemy import MetaData, select
-from sqlalchemy.engine import Connection, Engine
+from dataclasses import dataclass, replace
+from datetime import UTC, datetime
+from functools import partial
+from hashlib import sha256
+from typing import Annotated, Any, Literal, cast
 
 from app.services.agent_core.query_tools import (
     build_source_candidate_review_decision,
     build_source_discovery_search_queries,
 )
+from app.services.document_queries.identity import material_identity
 from app.services.information_topology.contracts import (
-    topology_state_codec,
-    TopologyState,
+    BoundRef,
     Element,
     ElementRef,
-    BoundRef,
     Endpoint,
+    TopologyState,
+    topology_state_codec,
 )
 from app.services.information_topology.io.retrieval import resolve_domain_vocabulary
 from app.services.information_topology.modules.retrieval import (
     domain_vocabulary_element,
-    make_retrieval_profile,
+    make_material_retrieval_profile,
     profile_from_state_payload,
     validate_evidence_v2,
 )
@@ -63,14 +60,14 @@ from app.successor_runtime.capabilities.checksum import (
     sha256_hex,
 )
 from app.successor_runtime.capabilities.retrieval_candidate_native import (
-    RETRIEVAL_CANDIDATE_DISCOVER_V3_KIND,
+    RETRIEVAL_BUDGET_STATE_TYPE,
     RETRIEVAL_CANDIDATE_ATTEMPT_OUTCOME_TYPE,
     RETRIEVAL_CANDIDATE_ATTEMPT_SEQUENCE_TYPE,
-    RETRIEVAL_BUDGET_STATE_TYPE,
+    RETRIEVAL_CANDIDATE_DISCOVER_V3_KIND,
     RETRIEVAL_CANDIDATE_INVOCATION_TYPE,
     build_retrieval_candidate_atom,
-    build_retrieval_candidate_prefix,
     build_retrieval_candidate_merge_registry,
+    build_retrieval_candidate_prefix,
     build_retrieval_candidate_runtime_definition,
 )
 from app.successor_runtime.capabilities.retrieval_common import (
@@ -84,18 +81,18 @@ from app.successor_runtime.capabilities.retrieval_common import (
 from app.successor_runtime.capabilities.retrieval_material_native import (
     CANDIDATE_WORK_SEQUENCE_TYPE,
     CANDIDATE_WORK_TYPE,
-    RETRIEVAL_CONTROL_TYPE,
-    RETRIEVAL_LEAF_KINDS,
     RETRIEVAL_CANDIDATE_REVIEW_KIND,
+    RETRIEVAL_CONTROL_TYPE,
     RETRIEVAL_FOLLOWUP_PLAN_KIND,
+    RETRIEVAL_LEAF_KINDS,
     RETRIEVAL_MATERIAL_FORMALIZE_KIND,
     RETRIEVAL_MATERIAL_READ_BODY_KIND,
     RETRIEVAL_MATERIAL_REVALIDATE_KIND,
     RETRIEVAL_TOPOLOGY_COMMIT_KIND,
     CandidateWork,
     RetrievalControl,
-    build_retrieval_leaf_definition,
     build_retrieval_leaf_contract,
+    build_retrieval_leaf_definition,
     retrieval_payload_value,
     validate_candidate_work_transition,
 )
@@ -110,8 +107,8 @@ from app.successor_runtime.language.catalog import (
     OperationContractCatalogSnapshot,
     OperationContractRegistry,
 )
-from app.successor_runtime.language.object_contracts import OperationContract
 from app.successor_runtime.language.compile import compile_program
+from app.successor_runtime.language.object_contracts import OperationContract
 from app.successor_runtime.language.program import (
     DecisionBranch,
     ProgramNode,
@@ -120,8 +117,8 @@ from app.successor_runtime.language.program import (
     decide_node,
     identity_node,
     map_output_node,
-    pure_node,
     program_atoms,
+    pure_node,
     then_node,
     traverse_ordered_node,
     zip_ordered_node,
@@ -135,22 +132,25 @@ from app.successor_runtime.language.transforms import (
 from app.successor_runtime.research.object_types import ObjectType
 from app.successor_runtime.runtime.activation import TraversalMaterialization
 from app.successor_runtime.runtime.ports import RuntimeScope
-from app.successor_runtime.substrate.postgres.runtime_activation import (
-    ActiveChildMaterializer,
-    ActiveChildSubmission,
-    ActiveChildMaterializationReceipt,
-    ActiveChildTerminalObservation,
-    ActivationTrigger,
-    OperationActivationCatalog,
-    PostgresRuntimeActivationBindingAdapter,
-    materialize_active_children,
-)
 from app.successor_runtime.substrate.postgres.models import (
     PUBLIC_TABLES,
     project_tables,
 )
 from app.successor_runtime.substrate.postgres.programs import ProgramRepository
 from app.successor_runtime.substrate.postgres.research_ledger import one_mapping
+from app.successor_runtime.substrate.postgres.runtime_activation import (
+    ActivationTrigger,
+    ActiveChildMaterializationReceipt,
+    ActiveChildMaterializer,
+    ActiveChildSubmission,
+    ActiveChildTerminalObservation,
+    OperationActivationCatalog,
+    PostgresRuntimeActivationBindingAdapter,
+    materialize_active_children,
+)
+from functorial_kit import Failure
+from sqlalchemy import MetaData, select
+from sqlalchemy.engine import Connection, Engine
 
 
 def _digest(value: Any) -> str:
@@ -517,7 +517,7 @@ def build_retrieval_runtime_journal_reader(
             {
                 "candidate_id": work.candidate_id,
                 "url": work.candidate.get("url"),
-                "document_id": (work.ingest or {}).get("document_id"),
+                "material_id": (work.ingest or {}).get("material_id"),
                 "status": (
                     "body_read"
                     if work.body is not None and work.body.get("status") == "read"
@@ -681,13 +681,13 @@ def merge_candidate_work_ingest(work: CandidateWork, outcome: UrlSingleUrlOutcom
 
     if work.stage != "reviewed" or work.disposition != "approved":
         raise_retrieval_contract_error(ValueError, 'URL acquisition requires approved reviewed work')
-    successful = outcome.status in {"completed", "accepted", "partial"} and bool(outcome.document_id)
+    successful = outcome.status in {"completed", "accepted", "partial"} and bool(outcome.material_id)
     receipt: dict[str, CanonicalJsonValue] = {
         "status": outcome.status,
         "inserted": outcome.inserted,
         "updated": outcome.updated,
         "skipped": outcome.skipped,
-        "document_id": outcome.document_id,
+        "material_id": outcome.material_id,
         "error": outcome.error,
         "task_id": outcome.task_id,
         "readback": outcome.readback,
@@ -715,12 +715,12 @@ def read_candidate_work_body(
     topology_service: InformationTopologyService,
     work: CandidateWork,
 ) -> CandidateWork:
-    """Read the exact persisted Document body through its original owner."""
+    """Read the exact persisted Material body through its owner."""
 
     if work.stage != "ingested" or work.disposition != "approved" or work.ingest is None:
         raise_retrieval_contract_error(ValueError, 'body read requires a successful ingest receipt')
-    document_id = work.ingest.get("document_id")
-    receipt, body = _read_document_body(topology_service, work.project_key, document_id)
+    material_id = work.ingest.get("material_id")
+    receipt, body = _read_material_body(topology_service, work.project_key, material_id)
     status = str(receipt.get("status") or "failed")
     disposition: Literal["approved", "body_missing", "body_failed"]
     disposition = "approved" if status == "read" and body is not None else (
@@ -736,10 +736,10 @@ def read_candidate_work_body(
                 for key, value in cast(Mapping[object, object], raw_error).items()
             }
             if isinstance(raw_error, Mapping)
-            else {"code": "DOCUMENT_BODY_READ_FAILED"}
+            else {"code": "MATERIAL_BODY_READ_FAILED"}
         )
         gaps += (
-            {"code": str(error.get("code") or "DOCUMENT_BODY_READ_FAILED"), "candidate_id": work.candidate_id},
+            {"code": str(error.get("code") or "MATERIAL_BODY_READ_FAILED"), "candidate_id": work.candidate_id},
         )
     body_receipt = cast(dict[str, CanonicalJsonValue], receipt)
     after = replace(
@@ -791,12 +791,12 @@ def _formalization_payload(work: CandidateWork, plan: Mapping[str, Any]) -> dict
         "route_id": work.route_id,
         "query_id": work.query_id,
         "candidate_id": work.candidate_id,
-        "document_id": work.body.get("document_id"),
+        "material_id": work.body.get("material_id"),
         "title": work.body.get("title"),
         "url": work.body.get("uri") or work.candidate.get("url"),
         "body": work.body_text,
         "body_digest": work.body.get("body_digest"),
-        "document_updated_at": work.body.get("document_updated_at"),
+        "material_updated_at": work.body.get("material_updated_at"),
         "domain_vocabulary": plan.get("domain_vocabulary")
         or (_mapping(plan.get("topology_seed")) or {}).get("domain_vocabulary"),
         "query": dict(query),
@@ -865,16 +865,16 @@ def revalidate_candidate_work(
         return after
     if work.body is None or work.body_text is None:
         raise_retrieval_contract_error(ValueError, 'source revalidation requires the original body receipt')
-    receipt, body = _read_document_body(
+    receipt, body = _read_material_body(
         topology_service,
         work.project_key,
-        work.body.get("document_id"),
+        work.body.get("material_id"),
     )
     consistent = (
         receipt.get("status") == "read"
         and body == work.body_text
         and receipt.get("body_digest") == work.body.get("body_digest")
-        and receipt.get("document_updated_at") == work.body.get("document_updated_at")
+        and receipt.get("material_updated_at") == work.body.get("material_updated_at")
     )
     gaps = work.gaps
     error = work.error
@@ -2419,7 +2419,7 @@ def _compile_topology_seed(
     if isinstance(vocabulary, Failure):
         return {"error": vocabulary.code, "message": vocabulary.message}
     try:
-        profile = make_retrieval_profile(vocabulary)
+        profile = make_material_retrieval_profile(vocabulary)
         elements = [domain_vocabulary_element(vocabulary)]
         by_query = {attempt.query_id: attempt.result for attempt in attempts}
         for kind, rows_value, identity in (
@@ -2472,32 +2472,32 @@ def _compile_topology_seed(
         return {"error": "TOPOLOGY_SEED_INVALID", "message": str(exc)}
 
 
-def _read_document_body(
-    topology_service: InformationTopologyService, project_key: str, document_id: object
+def _read_material_body(
+    topology_service: InformationTopologyService, project_key: str, material_id: object
 ) -> tuple[dict[str, Any], str | None]:
-    """Read the persisted ingest output; a queued task or document ID alone is not a body."""
+    """Read the persisted ingest output; a queued task or Material ID alone is not a body."""
     try:
-        from app.models.entities import Document
+        from app.models.entities import Material
         from app.services.projects import bind_project
 
-        normalized_document_id = int(str(document_id))
+        normalized_material_id = int(str(material_id))
         with bind_project(project_key):
             with topology_service.dependencies.session_factory() as session:
-                document = session.get(Document, normalized_document_id)
-                if document is None:
-                    return {"status": "missing", "error": {"code": "DOCUMENT_NOT_FOUND"}}, None
-                body = str(document.content or "").strip()
-                if not body:
-                    return {"status": "missing", "error": {"code": "DOCUMENT_BODY_EMPTY"}}, None
-                updated_at = document.updated_at
+                material = session.get(Material, normalized_material_id)
+                if material is None:
+                    return {"status": "missing", "error": {"code": "MATERIAL_NOT_FOUND"}}, None
+                body = str(material.content or "")
+                if not body.strip():
+                    return {"status": "missing", "error": {"code": "MATERIAL_BODY_EMPTY"}}, None
+                updated_at = material.updated_at
                 return {
                     "status": "read",
-                    "document_id": normalized_document_id,
-                    "title": str(document.title or ""),
-                    "uri": str(document.uri or ""),
+                    "material_id": normalized_material_id,
+                    "title": str(material.title or ""),
+                    "uri": str(material.uri or ""),
                     "body_digest": sha256(body.encode("utf-8")).hexdigest(),
                     "body_length": len(body),
-                    "document_updated_at": updated_at.isoformat() if updated_at is not None else None,
+                    "material_updated_at": updated_at.isoformat() if updated_at is not None else None,
                 }, body
     except Exception as exc:
         return {"status": "failed", "error": _failure(exc)}, None
@@ -2511,7 +2511,7 @@ def _formal_group(
     receipt = _mapping(package.get("body_read"))
     body = package.get("body")
     if proposal is None or receipt is None or not isinstance(body, str):
-        return {"code": "FORMAL_PROPOSAL_INVALID", "message": "proposal or document observation is missing"}
+        return {"code": "FORMAL_PROPOSAL_INVALID", "message": "proposal or material observation is missing"}
     nodes_value = proposal.get("nodes")
     nodes = _mapping_list(nodes_value)
     judgment = _mapping(proposal.get("judgment"))
@@ -2524,16 +2524,16 @@ def _formal_group(
         return {"code": "FORMAL_PROPOSAL_INVALID", "message": "judgment, evidence and clue are required"}
     observed = str(receipt.get("body_digest") or "")
     if not observed or sha256(body.encode("utf-8")).hexdigest() != observed:
-        return {"code": "SOURCE_CHANGED", "message": "body observation differs from the supplied document"}
+        return {"code": "SOURCE_CHANGED", "message": "body observation differs from the supplied material"}
     excerpt = str(evidence.get("original_excerpt") or "")
     if not excerpt or excerpt not in body:
         return {"code": "EVIDENCE_QUOTE_NOT_LOCATED", "message": "original_excerpt is absent from the read body"}
-    document_id = str(receipt.get("document_id") or "")
+    material_id = str(receipt.get("material_id") or "")
     candidate_id = str(package.get("candidate_id") or "")
-    if not document_id.isdigit() or int(document_id) <= 0 or not candidate_id:
-        return {"code": "FORMAL_PROPOSAL_INVALID", "message": "document/candidate identity is missing"}
-    observation = str(receipt.get("document_updated_at") or observed)
-    prefix = _digest((session_id, document_id, candidate_id))[:24]
+    if not material_id.isdigit() or int(material_id) <= 0 or not candidate_id:
+        return {"code": "FORMAL_PROPOSAL_INVALID", "message": "material/candidate identity is missing"}
+    observation = str(receipt.get("material_updated_at") or observed)
+    prefix = _digest((session_id, material_id, candidate_id))[:24]
 
     def bound(kind: str, local_id: str, attrs: Mapping[str, Any]) -> BoundRef:
         return BoundRef(
@@ -2589,15 +2589,9 @@ def _formal_group(
         "relation_classes": list(judgment["relation_classes"]),
         "candidate_id": candidate_id,
         "candidate_key": candidate_id,
-        "snapshot_path": [f"material:{document_id}"],
+        "material_ref": material_identity(project_key, int(material_id)),
     }
-    from app.services.document_queries.identity import document_identity, material_identity
-
-    if profile.version.startswith("2+"):
-        material_attrs["document_ref"] = document_identity(project_key, int(document_id))
-    else:
-        material_attrs["material_ref"] = material_identity(project_key, int(document_id))
-    if profile.version.startswith(("2+", "3+")):
+    if profile.version.startswith("3+"):
         material_attrs.pop("title")
         material_attrs.pop("url")
     material_ref = bound("material", f"material-{prefix}", material_attrs)
@@ -2660,7 +2654,7 @@ def _formal_group(
     clue_ref = bound("clue", clue_id, clue_attrs)
     group.append(Element(clue_ref, clue_attrs, (Endpoint("item", judgment_ref, 0), Endpoint("item", evidence_ref, 1))))
     refs = {
-        "document_id": document_id,
+        "material_id": material_id,
         "candidate_id": candidate_id,
         "material": material_ref.ref.local_id,
         "nodes": [ref.ref.local_id for ref in node_refs.values()],
@@ -2668,7 +2662,7 @@ def _formal_group(
         "evidence": evidence_id,
         "clue": clue_id,
         "body_digest": observed,
-        "document_updated_at": receipt.get("document_updated_at"),
+        "material_updated_at": receipt.get("material_updated_at"),
     }
     return group, refs
 

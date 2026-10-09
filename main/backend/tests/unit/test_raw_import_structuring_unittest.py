@@ -120,7 +120,7 @@ class _RawImportSession:
         return None
 
 
-class TestRawImportDocumentBranch:
+class TestRawImportMaterialBranch:
     @pytest.fixture(autouse=True)
     def require_raw_import_imports(self):
         if _IMPORT_ERROR is not None:
@@ -176,7 +176,7 @@ class TestRawImportDocumentBranch:
         raw_import, session, envelopes, completed, failed = self._install_runtime(
             monkeypatch,
             writer_results=[
-                {"data": {"writer_result": {"inserted": 1, "doc_id": 42}}}
+                {"data": {"writer_result": {"inserted": 1, "material_id": 42}}}
             ],
         )
         payload = {
@@ -184,20 +184,20 @@ class TestRawImportDocumentBranch:
                 {
                     "title": "MRW 本地启动说明摘录 2026-09-21",
                     "text": "来源当前仓库README的非空文本",
-                    "doc_type": "raw_note",
+                    "material_type": "raw_note",
                 }
             ],
             "infer_from_links": False,
             "enable_extraction": False,
-            "default_doc_type": "raw_note",
+            "default_material_type": "raw_note",
         }
 
-        result = raw_import.run_raw_import_documents(payload, "local_user_20260921")
+        result = raw_import.run_raw_import_materials(payload, "local_user_20260921")
 
         assert result["inserted"] == 1
         assert result["error_count"] == 0
         assert failed == []
-        candidate = envelopes[0]["collection_payload"]["document_candidate"]
+        candidate = envelopes[0]["collection_payload"]["material_candidate"]
         assert "_raw_input" in candidate["extracted_data_base"]
         assert completed == [(88, "completed", result)]
         assert session.committed
@@ -207,9 +207,9 @@ class TestRawImportDocumentBranch:
             monkeypatch,
             writer_results=[RuntimeError("frontdoor writer failed")],
         )
-        result = raw_import.run_raw_import_documents(
+        result = raw_import.run_raw_import_materials(
             {
-                "items": [{"title": "one", "text": "one", "doc_type": "raw_note"}],
+                "items": [{"title": "one", "text": "one", "material_type": "raw_note"}],
                 "enable_extraction": False,
             },
             "demo",
@@ -224,15 +224,15 @@ class TestRawImportDocumentBranch:
         raw_import, _session, _envelopes, completed, _failed = self._install_runtime(
             monkeypatch,
             writer_results=[
-                {"data": {"writer_result": {"inserted": 1, "doc_id": 42}}},
+                {"data": {"writer_result": {"inserted": 1, "material_id": 42}}},
                 RuntimeError("frontdoor writer failed"),
             ],
         )
-        result = raw_import.run_raw_import_documents(
+        result = raw_import.run_raw_import_materials(
             {
                 "items": [
-                    {"title": "ok", "text": "ok", "doc_type": "raw_note"},
-                    {"title": "bad", "text": "bad", "doc_type": "raw_note"},
+                    {"title": "ok", "text": "ok", "material_type": "raw_note"},
+                    {"title": "bad", "text": "bad", "material_type": "raw_note"},
                 ],
                 "enable_extraction": False,
             },
@@ -243,22 +243,22 @@ class TestRawImportDocumentBranch:
         assert result["error_count"] == 1
         assert completed[0][:2] == (88, "completed")
 
-    def test_bad_doc_type_records_error_and_continues_valid_batch(
+    def test_bad_material_type_records_error_and_continues_valid_batch(
         self,
         monkeypatch: pytest.MonkeyPatch,
     ):
         raw_import, session, _envelopes, completed, failed = self._install_runtime(
             monkeypatch,
             writer_results=[
-                {"data": {"writer_result": {"inserted": 1, "doc_id": 42}}},
+                {"data": {"writer_result": {"inserted": 1, "material_id": 42}}},
             ],
         )
 
-        result = raw_import.run_raw_import_documents(
+        result = raw_import.run_raw_import_materials(
             {
                 "items": [
-                    {"title": "bad", "text": "bad", "doc_type": 7},
-                    {"title": "valid", "text": "valid", "doc_type": "raw_note"},
+                    {"title": "bad", "text": "bad", "material_type": 7},
+                    {"title": "valid", "text": "valid", "material_type": "raw_note"},
                 ],
                 "enable_extraction": False,
             },
@@ -268,7 +268,7 @@ class TestRawImportDocumentBranch:
         assert result["inserted"] == 1
         assert result["error_count"] == 1
         assert result["errors"] == [
-            {"index": 0, "error": "doc_type must be a string or null"}
+            {"index": 0, "error": "material_type must be a string or null"}
         ]
         assert result["items"][0]["index"] == 1
         assert result["items"][0]["status"] == "ok"
@@ -277,7 +277,7 @@ class TestRawImportDocumentBranch:
         assert session.committed
 
     def _install_sqlite_runtime(self, monkeypatch):
-        from app.models.entities import Document, Source
+        from app.models.entities import Material, Source
         from app.services.ingest import raw_import, terminal_writer
 
         engine = create_engine(
@@ -288,7 +288,7 @@ class TestRawImportDocumentBranch:
         )
         sqlite_metadata = MetaData()
         source_table = Source.__table__.to_metadata(sqlite_metadata)
-        document_table = Document.__table__.to_metadata(sqlite_metadata)
+        document_table = Material.__table__.to_metadata(sqlite_metadata)
         source_table.c.id.type = Integer()
         document_table.c.id.type = Integer()
         document_table.c.extracted_data.type = JSON()
@@ -313,25 +313,25 @@ class TestRawImportDocumentBranch:
         return {
             "source_name": "readiness_repair_recovery",
             "source_kind": "manual",
-            "items": [{"text": text, "doc_type": "raw_note"}],
+            "items": [{"text": text, "material_type": "raw_note"}],
             "infer_from_links": False,
             "enable_extraction": False,
             **kwargs,
         }
 
     def test_repeated_real_imports_reuse_one_terminal_writer_source(self, monkeypatch):
-        from app.models.entities import Document, Source
+        from app.models.entities import Material, Source
 
         raw_import, testing_session = self._install_sqlite_runtime(monkeypatch)
 
-        first = raw_import.run_raw_import_documents(self._payload("first body"), "local-user")
-        second = raw_import.run_raw_import_documents(self._payload("second body"), "local-user")
+        first = raw_import.run_raw_import_materials(self._payload("first body"), "local-user")
+        second = raw_import.run_raw_import_materials(self._payload("second body"), "local-user")
 
         assert first["inserted"] == second["inserted"] == 1
         assert first["source_name"] == second["source_name"] == "readiness_repair_recovery"
         with testing_session() as session:
             sources = session.query(Source).all()
-            documents = session.query(Document).all()
+            documents = session.query(Material).all()
             assert [(source.name, source.kind) for source in sources] == [
                 ("readiness_repair_recovery", "manual")
             ]
@@ -339,7 +339,7 @@ class TestRawImportDocumentBranch:
             assert {document.source_id for document in documents} == {sources[0].id}
 
     def test_existing_duplicate_sources_do_not_crash_new_import(self, monkeypatch):
-        from app.models.entities import Document, Source
+        from app.models.entities import Material, Source
 
         raw_import, testing_session = self._install_sqlite_runtime(monkeypatch)
         with testing_session() as session:
@@ -353,19 +353,19 @@ class TestRawImportDocumentBranch:
             session.commit()
             original_id = original.id
 
-        result = raw_import.run_raw_import_documents(self._payload("new body"), "local-user")
+        result = raw_import.run_raw_import_materials(self._payload("new body"), "local-user")
 
         assert result["inserted"] == 1
         assert result["error_count"] == 0
         with testing_session() as session:
             assert session.query(Source).count() == 2
-            document = session.query(Document).one()
+            document = session.query(Material).one()
             assert document.source_id == original_id
 
     def test_overwrite_reuses_first_matching_source_and_preserves_skip_semantics(
         self, monkeypatch
     ):
-        from app.models.entities import Document, Source
+        from app.models.entities import Material, Source
 
         raw_import, testing_session = self._install_sqlite_runtime(monkeypatch)
         with testing_session() as session:
@@ -377,9 +377,9 @@ class TestRawImportDocumentBranch:
             )
             session.add_all([original, duplicate])
             session.flush()
-            document = Document(
+            document = Material(
                 source_id=duplicate.id,
-                doc_type="raw_note",
+                material_type="raw_note",
                 content="old body",
                 text_hash="old-hash",
                 uri="https://example.test/readiness",
@@ -388,14 +388,14 @@ class TestRawImportDocumentBranch:
             session.commit()
             original_id, duplicate_id = original.id, duplicate.id
 
-        overwritten = raw_import.run_raw_import_documents(
+        overwritten = raw_import.run_raw_import_materials(
             self._payload(
                 "new body",
                 overwrite_on_uri=True,
                 items=[{
                     "text": "new body",
                     "uri": "https://example.test/readiness",
-                    "doc_type": "raw_note",
+                    "material_type": "raw_note",
                 }],
             ),
             "local-user",
@@ -405,17 +405,17 @@ class TestRawImportDocumentBranch:
         assert overwritten["skipped"] == 0
         with testing_session() as session:
             assert session.query(Source).count() == 2
-            persisted = session.query(Document).one()
+            persisted = session.query(Material).one()
             assert persisted.content == "new body"
             assert persisted.source_id == original_id
 
-        skipped = raw_import.run_raw_import_documents(
+        skipped = raw_import.run_raw_import_materials(
             self._payload(
                 "newer body",
                 items=[{
                     "text": "newer body",
                     "uri": "https://example.test/readiness",
-                    "doc_type": "raw_note",
+                    "material_type": "raw_note",
                 }],
             ),
             "local-user",
@@ -424,7 +424,7 @@ class TestRawImportDocumentBranch:
         assert skipped["updated"] == 0
         assert skipped["skipped"] == 1
         with testing_session() as session:
-            persisted = session.query(Document).one()
+            persisted = session.query(Material).one()
             assert persisted.content == "new body"
             assert persisted.source_id == original_id
             assert duplicate_id != original_id

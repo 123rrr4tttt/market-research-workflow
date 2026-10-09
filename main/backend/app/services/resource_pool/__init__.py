@@ -3,7 +3,7 @@
 from .append_adapter import DefaultResourcePoolAppendAdapter
 from .auto_classify import classify_site_entries_batch, classify_site_entry
 from .capture_config import get_capture_config, upsert_capture_config
-from .extract import append_url, extract_from_documents, extract_from_tasks
+from .extract import append_url, extract_from_materials, extract_from_tasks
 from .open_source_source_importer import import_open_source_preset_pack, list_open_source_preset_packs
 from .resolver import list_urls
 from .search_contract_discovery import discover_search_contract
@@ -22,7 +22,7 @@ __all__ = [
     "DefaultResourcePoolAppendAdapter",
     "discover_site_entries_from_urls",
     "list_discovery_domains",
-    "extract_from_documents",
+    "extract_from_materials",
     "extract_from_tasks",
     "get_capture_config",
     "discover_search_contract",

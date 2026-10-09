@@ -6,7 +6,8 @@ service has no in-memory fallback and never asks a module to execute its content
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Callable, Mapping, Protocol, Sequence, TypeGuard
+from pathlib import Path
+from typing import Any, Callable, Mapping, Protocol, Sequence, TypedDict, TypeGuard
 
 from app.models.base import SessionLocal
 from app.models.information_topology_entities import InformationTopologyLink
@@ -24,6 +25,7 @@ from .contracts import (
     TopologyState,
     topology_failures,
 )
+from .document_materials import MaterialBinder, migrate_legacy_material_states
 from .mapping import MappingSpec, preview_mapping
 from .profiles import ProfileSpec, apply_patch, decode_state
 from .repository import (
@@ -36,6 +38,17 @@ from .repository import (
 from .structural_schema import derive_read_model_attributes
 
 StateKey = tuple[str, str, str, str]
+
+
+class MaterialMergeResult(TypedDict):
+    project_key: str
+    migrated_states: int
+
+
+class _MaterialMergeFailed(Exception):
+    def __init__(self, failure: Failure):
+        super().__init__(failure.message)
+        self.failure = failure
 
 
 class StructureIO(Protocol):
@@ -234,43 +247,81 @@ class InformationTopologyService:
                     total += 1
         return total
 
-    def merge_materials(self, project_key: str) -> dict[str, Any] | Failure:
-        """Atomic V1/V2 material address migration; history remains unchanged."""
-        binder = self.dependencies.material_binder
-        if binder is None:
-            return topology_failures.fail("INVALID_STRUCTURE", "material binding is not configured")
-        with self.dependencies.session_factory() as session:
-            with session.begin():
-                rows = self.repository.list_current_states(session, project_key)
-                writes: list[StateWrite] = []
-                for row in rows:
-                    if not row["profile_id"].startswith("retrieval.domain.") or row["profile_version"].startswith("3+"):
-                        continue
-                    key = (project_key, row["module_id"], row["namespace"], row["state_id"])
-                    current = self.repository.read_state(session, key)
-                    if isinstance(current, Failure) or current is None:
-                        session.rollback()
-                        return current or topology_failures.fail("NOT_FOUND", "migration state disappeared")
-                    profile = self._resolve_profile(project_key, row["profile_id"], row["profile_version"], row["payload"], None)
-                    if isinstance(profile, Failure):
-                        session.rollback()
-                        return profile
-                    state = decode_state(profile, row["payload"])
-                    if isinstance(state, Failure):
-                        session.rollback()
-                        return state
-                    bound = binder(session, state)
-                    if isinstance(bound, Failure):
-                        session.rollback()
-                        return bound
-                    writes.append(StateWrite(
-                        key, bound, row["revision"], current.get("provenance"),
-                    ))
-                result = self.repository.apply_batch(session, states=tuple(writes)) if writes else ()
-                if isinstance(result, Failure):
-                    session.rollback()
-                    return result
+    def merge_materials_in_session(
+        self,
+        session: Session,
+        project_key: str,
+        *,
+        source_root: Path | None = None,
+    ) -> MaterialMergeResult | Failure:
+        """Migrate current material addresses inside the caller-owned transaction.
+
+        Only this entry enables legacy document transport decoding. Valid 3+
+        currents are verified and left unchanged; invalid 3+ currents fail
+        instead of being silently skipped.
+        """
+        rows = self.repository.list_current_states(session, project_key)
+        source_rows: list[tuple[StateKey, StateRead | None, TopologyState, Mapping[str, Any] | None]] = []
+        for row in rows:
+            if not row["profile_id"].startswith("retrieval.domain."):
+                continue
+            key = (project_key, row["module_id"], row["namespace"], row["state_id"])
+            current = self.repository.read_state(session, key)
+            if isinstance(current, Failure) or current is None:
+                return current or topology_failures.fail("NOT_FOUND", "migration state disappeared")
+            profile = self._resolve_profile(
+                project_key, row["profile_id"], row["profile_version"], row["payload"], None
+            )
+            if isinstance(profile, Failure):
+                return profile
+            state = decode_state(profile, row["payload"])
+            if isinstance(state, Failure):
+                return state
+            if row["profile_version"].startswith("3+"):
+                verified = MaterialBinder().bind(session, state)
+                if isinstance(verified, Failure):
+                    return verified
+            source_rows.append((key, StateRead(key, row["revision"]), state, current.get("provenance")))
+
+        migrated = migrate_legacy_material_states(
+            session,
+            project_key,
+            tuple(item[2] for item in source_rows),
+            source_root=source_root,
+        )
+        if isinstance(migrated, Failure):
+            return migrated
+        writes = [
+            StateWrite(key, next_state, read.expected_revision, provenance)
+            for (key, read, prior_state, provenance), next_state in zip(source_rows, migrated)
+            if read is not None and prior_state.profile_version != next_state.profile_version
+        ]
+        result = self.repository.apply_batch(session, states=tuple(writes)) if writes else ()
+        if isinstance(result, Failure):
+            return result
         return {"project_key": project_key, "migrated_states": len(writes)}
+
+    def merge_materials(
+        self,
+        project_key: str,
+        *,
+        source_root: Path | None = None,
+    ) -> MaterialMergeResult | Failure:
+        """Own one default transaction; external migrations call the in-session core."""
+        try:
+            with self.dependencies.session_factory() as session:
+                with session.begin():
+                    result = self.merge_materials_in_session(
+                        session,
+                        project_key,
+                        source_root=source_root,
+                    )
+                    if isinstance(result, Failure):
+                        # kit:boundary owner=information_topology.material_merge.transaction class=SHELL_BOUNDARY_EXCEPTION failure_family=information_topology witness=test:test_merge_wrapper_rolls_back_the_owned_transaction_when_core_returns_failure
+                        raise _MaterialMergeFailed(result)
+                    return result
+        except _MaterialMergeFailed as exc:
+            return exc.failure
 
     def resolve(self, project_key: str, refs: Sequence[Mapping[str, Any]]) -> dict[str, Any] | Failure:
         resolved: list[dict[str, Any]] = []
@@ -530,8 +581,8 @@ class InformationTopologyService:
                             if element is not None and ref.ref.type_id == "material":
                                 prior = next((e for e in original.elements if e.ref == ref), None)
                                 if prior is not None:
-                                    prior_ref = prior.attributes.get("material_ref", prior.attributes.get("document_ref"))
-                                    next_ref = element.attributes.get("material_ref", element.attributes.get("document_ref"))
+                                    prior_ref = prior.attributes.get("material_ref")
+                                    next_ref = element.attributes.get("material_ref")
                                     if _canonical_identity_or_value(project_key, prior_ref) != _canonical_identity_or_value(project_key, next_ref):
                                         return topology_failures.fail("INVALID_PATCH", "material identity cannot be rebound by a structural patch")
                             if ref.ref.project_key != project_key or (element and any(

@@ -25,7 +25,7 @@ const preview = {
   publisher: '内部研报',
   snippet: '碳酸锂价格较上周回落 2.1%。',
   score: 0.93,
-  source_type: 'document' as const,
+  source_type: 'material' as const,
   quick_actions: ['补查供给端', '加入摘要'],
 }
 
@@ -48,7 +48,7 @@ const detail = {
     keyword: '储能电芯出口',
     overlap: 0.71,
   },
-  source_type: 'document' as const,
+  source_type: 'material' as const,
 }
 
 export const Interactive: Story = {

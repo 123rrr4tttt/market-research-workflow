@@ -67,7 +67,7 @@ class WritingDocumentServiceUnitTestCase(unittest.TestCase):
         self.assertEqual(serialized["version"], 2)
         self.assertEqual(serialized["etag"], "etag-2")
 
-    def test_upsert_citations_normalizes_legacy_source_material_alias(self):
+    def test_upsert_citations_persists_the_canonical_source_material_identity(self):
         from unittest.mock import MagicMock, patch
 
         session = MagicMock()
@@ -80,7 +80,7 @@ class WritingDocumentServiceUnitTestCase(unittest.TestCase):
             patch.object(
                 citation_service,
                 "serialize_writing_citation",
-                side_effect=lambda row: {"source_doc_id": row.source_doc_id},
+                side_effect=lambda row: {"source_material_id": row.source_material_id},
             ),
         ):
             saved = citation_service.upsert_citations(
@@ -90,8 +90,8 @@ class WritingDocumentServiceUnitTestCase(unittest.TestCase):
             )
 
         row = session.add.call_args.args[0]
-        self.assertEqual(row.source_doc_id, 42)
-        self.assertEqual(saved, [{"source_doc_id": 42}])
+        self.assertEqual(row.source_material_id, 42)
+        self.assertEqual(saved, [{"source_material_id": 42}])
 
 
 if __name__ == "__main__":

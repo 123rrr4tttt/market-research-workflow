@@ -40,7 +40,7 @@ class DashboardReportClosureSmokeTestCase(unittest.TestCase):
             "trace_id": trace_id,
             "document_id": 42,
             "draft_id": 42,
-            "source_refs": [{"id": "dashboard.stats.documents"}],
+            "source_refs": [{"id": "dashboard.stats.materials"}],
             "report_quality_gate": {"status": "pass"},
             "export_artifact": {
                 "artifact_token": "llmrpt-v1.test",
@@ -53,7 +53,7 @@ class DashboardReportClosureSmokeTestCase(unittest.TestCase):
             if url.endswith("/api/v1/dashboard/stats"):
                 return self.json_response(
                     {
-                        "documents": {"source_refs": [{"id": "dashboard.stats.documents"}]},
+                        "materials": {"source_refs": [{"id": "dashboard.stats.materials"}]},
                         "pending_actions": [],
                         "llm_report_quality": {},
                     }
@@ -63,7 +63,7 @@ class DashboardReportClosureSmokeTestCase(unittest.TestCase):
                     {
                         "found": True,
                         "trace_id": trace_id,
-                        "source_refs": [{"id": "dashboard.stats.documents"}],
+                        "source_refs": [{"id": "dashboard.stats.materials"}],
                         "report_artifact": {"artifact_id": "artifact-1"},
                         "quality_gate": {"status": "pass"},
                         "export_events": [{"trace_id": "export-1", "source_trace_id": trace_id}],

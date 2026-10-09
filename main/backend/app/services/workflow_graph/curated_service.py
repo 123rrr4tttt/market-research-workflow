@@ -685,7 +685,7 @@ def _extract_provenance(item: Mapping[str, object]) -> dict[str, object]:
     provenance = _string_object_mapping(item.get("provenance"))
     if provenance is not None:
         return provenance
-    keys = ("source_id", "document_id", "uri", "url", "source_uri")
+    keys = ("source_id", "material_id", "uri", "url", "source_uri")
     out: dict[str, object] = {}
     for key in keys:
         if item.get(key) not in (None, ""):

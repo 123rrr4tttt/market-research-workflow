@@ -40,7 +40,7 @@ export default function RawDataPage({ projectKey }: RawDataPageProps) {
   const [draft, setDraft] = useState<DraftItem>(initialDraft)
   const [sourceName, setSourceName] = useState('raw_import')
   const [sourceKind, setSourceKind] = useState('manual')
-  const [docType, setDocType] = useState<RawImportPayload['default_doc_type']>('raw_note')
+  const [materialType, setMaterialType] = useState<RawImportPayload['default_material_type']>('raw_note')
   const [extractionMode, setExtractionMode] = useState<RawImportPayload['extraction_mode']>('auto')
   const [inferFromLinks, setInferFromLinks] = useState(true)
   const [enableExtraction, setEnableExtraction] = useState(true)
@@ -79,14 +79,14 @@ export default function RawDataPage({ projectKey }: RawDataPageProps) {
           text: draft.text.trim(),
           publish_date: draft.publishDate.trim() || undefined,
           state: draft.state.trim() || undefined,
-          doc_type: docType,
+          material_type: materialType,
         },
       ],
       source_name: sourceName.trim() || 'raw_import',
       source_kind: sourceKind.trim() || 'manual',
       infer_from_links: inferFromLinks,
       enable_extraction: enableExtraction,
-      default_doc_type: docType,
+      default_material_type: materialType,
       extraction_mode: extractionMode,
       overwrite_on_uri: overwriteOnUri,
       chunk_size: chunkSize,
@@ -113,8 +113,8 @@ export default function RawDataPage({ projectKey }: RawDataPageProps) {
             <input value={sourceKind} onChange={(e) => setSourceKind(e.target.value)} placeholder="manual" />
           </label>
           <label>
-            <span>default_doc_type</span>
-            <select value={docType} onChange={(e) => setDocType(e.target.value as RawImportPayload['default_doc_type'])}>
+            <span>default_material_type</span>
+            <select value={materialType} onChange={(e) => setMaterialType(e.target.value as RawImportPayload['default_material_type'])}>
               <option value="raw_note">raw_note</option>
               <option value="news">news</option>
               <option value="market_info">market_info</option>

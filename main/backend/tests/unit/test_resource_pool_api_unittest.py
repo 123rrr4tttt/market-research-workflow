@@ -45,17 +45,17 @@ def _build_request() -> Request:
 
 
 class ResourcePoolApiUnitTestCase(unittest.TestCase):
-    def test_material_extraction_alias_uses_material_ids(self) -> None:
+    def test_material_extraction_route_uses_material_ids(self) -> None:
         routes = {route.path: route.endpoint for route in _MODULE.router.routes}
-        legacy_path = next(path for path in routes if path.endswith("/extract/from-documents"))
-        self.assertIs(routes[legacy_path.replace("from-documents", "from-materials")], routes[legacy_path])
-        with patch.object(_MODULE, "extract_from_documents", return_value={"materials_scanned": 1}) as extract:
-            response = _MODULE.extract_from_documents_api(
-                _MODULE.ExtractFromDocumentsPayload(project_key="demo_proj", filters={"material_ids": [42]}),
+        material_path = next(path for path in routes if path.endswith("/extract/from-materials"))
+        self.assertNotIn(material_path.replace("from-materials", "from-documents"), routes)
+        with patch.object(_MODULE, "extract_from_materials", return_value={"materials_scanned": 1}) as extract:
+            response = _MODULE.extract_from_materials_api(
+                _MODULE.ExtractFromMaterialsPayload(project_key="demo_proj", filters={"material_ids": [42]}),
                 _build_request(),
             )
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(extract.call_args.kwargs["document_ids"], [42])
+        self.assertEqual(extract.call_args.kwargs["material_ids"], [42])
 
     def test_discover_search_contract_api_returns_enveloped_payload(self) -> None:
         payload = DiscoverSearchContractPayload(

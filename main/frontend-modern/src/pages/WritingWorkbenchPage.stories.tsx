@@ -13,7 +13,7 @@ function applyWritingMocks(mode: 'ready' | 'empty' | 'selection-loading' | 'sele
         cards: [
           {
             card_id: 'card-1',
-            source_type: 'document',
+            source_type: 'material',
             title: '储能需求跟踪',
             snippet: '储能招标与并网节奏持续抬升。',
             score: 0.91,
@@ -115,7 +115,7 @@ function applyWritingMocks(mode: 'ready' | 'empty' | 'selection-loading' | 'sele
       publisher: '内部索引',
       snippet: '储能招标与并网节奏持续抬升。',
       score: 0.91,
-      source_type: 'document',
+      source_type: 'material',
       quick_actions: ['加入引用'],
     } as never)
     mocked(api.getWritingCardDetail).mockResolvedValue({
@@ -131,7 +131,7 @@ function applyWritingMocks(mode: 'ready' | 'empty' | 'selection-loading' | 'sele
       dedupe_trace: [],
       provenance: { source: 'internal-index' },
       selection_matches: { overlap: 0.72 },
-      source_type: 'document',
+      source_type: 'material',
     } as never)
   } else if (mode === 'selection-loading') {
     mocked(selectionLookupModule.useSelectionLookup).mockReturnValue({

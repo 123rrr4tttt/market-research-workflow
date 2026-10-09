@@ -9,12 +9,12 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from app.models.base import SessionLocal
-from app.services.graph.adapters import normalize_document
+from app.services.graph.adapters import normalize_material
 from app.services.graph.backfill_graph_nodes import run_graph_node_backfill
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Backfill graph_nodes from documents.extracted_data")
+    parser = argparse.ArgumentParser(description="Backfill graph_nodes from materials.extracted_data")
     parser.add_argument("--batch-size", type=int, default=200)
     parser.add_argument("--limit", type=int, default=None)
     parser.add_argument("--resume-token", type=int, default=None)
@@ -24,7 +24,7 @@ def main() -> int:
     with SessionLocal() as session:
         result = run_graph_node_backfill(
             session,
-            normalizer=normalize_document,
+            normalizer=normalize_material,
             batch_size=args.batch_size,
             limit=args.limit,
             resume_token=args.resume_token,

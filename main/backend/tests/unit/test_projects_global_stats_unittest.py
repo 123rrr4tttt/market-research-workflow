@@ -89,7 +89,7 @@ def query_global_canonical_stats():
 def test_no_enabled_projects_returns_three_zero_counts_without_tenant_query() -> None:
     result, connection = _run([], [])
 
-    assert result == {"documents_total": 0, "metrics_total": 0, "prices_total": 0}
+    assert result == {"materials_total": 0, "metrics_total": 0, "prices_total": 0}
     assert len(connection.statements) == 2
     assert "REPEATABLE READ READ ONLY" in connection.statements[0]
     assert "WHERE enabled = true" in connection.statements[1]
@@ -98,8 +98,8 @@ def test_no_enabled_projects_returns_three_zero_counts_without_tenant_query() ->
 
 def test_enabled_projects_aggregate_canonical_counts_across_one_snapshot() -> None:
     count_rows = [
-        {"object_name": "documents", "total": 3},
-        {"object_name": "documents", "total": 4},
+        {"object_name": "materials", "total": 3},
+        {"object_name": "materials", "total": 4},
         {"object_name": "market_metric_points", "total": 5},
         {"object_name": "price_observations", "total": 2},
     ]
@@ -108,7 +108,7 @@ def test_enabled_projects_aggregate_canonical_counts_across_one_snapshot() -> No
         count_rows,
     )
 
-    assert result == {"documents_total": 7, "metrics_total": 5, "prices_total": 2}
+    assert result == {"materials_total": 7, "metrics_total": 5, "prices_total": 2}
     assert connection.opened == 1
     assert "REPEATABLE READ READ ONLY" in connection.statements[0]
     assert "WHERE enabled = true" in connection.statements[1]

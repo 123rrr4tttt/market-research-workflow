@@ -261,7 +261,7 @@ def register_or_update_source_library_scrapy_binding(
                 "settings": _as_dict(settings),
                 "output_ingest": {
                     "enabled": True,
-                    "doc_type": "news",
+                    "material_type": "news",
                     "enable_extraction": False,
                     "wait_timeout_seconds": 120.0,
                     "poll_interval_seconds": 0.5,

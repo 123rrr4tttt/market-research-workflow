@@ -11,19 +11,19 @@ if str(BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(BACKEND_ROOT))
 
 from app.services.document_queries import (  # noqa: E402
-    DOCUMENT_QUERY_CONTRACT_VERSION,
-    build_search_endpoint_document_query_envelope,
-    validate_document_query_result_envelope,
+    MATERIAL_QUERY_CONTRACT_VERSION,
+    build_search_endpoint_material_query_envelope,
+    validate_material_query_result_envelope,
 )
 
 
 API_SEARCH_PATH = REPO_ROOT / "main" / "backend" / "app" / "api" / "search.py"
 REQUIRED_API_MARKERS = (
-    "build_search_endpoint_document_query_envelope",
-    "document_query_contract_version",
-    "document_query_results",
-    "document_query_pagination",
-    "document_query_meta",
+    "build_search_endpoint_material_query_envelope",
+    "material_query_contract_version",
+    "material_query_results",
+    "material_query_pagination",
+    "material_query_meta",
 )
 
 
@@ -33,7 +33,7 @@ def _api_marker_gaps() -> list[str]:
 
 
 def main() -> int:
-    envelope = build_search_endpoint_document_query_envelope(
+    envelope = build_search_endpoint_material_query_envelope(
         query=" robotics   policy ",
         state="CA",
         modality="text",
@@ -44,7 +44,7 @@ def main() -> int:
         results=[
             {
                 "id": "doc-1",
-                "document_id": 1,
+                "material_id": 1,
                 "title": "Robotics policy note",
                 "summary": "Evidence for robotics policy pilots.",
                 "url": "https://example.org/robotics-policy",
@@ -53,7 +53,7 @@ def main() -> int:
             }
         ],
     )
-    validate_document_query_result_envelope(envelope)
+    validate_material_query_result_envelope(envelope)
     data = envelope["data"]
     query = data["query"]
     gaps = _api_marker_gaps()
@@ -67,12 +67,12 @@ def main() -> int:
         "api_marker_gaps": gaps,
     }
     passed = (
-        checks["contract_version"] == DOCUMENT_QUERY_CONTRACT_VERSION
+        checks["contract_version"] == MATERIAL_QUERY_CONTRACT_VERSION
         and checks["consumer"] == "api.search"
         and checks["project_key"] == "demo_proj"
         and checks["state_filter"] == {"field": "state", "op": "eq", "value": "CA"}
         and checks["result_count"] == 1
-        and checks["result_source_type"] == "document"
+        and checks["result_source_type"] == "material"
         and not gaps
     )
     print(json.dumps({"status": "pass" if passed else "fail", "checks": checks}, ensure_ascii=False, indent=2))

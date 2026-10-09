@@ -1,4 +1,4 @@
-"""Extract URLs from documents and persist to resource pool."""
+"""Extract URLs from materials and persist to resource pool."""
 
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 from mrw_functorial_kit.core.provider_port_failures import resource_pool_contract_failures
 
 from ...models.base import SessionLocal
-from ...models.entities import Document, EtlJobRun, ResourcePoolUrl, SharedResourcePoolUrl
+from ...models.entities import Material, EtlJobRun, ResourcePoolUrl, SharedResourcePoolUrl
 from ..projects import bind_project, bind_schema
 from .url_utils import canonicalize_url, domain_from_url, extract_urls_from_json, extract_urls_from_text, normalize_url
 
@@ -23,8 +23,7 @@ ResourceSourceRef = dict[str, object]
 _RESOURCE_EXTRACT_RECORD_WITNESS = "test:test_resource_extract_classifies_malformed_record_fields"
 
 
-class DocumentExtractionResult(TypedDict):
-    documents_scanned: int
+class MaterialExtractionResult(TypedDict):
     materials_scanned: int
     urls_extracted: int
     urls_new: int
@@ -154,17 +153,17 @@ def _set_resource_row_fields(
         setattr(row, "project_key", project_key)
 
 
-def extract_from_documents(
+def extract_from_materials(
     *,
     project_key: str,
     scope: str = "project",
-    doc_type: list[str] | None = None,
+    material_type: list[str] | None = None,
     state: list[str] | None = None,
-    document_ids: list[int] | None = None,
+    material_ids: list[int] | None = None,
     limit: int = 500,
-) -> DocumentExtractionResult:
+) -> MaterialExtractionResult:
     """
-    Extract URLs from Document content/extracted_data/uri and write to resource pool.
+    Extract URLs from Material content/extracted_data/uri and write to resource pool.
     scope: "project" | "shared"
     """
     if scope not in ("project", "shared"):
@@ -172,11 +171,11 @@ def extract_from_documents(
 
     urls_seen: set[str] = set()
     url_refs: list[tuple[str, ResourceSourceRef]] = []  # (url, source_ref)
-    doc_count = 0
+    material_count = 0
 
-    def _collect(doc: Document) -> None:
-        document_id = _record_int(doc, "id")
-        ref: ResourceSourceRef = {"material_id": document_id, "document_id": document_id}
+    def _collect(doc: Material) -> None:
+        material_id = _record_int(doc, "id")
+        ref: ResourceSourceRef = {"material_id": material_id}
         uri = _record_text(doc, "uri")
         if uri:
             norm = normalize_url(uri)
@@ -199,17 +198,17 @@ def extract_from_documents(
 
     with bind_project(project_key):
         with SessionLocal() as session:
-            query = select(Document)
-            if document_ids:
-                query = query.where(Document.id.in_(document_ids))
+            query = select(Material)
+            if material_ids:
+                query = query.where(Material.id.in_(material_ids))
             else:
-                if doc_type:
-                    query = query.where(Document.doc_type.in_(doc_type))
+                if material_type:
+                    query = query.where(Material.material_type.in_(material_type))
                 if state:
-                    query = query.where(Document.state.in_(state))
+                    query = query.where(Material.state.in_(state))
             query = query.limit(limit)
             rows = session.execute(query).scalars().all()
-            doc_count = len(rows)
+            material_count = len(rows)
             for doc in rows:
                 _collect(doc)
 
@@ -225,8 +224,7 @@ def extract_from_documents(
                 session.commit()
 
     return {
-        "documents_scanned": doc_count,
-        "materials_scanned": doc_count,
+        "materials_scanned": material_count,
         "urls_extracted": len(url_refs),
         "urls_new": new,
         "urls_duplicate": dup,

@@ -29,7 +29,7 @@ class PostprocessFrontdoorUnitTestCase(unittest.TestCase):
             "summary": content[:150],
             "content": content,
             "source_base_url": "https://example.com",
-            "doc_type": "url_fetch",
+            "material_type": "url_fetch",
         }
         context = {"http_status": 200, "light_filter": {}}
         cases = (
@@ -40,7 +40,7 @@ class PostprocessFrontdoorUnitTestCase(unittest.TestCase):
         for record_meta, expect_rejection in cases:
             with self.subTest(record_meta=record_meta):
                 candidate = {**base, "extracted_data_base": {"record_meta": record_meta}}
-                result = _evaluate_quality_frontdoor(document_candidate=candidate, terminal_context=context)
+                result = _evaluate_quality_frontdoor(material_candidate=candidate, terminal_context=context)
                 light_filter = result["quality_gates"]["light_filter"]
                 self.assertEqual(light_filter["filter_decision"] == "reject", expect_rejection)
 
@@ -49,7 +49,7 @@ class PostprocessFrontdoorUnitTestCase(unittest.TestCase):
             "content": "%PDF-1.7 invalid bytes",
             "extracted_data_base": {"record_meta": cases[0][0]},
         }
-        result = _evaluate_quality_frontdoor(document_candidate=raw_pdf, terminal_context=context)
+        result = _evaluate_quality_frontdoor(material_candidate=raw_pdf, terminal_context=context)
         self.assertEqual(result["quality_gates"]["light_filter"]["filter_decision"], "reject")
 
     def test_pdf_extraction_preserves_full_parsed_body(self) -> None:
@@ -68,13 +68,13 @@ class PostprocessFrontdoorUnitTestCase(unittest.TestCase):
         self.assertEqual(profile["extractor_name"], "source_library.pdf_text.v1")
 
     def test_frontdoor_quality_gate_reads_runtime_settings(self) -> None:
-        document_candidate = {
+        material_candidate = {
             "uri": "https://example.com/article",
             "title": "Example article",
             "summary": "summary",
             "content": "short content",
             "source_base_url": "example.com",
-            "doc_type": "market",
+            "material_type": "market",
         }
         terminal_context = {
             "capability_profile": {"entry_type": "rss"},
@@ -88,7 +88,7 @@ class PostprocessFrontdoorUnitTestCase(unittest.TestCase):
             patch("app.services.ingest.postprocess_frontdoor.settings.ingest_min_semantic_len", 640),
         ):
             result = _evaluate_quality_frontdoor(
-                document_candidate=document_candidate,
+                material_candidate=material_candidate,
                 terminal_context=terminal_context,
             )
 
@@ -101,13 +101,13 @@ class PostprocessFrontdoorUnitTestCase(unittest.TestCase):
         self.assertEqual(result["quality_gates"]["gate_config"]["strict_gate_source"], "disabled")
 
     def test_frontdoor_quality_gate_strict_mode_forces_request_level_gate(self) -> None:
-        document_candidate = {
+        material_candidate = {
             "uri": "https://example.com/search?q=robotics",
             "title": "Search page",
             "summary": "summary",
             "content": "Robotics market update with enough meaningful context. " * 8,
             "source_base_url": "example.com",
-            "doc_type": "market",
+            "material_type": "market",
         }
         terminal_context = {
             "strict_mode": True,
@@ -120,7 +120,7 @@ class PostprocessFrontdoorUnitTestCase(unittest.TestCase):
 
         with patch("app.services.ingest.postprocess_frontdoor.settings.ingest_enable_strict_gate", False):
             result = _evaluate_quality_frontdoor(
-                document_candidate=document_candidate,
+                material_candidate=material_candidate,
                 terminal_context=terminal_context,
             )
 
@@ -138,13 +138,13 @@ class PostprocessFrontdoorUnitTestCase(unittest.TestCase):
         self.assertEqual(result["quality_gates"]["url_gate"]["reason"], "url_policy_low_value_endpoint")
 
     def test_frontdoor_quality_gate_canary_project_uses_rollout_default(self) -> None:
-        document_candidate = {
+        material_candidate = {
             "uri": "https://example.com/search?q=robotics",
             "title": "Search page",
             "summary": "summary",
             "content": "Robotics market update with enough meaningful context. " * 8,
             "source_base_url": "example.com",
-            "doc_type": "market",
+            "material_type": "market",
         }
         terminal_context = {
             "project_key": "demo_proj",
@@ -163,7 +163,7 @@ class PostprocessFrontdoorUnitTestCase(unittest.TestCase):
             patch("app.services.ingest.guardrail_rollout.settings.ingest_guardrail_canary_projects", "demo_proj"),
         ):
             result = _evaluate_quality_frontdoor(
-                document_candidate=document_candidate,
+                material_candidate=material_candidate,
                 terminal_context=terminal_context,
             )
 
@@ -255,7 +255,7 @@ class PostprocessFrontdoorUnitTestCase(unittest.TestCase):
             project_key=None,
             item={
                 "uri": "https://example.com/discovery",
-                "doc_type": "market",
+                "material_type": "market",
                 "title": "Discovery item",
                 "content": "meaningful discovery content " * 20,
                 "summary": "summary",
@@ -305,8 +305,8 @@ class PostprocessFrontdoorUnitTestCase(unittest.TestCase):
                 "structured_output_mode": "unknown",
             },
         ) as extraction_mock, patch(
-            "app.services.ingest.postprocess_frontdoor.persist_terminal_document",
-            return_value={"doc_id": 62, "inserted": 1, "skipped": 0, "reason": "inserted", "doc_type": "market"},
+            "app.services.ingest.postprocess_frontdoor.persist_terminal_material",
+            return_value={"material_id": 62, "inserted": 1, "skipped": 0, "reason": "inserted", "material_type": "market"},
         ):
             result = run_postprocess_frontdoor(ingress_envelope=ingress, run_writer=True)
 
@@ -327,7 +327,7 @@ class PostprocessFrontdoorUnitTestCase(unittest.TestCase):
             project_key=None,
             item={
                 "uri": "https://example.com/clean",
-                "doc_type": "market",
+                "material_type": "market",
                 "title": "  Discovery item  ",
                 "content": noisy_content,
                 "summary": "Privacy Policy\nMeaningful summary",
@@ -373,8 +373,8 @@ class PostprocessFrontdoorUnitTestCase(unittest.TestCase):
                 "structured_output_mode": "unknown",
             },
         ) as extraction_mock, patch(
-            "app.services.ingest.postprocess_frontdoor.persist_terminal_document",
-            return_value={"doc_id": 63, "inserted": 1, "skipped": 0, "reason": "inserted", "doc_type": "market"},
+            "app.services.ingest.postprocess_frontdoor.persist_terminal_material",
+            return_value={"material_id": 63, "inserted": 1, "skipped": 0, "reason": "inserted", "material_type": "market"},
         ):
             result = run_postprocess_frontdoor(ingress_envelope=ingress, run_writer=True)
 
@@ -394,7 +394,7 @@ class PostprocessFrontdoorUnitTestCase(unittest.TestCase):
             project_key=None,
             item={
                 "uri": "https://www.youtube.com/watch?v=abc123",
-                "doc_type": "market",
+                "material_type": "market",
                 "title": "Video shell",
                 "content": "if(a)return a;c.prototype.toString=function(){return this.g}; Symbol.iterator window.document",
                 "summary": "",
@@ -417,7 +417,7 @@ class PostprocessFrontdoorUnitTestCase(unittest.TestCase):
             "light_filter": {},
         }
 
-        with patch("app.services.ingest.postprocess_frontdoor.persist_terminal_document") as writer_mock, patch(
+        with patch("app.services.ingest.postprocess_frontdoor.persist_terminal_material") as writer_mock, patch(
             "app.services.ingest.postprocess_frontdoor.run_unified_structured_extraction"
         ) as extraction_mock:
             result = run_postprocess_frontdoor(ingress_envelope=ingress, run_writer=True)
@@ -434,7 +434,7 @@ class PostprocessFrontdoorUnitTestCase(unittest.TestCase):
             project_key=None,
             item={
                 "uri": "https://example.com/article-shell",
-                "doc_type": "market",
+                "material_type": "market",
                 "title": "Article shell",
                 "content": "Home News Subscribe Newsletter Suggested for you Join the conversation",
                 "summary": "",
@@ -515,8 +515,8 @@ class PostprocessFrontdoorUnitTestCase(unittest.TestCase):
             return_value={
                 "executed": True,
                 "recovered": True,
-                "document_candidate": {
-                    **collection_payload["document_candidate"],
+                "material_candidate": {
+                    **collection_payload["material_candidate"],
                     "content": (
                         "Published January 2, 2026. "
                         "The company expanded manufacturing capacity and improved retention across enterprise accounts. "
@@ -555,8 +555,8 @@ class PostprocessFrontdoorUnitTestCase(unittest.TestCase):
                 "structured_output_mode": "unknown",
             },
         ) as extraction_mock, patch(
-            "app.services.ingest.postprocess_frontdoor.persist_terminal_document",
-            return_value={"doc_id": 70, "inserted": 1, "skipped": 0, "reason": "inserted", "doc_type": "market"},
+            "app.services.ingest.postprocess_frontdoor.persist_terminal_material",
+            return_value={"material_id": 70, "inserted": 1, "skipped": 0, "reason": "inserted", "material_type": "market"},
         ) as writer_mock:
             result = run_postprocess_frontdoor(ingress_envelope=ingress, run_writer=True)
 
@@ -573,7 +573,7 @@ class PostprocessFrontdoorUnitTestCase(unittest.TestCase):
             item={
                 "uri": "https://example.com/raw",
                 "state": "CA",
-                "doc_type": "raw_note",
+                "material_type": "raw_note",
                 "title": "Imported note",
                 "publish_date": None,
                 "content": "imported content " * 10,
@@ -586,12 +586,12 @@ class PostprocessFrontdoorUnitTestCase(unittest.TestCase):
             },
         )
         collection_payload = ingress["collection_payload"]
-        collection_payload["document_candidate"] = {
+        collection_payload["material_candidate"] = {
             "source_name": "raw_import",
             "source_kind": "manual",
             "source_base_url": None,
             "state": "CA",
-            "doc_type": "raw_note",
+            "material_type": "raw_note",
             "title": "Imported note",
             "publish_date": None,
             "content": "imported content " * 10,
@@ -613,12 +613,12 @@ class PostprocessFrontdoorUnitTestCase(unittest.TestCase):
         }
         collection_payload["extraction_outcome"] = {"status": "ok", "reason": None, "error": None, "domains": {"policy": {"state": "CA"}}}
 
-        with patch("app.services.ingest.postprocess_frontdoor.persist_terminal_document", return_value={"doc_id": 52, "inserted": 1, "skipped": 0, "reason": "inserted", "doc_type": "raw_note"}):
+        with patch("app.services.ingest.postprocess_frontdoor.persist_terminal_material", return_value={"material_id": 52, "inserted": 1, "skipped": 0, "reason": "inserted", "material_type": "raw_note"}):
             result = run_postprocess_frontdoor(ingress_envelope=ingress, run_writer=True)
 
         self.assertEqual(result["data"]["admission"], "accept")
         self.assertEqual(result["data"]["normalized_payload"]["extracted_data"]["platform"], "raw_import")
-        self.assertEqual(result["data"]["writer_result"]["doc_id"], 52)
+        self.assertEqual(result["data"]["writer_result"]["material_id"], 52)
 
     def test_discovery_ingress_can_be_normalized_and_written(self) -> None:
         ingress = build_discovery_ingress_envelope(
@@ -626,7 +626,7 @@ class PostprocessFrontdoorUnitTestCase(unittest.TestCase):
             item={
                 "uri": "https://example.com/discovery",
                 "state": None,
-                "doc_type": "market",
+                "material_type": "market",
                 "title": "Discovery item",
                 "publish_date": None,
                 "content": "discovery content " * 10,
@@ -639,12 +639,12 @@ class PostprocessFrontdoorUnitTestCase(unittest.TestCase):
             },
         )
         collection_payload = ingress["collection_payload"]
-        collection_payload["document_candidate"] = {
+        collection_payload["material_candidate"] = {
             "source_name": "example.com",
             "source_kind": "web",
             "source_base_url": "example.com",
             "state": None,
-            "doc_type": "market",
+            "material_type": "market",
             "title": "Discovery item",
             "publish_date": None,
             "content": "discovery content " * 10,
@@ -666,12 +666,12 @@ class PostprocessFrontdoorUnitTestCase(unittest.TestCase):
         }
         collection_payload["extraction_outcome"] = {"status": "ok", "reason": None, "error": None, "domains": {"market": {"state": "CA"}}}
 
-        with patch("app.services.ingest.postprocess_frontdoor.persist_terminal_document", return_value={"doc_id": 62, "inserted": 1, "skipped": 0, "reason": "inserted", "doc_type": "market"}):
+        with patch("app.services.ingest.postprocess_frontdoor.persist_terminal_material", return_value={"material_id": 62, "inserted": 1, "skipped": 0, "reason": "inserted", "material_type": "market"}):
             result = run_postprocess_frontdoor(ingress_envelope=ingress, run_writer=True)
 
         self.assertEqual(result["data"]["admission"], "accept")
         self.assertEqual(result["data"]["normalized_payload"]["extracted_data"]["platform"], "discovery")
-        self.assertEqual(result["data"]["writer_result"]["doc_id"], 62)
+        self.assertEqual(result["data"]["writer_result"]["material_id"], 62)
 
 
 if __name__ == "__main__":

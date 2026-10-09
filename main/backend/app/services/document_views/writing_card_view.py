@@ -7,10 +7,10 @@ from typing import Annotated
 from ...contracts.schemas.writing import KeywordCardItem
 from ...contracts.materials import normalize_material_source_type
 from ..document_queries import (
-    DocumentQueryJsonObject,
-    DocumentQueryJsonValue,
-    DocumentQueryRow,
-    coerce_document_query_result_row,
+    MaterialQueryJsonObject,
+    MaterialQueryJsonValue,
+    MaterialQueryRow,
+    coerce_material_query_result_row,
 )
 from ..typed_knowledge.contracts import (
     WRITING_KNOWLEDGE_HANDOFF_CONTRACT_VERSION,
@@ -43,7 +43,7 @@ def build_keyword_card(
     published_at: str | None,
     evidence: str | None,
     normalized_query: str,
-    extra: DocumentQueryJsonObject | None = None,
+    extra: MaterialQueryJsonObject | None = None,
 ) -> Annotated[
     KeywordCardItem,
     "kit:non-authoritative derived_as=view "
@@ -72,14 +72,14 @@ def build_keyword_card(
     )
 
 
-def _score_value(value: DocumentQueryJsonValue, *, fallback: float) -> float:
+def _score_value(value: MaterialQueryJsonValue, *, fallback: float) -> float:
     if isinstance(value, (str, int, float, bool)):
         return float(value)
     return fallback
 
 
 def build_keyword_card_from_hybrid_row(
-    row: DocumentQueryRow,
+    row: MaterialQueryRow,
     *,
     normalized_query: str,
 ) -> Annotated[
@@ -88,11 +88,11 @@ def build_keyword_card_from_hybrid_row(
     "fact_source=hybrid_search_row "
     "witness=test:test_w04_authority_metadata",
 ]:
-    title = str(row.get("title") or row.get("document_title") or row.get("id") or "Document").strip()
+    title = str(row.get("title") or row.get("id") or "Material").strip()
     snippet = str(row.get("snippet") or row.get("summary") or row.get("content") or "").strip()
     score = _score_value(row.get("score") or row.get("_score"), fallback=0.6)
     url = str(row.get("url") or row.get("uri") or "").strip() or None
-    publisher = str(row.get("publisher") or row.get("source") or "document").strip() or None
+    publisher = str(row.get("publisher") or row.get("source") or "material").strip() or None
     published_at = str(row.get("published_at") or row.get("publish_date") or "").strip() or None
     return build_keyword_card(
         source_type="material",
@@ -104,13 +104,15 @@ def build_keyword_card_from_hybrid_row(
         published_at=published_at,
         evidence=str(row.get("evidence") or "").strip() or None,
         normalized_query=normalized_query,
-        extra={"backend": row.get("backend"),
-               "material_id": row.get("material_id") or row.get("document_id") or row.get("doc_id") or row.get("id")},
+        extra={
+            "backend": row.get("backend"),
+            "material_id": row.get("material_id") or row.get("id"),
+        },
     )
 
 
 def build_keyword_card_from_source_row(
-    row: DocumentQueryRow,
+    row: MaterialQueryRow,
     *,
     normalized_query: str,
 ) -> Annotated[
@@ -137,7 +139,7 @@ def build_keyword_card_from_source_row(
 
 
 def build_keyword_card_from_material_item(
-    item: DocumentQueryRow,
+    item: MaterialQueryRow,
     *,
     normalized_query: str,
 ) -> Annotated[
@@ -162,10 +164,10 @@ def build_keyword_card_from_material_item(
 
 
 def build_keyword_card_from_graph_node(
-    node: DocumentQueryRow,
+    node: MaterialQueryRow,
     *,
     normalized_query: str,
-    graph_context: DocumentQueryJsonObject,
+    graph_context: MaterialQueryJsonObject,
 ) -> Annotated[
     KeywordCardItem,
     "kit:non-authoritative derived_as=view "
@@ -207,7 +209,7 @@ def build_keyword_card_from_typed_knowledge_handoff(
     "witness=test:test_w04_authority_metadata",
 ]:
     validate_writing_knowledge_handoff(handoff)
-    handoff_payload = coerce_document_query_result_row(serialize_writing_knowledge_handoff(handoff))
+    handoff_payload = coerce_material_query_result_row(serialize_writing_knowledge_handoff(handoff))
     typed_knowledge_uri = f"typed-knowledge://{handoff.knowledge_item_key}"
     return build_keyword_card(
         source_type="resource",

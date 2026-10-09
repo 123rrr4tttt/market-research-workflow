@@ -961,7 +961,7 @@ class WorkflowGraphApiIntegrationTestCase(unittest.TestCase):
                     "title": "Acme Robotics",
                     "summary": "Acme is expanding robotics supply contracts.",
                     "source_uri": "https://example.com/acme-robotics",
-                    "provenance": {"document_id": "doc-acme"},
+                    "provenance": {"material_id": "material-acme"},
                 },
                 {
                     "node_id": "market-robotics",

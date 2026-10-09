@@ -320,8 +320,8 @@ export async function patchSiteEntryLifecycle(payload: ResourcePoolSiteEntryLife
   })
 }
 
-export async function extractResourcePoolFromDocuments(asyncMode = true) {
-  return post<Record<string, unknown>>(endpoints.resourcePool.extractFromDocuments, {
+export async function extractResourcePoolFromMaterials(asyncMode = true) {
+  return post<Record<string, unknown>>(endpoints.resourcePool.extractFromMaterials, {
     scope: 'project',
     filters: { limit: 500 },
     async_mode: asyncMode,

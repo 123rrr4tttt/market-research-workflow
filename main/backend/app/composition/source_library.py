@@ -127,7 +127,7 @@ class ScrapydCrawlerOutputIngestPort:
             wait_timeout_seconds=request.wait_timeout_seconds,
             poll_interval_seconds=request.poll_interval_seconds,
             source_name=request.source_name,
-            doc_type=request.doc_type,
+            material_type=request.material_type,
             enable_extraction=request.enable_extraction,
             max_items=request.max_items,
         )

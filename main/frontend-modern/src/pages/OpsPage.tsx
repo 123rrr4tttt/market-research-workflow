@@ -27,18 +27,18 @@ import type {
   BusinessLineScheduledArtifactLaneSummary,
   BusinessLineScheduledArtifactSummaries,
   BusinessLineScheduledMatrixArtifactSummary,
-  DocumentItem,
+  MaterialItem,
 } from '../lib/types'
 import { buildRuntimeDiagnosticPackage, collectRuntimeMissingDependencies, runtimeHealthTarget } from '../lib/runtimeDiagnostic'
 import {
   cancelAgentSession,
-  bulkUpdateDocumentExtractedData,
-  clearDocumentExtractedData,
+  bulkUpdateMaterialExtractedData,
+  clearMaterialExtractedData,
   cleanupGovernance,
   createAgentSession,
-  getAdminDocument,
-  deleteAdminDocuments,
+  deleteAdminMaterials,
   exportGraph,
+  getAdminMaterial,
   getAdminStats,
   getBusinessLineEvidenceMatrix,
   getBusinessLineScheduledArtifactDrilldown,
@@ -47,11 +47,11 @@ import {
   getHealth,
   getAgentSession,
   getSearchHistory,
-  listAdminDocuments,
+  listAdminMaterials,
   listAgentSessions,
-  reExtractDocuments,
+  reExtractMaterials,
   resolveAgentApproval,
-  topicExtractDocuments,
+  topicExtractMaterials,
 } from '../lib/api'
 
 type OpsPageProps = {
@@ -60,9 +60,9 @@ type OpsPageProps = {
 }
 
 type OpsCardTab = 'business' | 'graph_ext'
-type OpsManagementTab = 'documents' | 'governance' | 'insights' | 'runtime' | 'agentSessions' | 'diagnostics'
+type OpsManagementTab = 'materials' | 'governance' | 'insights' | 'runtime' | 'agentSessions' | 'diagnostics'
 const OPS_MANAGEMENT_TAB_KEYS: Record<OpsManagementTab, MessageKey> = {
-  documents: 'opsPage.tab.documents',
+  materials: 'opsPage.tab.documents',
   governance: 'opsPage.tab.governance',
   insights: 'opsPage.tab.insights',
   runtime: 'opsPage.tab.runtime',
@@ -85,7 +85,7 @@ type OpsActionKey =
   | 'graphExport'
   | 'bulkStructuredWrite'
   | 'clearStructured'
-  | 'deleteDocuments'
+  | 'deleteMaterials'
 
 const OPS_ACTION_NAME_KEYS: Record<OpsActionKey, MessageKey> = {
   cleanup: 'opsPage.actionName.cleanup',
@@ -94,7 +94,7 @@ const OPS_ACTION_NAME_KEYS: Record<OpsActionKey, MessageKey> = {
   graphExport: 'opsPage.actionName.graphExport',
   bulkStructuredWrite: 'opsPage.actionName.bulkStructuredWrite',
   clearStructured: 'opsPage.actionName.clearStructured',
-  deleteDocuments: 'opsPage.actionName.deleteDocuments',
+  deleteMaterials: 'opsPage.actionName.deleteMaterials',
 }
 
 type OpsGraphExtensionLabels = {
@@ -152,33 +152,32 @@ function formatOpsTemplate(template: string, values: Record<string, string | num
 }
 
 function toGraphBusinessNode(
-  doc: DocumentItem | undefined,
-  activeDocId: number | string | null,
+  material: MaterialItem | undefined,
+  activeMaterialId: number | string | null,
   labels: Pick<OpsGraphExtensionLabels, 'documentType'>,
 ): Record<string, unknown> {
-  const extracted = (doc?.extracted_data && typeof doc.extracted_data === 'object' && !Array.isArray(doc.extracted_data))
-    ? doc.extracted_data
+  const extracted = (material?.extracted_data && typeof material.extracted_data === 'object' && !Array.isArray(material.extracted_data))
+    ? material.extracted_data
     : {}
   return {
     ...extracted,
-    id: doc?.id ?? activeDocId ?? '-',
-    type: doc?.doc_type || String((extracted as Record<string, unknown>).type || labels.documentType),
-    title: doc?.title || String((extracted as Record<string, unknown>).title || ''),
+    id: material?.material_id ?? activeMaterialId ?? '-',
+    type: material?.material_type || String((extracted as Record<string, unknown>).type || labels.documentType),
     name: String(
       (extracted as Record<string, unknown>).name
       || (extracted as Record<string, unknown>).canonical_name
       || '',
     ),
-    state: doc?.state || String((extracted as Record<string, unknown>).state || ''),
-    status: doc?.status || String((extracted as Record<string, unknown>).status || ''),
-    publish_date: doc?.publish_date || String((extracted as Record<string, unknown>).publish_date || ''),
+    state: material?.state || String((extracted as Record<string, unknown>).state || ''),
+    status: material?.status || String((extracted as Record<string, unknown>).status || ''),
+    publish_date: material?.publish_date || String((extracted as Record<string, unknown>).publish_date || ''),
     platform: String((extracted as Record<string, unknown>).platform || ''),
     game: String((extracted as Record<string, unknown>).game || ''),
     policy_type: String((extracted as Record<string, unknown>).policy_type || ''),
-    summary: doc?.summary || '',
-    content: doc?.content || '',
+    summary: material?.summary || '',
+    content: material?.content || '',
     extracted_data: extracted,
-    text: doc?.summary || doc?.content || '',
+    text: material?.summary || material?.content || '',
   }
 }
 
@@ -211,11 +210,11 @@ function opsElementColorForLabel(label: string) {
 }
 
 function buildOpsGraphExtension(
-  doc: DocumentItem | undefined,
-  activeDocId: number | string | null,
+  material: MaterialItem | undefined,
+  activeMaterialId: number | string | null,
   labels: OpsGraphExtensionLabels,
 ) {
-  const node = toGraphBusinessNode(doc, activeDocId, labels)
+  const node = toGraphBusinessNode(material, activeMaterialId, labels)
   const elementGroups = new Map<string, string[]>()
   Object.entries(node).forEach(([key, value]) => {
     if (value == null) return
@@ -240,7 +239,7 @@ function buildOpsGraphExtension(
     elementGroups.set(key, [...bucket, text])
   })
 
-  const extracted = normalizeObject(doc?.extracted_data)
+  const extracted = normalizeObject(material?.extracted_data)
   const er = normalizeObject(extracted.entities_relations)
   const entities = Array.isArray(er.entities) ? er.entities : []
   const relations = Array.isArray(er.relations) ? er.relations : []
@@ -687,14 +686,14 @@ function OpsPageView({ projectKey, variant = 'ops' }: OpsPageProps) {
   const [activeAction, setActiveAction] = useState<OpsActionKey | ''>('')
   const [statusText, setStatusText] = useState(() => t('opsPage.status.ready'))
   const [errorText, setErrorText] = useState('')
-  const [docIdsText, setDocIdsText] = useState('')
+  const [materialIdsText, setMaterialIdsText] = useState('')
   const [topicScope, setTopicScope] = useState<'all' | 'company' | 'product' | 'operation'>('all')
-  const [docPage, setDocPage] = useState(1)
-  const [docTypeFilter, setDocTypeFilter] = useState('')
-  const [docStateFilter, setDocStateFilter] = useState('')
-  const [docSearch, setDocSearch] = useState('')
-  const [selectedDocIds, setSelectedDocIds] = useState<number[]>([])
-  const [activeDocCardId, setActiveDocCardId] = useState<number | null>(null)
+  const [materialPage, setMaterialPage] = useState(1)
+  const [materialTypeFilter, setMaterialTypeFilter] = useState('')
+  const [materialStateFilter, setMaterialStateFilter] = useState('')
+  const [materialSearch, setMaterialSearch] = useState('')
+  const [selectedMaterialIds, setSelectedMaterialIds] = useState<number[]>([])
+  const [activeMaterialCardId, setActiveMaterialCardId] = useState<number | null>(null)
   const [opsCardTab, setOpsCardTab] = useState<OpsCardTab>('business')
   const [extractMode, setExtractMode] = useState<'replace' | 'merge'>('merge')
   const [extractJsonText, setExtractJsonText] = useState('{}')
@@ -710,18 +709,18 @@ function OpsPageView({ projectKey, variant = 'ops' }: OpsPageProps) {
   const [scheduledArtifactDrilldownLaneFilter, setScheduledArtifactDrilldownLaneFilter] = useState<ScheduledArtifactDrilldownLaneFilter>('all')
   const [scheduledArtifactDrilldownLaneSort, setScheduledArtifactDrilldownLaneSort] = useState<ScheduledArtifactDrilldownLaneSort>('source_order')
   const [scheduledArtifactDrilldownUiEventLog, setScheduledArtifactDrilldownUiEventLog] = useState<string[]>([])
-  const [requestedTab, setRequestedTab] = useState<OpsManagementTab>(variant === 'backend' ? 'runtime' : 'documents')
-  const [showDocumentTools, setShowDocumentTools] = useState(false)
+  const [requestedTab, setRequestedTab] = useState<OpsManagementTab>(variant === 'backend' ? 'runtime' : 'materials')
+  const [showMaterialTools, setShowMaterialTools] = useState(false)
   const [showTechnicalDiagnostics, setShowTechnicalDiagnostics] = useState(false)
   const managementTabs: OpsManagementTab[] = variant === 'backend'
     ? ['runtime', 'agentSessions', 'diagnostics']
-    : ['documents', 'governance', 'insights']
+    : ['materials', 'governance', 'insights']
   const activeTab = managementTabs.includes(requestedTab) ? requestedTab : managementTabs[0]
   const taskSubmission = useTaskSubmission({
     projectKey,
     invalidateOnSettled: [
       queryKeys.admin.stats(projectKey),
-      queryKeys.admin.documentsBase(projectKey),
+      queryKeys.admin.materialsBase(projectKey),
       queryKeys.admin.searchHistory(projectKey),
       queryKeys.health.all,
     ],
@@ -769,22 +768,22 @@ function OpsPageView({ projectKey, variant = 'ops' }: OpsPageProps) {
     [agentSessionsQuery.data],
   )
   const selectedSessionId = explicitSelectedSessionId ?? normalizedSessions[0]?.session_id ?? null
-  const adminDocuments = useQuery({
-    queryKey: queryKeys.admin.documents(projectKey, docPage, docTypeFilter, docStateFilter, docSearch),
+  const adminMaterials = useQuery({
+    queryKey: queryKeys.admin.materials(projectKey, materialPage, materialTypeFilter, materialStateFilter, materialSearch),
     queryFn: () =>
-      listAdminDocuments({
-        page: docPage,
+      listAdminMaterials({
+        page: materialPage,
         page_size: 20,
-        doc_type: docTypeFilter.trim() || null,
-        state: docStateFilter.trim() || null,
-        search: docSearch.trim() || null,
+        material_type: materialTypeFilter.trim() || null,
+        state: materialStateFilter.trim() || null,
+        search: materialSearch.trim() || null,
       }),
     enabled: Boolean(projectKey) && variant === 'ops',
   })
-  const activeDocDetail = useQuery({
-    queryKey: queryKeys.admin.documentDetail(projectKey, activeDocCardId),
-    queryFn: () => getAdminDocument(Number(activeDocCardId)),
-    enabled: Boolean(projectKey && typeof activeDocCardId === 'number') && variant === 'ops',
+  const activeMaterialDetail = useQuery({
+    queryKey: queryKeys.admin.materialDetail(projectKey, activeMaterialCardId),
+    queryFn: () => getAdminMaterial(Number(activeMaterialCardId)),
+    enabled: Boolean(projectKey && typeof activeMaterialCardId === 'number') && variant === 'ops',
   })
   const selectedSessionQuery = useQuery({
     queryKey: queryKeys.agentSessions.detail(selectedSessionId || 'none'),
@@ -890,19 +889,19 @@ function OpsPageView({ projectKey, variant = 'ops' }: OpsPageProps) {
     }
   }, [queryClient, selectedSessionId, variant, activeTab])
 
-  const selectedCount = selectedDocIds.length
-  const selectedCsv = useMemo(() => selectedDocIds.join(','), [selectedDocIds])
-  const parsedDocIds = useMemo(() => {
-    const tokens = docIdsText
+  const selectedCount = selectedMaterialIds.length
+  const selectedCsv = useMemo(() => selectedMaterialIds.join(','), [selectedMaterialIds])
+  const parsedMaterialIds = useMemo(() => {
+    const tokens = materialIdsText
       .split(/[,\s]+/)
       .map((item) => Number.parseInt(item.trim(), 10))
       .filter((item) => Number.isFinite(item) && item > 0)
     return Array.from(new Set(tokens))
-  }, [docIdsText])
-  const docTotalPages = Math.max(1, Math.ceil((adminDocuments.data?.total || 0) / Math.max(1, adminDocuments.data?.page_size || 20)))
+  }, [materialIdsText])
+  const materialTotalPages = Math.max(1, Math.ceil((adminMaterials.data?.total || 0) / Math.max(1, adminMaterials.data?.page_size || 20)))
   const graphExtension = useMemo(
-    () => buildOpsGraphExtension(activeDocDetail.data, activeDocCardId, opsGraphExtensionLabels),
-    [activeDocDetail.data, activeDocCardId, opsGraphExtensionLabels],
+    () => buildOpsGraphExtension(activeMaterialDetail.data, activeMaterialCardId, opsGraphExtensionLabels),
+    [activeMaterialDetail.data, activeMaterialCardId, opsGraphExtensionLabels],
   )
   const runtimeServiceEntries = Object.entries(runtimeStatus.data?.services || {})
   const runtimeMissingDependencies = collectRuntimeMissingDependencies(runtimeStatus.data)
@@ -1011,15 +1010,15 @@ function OpsPageView({ projectKey, variant = 'ops' }: OpsPageProps) {
     }
   }
 
-  const toggleDocSelection = (docId: number) => {
-    setSelectedDocIds((prev) => (prev.includes(docId) ? prev.filter((id) => id !== docId) : [...prev, docId]))
+  const toggleMaterialSelection = (materialId: number) => {
+    setSelectedMaterialIds((prev) => (prev.includes(materialId) ? prev.filter((id) => id !== materialId) : [...prev, materialId]))
   }
 
   const selectCurrentPage = () => {
-    const pageIds = (adminDocuments.data?.items || []).flatMap((item) => (
-      !item.readonly && typeof item.id === 'number' ? [item.id] : []
+    const pageIds = (adminMaterials.data?.items || []).flatMap((item) => (
+      !item.readonly ? [item.material_id] : []
     ))
-    setSelectedDocIds(pageIds)
+    setSelectedMaterialIds(pageIds)
   }
 
   const runAction = async (
@@ -1058,7 +1057,7 @@ function OpsPageView({ projectKey, variant = 'ops' }: OpsPageProps) {
         await queryClient.invalidateQueries({ queryKey: queryKeys.admin.searchHistory(projectKey) })
       }
       if (options?.refreshDocuments !== false) {
-        await queryClient.invalidateQueries({ queryKey: queryKeys.admin.documentsBase(projectKey) })
+        await queryClient.invalidateQueries({ queryKey: queryKeys.admin.materialsBase(projectKey) })
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : t('opsPage.error.unknown')
@@ -1141,7 +1140,7 @@ function OpsPageView({ projectKey, variant = 'ops' }: OpsPageProps) {
       {statusText !== t('opsPage.status.ready') && <p className="status-line ops-action-status" role="status">{statusText}</p>}
       {!!errorText && <p className="status-line ops-action-status" role="alert">{errorText}</p>}
       {variant === 'ops' && <section className="kpi-grid ops-management-metrics">
-        <article className="kpi-card"><span>{t('opsPage.kpi.documents')}</span><strong>{adminStats.data?.documents?.total ?? '-'}</strong><small>{formatOpsTemplate(t('opsPage.kpi.todayCount'), { count: adminStats.data?.documents?.recent_today ?? '-' })}</small></article>
+        <article className="kpi-card"><span>{t('opsPage.kpi.documents')}</span><strong>{adminStats.data?.materials?.total ?? '-'}</strong><small>{formatOpsTemplate(t('opsPage.kpi.todayCount'), { count: adminStats.data?.materials?.recent_today ?? '-' })}</small></article>
         <article className="kpi-card"><span>{t('opsPage.kpi.socialDocuments')}</span><strong>{adminStats.data?.social_data?.total ?? '-'}</strong><small>{formatOpsTemplate(t('opsPage.kpi.todayCount'), { count: adminStats.data?.social_data?.recent_today ?? '-' })}</small></article>
         <article className="kpi-card"><span>{t('opsPage.kpi.sources')}</span><strong>{adminStats.data?.sources?.total ?? '-'}</strong><small>{t('opsPage.kpi.resourcePool')}</small></article>
         <article className="kpi-card"><span>{t('opsPage.kpi.searchHistory')}</span><strong>{adminStats.data?.search_history?.total ?? '-'}</strong><small>{t('opsPage.kpi.history')}</small></article>
@@ -2297,12 +2296,12 @@ function OpsPageView({ projectKey, variant = 'ops' }: OpsPageProps) {
         <div className="inline-actions">
           <label><span>retention_days</span><input type="number" min={1} max={3650} value={retentionDays} onChange={(e) => setRetentionDays(Number.parseInt(e.target.value || '90', 10) || 90)} /></label>
           <label>
-            <span>doc_ids</span>
-            <input type="text" value={docIdsText} onChange={(e) => setDocIdsText(e.target.value)} placeholder="101,102,103" />
+            <span>material_ids</span>
+            <input type="text" value={materialIdsText} onChange={(e) => setMaterialIdsText(e.target.value)} placeholder="101,102,103" />
           </label>
           <button
             disabled={!selectedCount}
-            onClick={() => setDocIdsText(selectedCsv)}
+            onClick={() => setMaterialIdsText(selectedCsv)}
           >
             {formatOpsTemplate(t('opsPage.action.useSelected'), { count: selectedCount })}
           </button>
@@ -2319,8 +2318,8 @@ function OpsPageView({ projectKey, variant = 'ops' }: OpsPageProps) {
           <button
             disabled={pending}
             onClick={() => {
-              const docIds = parsedDocIds
-              runAction('reExtract', () => reExtractDocuments(docIds.length ? { doc_ids: docIds } : {}))
+              const materialIds = parsedMaterialIds
+              runAction('reExtract', () => reExtractMaterials(materialIds.length ? { material_ids: materialIds } : {}))
             }}
           >
             <RefreshCw size={14} />{activeAction === 'reExtract' ? t('opsPage.action.running') : t('opsPage.action.reExtract')}
@@ -2328,13 +2327,13 @@ function OpsPageView({ projectKey, variant = 'ops' }: OpsPageProps) {
           <button
             disabled={pending}
             onClick={() => {
-              const docIds = parsedDocIds
+              const materialIds = parsedMaterialIds
               const topics: Array<'company' | 'product' | 'operation'> = topicScope === 'all' ? ['company', 'product', 'operation'] : [topicScope]
               const payload = {
                 topics,
-                ...(docIds.length ? { doc_ids: docIds } : {}),
+                ...(materialIds.length ? { material_ids: materialIds } : {}),
               }
-              runAction('topicExtract', () => topicExtractDocuments(payload))
+              runAction('topicExtract', () => topicExtractMaterials(payload))
             }}
           >
             <RefreshCw size={14} />{activeAction === 'topicExtract' ? t('opsPage.action.running') : t('opsPage.action.topicExtract')}
@@ -2342,16 +2341,16 @@ function OpsPageView({ projectKey, variant = 'ops' }: OpsPageProps) {
           <button
             disabled={pending}
             onClick={() => {
-              const docIds = parsedDocIds
-              if (!docIds.length) {
+              const materialIds = parsedMaterialIds
+              if (!materialIds.length) {
                 setStatusText(formatOpsTemplate(t('opsPage.status.failed'), { action: actionName('graphExport') }))
-                setErrorText(t('opsPage.error.missingDocIds'))
+                setErrorText(t('opsPage.error.missingMaterialIds'))
                 return
               }
               runAction(
                 'graphExport',
                 async () => {
-                  const result = await exportGraph(docIds)
+                  const result = await exportGraph(materialIds)
                   const nodes = Array.isArray(result?.nodes) ? result.nodes.length : 0
                   const edges = Array.isArray(result?.edges) ? result.edges.length : 0
                   setStatusText(formatOpsTemplate(t('opsPage.status.graphExportCompleted'), { nodes, edges }))
@@ -2367,36 +2366,36 @@ function OpsPageView({ projectKey, variant = 'ops' }: OpsPageProps) {
         </div>
       </section>}
 
-      {variant === 'ops' && activeTab === 'documents' && <section id="ops-view-documents" role="tabpanel" aria-labelledby="ops-tab-documents" className="panel ops-documents-panel">
+      {variant === 'ops' && activeTab === 'materials' && <section id="ops-view-materials" role="tabpanel" aria-labelledby="ops-tab-materials" className="panel ops-materials-panel">
         <div className="panel-header">
           <h2>{t('opsPage.section.documentGovernance')}</h2>
           <div className="inline-actions">
-            <button onClick={() => queryClient.invalidateQueries({ queryKey: queryKeys.admin.documentsBase(projectKey) })} disabled={adminDocuments.isFetching}>
+            <button onClick={() => queryClient.invalidateQueries({ queryKey: queryKeys.admin.materialsBase(projectKey) })} disabled={adminMaterials.isFetching}>
               <RefreshCw size={14} />
-              {adminDocuments.isFetching ? t('opsPage.action.refreshing') : t('opsPage.action.refreshDocuments')}
+              {adminMaterials.isFetching ? t('opsPage.action.refreshing') : t('opsPage.action.refreshMaterials')}
             </button>
-            <button onClick={selectCurrentPage} disabled={!(adminDocuments.data?.items || []).length}>{t('opsPage.action.selectCurrentPage')}</button>
-            <button onClick={() => setSelectedDocIds([])} disabled={!selectedCount}>{t('opsPage.action.clearSelection')}</button>
-            <button type="button" aria-expanded={showDocumentTools} aria-controls="ops-document-tools" onClick={() => setShowDocumentTools((visible) => !visible)}>
-              {showDocumentTools ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
-              {t(showDocumentTools ? 'opsPage.action.hideAdvancedDetails' : 'opsPage.action.showAdvancedDetails')}
+            <button onClick={selectCurrentPage} disabled={!(adminMaterials.data?.items || []).length}>{t('opsPage.action.selectCurrentPage')}</button>
+            <button onClick={() => setSelectedMaterialIds([])} disabled={!selectedCount}>{t('opsPage.action.clearSelection')}</button>
+            <button type="button" aria-expanded={showMaterialTools} aria-controls="ops-material-tools" onClick={() => setShowMaterialTools((visible) => !visible)}>
+              {showMaterialTools ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+              {t(showMaterialTools ? 'opsPage.action.hideAdvancedDetails' : 'opsPage.action.showAdvancedDetails')}
             </button>
           </div>
         </div>
         <div className="form-grid cols-4">
           <label>
-            <span>doc_type</span>
-            <input value={docTypeFilter} onChange={(e) => { setDocTypeFilter(e.target.value); setDocPage(1) }} placeholder={t('opsPage.placeholder.docType')} />
+            <span>material_type</span>
+            <input value={materialTypeFilter} onChange={(e) => { setMaterialTypeFilter(e.target.value); setMaterialPage(1) }} placeholder={t('opsPage.placeholder.materialType')} />
           </label>
           <label>
             <span>state</span>
-            <input value={docStateFilter} onChange={(e) => { setDocStateFilter(e.target.value); setDocPage(1) }} placeholder="state" />
+            <input value={materialStateFilter} onChange={(e) => { setMaterialStateFilter(e.target.value); setMaterialPage(1) }} placeholder="state" />
           </label>
           <label>
             <span>search</span>
-            <input value={docSearch} onChange={(e) => { setDocSearch(e.target.value); setDocPage(1) }} placeholder={t('opsPage.placeholder.titleKeyword')} />
+            <input value={materialSearch} onChange={(e) => { setMaterialSearch(e.target.value); setMaterialPage(1) }} placeholder={t('opsPage.placeholder.titleKeyword')} />
           </label>
-          {showDocumentTools && <label>
+          {showMaterialTools && <label>
             <span>extract_mode</span>
             <select value={extractMode} onChange={(e) => setExtractMode(e.target.value as 'replace' | 'merge')}>
               <option value="merge">merge</option>
@@ -2404,7 +2403,7 @@ function OpsPageView({ projectKey, variant = 'ops' }: OpsPageProps) {
             </select>
           </label>}
         </div>
-        {showDocumentTools && <div id="ops-document-tools" className="form-grid cols-2 ops-document-tools">
+        {showMaterialTools && <div id="ops-material-tools" className="form-grid cols-2 ops-material-tools">
           <label>
             <span>extracted_data(JSON)</span>
             <textarea rows={6} value={extractJsonText} onChange={(e) => setExtractJsonText(e.target.value)} />
@@ -2414,8 +2413,8 @@ function OpsPageView({ projectKey, variant = 'ops' }: OpsPageProps) {
               disabled={pending || !selectedCount}
               onClick={() => {
                 void runAdminPreview('bulkStructuredWrite', () =>
-                  bulkUpdateDocumentExtractedData({
-                    doc_ids: selectedDocIds,
+                  bulkUpdateMaterialExtractedData({
+                    material_ids: selectedMaterialIds,
                     mode: extractMode,
                     extracted_data: parseExtractedJson(),
                     preview: true,
@@ -2429,8 +2428,8 @@ function OpsPageView({ projectKey, variant = 'ops' }: OpsPageProps) {
               disabled={pending || !selectedCount}
               onClick={() => {
                 void runAction('bulkStructuredWrite', async () =>
-                  bulkUpdateDocumentExtractedData({
-                    doc_ids: selectedDocIds,
+                  bulkUpdateMaterialExtractedData({
+                    material_ids: selectedMaterialIds,
                     mode: extractMode,
                     extracted_data: parseExtractedJson(),
                   }),
@@ -2442,8 +2441,8 @@ function OpsPageView({ projectKey, variant = 'ops' }: OpsPageProps) {
             <button
               disabled={pending || !selectedCount}
               onClick={() =>
-                void runAdminPreview('deleteDocuments', () =>
-                  deleteAdminDocuments({ ids: selectedDocIds, preview: true }),
+                void runAdminPreview('deleteMaterials', () =>
+                  deleteAdminMaterials({ material_ids: selectedMaterialIds, preview: true }),
                 )
               }
             >
@@ -2451,24 +2450,24 @@ function OpsPageView({ projectKey, variant = 'ops' }: OpsPageProps) {
             </button>
             <button
               disabled={pending || !selectedCount}
-              onClick={() => runAction('clearStructured', () => clearDocumentExtractedData(selectedDocIds))}
+              onClick={() => runAction('clearStructured', () => clearMaterialExtractedData(selectedMaterialIds))}
             >
               {t('opsPage.action.clearStructured')}
             </button>
             <button
               disabled={pending || !selectedCount}
-              onClick={() => runAction('deleteDocuments', () => deleteAdminDocuments({ ids: selectedDocIds }))}
+              onClick={() => runAction('deleteMaterials', () => deleteAdminMaterials({ material_ids: selectedMaterialIds }))}
             >
               {t('opsPage.action.deleteDocuments')}
             </button>
           </div>
         </div>}
         {adminPreview ? (
-          <section className="ops-governance-evidence" data-testid="ops-document-governance-preview" style={{ marginTop: 16 }}>
+          <section className="ops-governance-evidence" data-testid="ops-material-governance-preview" style={{ marginTop: 16 }}>
             <div className="panel-header">
               <h3>{t('opsPage.section.adminGovernanceEvidence')}</h3>
               <div className="inline-actions">
-                <span className="chip">{actionName(adminPreviewAction || 'deleteDocuments')}</span>
+                <span className="chip">{actionName(adminPreviewAction || 'deleteMaterials')}</span>
                 <span className="chip">
                   {adminPreview.preview ? t('opsPage.status.previewEvidence') : t('opsPage.status.executionEvidence')}
                 </span>
@@ -2549,8 +2548,8 @@ function OpsPageView({ projectKey, variant = 'ops' }: OpsPageProps) {
             </div>
           </section>
         ) : null}
-        <p className="status-line">{formatOpsTemplate(t('opsPage.metric.selectedDocuments'), { count: selectedCount })}</p>
-        {adminDocuments.isError && <p className="status-line" role="alert">{adminDocuments.error.message}</p>}
+        <p className="status-line">{formatOpsTemplate(t('opsPage.metric.selectedMaterials'), { count: selectedCount })}</p>
+        {adminMaterials.isError && <p className="status-line" role="alert">{adminMaterials.error.message}</p>}
         <div className="table-wrap">
           <table>
             <thead>
@@ -2566,14 +2565,14 @@ function OpsPageView({ projectKey, variant = 'ops' }: OpsPageProps) {
               </tr>
             </thead>
             <tbody>
-              {(adminDocuments.data?.items || []).map((row) => (
+              {(adminMaterials.data?.items || []).map((row) => (
                 <tr
-                  key={row.id}
+                  key={row.material_id}
                   onClick={() => {
                     if (row.readonly) return
-                    const candidateId: number | null = typeof row.id === 'number' ? row.id : null
-                    const nextId: number | null = activeDocCardId === candidateId ? null : candidateId
-                    setActiveDocCardId((prev) => {
+                    const candidateId = row.material_id
+                    const nextId: number | null = activeMaterialCardId === candidateId ? null : candidateId
+                    setActiveMaterialCardId((prev) => {
                       return prev === candidateId ? null : candidateId
                     })
                     if (nextId === null) {
@@ -2586,14 +2585,14 @@ function OpsPageView({ projectKey, variant = 'ops' }: OpsPageProps) {
                   <td>
                     <input
                       type="checkbox"
-                      aria-label={`${t('opsPage.field.selected')} ${row.id}`}
-                      checked={typeof row.id === 'number' && selectedDocIds.includes(row.id)}
-                      onChange={() => { if (typeof row.id === 'number') toggleDocSelection(row.id) }}
-                      disabled={row.readonly || typeof row.id !== 'number'}
+                      aria-label={`${t('opsPage.field.selected')} ${row.material_id}`}
+                      checked={selectedMaterialIds.includes(row.material_id)}
+                      onChange={() => toggleMaterialSelection(row.material_id)}
+                      disabled={row.readonly}
                       onClick={(e) => e.stopPropagation()}
                     />
                   </td>
-                  <td>{row.id}</td>
+                  <td>{row.material_id}</td>
                   <td>{row.title || '-'}</td>
                   <td>
                     {row.uri ? (
@@ -2604,24 +2603,24 @@ function OpsPageView({ projectKey, variant = 'ops' }: OpsPageProps) {
                       '-'
                     )}
                   </td>
-                  <td>{row.doc_type || '-'}</td>
+                  <td>{row.material_type || '-'}</td>
                   <td>{row.state || '-'}</td>
                   <td>{String(row.has_extracted_data ?? false)}</td>
                   <td>{formatDate(row.updated_at, locale)}</td>
                 </tr>
               ))}
-              {!adminDocuments.data?.items?.length ? (
+              {!adminMaterials.data?.items?.length ? (
                 <tr>
-                  <td colSpan={8} className="empty-cell">{adminDocuments.isLoading ? t('opsPage.status.loading') : adminDocuments.isError ? t('opsPage.error.unknown') : t('opsPage.empty.documents')}</td>
+                  <td colSpan={8} className="empty-cell">{adminMaterials.isLoading ? t('opsPage.status.loading') : adminMaterials.isError ? t('opsPage.error.unknown') : t('opsPage.empty.materials')}</td>
                 </tr>
               ) : null}
             </tbody>
           </table>
         </div>
         <div className="inline-actions">
-          <button disabled={docPage <= 1} onClick={() => setDocPage((p) => Math.max(1, p - 1))}>{t('opsPage.action.previousPage')}</button>
-          <span className="chip">{formatOpsTemplate(t('opsPage.metric.pageOf'), { page: docPage, total: docTotalPages })}</span>
-          <button disabled={docPage >= docTotalPages} onClick={() => setDocPage((p) => Math.min(docTotalPages, p + 1))}>{t('opsPage.action.nextPage')}</button>
+          <button disabled={materialPage <= 1} onClick={() => setMaterialPage((p) => Math.max(1, p - 1))}>{t('opsPage.action.previousPage')}</button>
+          <span className="chip">{formatOpsTemplate(t('opsPage.metric.pageOf'), { page: materialPage, total: materialTotalPages })}</span>
+          <button disabled={materialPage >= materialTotalPages} onClick={() => setMaterialPage((p) => Math.min(materialTotalPages, p + 1))}>{t('opsPage.action.nextPage')}</button>
         </div>
       </section>}
 
@@ -2641,10 +2640,10 @@ function OpsPageView({ projectKey, variant = 'ops' }: OpsPageProps) {
         {searchHistory.isError && <p className="status-line" role="alert">{searchHistory.error.message}</p>}
       </section>}
 
-      {variant === 'ops' && activeTab === 'documents' && activeDocCardId ? (
+      {variant === 'ops' && activeTab === 'materials' && activeMaterialCardId ? (
         <GraphNodeCard
-          title={activeDocDetail.data?.title || formatOpsTemplate(t('opsPage.fallback.documentTitle'), { docId: activeDocCardId })}
-          subtitle={activeDocDetail.data?.doc_type || '-'}
+          title={activeMaterialDetail.data?.title || formatOpsTemplate(t('opsPage.fallback.materialTitle'), { materialId: activeMaterialCardId })}
+          subtitle={activeMaterialDetail.data?.material_type || '-'}
           style={{
             position: 'fixed',
             left: '50%',
@@ -2684,7 +2683,7 @@ function OpsPageView({ projectKey, variant = 'ops' }: OpsPageProps) {
               <button
                 type="button"
                 onClick={() => {
-                  void queryClient.invalidateQueries({ queryKey: queryKeys.admin.documentDetail(projectKey, activeDocCardId) })
+                  void queryClient.invalidateQueries({ queryKey: queryKeys.admin.materialDetail(projectKey, activeMaterialCardId) })
                 }}
                 title={t('opsPage.action.refresh')}
               >
@@ -2693,11 +2692,11 @@ function OpsPageView({ projectKey, variant = 'ops' }: OpsPageProps) {
             </div>
           }
           onClose={() => {
-            setActiveDocCardId(null)
+            setActiveMaterialCardId(null)
             setOpsCardTab('business')
           }}
         >
-          {activeDocDetail.isFetching ? (
+          {activeMaterialDetail.isFetching ? (
             <div className="gv2-node-grid">
               <div className="gv2-node-grid-item">
                 <label>{t('opsPage.field.status')}</label>
@@ -2706,10 +2705,10 @@ function OpsPageView({ projectKey, variant = 'ops' }: OpsPageProps) {
             </div>
           ) : (
             <>
-              {opsCardTab === 'business' ? <GraphBusinessCardSections node={toGraphBusinessNode(activeDocDetail.data, activeDocCardId, opsGraphExtensionLabels)} /> : null}
+              {opsCardTab === 'business' ? <GraphBusinessCardSections node={toGraphBusinessNode(activeMaterialDetail.data, activeMaterialCardId, opsGraphExtensionLabels)} /> : null}
               {opsCardTab === 'graph_ext' ? (
                 <GraphExtensionsSections
-                  key={`ops-graph-ext-${activeDocCardId || 'none'}`}
+                  key={`ops-graph-ext-${activeMaterialCardId || 'none'}`}
                   graphInfo={{
                     degree: graphExtension.relationExamples.length,
                     neighborTypeCount: graphExtension.entityTypeItems.length,

@@ -13,13 +13,13 @@ from ..collect_runtime.display_meta import build_display_meta
 from ..collect_runtime.contracts import CollectRequest, CollectResult
 from ..search.candidate_contracts import Candidate
 from ...models.base import SessionLocal
-from ...models.entities import Document, Source
+from ...models.entities import Material, Source
 from .provider_ports import get_reddit_adapter
 from ..resource_pool.http_port import fetch_html, make_html_parser
 from ..keyword_generation import generate_social_keywords
 from .content_cleaner import normalize_content_for_ingest
 from .frontdoor_ingress import build_frontdoor_ingress_envelope
-from .doc_type_mapper import normalize_doc_type
+from .material_type_mapper import normalize_material_type
 from .postprocess_frontdoor import run_postprocess_frontdoor
 from .keyword_library import (
     store_keywords as store_social_keywords,
@@ -177,7 +177,7 @@ def collect_user_social_sentiment(
     )
     
     try:
-        normalized_doc_type = normalize_doc_type("social_sentiment")
+        normalized_material_type = normalize_material_type("social_sentiment")
         inserted = 0
         skipped = 0
         links: List[str] = []
@@ -288,7 +288,7 @@ def collect_user_social_sentiment(
                     logger.debug(f"Added link to list: {link}")
                     
                     # 检查是否已存在（使用first()避免重复记录错误）
-                    existed = session.query(Document).filter(Document.uri == link).first()
+                    existed = session.query(Material).filter(Material.uri == link).first()
                     if existed:
                         skipped += 1
                         continue
@@ -317,12 +317,12 @@ def collect_user_social_sentiment(
                         project_key=None,
                         source_ref={"url": link, "locator": link},
                         collection_payload={
-                            "document_candidate": {
+                            "material_candidate": {
                                 "source_name": "Reddit Social Sentiment",
                                 "source_kind": "social",
                                 "source_base_url": "reddit.com",
                                 "state": None,
-                                "doc_type": normalized_doc_type,
+                                "material_type": normalized_material_type,
                                 "title": post.title,
                                 "summary": post.summary,
                                 "publish_date": post.timestamp.date() if post.timestamp else None,
@@ -393,7 +393,7 @@ def collect_user_social_sentiment(
             "inserted": inserted,
             "skipped": skipped,
             "links": links,
-            "doc_type": normalized_doc_type,
+            "material_type": normalized_material_type,
             "extraction_stats": {
                 "enabled": bool(enable_extraction),
                 "ok": extraction_ok,
@@ -450,7 +450,7 @@ def collect_policy_and_regulation(
     )
 
     try:
-        normalized_doc_type = normalize_doc_type("policy_regulation")
+        normalized_material_type = normalize_material_type("policy_regulation")
         effective_project = (project_key or current_project_key() or "").strip() or None
         request = CandidateSearchRequest(
             topic=" ".join(keywords),
@@ -469,7 +469,7 @@ def collect_policy_and_regulation(
             request=request,
             project_key=effective_project,
             target=SearchIngestTarget(
-                doc_type=normalized_doc_type,
+                material_type=normalized_material_type,
                 extraction_enabled=bool(enable_extraction),
                 extraction_flags={
                     "include_market": False,
@@ -556,7 +556,7 @@ def collect_policy_and_regulation(
             collection = run_search_and_ingest(
                 spec,
                 SearchIngestPorts(
-                    exists=lambda link: session.query(Document).filter(Document.uri == link).first() is not None,
+                    exists=lambda link: session.query(Material).filter(Material.uri == link).first() is not None,
                     fetch_text=fetch_body,
                     write=write_frontdoor,
                     route_missing=route_missing,
@@ -579,7 +579,7 @@ def collect_policy_and_regulation(
             "inserted": inserted,
             "skipped": skipped,
             "links": links,
-            "doc_type": normalized_doc_type,
+            "material_type": normalized_material_type,
         }
         result["display_meta"] = build_display_meta(
             CollectRequest(

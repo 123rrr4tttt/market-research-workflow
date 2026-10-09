@@ -10,7 +10,7 @@ from .policy import index_policy_documents
 class IndexingApplicationService:
     def index_policy(
         self,
-        document_ids: Sequence[int] | None = None,
+        material_ids: Sequence[int] | None = None,
         state: str | None = None,
     ) -> dict[str, int]:
-        return index_policy_documents(document_ids=document_ids, state=state)
+        return index_policy_documents(material_ids=material_ids, state=state)

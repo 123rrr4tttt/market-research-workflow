@@ -185,7 +185,7 @@ def test_process_runtime_readback_filters_unknown_and_other_project_tasks(
     core_business_client,
     contract_headers: dict[str, str],
 ) -> None:
-    resource_task_name = "app.services.tasks.task_extract_resource_pool_from_documents"
+    resource_task_name = "app.services.tasks.task_extract_resource_pool_from_materials"
     inspect = SimpleNamespace(
         active=lambda: {
             "worker-resource": [

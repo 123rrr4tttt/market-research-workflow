@@ -2,15 +2,15 @@ import { expect, test } from '@playwright/test'
 import type { CurrentTopologyItem, BoundRef } from '../../src/features/information-topology/types'
 import { projectInformationTopologies } from '../../src/pages/graph/realizer/topologyProjection'
 
-test('legacy material placements share the canonical material node and preserve incidence', () => {
+test('current material placements share the canonical material node and preserve incidence', () => {
   const ref = (id: string, type = 'material'): BoundRef => ({
     ref: { project_key: 'p', module_id: 'retrieval', namespace: 'n', type_id: type, local_id: id },
     observed_revision: 'source-r1',
   })
-  const document = { project_key: 'p', module_id: 'documents', namespace: 'documents', type_id: 'document', local_id: '12' }
+  const canonicalMaterial = { project_key: 'p', module_id: 'materials', namespace: 'materials', type_id: 'material', local_id: '12' }
   const material = (id: string) => ({
     ref: ref(id), endpoints: [],
-    attributes: { document_ref: document, document_id: 12, document_revision: 'doc-r2', title: 'Owner title' },
+    attributes: { material_ref: canonicalMaterial, material_id: 12, material_revision: 'material-r2', title: 'Owner title' },
   })
   const topology = {
     topology_ref: { module_id: 'retrieval', namespace: 'n', state_id: 's' },
@@ -24,15 +24,15 @@ test('legacy material placements share the canonical material node and preserve 
     ] },
   } satisfies CurrentTopologyItem
   const graph = projectInformationTopologies([topology])
-  const documents = graph.nodes.filter(node => node.type === 'material')
-  expect(documents).toHaveLength(1)
-  expect(documents[0].entry_id).toBe('12')
-  expect(documents[0].title).toBe('Owner title')
-  expect(documents[0].material_id).toBe(12)
-  expect(documents[0].material_ref).toMatchObject({ module_id: 'materials', namespace: 'materials', type_id: 'material' })
-  expect(documents[0].placement_ref).toMatchObject({ module_id: 'retrieval', local_id: 'source-a' })
+  const materials = graph.nodes.filter(node => node.type === 'material' && node.material_ref)
+  expect(materials).toHaveLength(1)
+  expect(materials[0].entry_id).toBe('12')
+  expect(materials[0].title).toBe('Owner title')
+  expect(materials[0].material_id).toBe(12)
+  expect(materials[0].material_ref).toMatchObject({ module_id: 'materials', namespace: 'materials', type_id: 'material' })
+  expect(materials[0].placement_ref).toMatchObject({ module_id: 'retrieval', local_id: 'source-a' })
   expect(graph.edges).toHaveLength(2)
-  expect(graph.edges.every(edge => edge.to.id === documents[0].id)).toBe(true)
+  expect(graph.edges.every(edge => edge.to.id === materials[0].id)).toBe(true)
 })
 
 test('unresolved materials do not claim a canonical material identity', () => {
@@ -49,6 +49,6 @@ test('unresolved materials do not claim a canonical material identity', () => {
   }])
   expect(graph.nodes).toHaveLength(1)
   expect(graph.nodes[0].type).toBe('material')
-  expect(graph.nodes[0].document_id).toBeUndefined()
   expect(graph.nodes[0].material_id).toBeUndefined()
+  expect(graph.nodes[0].material_ref).toBeUndefined()
 })

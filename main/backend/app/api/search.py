@@ -10,11 +10,11 @@ from ..contracts import ApiEnvelope, ErrorCode, error_response
 from ..contracts.responses import ok
 from ..contracts.materials import normalize_material_source_type
 from ..services.document_queries import (
-    DOCUMENT_QUERY_CONTRACT_VERSION,
-    DocumentQueryJsonObject,
-    DocumentQueryJsonValue,
-    build_search_endpoint_document_query_envelope,
-    coerce_document_query_result_row,
+    MATERIAL_QUERY_CONTRACT_VERSION,
+    MaterialQueryJsonObject,
+    MaterialQueryJsonValue,
+    build_search_endpoint_material_query_envelope,
+    coerce_material_query_result_row,
 )
 from ..services.search.es_client import get_es_client
 from ..services.search.indexes import ensure_indices
@@ -39,14 +39,15 @@ from ._error_responses import error_json_response as _error_json
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/search", tags=["search"])
+SEARCH_RESULTS_CONTRACT_VERSION = "search.results.v2"
 
 
 class SearchRunIdValidationError(TypedDict):
     message: str
-    details: DocumentQueryJsonObject
+    details: MaterialQueryJsonObject
 
 
-def _raise_upstream_error(message: str, *, details: DocumentQueryJsonObject | None = None) -> NoReturn:
+def _raise_upstream_error(message: str, *, details: MaterialQueryJsonObject | None = None) -> NoReturn:
     raise HTTPException(
         status_code=503,
         detail=error_response(
@@ -57,7 +58,7 @@ def _raise_upstream_error(message: str, *, details: DocumentQueryJsonObject | No
     )
 
 
-def _raise_internal_error(message: str, *, details: DocumentQueryJsonObject | None = None) -> NoReturn:
+def _raise_internal_error(message: str, *, details: MaterialQueryJsonObject | None = None) -> NoReturn:
     raise HTTPException(
         status_code=500,
         detail=error_response(
@@ -88,15 +89,28 @@ def _search_mapping(value: object) -> Mapping[str, object]:
     return value if _is_search_mapping(value) else {}
 
 
-def _search_json_object(value: object) -> DocumentQueryJsonObject:
-    return coerce_document_query_result_row(value)
+def _search_json_object(value: object) -> MaterialQueryJsonObject:
+    return coerce_material_query_result_row(value)
 
 
-def _search_json_value(value: object) -> DocumentQueryJsonValue:
+def _search_json_value(value: object) -> MaterialQueryJsonValue:
     return _search_json_object({"value": value})["value"]
 
 
-def _search_object_list(value: object) -> list[DocumentQueryJsonObject]:
+def _canonical_search_result(row: Mapping[str, object]) -> MaterialQueryJsonObject:
+    """Validate the native Material identity before exposing a search result."""
+    result = dict(row)
+    legacy_fields = [key for key in ("id", "document_id", "doc_id") if key in result]
+    if legacy_fields:
+        raise ValueError(f"search provider returned retired identity fields: {', '.join(legacy_fields)}")
+    if result.get("material_id") is None:
+        raise ValueError("search provider result requires material_id")
+    source_type = normalize_material_source_type(result.get("source_type"))
+    result["source_type"] = "material" if source_type in {"", "document", "documents"} else source_type
+    return _search_json_object(result)
+
+
+def _search_object_list(value: object) -> list[MaterialQueryJsonObject]:
     converted = _search_json_value(value)
     if not isinstance(converted, list):
         return []
@@ -170,8 +184,6 @@ def _search_result_identifier(hit: Mapping[str, object], *, index: int) -> str:
         hit.get("id"),
         hit.get("material_id"),
         vector_object.get("material_id"),
-        hit.get("document_id"),
-        vector_object.get("document_id"),
         vector_object.get("object_id"),
         vector_object.get("chunk_id"),
     ):
@@ -235,7 +247,7 @@ def _build_search_result_groups(
     results: Sequence[Mapping[str, object]],
     evidence_hits: Sequence[Mapping[str, object]],
     default_backend: str,
-) -> list[DocumentQueryJsonObject]:
+) -> list[MaterialQueryJsonObject]:
     source_hits = evidence_hits or results
     group_fields: dict[str, tuple[str, str, str]] = {}
     group_result_ids: dict[str, list[str]] = {}
@@ -251,7 +263,7 @@ def _build_search_result_groups(
         result_id = _search_result_identifier(hit, index=index)
         if result_id not in result_ids:
             result_ids.append(result_id)
-    groups: list[DocumentQueryJsonObject] = [
+    groups: list[MaterialQueryJsonObject] = [
         _search_json_object({
             "group_key": group_key,
             "backend": fields[0],
@@ -278,7 +290,7 @@ def _build_search_index_freshness(
     fallback_used: bool,
     retrieval_run: Mapping[str, object],
     retrieval_run_readback: Mapping[str, object] | None,
-) -> DocumentQueryJsonObject:
+) -> MaterialQueryJsonObject:
     readback = _search_mapping(retrieval_run_readback)
     readback_available = bool(readback.get("readback_available"))
     if readback_available and fallback_used:
@@ -323,8 +335,8 @@ def _build_search_provider_trace(
     index_backend: str,
     fallback_used: bool,
     index_freshness: Mapping[str, object],
-) -> DocumentQueryJsonObject:
-    branches: list[DocumentQueryJsonObject] = []
+) -> MaterialQueryJsonObject:
+    branches: list[MaterialQueryJsonObject] = []
     for branch in _search_object_list(retrieval_run.get("retrieval_branches")):
         branches.append(
             {
@@ -368,7 +380,7 @@ def _search_backends_from_retrieval_run(retrieval_run: Mapping[str, object]) -> 
     return backends
 
 
-def _build_search_source_query(retrieval_run: Mapping[str, object]) -> DocumentQueryJsonObject:
+def _build_search_source_query(retrieval_run: Mapping[str, object]) -> MaterialQueryJsonObject:
     return _search_json_object({
         "contract_version": "search.source_query.v1",
         "scope": "search.retrieval_run",
@@ -388,11 +400,11 @@ def _build_search_source_query(retrieval_run: Mapping[str, object]) -> DocumentQ
     })
 
 
-def _build_search_source_refs(retrieval_run: Mapping[str, object]) -> list[DocumentQueryJsonObject]:
+def _build_search_source_refs(retrieval_run: Mapping[str, object]) -> list[MaterialQueryJsonObject]:
     retrieval_run_id = retrieval_run.get("retrieval_run_id") or retrieval_run.get("run_id")
     query_group_id = retrieval_run.get("query_group_id")
     run_ref_id = f"search.retrieval_run:{retrieval_run_id}"
-    refs: list[DocumentQueryJsonObject] = [
+    refs: list[MaterialQueryJsonObject] = [
         _search_json_object({
             "id": run_ref_id,
             "type": "search_retrieval_run",
@@ -437,8 +449,11 @@ def _build_search_source_refs(retrieval_run: Mapping[str, object]) -> list[Docum
                 "query_group_id": query_group_id,
                 "hit_id": hit_id,
                 "backend": _search_group_backend(hit),
-                "material_id": _search_clean_text(hit.get("material_id")) or _search_clean_text(vector_object.get("material_id")) or _search_clean_text(hit.get("document_id")) or _search_clean_text(vector_object.get("document_id")) or None,
-                "document_id": _search_clean_text(hit.get("document_id")) or _search_clean_text(vector_object.get("document_id")) or None,
+                "material_id": (
+                    _search_clean_text(hit.get("material_id"))
+                    or _search_clean_text(vector_object.get("material_id"))
+                    or None
+                ),
                 "chunk_id": _search_clean_text(hit.get("chunk_id")) or _search_clean_text(vector_object.get("chunk_id")) or None,
                 "source_id": source_id,
                 "source_reference": source_reference,
@@ -451,7 +466,7 @@ def _build_search_retrieval_run_readback_payload(
     *,
     retrieval_run: Mapping[str, object],
     store_path: Path,
-) -> DocumentQueryJsonObject:
+) -> MaterialQueryJsonObject:
     retrieval_run_id = retrieval_run.get("retrieval_run_id") or retrieval_run.get("run_id")
     readback = {
         "contract_version": SEARCH_RETRIEVAL_RUN_READBACK_CONTRACT_VERSION,
@@ -516,7 +531,7 @@ def _build_search_trace_chain(
     index_backend: str,
     fallback_used: bool,
     index_freshness: Mapping[str, object],
-) -> DocumentQueryJsonObject:
+) -> MaterialQueryJsonObject:
     readback = _search_mapping(retrieval_run_readback)
     retrieval_run_id = (
         _search_clean_text(retrieval_run.get("retrieval_run_id"))
@@ -673,16 +688,7 @@ def search(
             rank,
             project_key=project_key,
         )
-        results = [
-            _search_json_object(
-                {
-                    **row,
-                    "material_id": row.get("material_id") or row.get("document_id") or row.get("doc_id") or row.get("id"),
-                    "source_type": normalize_material_source_type(row.get("source_type")) or "material",
-                }
-            )
-            for row in hybrid_results
-        ]
+        results = [_canonical_search_result(row) for row in hybrid_results]
         # Diagnostics about fallback/backends (contract-safe: added under data)
         fallback_order = [
             "opensearch_lexical",
@@ -756,7 +762,7 @@ def search(
             fallback_used=fallback_used,
             index_freshness=index_freshness,
         )
-        document_query_envelope = build_search_endpoint_document_query_envelope(
+        material_query_envelope = build_search_endpoint_material_query_envelope(
             query=q,
             state=state,
             modality=modality,
@@ -766,7 +772,7 @@ def search(
             project_key=project_key,
             used_backends=used_backends,
         )
-        document_query_data = document_query_envelope["data"]
+        material_query_data = material_query_envelope["data"]
 
         response_data = _search_json_object({
             "query": q,
@@ -774,12 +780,13 @@ def search(
             "modality": modality,
             "rank": rank,
             "top_k": top_k,
+            "search_result_contract_version": SEARCH_RESULTS_CONTRACT_VERSION,
             "results": results,
-            "document_query_contract_version": DOCUMENT_QUERY_CONTRACT_VERSION,
-            "document_query": document_query_data["query"],
-            "document_query_results": document_query_data["results"],
-            "document_query_pagination": document_query_data["pagination"],
-            "document_query_meta": document_query_envelope["meta"],
+            "material_query_contract_version": MATERIAL_QUERY_CONTRACT_VERSION,
+            "material_query": material_query_data["query"],
+            "material_query_results": material_query_data["results"],
+            "material_query_pagination": material_query_data["pagination"],
+            "material_query_meta": material_query_envelope["meta"],
             "global_vector_object_contract_version": GLOBAL_VECTOR_OBJECT_CONTRACT_VERSION,
             "evidence_hit_contract_version": SEARCH_EVIDENCE_HIT_CONTRACT_VERSION,
             "query_group_id": query_group_id,

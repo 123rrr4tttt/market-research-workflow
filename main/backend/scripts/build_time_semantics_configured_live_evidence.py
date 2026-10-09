@@ -17,7 +17,7 @@ if str(BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(BACKEND_ROOT))
 
 from app.models.base import SessionLocal
-from app.models.entities import Document, PromptTimePolicyDecisionLog, PromptTimeWindowFeedback
+from app.models.entities import Material, PromptTimePolicyDecisionLog, PromptTimeWindowFeedback
 from app.services.projects import bind_project
 from app.services.stats import prompt_time_density
 
@@ -89,14 +89,14 @@ def _cleanup_docs(project_key: str, prefix: str) -> None:
     with bind_project(project_key):
         with SessionLocal() as session:
             for row in session.execute(
-                select(Document).where(Document.title.like(f"{prefix}%"))
+                select(Material).where(Material.title.like(f"{prefix}%"))
             ).scalars():
                 session.delete(row)
             session.commit()
 
 
 def _insert_production_like_docs(project_key: str, prefix: str, *, end_day: date) -> int:
-    docs: list[Document] = []
+    materials: list[Material] = []
     with bind_project(project_key):
         with SessionLocal() as session:
             for idx, day_offset in enumerate((0, 1, 2, 5), start=1):
@@ -109,10 +109,10 @@ def _insert_production_like_docs(project_key: str, prefix: str, *, end_day: date
                     0,
                     tzinfo=timezone.utc,
                 )
-                docs.append(
-                    Document(
+                materials.append(
+                    Material(
                         state="CA",
-                        doc_type="news",
+                        material_type="news",
                         title=f"{prefix}-{idx}",
                         publish_date=None,
                         created_at=source_time + timedelta(hours=2),
@@ -127,9 +127,9 @@ def _insert_production_like_docs(project_key: str, prefix: str, *, end_day: date
                         },
                     )
                 )
-            session.add_all(docs)
+            session.add_all(materials)
             session.commit()
-    return len(docs)
+    return len(materials)
 
 
 def _insert_feedback_for_rows(rows: list[dict[str, Any]]) -> int:

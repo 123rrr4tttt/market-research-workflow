@@ -659,7 +659,7 @@ class SkillRuntime:
         # This unit only proposes a claim from an already persisted body.
         # The project retrieval executor validates and owns the topology write.
         formalization = import_module("app.services.project_retrieval.formalization")
-        for name in ("formalize_material", "formalize_document"):
+        for name in ("formalize_material",):
             self.register(
                 skill_id=f"project_retrieval.{name}",
                 handler=getattr(formalization, name),

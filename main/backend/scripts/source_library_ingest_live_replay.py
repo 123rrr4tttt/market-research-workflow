@@ -70,7 +70,7 @@ def _article_manifest(*, timeout_ms: int) -> dict[str, Any]:
             "parser": "heuristic.main_content.v1",
         },
         "normalization": {
-            "record_kind": "document_candidate",
+            "record_kind": "material_candidate",
             "frontdoor_strategy": "records_allow_extract",
         },
         "limits": {

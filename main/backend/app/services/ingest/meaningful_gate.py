@@ -239,7 +239,7 @@ def url_policy_check(uri: str, config: dict[str, object] | None = None) -> GateD
 def content_quality_check(
     uri: str,
     content: str,
-    doc_type: str | None,
+    material_type: str | None,
     extraction_status: dict[str, object] | str | None = None,
     config: dict[str, object] | None = None,
     content_profile: dict[str, object] | None = None,
@@ -257,7 +257,7 @@ def content_quality_check(
             blocked=False,
             reason="disabled",
             quality_score=100.0,
-            diagnostics={"uri": uri, "doc_type": doc_type, "semantic_len": semantic_len, "min_semantic_len": min_len},
+            diagnostics={"uri": uri, "material_type": material_type, "semantic_len": semantic_len, "min_semantic_len": min_len},
         )
 
     if not stripped:
@@ -266,7 +266,7 @@ def content_quality_check(
             blocked=True,
             reason="content_empty",
             quality_score=0.0,
-            diagnostics={"uri": uri, "doc_type": doc_type, "semantic_len": semantic_len},
+            diagnostics={"uri": uri, "material_type": material_type, "semantic_len": semantic_len},
         )
 
     if _is_api_status_wrapper(stripped):
@@ -275,7 +275,7 @@ def content_quality_check(
             blocked=True,
             reason="content_api_status_wrapper",
             quality_score=0.0,
-            diagnostics={"uri": uri, "doc_type": doc_type, "semantic_len": semantic_len},
+            diagnostics={"uri": uri, "material_type": material_type, "semantic_len": semantic_len},
         )
 
     page_family = str(profile.get("page_family") or "").strip().lower()
@@ -292,7 +292,7 @@ def content_quality_check(
             quality_score=18.0,
             diagnostics={
                 "uri": uri,
-                "doc_type": doc_type,
+                "material_type": material_type,
                 "semantic_len": semantic_len,
                 "page_family": page_family,
                 "main_text_ratio": main_text_ratio,
@@ -311,7 +311,7 @@ def content_quality_check(
             quality_score=16.0,
             diagnostics={
                 "uri": uri,
-                "doc_type": doc_type,
+                "material_type": material_type,
                 "semantic_len": semantic_len,
                 "page_family": page_family or "unknown",
                 "main_text_ratio": main_text_ratio,
@@ -327,7 +327,7 @@ def content_quality_check(
             blocked=True,
             reason="content_shell_signature",
             quality_score=10.0,
-            diagnostics={"uri": uri, "doc_type": doc_type, "matched_signature": matched_sig, "semantic_len": semantic_len},
+            diagnostics={"uri": uri, "material_type": material_type, "matched_signature": matched_sig, "semantic_len": semantic_len},
         )
 
     extraction_ok = False
@@ -341,7 +341,7 @@ def content_quality_check(
             blocked=True,
             reason="content_pdf_binary_without_text",
             quality_score=0.0,
-            diagnostics={"uri": uri, "doc_type": doc_type, "semantic_len": semantic_len},
+            diagnostics={"uri": uri, "material_type": material_type, "semantic_len": semantic_len},
         )
 
     parsed = urlparse(str(uri or "").strip())
@@ -362,7 +362,7 @@ def content_quality_check(
             quality_score=5.0,
             diagnostics={
                 "uri": uri,
-                "doc_type": doc_type,
+                "material_type": material_type,
                 "semantic_len": semantic_len,
                 "feed_marker_hits": feed_marker_hits,
             },
@@ -376,7 +376,7 @@ def content_quality_check(
             blocked=True,
             reason="content_js_template_shell",
             quality_score=12.0,
-            diagnostics={"uri": uri, "doc_type": doc_type, "semantic_len": semantic_len, "js_template_hits": js_hits},
+            diagnostics={"uri": uri, "material_type": material_type, "semantic_len": semantic_len, "js_template_hits": js_hits},
         )
 
     mojibake_hits = _mojibake_hits(stripped)
@@ -386,7 +386,7 @@ def content_quality_check(
             blocked=True,
             reason="content_mojibake_garbled",
             quality_score=8.0,
-            diagnostics={"uri": uri, "doc_type": doc_type, "semantic_len": semantic_len, "mojibake_hits": mojibake_hits},
+            diagnostics={"uri": uri, "material_type": material_type, "semantic_len": semantic_len, "mojibake_hits": mojibake_hits},
         )
 
     nav_marker_hits = sum(lower.count(marker) for marker in ("skip to content", "more menu", "accessibility help", "watch live"))
@@ -396,7 +396,7 @@ def content_quality_check(
             blocked=True,
             reason="content_navigation_or_home_shell",
             quality_score=15.0,
-            diagnostics={"uri": uri, "doc_type": doc_type, "semantic_len": semantic_len, "nav_marker_hits": nav_marker_hits},
+            diagnostics={"uri": uri, "material_type": material_type, "semantic_len": semantic_len, "nav_marker_hits": nav_marker_hits},
         )
     if nav_marker_hits >= 4 and semantic_len < max(2000, min_len * 4):
         return GateDecision(
@@ -404,7 +404,7 @@ def content_quality_check(
             blocked=True,
             reason="content_navigation_shell",
             quality_score=15.0,
-            diagnostics={"uri": uri, "doc_type": doc_type, "semantic_len": semantic_len, "nav_marker_hits": nav_marker_hits},
+            diagnostics={"uri": uri, "material_type": material_type, "semantic_len": semantic_len, "nav_marker_hits": nav_marker_hits},
         )
 
     link_hits = lower.count("http://") + lower.count("https://")
@@ -414,7 +414,7 @@ def content_quality_check(
             blocked=True,
             reason="content_link_farm_like",
             quality_score=20.0,
-            diagnostics={"uri": uri, "doc_type": doc_type, "semantic_len": semantic_len, "link_hits": link_hits},
+            diagnostics={"uri": uri, "material_type": material_type, "semantic_len": semantic_len, "link_hits": link_hits},
         )
 
     if semantic_len < min_len:
@@ -423,7 +423,7 @@ def content_quality_check(
             blocked=True,
             reason="content_semantic_too_short",
             quality_score=max(1.0, round((semantic_len / float(min_len)) * 100.0, 2)),
-            diagnostics={"uri": uri, "doc_type": doc_type, "semantic_len": semantic_len, "min_semantic_len": min_len},
+            diagnostics={"uri": uri, "material_type": material_type, "semantic_len": semantic_len, "min_semantic_len": min_len},
         )
 
     score = min(100.0, max(0.0, 70.0 + min(30.0, (semantic_len - min_len) / 20.0)))
@@ -440,7 +440,7 @@ def content_quality_check(
         quality_score=round(score, 2),
         diagnostics={
             "uri": uri,
-            "doc_type": doc_type,
+            "material_type": material_type,
             "semantic_len": semantic_len,
             "min_semantic_len": min_len,
             "page_family": page_family or "unknown",

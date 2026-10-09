@@ -22,7 +22,7 @@ type Story = StoryObj<typeof meta>
 const cards: WritingKeywordCard[] = [
   {
     card_id: 'card-a',
-    source_type: 'document',
+    source_type: 'material',
     title: '锂盐价格快照',
     snippet: '碳酸锂价格较上周回落 2.1%。',
     score: 0.93,

@@ -42,7 +42,7 @@ class Wave27StructuredConsumerClosureDecisionUnitTest(unittest.TestCase):
             "consumer_side_facade_contract",
             "consumer_sql_predicate_facade",
             "admin_dashboard_consumer_boundary",
-            "policy_state_document_query_boundary",
+            "policy_state_material_query_boundary",
             "prompt_time_density_consumer_boundary",
         ):
             self.assertIn(gate_name, gates)
@@ -60,15 +60,15 @@ class Wave27StructuredConsumerClosureDecisionUnitTest(unittest.TestCase):
         self.assertEqual(result["repo_local_blockers"], [])
         self.assertEqual(result["external_blockers"][0]["id"], "live_db_api_smoke_not_run")
 
-        builder = result["validation"]["document_query_statement_builder"]
+        builder = result["validation"]["material_query_statement_builder"]
         self.assertEqual(builder["status"], "covered")
         self.assertEqual(
             set(builder["exported_tokens"]),
             {
-                "build_document_query_statement",
-                "compile_document_query_statement",
-                "apply_document_query_to_statement",
-                "document_query_to_statement",
+                "build_material_query_statement",
+                "compile_material_query_statement",
+                "apply_material_query_to_statement",
+                "material_query_to_statement",
             },
         )
         self.assertEqual(builder["compile_gaps"], [])

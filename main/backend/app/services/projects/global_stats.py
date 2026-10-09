@@ -14,7 +14,7 @@ from .context import (
 
 
 _FORBIDDEN_STORED_SCHEMAS = frozenset({"public", "aggregator"})
-_GLOBAL_TABLES = ("documents", "market_metric_points", "price_observations")
+_GLOBAL_TABLES = ("materials", "market_metric_points", "price_observations")
 
 
 def _quoted_identifier(schema_name: str) -> str:
@@ -66,13 +66,13 @@ def query_global_canonical_stats() -> dict[str, int]:
                     for table in _GLOBAL_TABLES
                 )
 
-            totals = {"documents_total": 0, "metrics_total": 0, "prices_total": 0}
+            totals = {"materials_total": 0, "metrics_total": 0, "prices_total": 0}
             if parts:
                 union_sql = "\nUNION ALL\n".join(parts)
                 rows = connection.execute(text(union_sql), params).mappings().all()
                 for row in rows:
                     field = {
-                        "documents": "documents_total",
+                        "materials": "materials_total",
                         "market_metric_points": "metrics_total",
                         "price_observations": "prices_total",
                     }[str(row["object_name"])]

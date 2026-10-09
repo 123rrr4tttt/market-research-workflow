@@ -1321,11 +1321,11 @@ def build_evidence_matrix() -> Annotated[
                                 response_assertions=_response_assertions(
                                     required_data_paths=[
                                         "status",
-                                        "data/documents/total",
+                                        "data/materials/total",
                                         "data/sources/total",
                                         "data/tasks/total",
                                     ],
-                                    semantic_fields=["data/documents", "data/sources", "data/tasks"],
+                                    semantic_fields=["data/materials", "data/sources", "data/tasks"],
                                     failure_classification={
                                         "transport": "blocked_by_environment",
                                         "database_unavailable": "dashboard_dependency_blocked",
@@ -1336,7 +1336,7 @@ def build_evidence_matrix() -> Annotated[
                             real_backend_browser_smoke=_real_backend_browser_smoke(
                                 route_path="/#/visual/dashboard",
                                 readiness_gate=(
-                                    "requireRealBackendReadiness must pass and dashboard stats must include documents, sources, "
+                                    "requireRealBackendReadiness must pass and dashboard stats must include materials, sources, "
                                     "or tasks evidence before the browser smoke is counted."
                                 ),
                                 browser_assertions=[

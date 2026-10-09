@@ -155,7 +155,7 @@ def _article_extractor_item() -> dict[str, Any]:
         "execution_mode": "article_extractor",
         "runner_ref": "article-extractor://trafilatura-or-heuristic",
         "normalization": {
-            "record_kind": "document_candidate",
+            "record_kind": "material_candidate",
             "frontdoor_strategy": "records_allow_extract",
         },
         "limits": {

@@ -13,7 +13,7 @@ from ...models.ingest_registry import IngestSubmissionRegistry
 from ...models.project_retrieval import project_retrieval_tables
 from ...models.entities import (
     ConfigState,
-    Document,
+    Material,
     Embedding,
     EtlJobRun,
     GraphEdgeRecord,
@@ -44,7 +44,7 @@ logger = logging.getLogger(__name__)
 
 _TENANT_TABLE_CANDIDATES = [
     Source.__table__,
-    Document.__table__,
+    Material.__table__,
     GraphNodeRecord.__table__,
     GraphNodeAliasRecord.__table__,
     GraphEdgeRecord.__table__,

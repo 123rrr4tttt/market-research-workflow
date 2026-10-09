@@ -23,9 +23,9 @@ def test_material_url_extraction_preserves_body_identity_for_both_pool_scopes():
             patch.object(extract, "SessionLocal", return_value=nullcontext(session)),
             patch.object(extract, "_append_urls_batch", return_value=(1, 0)) as append,
         ):
-            result = extract.extract_from_documents(project_key="demo", scope=scope, document_ids=[42])
-        assert result["materials_scanned"] == result["documents_scanned"] == 1
-        assert append.call_args.args[1] == [("https://example.test/report", {"material_id": 42, "document_id": 42})]
+            result = extract.extract_from_materials(project_key="demo", scope=scope, material_ids=[42])
+        assert result["materials_scanned"] == 1
+        assert append.call_args.args[1] == [("https://example.test/report", {"material_id": 42})]
         assert append.call_args.args[2:4] == ("material", scope)
 
 
@@ -82,12 +82,12 @@ def test_resource_extract_classifies_malformed_record_fields():
 def test_resource_extract_preserves_type_error_abi_cause_and_no_write():
     cases = (
         (
-            extract.extract_from_documents,
+            extract.extract_from_materials,
             SimpleNamespace(id=True, uri=None, content=None, extracted_data=None),
             "SimpleNamespace.id must be an integer",
         ),
         (
-            extract.extract_from_documents,
+            extract.extract_from_materials,
             SimpleNamespace(id=42, uri=7, content=None, extracted_data=None),
             "SimpleNamespace.uri must be text or null",
         ),

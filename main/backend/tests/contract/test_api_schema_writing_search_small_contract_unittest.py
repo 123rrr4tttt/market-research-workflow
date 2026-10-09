@@ -5,6 +5,7 @@ import unittest
 from pathlib import Path
 
 import pytest
+from pydantic import ValidationError
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
@@ -44,6 +45,19 @@ _TARGET_MODULE_COUNTS = {
 }
 
 try:
+    from app.api.indexer import ReindexPolicyRequest
+    from app.api.search import SEARCH_RESULTS_CONTRACT_VERSION, _canonical_search_result
+    from app.api.writing import _handle_conflict
+    from app.contracts.schemas.writing import (
+        WritingCitationData,
+        WritingCitationUpsertItem,
+        WritingDocumentData,
+    )
+    from app.services.document_queries import (
+        MATERIAL_QUERY_CONTRACT_VERSION,
+        build_search_endpoint_material_query_envelope,
+    )
+    from app.services.writing import WritingVersionConflictError
     from app.main import app as backend_app
     from scripts.generate_api_schema_inventory import build_inventory
 
@@ -112,6 +126,68 @@ class ApiSchemaWritingSearchSmallContractTestCase(unittest.TestCase):
 
         self.assertEqual(markdown_export["response_model"], "none")
         self.assertEqual(markdown_export["response_200_schema"], "non-json")
+
+    def test_writing_contracts_use_distinct_document_and_material_identifiers(self):
+        self.assertIn("doc_id", WritingDocumentData.model_fields)
+        self.assertNotIn("id", WritingDocumentData.model_fields)
+        self.assertIn("source_material_id", WritingCitationData.model_fields)
+        self.assertNotIn("source_doc_id", WritingCitationData.model_fields)
+
+        with self.assertRaises(ValidationError):
+            WritingCitationUpsertItem.model_validate({"source_doc_id": 42})
+        citation = WritingCitationUpsertItem.model_validate({"source_material_id": 42})
+        self.assertEqual(citation.source_material_id, 42)
+
+        conflict = _handle_conflict(
+            WritingVersionConflictError(
+                expected_version=1,
+                current_version=2,
+                server_snapshot={
+                    "conflict_code": "VERSION_CONFLICT",
+                    "server_snapshot": {"id": 17, "title": "Draft"},
+                },
+            )
+        )
+        server_snapshot = conflict.detail["error"]["details"]["server_snapshot"]
+        self.assertEqual(server_snapshot["doc_id"], 17)
+        self.assertNotIn("id", server_snapshot)
+
+    def test_search_results_v2_exposes_only_material_identity(self):
+        result = _canonical_search_result(
+            {
+                "material_id": "material-1",
+                "score": 0.9,
+                "source_type": "material",
+            }
+        )
+
+        self.assertEqual(SEARCH_RESULTS_CONTRACT_VERSION, "search.results.v2")
+        self.assertEqual(result["material_id"], "material-1")
+        self.assertEqual(result["source_type"], "material")
+        self.assertNotIn("id", result)
+        self.assertNotIn("document_id", result)
+        self.assertNotIn("doc_id", result)
+
+        with self.assertRaisesRegex(ValueError, "retired identity fields"):
+            _canonical_search_result({"document_id": "legacy-document-id"})
+
+    def test_search_material_query_envelope_exposes_only_material_identity(self):
+        envelope = build_search_endpoint_material_query_envelope(
+            query="market trend",
+            top_k=1,
+            results=[{"material_id": 7, "title": "Material 7"}],
+        )
+        result = envelope["data"]["results"][0]
+
+        self.assertEqual(envelope["data"]["contract_version"], MATERIAL_QUERY_CONTRACT_VERSION)
+        self.assertEqual(result["material_id"], 7)
+        self.assertTrue({"id", "document_id", "doc_id"}.isdisjoint(result))
+
+    def test_indexer_rejects_retired_document_ids(self):
+        with self.assertRaises(ValidationError):
+            ReindexPolicyRequest.model_validate({"document_ids": [1]})
+        request = ReindexPolicyRequest.model_validate({"material_ids": [1]})
+        self.assertEqual(request.material_ids, [1])
 
 
 if __name__ == "__main__":

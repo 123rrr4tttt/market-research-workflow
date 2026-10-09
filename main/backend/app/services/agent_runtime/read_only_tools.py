@@ -1,5 +1,5 @@
 from __future__ import annotations
-from app.services.document_queries.contracts import coerce_document_query_result_row
+from app.services.document_queries.contracts import coerce_material_query_result_row
 from .structured_data_search import StructuredRecord
 from typing import Protocol
 from functorial_kit import Failure
@@ -1526,4 +1526,4 @@ def _integer(value: object) -> int:
 
 
 def _structured_records(value: object) -> list[StructuredRecord]:
-    return [coerce_document_query_result_row(item) for item in _objects(value)]
+    return [coerce_material_query_result_row(item) for item in _objects(value)]

@@ -5,7 +5,7 @@ from hashlib import sha256
 from types import SimpleNamespace
 
 from app.services.information_topology.modules.retrieval import validate_evidence_v2
-from app.services.project_retrieval.formalization import formalize_document, formalize_material
+from app.services.project_retrieval.formalization import formalize_material
 
 
 BODY = "水务机构的年度记录指出，供水收费收入用于维护输配水设施。该记录只覆盖本报告年度。"
@@ -20,12 +20,12 @@ def payload() -> dict:
         "route_id": "route:finance",
         "query_id": "query:03",
         "candidate_id": "candidate:1",
-        "document_id": 19,
+        "material_id": 19,
         "title": "年度记录",
         "url": "https://example.invalid/annual",
         "body": BODY,
         "body_digest": sha256(BODY.encode("utf-8")).hexdigest(),
-        "document_updated_at": "2026-09-26T10:00:00Z",
+        "material_updated_at": "2026-09-26T10:00:00Z",
         "domain_vocabulary": {
             "域名": "香港水资源与水治理",
             "节点类型": ["现场", "制度安排", "货币流", "技术物"],
@@ -71,14 +71,14 @@ def response() -> dict:
     }
 
 
-def test_formalize_document_returns_profile_validated_proposal_with_source_provenance():
+def test_formalize_material_returns_profile_validated_proposal_with_source_provenance():
     captured: list[str] = []
 
     def invoke(prompt: str):
         captured.append(prompt)
         return SimpleNamespace(content=response())
 
-    result = formalize_document(payload(), model_invoke=invoke)
+    result = formalize_material(payload(), model_invoke=invoke)
 
     assert result["status"] == "proposed"
     assert len(captured) == 1 and BODY in captured[0]
@@ -87,8 +87,8 @@ def test_formalize_document_returns_profile_validated_proposal_with_source_prove
     assert proposal["provenance"] == {
         "project_key": "hk_water_investigation", "plan_id": "retrieval-plan:1",
         "route_id": "route:finance", "query_id": "query:03", "candidate_id": "candidate:1",
-        "document_id": "19", "document_url": "https://example.invalid/annual",
-        "document_updated_at": "2026-09-26T10:00:00Z",
+        "material_id": "19", "material_url": "https://example.invalid/annual",
+        "material_updated_at": "2026-09-26T10:00:00Z",
         "body_digest": sha256(BODY.encode("utf-8")).hexdigest(), "run_id": "retrieval-run:1",
     }
     assert validate_evidence_v2(proposal["evidence"]) is None
@@ -97,8 +97,6 @@ def test_formalize_document_returns_profile_validated_proposal_with_source_prove
 
 def test_formalize_material_accepts_canonical_identity_and_emits_material_provenance():
     source = payload()
-    source["material_id"] = source.pop("document_id")
-    source["material_updated_at"] = source.pop("document_updated_at")
     result = formalize_material(source, model_invoke=lambda _: response())
     assert result["status"] == "proposed"
     assert result["proposal"]["provenance"]["material_id"] == "19"
@@ -109,14 +107,14 @@ def test_formalize_material_accepts_canonical_identity_and_emits_material_proven
     assert called == []
 
 
-def test_formalize_document_returns_no_claim_without_synthesizing_a_proposal():
-    result = formalize_document(
+def test_formalize_material_returns_no_claim_without_synthesizing_a_proposal():
+    result = formalize_material(
         payload(), model_invoke=lambda _: {"status": "no_claim", "gaps": ["正文没有可核实关系"]})
 
     assert result == {"status": "no_claim", "gaps": ["正文没有可核实关系"]}
 
 
-def test_formalize_document_retries_unparseable_output_then_validates_result():
+def test_formalize_material_retries_unparseable_output_then_validates_result():
     prompts: list[str] = []
 
     def invoke(prompt: str):
@@ -125,13 +123,13 @@ def test_formalize_document_retries_unparseable_output_then_validates_result():
             return '{"status":"no_claim","gaps":["待核实"]}\nextra text'
         return {"status": "no_claim", "gaps": ["正文不能支持该关系"]}
 
-    result = formalize_document(payload(), model_invoke=invoke)
+    result = formalize_material(payload(), model_invoke=invoke)
 
     assert len(prompts) == 2
     assert result == {"status": "no_claim", "gaps": ["正文不能支持该关系"]}
 
 
-def test_formalize_document_retries_invalid_claim_shape_without_accepting_it():
+def test_formalize_material_retries_invalid_claim_shape_without_accepting_it():
     prompts: list[str] = []
 
     def invoke(prompt: str):
@@ -140,67 +138,67 @@ def test_formalize_document_retries_invalid_claim_shape_without_accepting_it():
             return {"status": "no_claim", "proposal": response()["proposal"], "gaps": ["待核实"]}
         return {"status": "no_claim", "gaps": ["正文不能支持该关系"]}
 
-    result = formalize_document(payload(), model_invoke=invoke)
+    result = formalize_material(payload(), model_invoke=invoke)
 
     assert len(prompts) == 2
     assert "response" in prompts[1]
     assert result == {"status": "no_claim", "gaps": ["正文不能支持该关系"]}
 
 
-def test_formalize_document_fails_explicitly_when_provider_is_unavailable():
+def test_formalize_material_fails_explicitly_when_provider_is_unavailable():
     def unavailable(_: str):
         raise RuntimeError
 
-    result = formalize_document(payload(), model_invoke=unavailable)
+    result = formalize_material(payload(), model_invoke=unavailable)
 
     assert result["status"] == "failed"
     assert result["error"]["code"] == "FORMALIZATION_PROVIDER_FAILED"
 
 
-def test_formalize_document_rejects_a_non_verbatim_quote():
+def test_formalize_material_rejects_a_non_verbatim_quote():
     invalid = response()
     invalid["proposal"]["evidence"]["original_excerpt"] = "模型改写过的引文"
 
-    result = formalize_document(payload(), model_invoke=lambda _: invalid)
+    result = formalize_material(payload(), model_invoke=lambda _: invalid)
 
     assert result["status"] == "failed"
     assert result["error"]["code"] == "FORMALIZATION_PROPOSAL_INVALID"
     assert result["error"]["context"]["path"] == "response.proposal.evidence.original_excerpt"
 
 
-def test_formalize_document_rejects_route_classification_drift():
+def test_formalize_material_rejects_route_classification_drift():
     invalid = response()
     invalid["proposal"]["judgment"]["edge_type"] = "依赖"
 
-    result = formalize_document(payload(), model_invoke=lambda _: invalid)
+    result = formalize_material(payload(), model_invoke=lambda _: invalid)
 
     assert result["status"] == "failed"
     assert result["error"]["code"] == "FORMALIZATION_PROPOSAL_INVALID"
     assert result["error"]["context"]["path"] == "response.proposal.judgment.edge_type"
 
 
-def test_formalize_document_rejects_evidence_v2_role_drift():
+def test_formalize_material_rejects_evidence_v2_role_drift():
     invalid = response()
     invalid["proposal"]["evidence"]["source_role"] = "官方来源"
 
-    result = formalize_document(payload(), model_invoke=lambda _: invalid)
+    result = formalize_material(payload(), model_invoke=lambda _: invalid)
 
     assert result["status"] == "failed"
     assert result["error"]["code"] == "FORMALIZATION_PROPOSAL_INVALID"
     assert result["error"]["context"]["path"] == "response.proposal.evidence"
 
 
-def test_formalize_document_rejects_clue_without_a_scene_node():
+def test_formalize_material_rejects_clue_without_a_scene_node():
     invalid = response()
     invalid["proposal"]["nodes"] = [node for node in invalid["proposal"]["nodes"] if node["local_key"] != "scene"]
 
-    result = formalize_document(payload(), model_invoke=lambda _: invalid)
+    result = formalize_material(payload(), model_invoke=lambda _: invalid)
 
     assert result["status"] == "failed"
     assert result["error"]["context"]["path"] == "response.proposal.clue.scene_key"
 
 
-def test_formalize_document_rejects_body_identity_drift_before_calling_model():
+def test_formalize_material_rejects_body_identity_drift_before_calling_model():
     invalid_payload = deepcopy(payload())
     invalid_payload["body_digest"] = "0" * 64
     called = False
@@ -210,9 +208,9 @@ def test_formalize_document_rejects_body_identity_drift_before_calling_model():
         called = True
         return response()
 
-    result = formalize_document(invalid_payload, model_invoke=invoke)
+    result = formalize_material(invalid_payload, model_invoke=invoke)
 
     assert result["status"] == "failed"
     assert result["error"]["code"] == "FORMALIZATION_INPUT_INVALID"
-    assert result["error"]["context"]["path"] == "document.body_digest"
+    assert result["error"]["context"]["path"] == "material.body_digest"
     assert called is False

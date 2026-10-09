@@ -898,7 +898,7 @@ export type ProcessHistoryResponse = {
 }
 
 export type DashboardStats = {
-  documents?: {
+  materials?: {
     total?: number
     recent_today?: number
     recent_7d?: number
@@ -936,6 +936,12 @@ export type DashboardStats = {
   }
   llm_report_quality?: DashboardLlmReportQuality
   pending_actions?: DashboardPendingAction[]
+}
+
+export type DashboardGlobalStats = {
+  materials_total?: number
+  metrics_total?: number
+  prices_total?: number
 }
 
 export type DashboardLlmReportQuality = {
@@ -1116,7 +1122,7 @@ export type DashboardReportFromFilterResponse = {
   contract_version?: string
   report_id?: string
   draft_id?: number
-  document_id?: number
+  doc_id?: number
   title?: string
   status?: string
   filters?: Record<string, unknown>
@@ -1161,7 +1167,7 @@ export type DashboardReportFromFilterResponse = {
     [key: string]: unknown
   }
   draft?: {
-    id?: number
+    doc_id?: number
     report_id?: string
     title?: string
     status?: string
@@ -1780,7 +1786,7 @@ export type RawImportPayload = {
     uris?: string[]
     text: string
     summary?: string | null
-    doc_type?: string | null
+    material_type?: string | null
     publish_date?: string | null
     state?: string | null
   }>
@@ -1788,7 +1794,7 @@ export type RawImportPayload = {
   source_kind?: string
   infer_from_links: boolean
   enable_extraction: boolean
-  default_doc_type: 'market_info' | 'policy' | 'social_sentiment' | 'news' | 'raw_note'
+  default_material_type: 'market_info' | 'policy' | 'social_sentiment' | 'news' | 'raw_note'
   extraction_mode: 'auto' | 'market' | 'policy' | 'social'
   overwrite_on_uri: boolean
   chunk_size: number
@@ -1908,11 +1914,11 @@ export type ProcessTaskLogsResponse = {
   log_file?: string
 }
 
-export type AdminDocumentListPayload = {
+export type AdminMaterialListPayload = {
   page?: number
   page_size?: number
   state?: string | null
-  doc_type?: string | null
+  material_type?: string | null
   has_extracted_data?: boolean | null
   search?: string | null
   sort_by?: 'created_at' | 'publish_date' | 'id'
@@ -1920,11 +1926,10 @@ export type AdminDocumentListPayload = {
   include_topology_materials?: boolean
 }
 
-export type AdminDocumentItem = {
-  id: number | string
-  material_id?: number
+export type AdminMaterialItem = {
+  material_id: number
   title?: string | null
-  doc_type?: string | null
+  material_type?: string | null
   state?: string | null
   source_id?: number
   created_at?: string | null
@@ -1937,18 +1942,17 @@ export type AdminDocumentItem = {
   readonly?: boolean
 }
 
-export type AdminDocumentListResponse = {
-  items: AdminDocumentItem[]
+export type AdminMaterialListResponse = {
+  items: AdminMaterialItem[]
   total: number
   page: number
   page_size: number
 }
 
-export type DocumentItem = {
-  id: number
-  material_id?: number
+export type MaterialItem = {
+  material_id: number
   title?: string | null
-  doc_type?: string | null
+  material_type?: string | null
   state?: string | null
   status?: string | null
   publish_date?: string | null
@@ -1961,18 +1965,13 @@ export type DocumentItem = {
   extracted_data?: Record<string, unknown> | null
 }
 
-export type MaterialItem = DocumentItem
-export type AdminMaterialItem = AdminDocumentItem
-export type AdminMaterialListPayload = AdminDocumentListPayload
-export type AdminMaterialListResponse = AdminDocumentListResponse
-
-export type DocumentExtractedPayload = {
+export type MaterialExtractedPayload = {
   mode: 'replace' | 'merge'
   extracted_data: unknown
 }
 
-export type DocumentBulkExtractedPayload = {
-  doc_ids: number[]
+export type MaterialBulkExtractedPayload = {
+  material_ids: number[]
   mode: 'replace' | 'merge'
   extracted_data: unknown
   preview?: boolean
@@ -2017,13 +2016,13 @@ export type AdminActionResponse = {
   skipped_count?: number
 }
 
-export type AdminDeleteDocumentsPayload = {
-  ids: number[]
+export type AdminDeleteMaterialsPayload = {
+  material_ids: number[]
   preview?: boolean
 }
 
 export type AdminReExtractPayload = {
-  doc_ids?: number[]
+  material_ids?: number[]
   force?: boolean
   fetch_missing_content?: boolean
   batch_size?: number
@@ -2034,8 +2033,8 @@ export type AdminReExtractPayload = {
 
 export type AdminTopicExtractPayload = {
   topics?: Array<'company' | 'product' | 'operation'>
-  doc_ids?: number[]
-  doc_types?: string[]
+  material_ids?: number[]
+  material_types?: string[]
   force?: boolean
   fetch_missing_content?: boolean
   batch_size?: number
@@ -2289,11 +2288,9 @@ export type LlmServiceConfigItem = {
 }
 
 export type AdminStats = {
-  documents?: {
+  materials?: {
     total?: number
     recent_today?: number
-    table_total?: number
-    topology_material_total?: number
   }
   social_data?: {
     total?: number
@@ -2345,7 +2342,7 @@ export type GraphEdgeItem = {
 export type GraphResponse = {
   nodes: GraphNodeItem[]
   edges: GraphEdgeItem[]
-  source_kind?: 'project_topology' | 'document_materials'
+  source_kind?: 'project_topology' | 'admin_materials'
   /** Optional label supplied by a project-bound semantic projection. */
   source_label?: string
   /** Optional project binding into the frontend edge-style catalog. */
@@ -2355,7 +2352,7 @@ export type GraphResponse = {
 }
 
 export type GraphConfigResponse = {
-  graph_doc_types?: Record<string, string[]>
+  graph_material_types?: Record<string, string[]>
   graph_type_labels?: Record<string, string>
   graph_node_types?: Record<string, string[]>
   graph_node_labels?: Record<string, string>

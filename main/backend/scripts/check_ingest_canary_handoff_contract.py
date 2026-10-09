@@ -82,13 +82,13 @@ def _runtime_checks() -> list[dict[str, Any]]:
             "fetch_strategy": "search_candidate_route",
         },
         collection_payload={
-            "document_candidate": {
+            "material_candidate": {
                 "uri": "https://example.com/search?q=robotics",
                 "title": "Search page",
                 "summary": "summary",
                 "content": "Robotics market update with enough meaningful context. " * 8,
                 "source_base_url": "example.com",
-                "doc_type": "market",
+                "material_type": "market",
             },
             "terminal_context": {
                 "project_key": "demo_proj",
@@ -192,8 +192,8 @@ def _runtime_checks() -> list[dict[str, Any]]:
             },
             {
                 "name": "production_like_canary_reads_back_db_guardrails",
-                "passed": int(db_readback.get("accepted_doc_count") or 0) == 1
-                and int(db_readback.get("rejected_doc_count") or 0) == 0
+                "passed": int(db_readback.get("accepted_material_count") or 0) == 1
+                and int(db_readback.get("rejected_material_count") or 0) == 0
                 and (live_evidence.get("validation_checks") or {}).get("guardrail_pass_observed") is True
                 and (live_evidence.get("validation_checks") or {}).get("guardrail_block_observed") is True,
                 "evidence": {

@@ -368,12 +368,12 @@ def test_live_source_url_crawler_to_material_and_graph_readback() -> None:
         from sqlalchemy import select
 
         from app.models.base import SessionLocal
-        from app.models.entities import Document
+        from app.models.entities import Material
         from app.services.projects.context import bind_project
 
         with bind_project(project_key):
             with SessionLocal() as session:
-                persisted = session.execute(select(Document).where(Document.id == int(material["id"]))).scalar_one()
+                persisted = session.execute(select(Material).where(Material.id == int(material["id"]))).scalar_one()
                 assert persisted.uri == target_url
                 assert f"Live crawler material body {run_token}" in str(persisted.content or "")
 

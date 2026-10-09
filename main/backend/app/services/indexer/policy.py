@@ -13,7 +13,7 @@ from elasticsearch.helpers import bulk
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 from ...models.base import SessionLocal
-from ...models.entities import Document, Embedding
+from ...models.entities import Material, Embedding
 from ...settings.config import settings
 from ..llm.provider import get_embeddings
 from ..search.es_client import get_es_client
@@ -315,7 +315,7 @@ def _validate_vector_contract_payload(
 
 
 def index_policy_documents(
-    document_ids: Sequence[int] | None = None,
+    material_ids: Sequence[int] | None = None,
     state: str | None = None,
 ) -> dict[str, int]:
     if not settings.openai_api_key:
@@ -329,20 +329,20 @@ def index_policy_documents(
         )
 
     job_params: dict[str, object] = {}
-    if document_ids:
-        job_params["document_ids"] = list(document_ids)
+    if material_ids:
+        job_params["material_ids"] = list(material_ids)
     if state:
         job_params["state"] = state
     job_id = start_job("index_policy", job_params)
 
     with SessionLocal() as session:
-        query = session.query(Document).filter(Document.doc_type == "policy")
-        if document_ids:
-            query = query.filter(Document.id.in_(list(document_ids)))
+        query = session.query(Material).filter(Material.material_type == "policy")
+        if material_ids:
+            query = query.filter(Material.id.in_(list(material_ids)))
         if state:
-            query = query.filter(Document.state == state)
+            query = query.filter(Material.state == state)
 
-        document_rows: Sequence[object] = query.order_by(Document.id.asc()).all()
+        document_rows: Sequence[object] = query.order_by(Material.id.asc()).all()
         documents: list[_PolicyDocument] = []
         for row in document_rows:
             if not _is_policy_document(row):
@@ -387,13 +387,13 @@ def index_policy_documents(
                     _raise_indexer_failure(vector_contract_failure)
                 prepared_chunks.append((chunk, vector_contract))
 
-            indexed_document_ids = {
+            indexed_material_ids = {
                 chunk.document.id for chunk, _ in prepared_chunks
             }
-            for document_id in sorted(indexed_document_ids):
+            for material_id in sorted(indexed_material_ids):
                 session.query(Embedding).filter(
                     Embedding.object_type == _EMBEDDING_OBJECT_TYPE,
-                    Embedding.object_id == document_id,
+                    Embedding.object_id == material_id,
                 ).delete(synchronize_session=False)
 
             embedding_model = get_embeddings()
@@ -402,7 +402,7 @@ def index_policy_documents(
             es = get_es_client()
             _delete_existing_es_docs(
                 es,
-                indexed_document_ids,
+                indexed_material_ids,
                 prepared_chunks[0][1]["project_key"],
             )
 
@@ -445,7 +445,7 @@ def index_policy_documents(
                 es_actions.append(
                     {
                         "_index": _ES_INDEX,
-                        "_id": _es_document_id(
+                        "_id": _es_material_id(
                             vector_contract["project_key"], document.id, chunk.chunk_index
                         ),
                         "embedding_id": embedding_row.id,
@@ -460,7 +460,8 @@ def index_policy_documents(
                         "keep_for_vectorization": vector_contract["keep_for_vectorization"],
                         "topic": _extracted_data(document).get("topic"),
                         "domain": _extracted_data(document).get("domain"),
-                        "document_id": document.id,
+                        "material_id": document.id,
+                        "material_type": "policy",
                         "chunk_index": chunk.chunk_index,
                         "state": document.state,
                         "status": document.status,
@@ -480,7 +481,8 @@ def index_policy_documents(
                         "object_type": vector_contract["object_type"],
                         "object_id": vector_contract["object_id"],
                         "vector_version": vector_contract["vector_version"],
-                        "document_id": document.id,
+                        "material_id": document.id,
+                        "material_type": "policy",
                         "chunk_index": chunk.chunk_index,
                         "state": document.state,
                         "status": document.status,
@@ -509,7 +511,7 @@ def index_policy_documents(
             # kit:boundary owner=indexer.policy.execution class=SHELL_BOUNDARY_EXCEPTION failure_family=indexer.policy.failure witness=test:test_w03_effect_boundaries
             raise
 
-        result = {"indexed": len(es_actions), "documents": len({chunk.document.id for chunk in chunks})}
+        result = {"indexed": len(es_actions), "materials": len({chunk.document.id for chunk in chunks})}
         complete_job(job_id, result=result)
         # Optional Qdrant upsert (best-effort, out of main transaction)
         try:
@@ -533,10 +535,10 @@ def index_policy_documents(
 
 def _delete_existing_es_docs(
     es: object,
-    document_ids: Iterable[int],
+    material_ids: Iterable[int],
     project_key: str,
 ) -> None:
-    ids = list(document_ids)
+    ids = list(material_ids)
     if not ids:
         return
     if not isinstance(es, _ElasticsearchDeletePort):
@@ -555,7 +557,7 @@ def _delete_existing_es_docs(
                 "bool": {
                     "filter": [
                         {"term": {"project_key": project_key}},
-                        {"terms": {"document_id": ids}},
+                        {"terms": {"material_id": ids}},
                     ]
                 }
             }
@@ -565,8 +567,8 @@ def _delete_existing_es_docs(
     )
 
 
-def _es_document_id(project_key: str, document_id: int, chunk_index: int) -> str:
-    return f"policy-{project_key}-{document_id}-{chunk_index}"
+def _es_material_id(project_key: str, material_id: int, chunk_index: int) -> str:
+    return f"policy-{project_key}-{material_id}-{chunk_index}"
 
 
 def _get_qdrant_client() -> _QdrantClientPort | None:

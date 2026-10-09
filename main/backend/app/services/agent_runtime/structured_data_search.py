@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 from app.models.base import SessionLocal
 from app.contracts.materials import normalize_material_dataset
 from app.models.entities import (
-    Document,
+    Material,
     GraphNodeRecord,
     KeywordHistory,
     KeywordPrior,
@@ -25,17 +25,17 @@ from app.models.entities import (
     SearchHistory,
     Source,
 )
-from app.services.document_queries import build_structured_data_search_document_query_envelope
+from app.services.document_queries import build_structured_data_search_material_query_envelope
 from app.services.document_queries.contracts import (
-    DocumentQueryJsonObject,
-    DocumentQueryJsonValue,
-    DocumentQueryRow,
+    MaterialQueryJsonObject,
+    MaterialQueryJsonValue,
+    MaterialQueryRow,
 )
 from app.services.projects import bind_project
 
 
-StructuredSearchResult: TypeAlias = DocumentQueryJsonObject
-StructuredRecord: TypeAlias = DocumentQueryRow
+StructuredSearchResult: TypeAlias = MaterialQueryJsonObject
+StructuredRecord: TypeAlias = MaterialQueryRow
 DatasetHandler: TypeAlias = Callable[[Session, str, int], tuple[list[StructuredRecord], int | None]]
 DatasetItemMapper: TypeAlias = Callable[..., StructuredRecord]
 
@@ -200,7 +200,7 @@ def query_project_structured_data(
         for item in dataset_results
     ]
     result_items = (flat_items or fallback_items)[:capped_limit]
-    document_query_envelope = build_structured_data_search_document_query_envelope(
+    material_query_envelope = build_structured_data_search_material_query_envelope(
         project_key=resolved_project_key,
         query=query_text,
         datasets_requested=selected_datasets,
@@ -211,7 +211,7 @@ def query_project_structured_data(
         total_stored_rows=total_stored_rows,
         fallback_used=bool(fallback_items and not flat_items),
     )
-    document_query_data = document_query_envelope["data"]
+    material_query_data = material_query_envelope["data"]
     return type_cast(StructuredSearchResult, {
         "contract_version": "project.structured_data.search.v2",
         "project_key": resolved_project_key,
@@ -226,11 +226,11 @@ def query_project_structured_data(
         "fallback_used": bool(fallback_items and not flat_items),
         "fallback_items": fallback_items[:capped_limit],
         "items": result_items,
-        "document_query_contract_version": document_query_data["contract_version"],
-        "document_query": document_query_data["query"],
-        "document_query_results": document_query_data["results"],
-        "document_query_pagination": document_query_data["pagination"],
-        "document_query_meta": document_query_envelope["meta"],
+        "material_query_contract_version": material_query_data["contract_version"],
+        "material_query": material_query_data["query"],
+        "material_query_results": material_query_data["results"],
+        "material_query_pagination": material_query_data["pagination"],
+        "material_query_meta": material_query_envelope["meta"],
         "model_evidence_manifest": build_structured_data_model_evidence_manifest(
             project_key=resolved_project_key,
             query=query_text,
@@ -604,25 +604,25 @@ def _searchable_text(value: object) -> str:
     return str(value or "").lower()
 
 
-def _query_documents(session: Session, query: str, limit: int) -> tuple[list[StructuredRecord], int | None]:
+def _query_materials(session: Session, query: str, limit: int) -> tuple[list[StructuredRecord], int | None]:
     return _query_model(
         session,
-        Document,
+        Material,
         dataset="materials",
         query=query,
         limit=limit,
-        mapper=_document_item,
+        mapper=_material_item,
         search_columns=(
-            Document.title,
-            Document.summary,
-            Document.content,
-            Document.uri,
-            Document.doc_type,
-            Document.status,
-            Document.state,
-            Document.extracted_data,
+            Material.title,
+            Material.summary,
+            Material.content,
+            Material.uri,
+            Material.material_type,
+            Material.status,
+            Material.state,
+            Material.extracted_data,
         ),
-        order_columns=(Document.updated_at, Document.created_at),
+        order_columns=(Material.updated_at, Material.created_at),
     )
 
 
@@ -802,14 +802,14 @@ def _query_search_history(session: Session, query: str, limit: int) -> tuple[lis
     )
 
 
-def _document_item(row: Document) -> StructuredRecord:
+def _material_item(row: Material) -> StructuredRecord:
     return _record(
         "materials",
         row.id,
         row.title or row.uri or f"material:{row.id}",
         row.summary or row.content,
         {
-            "doc_type": row.doc_type,
+            "material_type": row.material_type,
             "material_id": row.id,
             "status": row.status,
             "state": row.state,
@@ -960,7 +960,7 @@ def _graph_node_item(row: GraphNodeRecord) -> StructuredRecord:
             "canonical_id": row.canonical_id,
             "display_name": row.display_name,
             "properties": _compact_json_value(row.properties, max_items=10, max_depth=3),
-            "source_doc_id": row.source_doc_id,
+            "source_material_id": row.source_material_id,
             "schema_version": row.node_schema_version,
             "quality_flags": _compact_json_value(row.quality_flags, max_items=8, max_depth=3),
             "created_at": _serialize_value(row.created_at),
@@ -1041,7 +1041,7 @@ def _record(
     summary_text, summary_flags = _clean_display_summary(summary, limit=420)
     if summary_flags:
         existing_flags = fields_object.get("quality_flags")
-        quality_flags: DocumentQueryJsonObject = dict(existing_flags) if isinstance(existing_flags, dict) else {}
+        quality_flags: MaterialQueryJsonObject = dict(existing_flags) if isinstance(existing_flags, dict) else {}
         quality_flags.update(summary_flags)
         fields_object["quality_flags"] = quality_flags
     return {
@@ -1112,7 +1112,7 @@ def _structured_item_read_error(
     }
 
 
-def _serialize_value(value: object) -> DocumentQueryJsonValue:
+def _serialize_value(value: object) -> MaterialQueryJsonValue:
     if value is None or isinstance(value, (str, int, float, bool)):
         return value
     if isinstance(value, Decimal):
@@ -1146,7 +1146,7 @@ _WEB_NOISE_PATTERNS: tuple[re.Pattern[str], ...] = (
 )
 
 
-def _clean_display_summary(value: object, *, limit: int) -> tuple[str, DocumentQueryJsonObject]:
+def _clean_display_summary(value: object, *, limit: int) -> tuple[str, MaterialQueryJsonObject]:
     text = " ".join(str(value or "").split())
     if not text:
         return "", {}
@@ -1169,14 +1169,14 @@ def _punctuation_ratio(text: str) -> float:
 
 def _compact_json_value(
     value: object, *, max_items: int, max_depth: int, max_string: int = 500,
-) -> DocumentQueryJsonValue:
+) -> MaterialQueryJsonValue:
     if max_depth <= 0:
         if isinstance(value, (dict, list, tuple)):
             return "[truncated]"
         return _serialize_value(value)
     if isinstance(value, Mapping):
         mapping = type_cast(Mapping[object, object], value)
-        out: DocumentQueryJsonObject = {}
+        out: MaterialQueryJsonObject = {}
         for index, (key, item) in enumerate(mapping.items()):
             if index >= max_items:
                 out["_truncated"] = True
@@ -1186,7 +1186,7 @@ def _compact_json_value(
         return out
     if isinstance(value, (list, tuple)):
         items = list(type_cast(list[object] | tuple[object, ...], value))
-        array: list[DocumentQueryJsonValue] = [
+        array: list[MaterialQueryJsonValue] = [
             _compact_json_value(item, max_items=max_items, max_depth=max_depth - 1, max_string=max_string)
             for item in items[:max_items]
         ]
@@ -1200,7 +1200,7 @@ def _compact_json_value(
 
 
 _DATASET_HANDLERS: dict[str, DatasetHandler] = {
-    "materials": _query_documents,
+    "materials": _query_materials,
     "graph_nodes": _query_graph_nodes,
     "metric_points": _query_metric_points,
     "products": _query_products,
@@ -1214,7 +1214,7 @@ _DATASET_HANDLERS: dict[str, DatasetHandler] = {
 }
 
 _DATASET_MODELS: dict[str, Any] = {
-    "materials": Document,
+    "materials": Material,
     "graph_nodes": GraphNodeRecord,
     "metric_points": MarketMetricPoint,
     "products": Product,
@@ -1237,7 +1237,7 @@ def _price_observation_item_without_product(row: object) -> StructuredRecord:
 
 
 _DATASET_ITEM_MAPPERS: dict[str, DatasetItemMapper] = {
-    "materials": _document_item,
+    "materials": _material_item,
     "graph_nodes": _graph_node_item,
     "metric_points": _metric_point_item,
     "products": _product_item,

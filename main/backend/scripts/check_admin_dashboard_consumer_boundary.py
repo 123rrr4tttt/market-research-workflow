@@ -20,7 +20,7 @@ TOPIC_ID = "2026-03-14-consumer-side-modularization"
 BOUNDARY_RULE = (
     "Selected admin/dashboard API reads must route through document_views or document_admin, and selected "
     "document_admin graph reads must route through document_views; "
-    "Document.extracted_data SQL JSON predicates are checked by the Wave15 document_queries facade gate."
+    "Material.extracted_data SQL JSON predicates are checked by the Wave15 document_queries facade gate."
 )
 
 CHECKED_FUNCTIONS = {
@@ -114,7 +114,7 @@ def _function_map(tree: ast.AST) -> dict[str, ast.FunctionDef | ast.AsyncFunctio
 
 
 def _is_sql_model_extracted_data(node: ast.Attribute) -> bool:
-    return isinstance(node.value, ast.Name) and node.value.id == "Document"
+    return isinstance(node.value, ast.Name) and node.value.id == "Material"
 
 
 def _direct_instance_reads(func: ast.AST) -> list[DirectRead]:

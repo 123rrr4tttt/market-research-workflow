@@ -1,7 +1,6 @@
 import type { GraphEdgeItem, GraphNodeItem } from '../../../lib/types'
 import { edgeLegendKey } from './edgeStyleLibrary'
 import { normalizeNodeType } from './nodeStyleLibrary'
-import { normalizeMaterialGraphId } from '../../../features/information-topology/materialIdentity'
 import { normalizeMaterialGraph, normalizeMaterialGraphEdge, normalizeMaterialGraphNode } from './materialGraph'
 
 export type ProjectGraphRelationType = {
@@ -59,29 +58,19 @@ function normalizeNodeKey(value: unknown): string | null {
   const separator = value.indexOf(':')
   if (separator <= 0 || separator === value.length - 1) return null
   const nodeType = normalizeNodeType(value.slice(0, separator))
-  const nodeId = normalizeMaterialGraphId(value.slice(separator + 1).trim())
+  const nodeId = value.slice(separator + 1).trim()
   if (!nodeType || !nodeId) return null
   return `${nodeType}:${nodeId}`
-}
-
-/** Preserve the old material alias only for checking pre-migration duplicates. */
-function originalNodeType(value: unknown): string {
-  return String(value).trim().toLowerCase() === 'document' ? 'document' : normalizeNodeType(value)
 }
 
 function normalizeNodeKeys(value: unknown): string[] | null {
   if (!Array.isArray(value)) return null
   const items: string[] = []
   const seen = new Set<string>()
-  const originalKeys = new Set<string>()
   for (const raw of value) {
     const item = normalizeNodeKey(raw)
     if (!item || typeof raw !== 'string') return null
-    const separator = raw.indexOf(':')
-    const original = `${originalNodeType(raw.slice(0, separator))}:${raw.slice(separator + 1).trim()}`
-    if (originalKeys.has(original)) return null
-    originalKeys.add(original)
-    if (seen.has(item)) continue
+    if (seen.has(item)) return null
     seen.add(item)
     items.push(item)
   }
@@ -93,13 +82,10 @@ function normalizeHiddenNodeTypes(value: unknown): string[] | null {
   if (!items) return null
   const normalized: string[] = []
   const seen = new Set<string>()
-  const originalTypes = new Set<string>()
   for (const item of items) {
     const nodeType = normalizeNodeType(item)
-    const original = originalNodeType(item)
-    if (!nodeType || originalTypes.has(original)) return null
-    originalTypes.add(original)
-    if (seen.has(nodeType)) continue
+    if (!nodeType) return null
+    if (seen.has(nodeType)) return null
     seen.add(nodeType)
     normalized.push(nodeType)
   }
@@ -132,7 +118,7 @@ function normalizeAdditionalNodes(value: unknown): GraphNodeItem[] | null {
   for (const raw of value) {
     const node = normalizeAdditionalNode(raw)
     if (!node || !isRecord(raw)) return null
-    const key = `${originalNodeType(raw.type)}:${String(raw.id).trim()}`
+    const key = `${normalizeNodeType(raw.type)}:${String(raw.id).trim()}`
     if (seen.has(key)) return null
     seen.add(key)
     nodes.push({ ...node, id: raw.id as string | number, type: raw.type as string })
@@ -178,7 +164,6 @@ function normalizeRelationTypes(value: unknown): ProjectGraphRelationType[] | nu
   if (!Array.isArray(value)) return null
   const relations: ProjectGraphRelationType[] = []
   const seen = new Set<string>()
-  const originalKeys = new Set<string>()
   for (const raw of value) {
     if (!isRecord(raw) || Object.keys(raw).some((key) => !['sourceType', 'targetType', 'relation'].includes(key))) return null
     if (typeof raw.sourceType !== 'string' || typeof raw.targetType !== 'string' || typeof raw.relation !== 'string') return null
@@ -187,10 +172,7 @@ function normalizeRelationTypes(value: unknown): ProjectGraphRelationType[] | nu
     const relation = raw.relation.trim().toLowerCase()
     if (!sourceType || !targetType || !relation) return null
     const key = JSON.stringify([sourceType, relation, targetType])
-    const original = JSON.stringify([originalNodeType(raw.sourceType), relation, originalNodeType(raw.targetType)])
-    if (originalKeys.has(original)) return null
-    originalKeys.add(original)
-    if (seen.has(key)) continue
+    if (seen.has(key)) return null
     seen.add(key)
     relations.push({ sourceType, targetType, relation })
   }
@@ -230,14 +212,14 @@ export function normalizeProjectGraphViewSpec(value: unknown): ProjectGraphViewS
 
 export function projectGraphNodeKey(node: GraphNodeItem): string {
   const nodeType = normalizeNodeType(node.type)
-  const nodeId = normalizeMaterialGraphId(String(node.id ?? '').trim())
+  const nodeId = String(node.id ?? '').trim()
   return `${nodeType}:${nodeId}`
 }
 
 function edgeEndpointKey(endpoint: GraphEdgeItem['from'] | GraphEdgeItem['to']): string | null {
   if (!endpoint) return null
   const nodeType = normalizeNodeType(endpoint.type)
-  const nodeId = normalizeMaterialGraphId(String(endpoint.id ?? '').trim())
+  const nodeId = String(endpoint.id ?? '').trim()
   return nodeType && nodeId ? `${nodeType}:${nodeId}` : null
 }
 

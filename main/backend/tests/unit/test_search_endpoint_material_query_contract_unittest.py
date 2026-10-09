@@ -5,17 +5,17 @@ import unittest
 import pytest
 
 from app.services.document_queries import (
-    DOCUMENT_QUERY_CONTRACT_VERSION,
-    build_search_endpoint_document_query_envelope,
-    validate_document_query_result_envelope,
+    MATERIAL_QUERY_CONTRACT_VERSION,
+    build_search_endpoint_material_query_envelope,
+    validate_material_query_result_envelope,
 )
 
 pytestmark = pytest.mark.unit
 
 
-class SearchEndpointDocumentQueryContractUnitTestCase(unittest.TestCase):
-    def test_search_endpoint_envelope_exposes_document_query_contract(self) -> None:
-        envelope = build_search_endpoint_document_query_envelope(
+class SearchEndpointMaterialQueryContractUnitTestCase(unittest.TestCase):
+    def test_search_endpoint_envelope_exposes_material_query_contract(self) -> None:
+        envelope = build_search_endpoint_material_query_envelope(
             query="  Robotics   Policy  ",
             state=" CA ",
             modality="text",
@@ -25,8 +25,8 @@ class SearchEndpointDocumentQueryContractUnitTestCase(unittest.TestCase):
             used_backends=("opensearch_lexical", "qdrant_vector"),
             results=[
                 {
-                    "id": "doc-7",
-                    "document_id": 7,
+                    "id": "material-7",
+                    "material_id": 7,
                     "title": "Robot market note",
                     "snippet": "robotics market",
                     "score": 0.77,
@@ -35,11 +35,11 @@ class SearchEndpointDocumentQueryContractUnitTestCase(unittest.TestCase):
             ],
         )
 
-        validate_document_query_result_envelope(envelope)
+        validate_material_query_result_envelope(envelope)
         data = envelope["data"]
         query = data["query"]
 
-        self.assertEqual(data["contract_version"], DOCUMENT_QUERY_CONTRACT_VERSION)
+        self.assertEqual(data["contract_version"], MATERIAL_QUERY_CONTRACT_VERSION)
         self.assertEqual(query["consumer"], "api.search")
         self.assertEqual(query["project_key"], "demo_proj")
         self.assertEqual(query["query"], "Robotics Policy")

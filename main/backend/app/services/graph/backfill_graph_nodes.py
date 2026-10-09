@@ -9,7 +9,7 @@ from mrw_functorial_kit.core.w04_service_semantics import graph_backfill_failure
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from ...models.entities import Document
+from ...models.entities import Material
 from .builder import build_graph
 from .models import Graph, NormalizedSocialPost
 from .persistence import GraphNodeWriter
@@ -113,12 +113,12 @@ def try_run_graph_node_backfill(
     dry_run: bool = True,
     persistence_port: GraphNodePersistencePort | None = None,
 ) -> BackfillResult | Failure:
-    query = select(Document).where(Document.extracted_data.isnot(None))
+    query = select(Material).where(Material.extracted_data.isnot(None))
     if resume_token is not None:
-        query = query.where(Document.id > int(resume_token))
-    query = query.order_by(Document.id.asc()).limit(int(limit or batch_size))
+        query = query.where(Material.id > int(resume_token))
+    query = query.order_by(Material.id.asc()).limit(int(limit or batch_size))
 
-    docs: Sequence[Document] = session.execute(query).scalars().all()
+    docs: Sequence[Material] = session.execute(query).scalars().all()
     result = BackfillResult(scanned_docs=len(docs), next_resume_token=(docs[-1].id if docs else resume_token))
     if not docs:
         return result

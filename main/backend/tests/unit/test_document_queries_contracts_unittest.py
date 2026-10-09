@@ -13,76 +13,66 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 pytestmark = pytest.mark.unit
 
-from app.models.entities import Document
+from app.models.entities import Material
 from app.services.document_queries import (
-    DOCUMENT_QUERY_CONTRACT_VERSION,
-    DocumentQueryFilter,
-    DocumentQuerySort,
-    apply_document_query_to_statement,
-    build_document_query,
-    build_document_query_statement,
-    build_document_query_result_envelope,
-    compile_document_query_statement,
-    document_query_to_statement,
-    query_hybrid_document_envelope,
-    query_hybrid_document_rows,
+    MATERIAL_QUERY_CONTRACT_VERSION,
+    MaterialQueryFilter,
+    MaterialQuerySort,
+    apply_material_query_to_statement,
+    build_material_query,
+    build_material_query_statement,
+    build_material_query_result_envelope,
+    compile_material_query_statement,
+    material_query_to_statement,
+    query_hybrid_material_envelope,
+    query_hybrid_material_rows,
     query_source_library_material_envelope,
     query_source_library_material_rows,
-    rows_for_document_views,
-    try_build_document_query,
-    try_validate_document_query_result_envelope,
-    validate_document_query_result_envelope,
+    rows_for_material_views,
+    try_build_material_query,
+    try_validate_material_query_result_envelope,
+    validate_material_query_result_envelope,
 )
 from app.services.document_queries.identity import (
     canonical_material_identity,
-    document_identity,
     material_identity,
 )
 from app.services.document_views import build_keyword_card_from_hybrid_row, build_keyword_card_from_material_item
 
 
-class DocumentQueriesContractUnitTestCase(unittest.TestCase):
-    def test_canonical_material_identity_accepts_canonical_or_legacy_address(self) -> None:
+class MaterialQueriesContractUnitTestCase(unittest.TestCase):
+    def test_canonical_material_identity_accepts_only_exact_canonical_address(self) -> None:
         canonical = material_identity("demo_proj", 42)
-        legacy = document_identity("demo_proj", 42)
 
         self.assertEqual(canonical_material_identity("demo_proj", canonical), canonical)
-        self.assertEqual(canonical_material_identity("demo_proj", legacy), canonical)
         self.assertIsNone(canonical_material_identity("other_proj", canonical))
         self.assertIsNone(canonical_material_identity("demo_proj", {**canonical, "extra": "forged"}))
         self.assertIsNone(
             canonical_material_identity(
                 "demo_proj",
-                {**canonical, "module_id": "documents"},
+                {**canonical, "module_id": "legacy_materials"},
             )
         )
 
-    def test_material_and_legacy_sources_share_query_and_sql_identity(self) -> None:
-        legacy = build_document_query("robotics", sources=("document",))
-        material = build_document_query("robotics", sources=("material",))
-        self.assertEqual(legacy.query_id, material.query_id)
-        self.assertEqual(compile_document_query_statement(legacy), compile_document_query_statement(material))
-        envelope = build_document_query_result_envelope(material, [{"material_id": 42}], source="test")
-        self.assertEqual(envelope["data"]["results"][0]["document_id"], 42)
-        envelope["data"]["contract_version"] = "document_queries.v1"
-        envelope["data"]["query"]["contract_version"] = "document_queries.v1"
-        envelope["data"]["results"][0].pop("material_id")
-        envelope["data"]["results"][0]["source_type"] = "document"
-        self.assertEqual(rows_for_document_views(envelope)[0]["material_id"], 42)
-        self.assertEqual(rows_for_document_views(envelope)[0]["source_type"], "material")
+    def test_material_query_keeps_one_canonical_contract_and_sql_identity(self) -> None:
+        material = build_material_query("robotics", sources=("material",))
+        envelope = build_material_query_result_envelope(material, [{"material_id": 42}], source="test")
+        self.assertEqual(envelope["data"]["results"][0]["material_id"], 42)
+        self.assertEqual(rows_for_material_views(envelope)[0]["material_id"], 42)
+        self.assertEqual(rows_for_material_views(envelope)[0]["source_type"], "material")
 
     def test_query_object_normalizes_filter_sort_and_bounds(self) -> None:
-        query = build_document_query(
+        query = build_material_query(
             "  Robotics   Policy  ",
             project_key=" demo_proj ",
             consumer=" writing.search ",
-            sources=(" document ", "resource", ""),
+            sources=(" material ", "resource", ""),
             filters=(
                 {"field": "state", "op": "eq", "value": "CA"},
-                DocumentQueryFilter("policy.effective_date", "gte", "2026-01-01"),
+                MaterialQueryFilter("policy.effective_date", "gte", "2026-01-01"),
             ),
             sort=(
-                DocumentQuerySort("published_at", "DESC"),
+                MaterialQuerySort("published_at", "DESC"),
                 {"field": "title", "direction": "asc"},
             ),
             limit=999,
@@ -91,7 +81,7 @@ class DocumentQueriesContractUnitTestCase(unittest.TestCase):
 
         payload = query.to_dict()
 
-        self.assertEqual(payload["contract_version"], DOCUMENT_QUERY_CONTRACT_VERSION)
+        self.assertEqual(payload["contract_version"], MATERIAL_QUERY_CONTRACT_VERSION)
         self.assertEqual(payload["query"], "Robotics Policy")
         self.assertEqual(payload["normalized_query"], "robotics policy")
         self.assertEqual(payload["project_key"], "demo_proj")
@@ -103,19 +93,18 @@ class DocumentQueriesContractUnitTestCase(unittest.TestCase):
         self.assertEqual(payload["offset"], 0)
         self.assertRegex(payload["query_id"], r"^[0-9a-f]{16}$")
 
-    def test_result_envelope_can_feed_document_view_cards(self) -> None:
-        query = build_document_query(
+    def test_result_envelope_can_feed_material_view_cards(self) -> None:
+        query = build_material_query(
             "robotics",
             consumer="writing.keyword_cards",
-            sources=("document",),
+            sources=("material",),
             limit=2,
         )
-        envelope = build_document_query_result_envelope(
+        envelope = build_material_query_result_envelope(
             query,
             [
                 {
-                    "id": "doc-1",
-                    "document_id": 42,
+                    "material_id": 42,
                     "title": "Robotics adoption",
                     "summary": "Industrial robotics pilot evidence.",
                     "url": "https://example.org/robotics",
@@ -124,26 +113,39 @@ class DocumentQueriesContractUnitTestCase(unittest.TestCase):
                 }
             ],
             source="search.hybrid",
-            result_source_type="document",
+            result_source_type="material",
         )
 
-        validate_document_query_result_envelope(envelope)
-        rows = rows_for_document_views(envelope)
+        validate_material_query_result_envelope(envelope)
+        rows = rows_for_material_views(envelope)
         card = build_keyword_card_from_hybrid_row(rows[0], normalized_query="robotics")
 
         self.assertEqual(envelope["status"], "ok")
         self.assertEqual(envelope["data"]["query"]["consumer"], "writing.keyword_cards")
         self.assertEqual(envelope["meta"]["source"], "search.hybrid")
         self.assertEqual(rows[0]["source_type"], "material")
-        self.assertEqual(rows[0]["material_id"], rows[0]["document_id"])
-        self.assertEqual(rows[0]["document_id"], 42)
+        self.assertEqual(rows[0]["material_id"], 42)
+        self.assertNotIn("id", rows[0])
+        self.assertNotIn("id", rows[0]["raw"])
         self.assertEqual(card.source_type, "material")
         self.assertEqual(card.extra["backend"], "hybrid")
         self.assertEqual(card.extra["material_id"], 42)
         self.assertNotIn("document_id", card.extra)
 
+    def test_v2_result_validator_rejects_identity_aliases(self) -> None:
+        query = build_material_query("robotics", sources=("material",))
+        envelope = build_material_query_result_envelope(
+            query,
+            [{"material_id": 42, "title": "Robotics"}],
+            source="test",
+        )
+        envelope["data"]["results"][0]["id"] = "legacy-42"
+
+        with self.assertRaisesRegex(ValueError, "uses identity aliases: id"):
+            validate_material_query_result_envelope(envelope)
+
     def test_non_json_filter_value_returns_failure_and_legacy_shape(self) -> None:
-        result = try_build_document_query(
+        result = try_build_material_query(
             "",
             filters=({"field": "state", "op": "eq", "value": object()},),
         )
@@ -152,23 +154,23 @@ class DocumentQueriesContractUnitTestCase(unittest.TestCase):
         assert isinstance(result, Failure)
         self.assertTrue(result.failure)
         self.assertEqual(result.code, "filter_invalid")
-        self.assertEqual(result.message, "document query JSON value must be str, int, float, bool, null, array, or object")
-        self.assertEqual(result.context["owner"], "document_queries.contracts.json")
-        with self.assertRaisesRegex(ValueError, "document query JSON value"):
-            build_document_query("", filters=({"field": "state", "op": "eq", "value": object()},))
+        self.assertEqual(result.message, "material query JSON value must be str, int, float, bool, null, array, or object")
+        self.assertEqual(result.context["owner"], "material_queries.contracts.json")
+        with self.assertRaisesRegex(ValueError, "material query JSON value"):
+            build_material_query("", filters=({"field": "state", "op": "eq", "value": object()},))
 
     def test_non_json_result_row_is_rejected_without_field_erasure(self) -> None:
-        query = build_document_query("robotics", limit=2)
+        query = build_material_query("robotics", limit=2)
 
-        with self.assertRaisesRegex(ValueError, "document query JSON value"):
-            build_document_query_result_envelope(
+        with self.assertRaisesRegex(ValueError, "material query JSON value"):
+            build_material_query_result_envelope(
                 query,
-                [{"document_id": 7, "bad": object()}],
+                [{"material_id": 7, "bad": object()}],
                 source="search.hybrid",
             )
 
     def test_invalid_result_envelope_status_preserves_failure_shape(self) -> None:
-        result = try_validate_document_query_result_envelope(
+        result = try_validate_material_query_result_envelope(
             {
                 "status": "error",
                 "data": {},
@@ -181,9 +183,9 @@ class DocumentQueriesContractUnitTestCase(unittest.TestCase):
         assert isinstance(result, Failure)
         self.assertTrue(result.failure)
         self.assertEqual(result.code, "result_envelope_invalid")
-        self.assertEqual(result.message, "document query result envelope status must be ok")
-        with self.assertRaisesRegex(ValueError, "document query result envelope status must be ok"):
-            validate_document_query_result_envelope(
+        self.assertEqual(result.message, "material query result envelope status must be ok")
+        with self.assertRaisesRegex(ValueError, "material query result envelope status must be ok"):
+            validate_material_query_result_envelope(
                 {
                     "status": "error",
                     "data": {},
@@ -197,8 +199,7 @@ class DocumentQueriesContractUnitTestCase(unittest.TestCase):
             "app.services.document_queries.writing_material_queries.hybrid_search",
             return_value=[
                 {
-                    "id": "doc-7",
-                    "document_id": 7,
+                    "material_id": 7,
                     "title": "Robot market note",
                     "snippet": "robotics market",
                     "score": 0.77,
@@ -206,8 +207,8 @@ class DocumentQueriesContractUnitTestCase(unittest.TestCase):
                 }
             ],
         ) as hybrid_search:
-            envelope = query_hybrid_document_envelope("robot", limit=3)
-            rows = query_hybrid_document_rows("robot", limit=3)
+            envelope = query_hybrid_material_envelope("robot", limit=3)
+            rows = query_hybrid_material_rows("robot", limit=3)
 
         hybrid_search.assert_called_with("robot", state=None, top_k=3, mode="hybrid")
         self.assertEqual(envelope["data"]["query"]["sources"], ["material"])
@@ -232,8 +233,8 @@ class DocumentQueriesContractUnitTestCase(unittest.TestCase):
             envelope = query_source_library_material_envelope("demo_proj", query="robotics", limit=5)
             legacy_rows = query_source_library_material_rows("demo_proj", query="robotics")
 
-        validate_document_query_result_envelope(envelope)
-        rows = rows_for_document_views(envelope)
+        validate_material_query_result_envelope(envelope)
+        rows = rows_for_material_views(envelope)
         card = build_keyword_card_from_material_item(legacy_rows[0], normalized_query="robotics")
 
         self.assertEqual(envelope["data"]["query"]["filters"][0]["field"], "project_key")
@@ -244,15 +245,15 @@ class DocumentQueriesContractUnitTestCase(unittest.TestCase):
         self.assertEqual(card.source_type, "resource")
         self.assertEqual(card.extra["item_key"], "robotics_feed")
 
-    def test_document_query_builds_sqlalchemy_statement_with_filters_sort_and_pagination(self) -> None:
-        query = build_document_query(
+    def test_material_query_builds_sqlalchemy_statement_with_filters_sort_and_pagination(self) -> None:
+        query = build_material_query(
             "robotics policy",
             project_key="demo_proj",
             consumer="structured.service",
-            sources=("document",),
+            sources=("material",),
             filters=(
                 {"field": "state", "op": "eq", "value": "CA"},
-                {"field": "doc_type", "op": "in", "value": ["policy", "news"]},
+                {"field": "material_type", "op": "in", "value": ["policy", "news"]},
                 {"field": "extracted_data.policy.policy_type", "op": "contains", "value": "grant"},
             ),
             sort=({"field": "published_at", "direction": "desc"},),
@@ -260,58 +261,58 @@ class DocumentQueriesContractUnitTestCase(unittest.TestCase):
             offset=3,
         )
 
-        statement = build_document_query_statement(query)
-        compiled = compile_document_query_statement(statement)
-        alias_compiled = compile_document_query_statement(document_query_to_statement(query))
+        statement = build_material_query_statement(query)
+        compiled = compile_material_query_statement(statement)
+        alias_compiled = compile_material_query_statement(material_query_to_statement(query))
 
-        self.assertIn("FROM documents", alias_compiled)
-        self.assertIn("FROM documents", compiled)
-        self.assertIn("documents.state = 'CA'", compiled)
-        self.assertIn("documents.doc_type IN ('policy', 'news')", compiled)
+        self.assertIn("FROM materials", alias_compiled)
+        self.assertIn("FROM materials", compiled)
+        self.assertIn("materials.state = 'CA'", compiled)
+        self.assertIn("materials.material_type IN ('policy', 'news')", compiled)
         self.assertIn("project_key", compiled)
         self.assertIn("policy_type", compiled)
-        self.assertIn("ORDER BY documents.publish_date DESC NULLS LAST", compiled)
+        self.assertIn("ORDER BY materials.publish_date DESC NULLS LAST", compiled)
         self.assertIn("LIMIT 7 OFFSET 3", compiled)
 
-    def test_document_query_statement_adapter_extends_existing_statement(self) -> None:
-        query = build_document_query(
+    def test_material_query_statement_adapter_extends_existing_statement(self) -> None:
+        query = build_material_query(
             "",
             filters=({"field": "summary", "op": "contains", "value": "robotics"},),
             sort=({"field": "title", "direction": "asc"},),
             limit=2,
         )
 
-        statement = apply_document_query_to_statement(
+        statement = apply_material_query_to_statement(
             query,
-            select(Document).where(Document.status == "active"),
+            select(Material).where(Material.status == "active"),
         )
-        compiled = compile_document_query_statement(statement)
+        compiled = compile_material_query_statement(statement)
 
-        self.assertIn("documents.status = 'active'", compiled)
-        self.assertIn("documents.summary ILIKE", compiled)
-        self.assertIn("ORDER BY documents.title ASC NULLS LAST", compiled)
+        self.assertIn("materials.status = 'active'", compiled)
+        self.assertIn("materials.summary ILIKE", compiled)
+        self.assertIn("ORDER BY materials.title ASC NULLS LAST", compiled)
         self.assertIn("LIMIT 2", compiled)
 
-    def test_document_query_statement_applies_non_document_sources_as_doc_type_scope(self) -> None:
-        query = build_document_query(
+    def test_material_query_statement_applies_non_material_sources_as_material_type_scope(self) -> None:
+        query = build_material_query(
             "",
-            sources=("documents", "policy", "news"),
+            sources=("materials", "policy", "news"),
             limit=4,
         )
 
-        compiled = compile_document_query_statement(query)
+        compiled = compile_material_query_statement(query)
 
-        self.assertIn("documents.doc_type IN ('news', 'policy')", compiled)
+        self.assertIn("materials.material_type IN ('news', 'policy')", compiled)
         self.assertIn("LIMIT 4", compiled)
 
-    def test_document_query_statement_builder_rejects_unsupported_fields(self) -> None:
-        query = build_document_query(
+    def test_material_query_statement_builder_rejects_unsupported_fields(self) -> None:
+        query = build_material_query(
             "",
             filters=({"field": "raw_sql;drop_table", "op": "eq", "value": "bad"},),
         )
 
-        with self.assertRaisesRegex(ValueError, "unsupported document query field"):
-            build_document_query_statement(query)
+        with self.assertRaisesRegex(ValueError, "unsupported material query field"):
+            build_material_query_statement(query)
 
 
 if __name__ == "__main__":

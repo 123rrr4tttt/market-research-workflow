@@ -20,7 +20,7 @@ class SocialCollectResult(TypedDict):
     inserted: int
     skipped: int
     links: list[str]
-    doc_type: str
+    material_type: str
     extraction_stats: SocialExtractionStats
 
 
@@ -153,9 +153,12 @@ def try_parse_social_collect_result(value: object) -> SocialCollectResult | Fail
     links = _string_list(result.get("links"), path="social collect result.links")
     if isinstance(links, Failure):
         return links
-    doc_type = _string(result.get("doc_type"), path="social collect result.doc_type")
-    if isinstance(doc_type, Failure):
-        return doc_type
+    material_type = _string(
+        result.get("material_type"),
+        path="social collect result.material_type",
+    )
+    if isinstance(material_type, Failure):
+        return material_type
     enabled = _boolean(stats.get("enabled"), path="social collect result.extraction_stats.enabled")
     if isinstance(enabled, Failure):
         return enabled
@@ -173,7 +176,7 @@ def try_parse_social_collect_result(value: object) -> SocialCollectResult | Fail
         inserted=inserted,
         skipped=skipped,
         links=links,
-        doc_type=doc_type,
+        material_type=material_type,
         extraction_stats=SocialExtractionStats(
             enabled=enabled,
             ok=ok,

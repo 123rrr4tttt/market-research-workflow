@@ -213,7 +213,7 @@ class WritingTemplateListData(BaseModel):
 
 
 class WritingDocumentData(BaseModel):
-    id: int | None = None
+    doc_id: int | None = None
     project_key: str | None = None
     title: str = ""
     body_md: str = ""
@@ -225,7 +225,7 @@ class WritingDocumentData(BaseModel):
     created_at: str | None = None
     metadata_json: dict[str, Any] = Field(default_factory=dict)
 
-    model_config = ConfigDict(extra="allow")
+    model_config = ConfigDict(extra="forbid")
 
 
 class WritingDocumentListData(BaseModel):
@@ -260,7 +260,7 @@ class WritingCitationData(BaseModel):
     id: int | None = None
     doc_id: int | None = None
     project_key: str | None = None
-    source_doc_id: int | None = None
+    source_material_id: int | None = None
     source_uri: str | None = None
     source_title: str | None = None
     quote_text: str | None = None
@@ -270,7 +270,19 @@ class WritingCitationData(BaseModel):
     created_at: str | None = None
     updated_at: str | None = None
 
-    model_config = ConfigDict(extra="allow")
+    model_config = ConfigDict(extra="forbid")
+
+
+class WritingCitationUpsertItem(BaseModel):
+    source_material_id: int | None = Field(default=None, ge=1)
+    source_uri: str | None = Field(default=None, max_length=2048)
+    source_title: str | None = Field(default=None, max_length=500)
+    quote_text: str | None = Field(default=None, max_length=10000)
+    position_anchor: str | None = Field(default=None, max_length=500)
+    card_id: str | None = Field(default=None, max_length=128)
+    metadata_json: dict[str, Any] = Field(default_factory=dict)
+
+    model_config = ConfigDict(extra="forbid")
 
 
 class WritingCitationListData(BaseModel):

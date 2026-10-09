@@ -12,33 +12,78 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 pytestmark = pytest.mark.unit
 
+from app.celery_app import celery_app
 from app.services.collect_runtime.adapters.search_market import SearchMarketAdapter
 from app.services.collect_runtime.adapters.source_library import SourceLibraryAdapter
 from app.services.collect_runtime.contracts import CollectRequest
-from app.celery_app import celery_app
 from app.services.tasks import (
-    task_raw_import_documents,
+    task_raw_import_materials,
 )
+
+
+class _EmptyRawImportSession:
+    def __init__(self) -> None:
+        self.committed = False
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_args):
+        return False
+
+    def commit(self) -> None:
+        self.committed = True
 
 
 class TaskRuntimeReadbackIngestBoundaryUnitTestCase(unittest.TestCase):
     def test_raw_import_task_is_registered_and_forwards_project_scope(self) -> None:
-        task_name = "app.services.tasks.task_raw_import_documents"
-        payload = {"items": [{"title": "raw-import-test", "text": "local async task"}]}
-        expected = {"inserted": 1, "error_count": 0}
+        from app.services.ingest import raw_import
 
-        self.assertEqual(task_raw_import_documents.name, task_name)
+        task_name = "app.services.tasks.task_raw_import_materials"
+        retired_task_name = "app.services.tasks.task_raw_import_documents"
+        payload = {"source_name": "async-material-import", "items": []}
+        session = _EmptyRawImportSession()
+        completed: list[tuple[int, str, object]] = []
+
+        self.assertEqual(task_raw_import_materials.name, task_name)
         self.assertEqual(celery_app.tasks[task_name].name, task_name)
+        self.assertNotIn(retired_task_name, celery_app.tasks)
 
         with (
-            patch("app.services.tasks.bind_project", return_value=nullcontext()) as mocked_bind,
-            patch("app.services.ingest.raw_import.run_raw_import_documents", return_value=expected) as mocked_run,
+            patch(
+                "app.composition.raw_material_import_task.bind_project",
+                return_value=nullcontext(),
+            ) as mocked_bind,
+            patch.object(raw_import, "SessionLocal", return_value=session),
+            patch.object(raw_import, "start_job", return_value=91),
+            patch.object(
+                raw_import,
+                "complete_job",
+                side_effect=lambda job_id, status="completed", result=None: completed.append(
+                    (job_id, status, result)
+                ),
+            ),
+            patch.object(raw_import, "fail_job") as mocked_fail,
         ):
-            result = task_raw_import_documents.run(payload, "local_demo_20260921")
+            result = task_raw_import_materials.run(payload, "local_demo_20260921")
 
-        self.assertEqual(result, expected)
+        self.assertEqual(
+            result,
+            {
+                "inserted": 0,
+                "updated": 0,
+                "skipped": 0,
+                "error_count": 0,
+                "errors": [],
+                "items": [],
+                "source_name": "async-material-import",
+                "project_key": "local_demo_20260921",
+            },
+        )
         mocked_bind.assert_called_once_with("local_demo_20260921")
-        mocked_run.assert_called_once_with(payload=payload, project_key="local_demo_20260921")
+        self.assertTrue(session.committed)
+        self.assertEqual(completed, [(91, "completed", result)])
+        mocked_fail.assert_not_called()
 
     def test_search_market_adapter_passes_runtime_readback_to_market_job(self) -> None:
         adapter = SearchMarketAdapter()

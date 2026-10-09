@@ -10,7 +10,7 @@ from typing import Protocol, TypeGuard, runtime_checkable
 from sqlalchemy import select
 
 from ...models.base import SessionLocal
-from ...models.entities import Document
+from ...models.entities import Material
 from ..job_logger import complete_job, fail_job, start_job
 from ..resource_pool.http_port import fetch_html, make_html_parser
 from .content_extraction import locate_main_text_from_html
@@ -81,7 +81,7 @@ def _deep_merge_json(base: object, incoming: object) -> object:
     return incoming
 
 
-def _normalize_doc_type_for_raw(dt: str | None, default_doc_type: str) -> str:
+def _normalize_material_type_for_raw(dt: str | None, default_material_type: str) -> str:
     key = (dt or "").strip().lower()
     allowed = {
         "market",
@@ -95,7 +95,7 @@ def _normalize_doc_type_for_raw(dt: str | None, default_doc_type: str) -> str:
     }
     if key in allowed:
         return key
-    return default_doc_type
+    return default_material_type
 
 
 def _all_urls_in_text(text: str) -> list[str]:
@@ -278,9 +278,9 @@ def _normalize_iso_date(value: object) -> date | None:
             return None
 
 
-def _resolve_extraction_flags(extraction_mode: str, doc_type: str) -> dict[str, object]:
+def _resolve_extraction_flags(extraction_mode: str, material_type: str) -> dict[str, object]:
     mode = (extraction_mode or "auto").strip().lower()
-    dtype = (doc_type or "").strip().lower()
+    dtype = (material_type or "").strip().lower()
     if mode == "auto":
         if dtype in {"market", "market_info"}:
             mode = "market"
@@ -326,14 +326,14 @@ def derive_publish_date_from_extracted(extracted_data: Mapping[str, object]) -> 
     return None
 
 
-def run_raw_import_documents(payload: RawObject, project_key: str) -> RawObject:
+def run_raw_import_materials(payload: RawObject, project_key: str) -> RawObject:
     now = datetime.now()
 
     source_name = str(payload.get("source_name") or "raw_import").strip() or "raw_import"
     source_kind = str(payload.get("source_kind") or "manual").strip() or "manual"
     infer_from_links = bool(payload.get("infer_from_links", True))
     enable_extraction = bool(payload.get("enable_extraction", True))
-    default_doc_type = str(payload.get("default_doc_type") or "raw_note")
+    default_material_type = str(payload.get("default_material_type") or "raw_note")
     extraction_mode = str(payload.get("extraction_mode") or "auto").strip().lower()
     overwrite_on_uri = bool(payload.get("overwrite_on_uri", False))
     chunk_size = _safe_int(payload.get("chunk_size") or 2800, 2800)
@@ -450,22 +450,22 @@ def run_raw_import_documents(payload: RawObject, project_key: str) -> RawObject:
                         summary = text[:400] if len(text) > 400 else None
 
                     text_hash = hashlib.sha256(text.encode("utf-8")).hexdigest()
-                    item_doc_type = item.get("doc_type")
-                    if item_doc_type is not None and not isinstance(item_doc_type, str):
-                        error = "doc_type must be a string or null"
+                    item_material_type = item.get("material_type")
+                    if item_material_type is not None and not isinstance(item_material_type, str):
+                        error = "material_type must be a string or null"
                         logger.warning("raw_import failed idx=%s err=%s", idx, error)
                         errors.append({"index": idx, "error": error})
                         continue
-                    doc_type = _normalize_doc_type_for_raw(item_doc_type, default_doc_type)
-                    if fetched_from_url and url_to_market and not str(item_doc_type or "").strip():
-                        doc_type = "market_info"
+                    material_type = _normalize_material_type_for_raw(item_material_type, default_material_type)
+                    if fetched_from_url and url_to_market and not str(item_material_type or "").strip():
+                        material_type = "market_info"
                     publish_date_value = _normalize_iso_date(item.get("publish_date"))
 
                     existing = None
                     if uri:
-                        existing = session.execute(select(Document).where(Document.uri == uri)).scalar_one_or_none()
+                        existing = session.execute(select(Material).where(Material.uri == uri)).scalar_one_or_none()
                     if existing is None:
-                        existing = session.execute(select(Document).where(Document.text_hash == text_hash)).scalar_one_or_none()
+                        existing = session.execute(select(Material).where(Material.text_hash == text_hash)).scalar_one_or_none()
 
                     doc = existing
                     if doc and not overwrite_on_uri and not (
@@ -476,7 +476,7 @@ def run_raw_import_documents(payload: RawObject, project_key: str) -> RawObject:
                         item_results.append(
                             {
                                 "index": idx,
-                                "doc_id": getattr(doc, "id", None),
+                                "material_id": getattr(doc, "id", None),
                                 "status": "skipped_exists",
                                 "uri": getattr(doc, "uri", None),
                             }
@@ -494,7 +494,7 @@ def run_raw_import_documents(payload: RawObject, project_key: str) -> RawObject:
                         )
                         setattr(doc, "source_id", getattr(source, "id", None))
                         setattr(doc, "state", item.get("state") or getattr(doc, "state", None))
-                        setattr(doc, "doc_type", doc_type or getattr(doc, "doc_type", None))
+                        setattr(doc, "material_type", material_type or getattr(doc, "material_type", None))
                         setattr(doc, "title", title or getattr(doc, "title", None))
                         setattr(doc, "publish_date", publish_date_value or getattr(doc, "publish_date", None))
                         setattr(doc, "content", text)
@@ -539,7 +539,7 @@ def run_raw_import_documents(payload: RawObject, project_key: str) -> RawObject:
                     if prepared_material is None:
                         raw_input.pop("material_input", None)
 
-                    extraction_flags = _resolve_extraction_flags(extraction_mode, doc_type)
+                    extraction_flags = _resolve_extraction_flags(extraction_mode, material_type)
                     mode = str(extraction_flags.get("mode") or extraction_mode)
                     extracted_base["_structured_summary"] = build_structured_summary(
                         extracted_base,
@@ -551,7 +551,7 @@ def run_raw_import_documents(payload: RawObject, project_key: str) -> RawObject:
                     frontdoor_item: RawObject = {
                         **item,
                         "state": item.get("state") or None,
-                        "doc_type": doc_type,
+                        "material_type": material_type,
                         "title": title,
                         "publish_date": publish_date_value.isoformat() if publish_date_value else None,
                         "content": text,
@@ -576,7 +576,7 @@ def run_raw_import_documents(payload: RawObject, project_key: str) -> RawObject:
                             build_material_frontdoor_payload(
                                 prepared_material,
                                 target=MaterialTargetSpec(
-                                    doc_type=doc_type,
+                                    material_type=material_type,
                                     title=title,
                                     summary=summary,
                                     publish_date=publish_date_value,
@@ -599,12 +599,12 @@ def run_raw_import_documents(payload: RawObject, project_key: str) -> RawObject:
                             )
                         )
                     else:
-                        collection_payload["document_candidate"] = {
+                        collection_payload["material_candidate"] = {
                             "source_name": source_name,
                             "source_kind": source_kind,
                             "source_base_url": None,
                             "state": item.get("state") or None,
-                            "doc_type": doc_type,
+                            "material_type": material_type,
                             "title": title,
                             "publish_date": publish_date_value,
                             "content": text,
@@ -650,12 +650,12 @@ def run_raw_import_documents(payload: RawObject, project_key: str) -> RawObject:
                         item_results.append(
                             {
                                 "index": idx,
-                                "doc_id": writer_result.get("doc_id"),
+                                "material_id": writer_result.get("material_id"),
                                 "status": "ok" if writer_inserted > 0 else str(writer_result.get("reason") or "skipped"),
                                 "uri": uri,
                                 "uris": uri_list,
                                 "fetched_from_url": fetched_from_url,
-                                "doc_type": doc_type,
+                                "material_type": material_type,
                             }
                         )
                     else:
@@ -679,12 +679,12 @@ def run_raw_import_documents(payload: RawObject, project_key: str) -> RawObject:
                         item_results.append(
                             {
                                 "index": idx,
-                                "doc_id": getattr(doc, "id", None),
+                                "material_id": getattr(doc, "id", None),
                                 "status": "ok",
                                 "uri": getattr(doc, "uri", None),
                                 "uris": uri_list,
                                 "fetched_from_url": fetched_from_url,
-                                "doc_type": getattr(doc, "doc_type", None),
+                                "material_type": getattr(doc, "material_type", None),
                             }
                         )
                 except Exception as exc:  # noqa: BLE001
@@ -717,5 +717,5 @@ _derive_publish_date_from_extracted = derive_publish_date_from_extracted
 __all__ = [
     "derive_publish_date_from_extracted",
     "merge_extracted_batch",
-    "run_raw_import_documents",
+    "run_raw_import_materials",
 ]

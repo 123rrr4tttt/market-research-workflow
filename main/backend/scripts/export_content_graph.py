@@ -15,8 +15,8 @@ import logging
 from sqlalchemy import select, and_, or_
 
 from app.models.base import SessionLocal
-from app.models.entities import Document
-from app.services.graph.adapters import normalize_document
+from app.models.entities import Material
+from app.services.graph.adapters import normalize_material
 from app.services.graph.builder import build_graph, build_topic_subgraph
 from app.services.graph.exporter import export_to_json_file, validate_graph
 
@@ -62,18 +62,18 @@ def export_content_graph(
     with SessionLocal() as session:
         # 构建查询条件
         conditions = [
-            Document.doc_type == "social_sentiment",
-            Document.extracted_data.isnot(None)
+            Material.material_type == "social_sentiment",
+            Material.extracted_data.isnot(None)
         ]
         
         # 时间过滤
         if days:
             cutoff_date = datetime.now() - timedelta(days=days)
-            conditions.append(Document.created_at >= cutoff_date)
+            conditions.append(Material.created_at >= cutoff_date)
         elif since:
-            conditions.append(Document.created_at >= since)
+            conditions.append(Material.created_at >= since)
         if until:
-            conditions.append(Document.created_at <= until)
+            conditions.append(Material.created_at <= until)
         
         # 平台过滤
         if platform:
@@ -82,10 +82,10 @@ def export_content_graph(
         
         # 州过滤
         if state:
-            conditions.append(Document.state == state)
+            conditions.append(Material.state == state)
         
         # 执行查询
-        query = select(Document).where(and_(*conditions))
+        query = select(Material).where(and_(*conditions))
         if limit:
             query = query.limit(limit)
         
@@ -103,7 +103,7 @@ def export_content_graph(
                     skipped += 1
                     continue
             
-            normalized = normalize_document(doc)
+            normalized = normalize_material(doc)
             if normalized:
                 normalized_posts.append(normalized)
             else:
@@ -294,4 +294,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

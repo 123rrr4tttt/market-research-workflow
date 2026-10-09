@@ -606,24 +606,20 @@ function scheduledArtifactDrilldownNoWarningPayload(): ScheduledArtifactDrilldow
 }
 
 function adminPreviewPayload(actionKind: string, requestPayload: Record<string, unknown>) {
-  const ids = Array.isArray(requestPayload.ids)
-    ? requestPayload.ids
-    : Array.isArray(requestPayload.doc_ids)
-      ? requestPayload.doc_ids
-      : []
+  const ids = Array.isArray(requestPayload.material_ids) ? requestPayload.material_ids : []
   return {
     preview: true,
     schema_version: 'ops.admin.preview_evidence_package.v1',
     action_kind: actionKind,
-    risk_labels: actionKind === 'delete_documents' ? ['destructive', 'admin_write'] : ['write', 'admin_write'],
+    risk_labels: actionKind === 'materials.delete' ? ['destructive', 'admin_write'] : ['write', 'admin_write'],
     source_query: {
-      scope: 'admin.documents',
+      scope: 'admin.materials',
       project_key: MOCK_PROJECT_KEY,
-      ids,
+      material_ids: ids,
       preview: true,
     },
     source_refs: [
-      { id: 'admin.documents:5801', type: 'document', table: 'documents' },
+      { id: 'admin.materials:5801', type: 'material', table: 'materials' },
       { id: `admin.preview:${actionKind}:mocked`, type: 'admin_preview', action_kind: actionKind },
     ],
     trace_chain: {
@@ -635,7 +631,7 @@ function adminPreviewPayload(actionKind: string, requestPayload: Record<string, 
     evidence_preview: {
       execution_result_available: false,
       affected_count: ids.length,
-      sample_rows: [{ id: 5801, title: 'Mocked Rail Ops Document' }],
+      sample_rows: [{ material_id: 5801, title: 'Mocked Rail Ops Material' }],
       limitations: ['mocked_preview_not_real_backend_proof'],
     },
     would_affect_count: ids.length,
@@ -644,24 +640,20 @@ function adminPreviewPayload(actionKind: string, requestPayload: Record<string, 
 }
 
 function adminExecutionPayload(actionKind: string, requestPayload: Record<string, unknown>) {
-  const ids = Array.isArray(requestPayload.ids)
-    ? requestPayload.ids
-    : Array.isArray(requestPayload.doc_ids)
-      ? requestPayload.doc_ids
-      : []
+  const ids = Array.isArray(requestPayload.material_ids) ? requestPayload.material_ids : []
   return {
     preview: false,
     schema_version: 'ops.admin.governance_execution_readback.v1',
     action_kind: actionKind,
-    risk_labels: actionKind === 'delete_documents' ? ['destructive', 'admin_write'] : ['write', 'admin_write'],
+    risk_labels: actionKind === 'materials.delete' ? ['destructive', 'admin_write'] : ['write', 'admin_write'],
     source_query: {
-      scope: 'admin.documents.execution',
+      scope: 'admin.materials.execution',
       project_key: MOCK_PROJECT_KEY,
-      ids,
+      material_ids: ids,
       preview: false,
     },
     source_refs: [
-      { id: 'admin.documents:5801', type: 'document', table: 'documents' },
+      { id: 'admin.materials:5801', type: 'material', table: 'materials' },
       { id: `admin.execution:${actionKind}:mocked`, type: 'admin_execution', action_kind: actionKind },
     ],
     trace_chain: {
@@ -674,7 +666,7 @@ function adminExecutionPayload(actionKind: string, requestPayload: Record<string
     evidence_preview: {
       execution_result_available: true,
       affected_count: ids.length,
-      sample_rows: [{ id: 5801, title: 'Mocked Rail Ops Document' }],
+      sample_rows: [{ material_id: 5801, title: 'Mocked Rail Ops Material' }],
       limitations: ['mocked_execution_not_real_backend_proof'],
     },
     execution_result: {
@@ -696,7 +688,7 @@ function adminExecutionPayload(actionKind: string, requestPayload: Record<string
       reason: 'mocked browser rail does not mutate backend state',
     },
     updated: actionKind === 'bulk_structured_write' ? ids.length : undefined,
-    deleted: actionKind === 'delete_documents' ? ids.length : undefined,
+    deleted: actionKind === 'materials.delete' ? ids.length : undefined,
   }
 }
 
@@ -870,13 +862,13 @@ async function setupMockedBusinessLineRail(
     if (pathname === '/api/v1/dashboard/stats') {
       hits.dashboardStats += 1
       await fulfillJson(route, {
-        documents: {
+        materials: {
           total: 58,
           recent_today: 4,
           recent_7d: 18,
           extraction_rate: 0.91,
           type_distribution: { mocked_report: 8, browser_note: 2 },
-          source_refs: [{ id: 'mocked-dashboard-documents-source', table: 'documents' }],
+          source_refs: [{ id: 'mocked-dashboard-materials-source', table: 'materials' }],
         },
         sources: {
           total: 7,
@@ -961,8 +953,8 @@ async function setupMockedBusinessLineRail(
             status: 'open',
             severity: 'low',
             title: 'Mocked rail action is not real-backend proof',
-            source_metric: 'documents.total',
-            source_refs: ['mocked-dashboard-documents-source'],
+            source_metric: 'materials.total',
+            source_refs: ['mocked-dashboard-materials-source'],
           },
         ],
       })
@@ -971,17 +963,17 @@ async function setupMockedBusinessLineRail(
 
     if (pathname === '/api/v1/dashboard/drilldown') {
       await fulfillJson(route, {
-        metric: url.searchParams.get('metric') || 'documents.total',
-        source_ref: 'mocked-dashboard-documents-source',
+        metric: url.searchParams.get('metric') || 'materials.total',
+        source_ref: 'mocked-dashboard-materials-source',
         filters: { project_key: MOCK_PROJECT_KEY },
         row_count: 1,
-        source_query: { scope: 'dashboard.stats', table: 'documents' },
-        source_refs: [{ id: 'mocked-dashboard-documents-source', table: 'documents' }],
+        source_query: { scope: 'dashboard.stats', table: 'materials' },
+        source_refs: [{ id: 'mocked-dashboard-materials-source', table: 'materials' }],
         sample_rows: [
           {
-            id: 58,
+            material_id: 58,
             title: 'Mocked rail dashboard sample row',
-            source_ref: 'mocked-dashboard-documents-source',
+            source_ref: 'mocked-dashboard-materials-source',
           },
         ],
       })
@@ -995,7 +987,7 @@ async function setupMockedBusinessLineRail(
         contract_version: 'dashboard.report_from_filter.v1',
         report_id: 'mocked-rail-report-58',
         draft_id: 5802,
-        document_id: 5802,
+        doc_id: 5802,
         title: 'Mocked Rail 58 Report Draft',
         status: 'draft',
         quality: {
@@ -1153,8 +1145,8 @@ async function setupMockedBusinessLineRail(
         trace_id: url.searchParams.get('trace_id') || 'trace-mocked-rail-58',
         request_id: 'req-mocked-rail-58',
         project_key: MOCK_PROJECT_KEY,
-        source_refs: [{ id: 'mocked-dashboard-documents-source', table: 'documents' }],
-        source_query: { scope: 'dashboard.stats', table: 'documents' },
+        source_refs: [{ id: 'mocked-dashboard-materials-source', table: 'materials' }],
+        source_query: { scope: 'dashboard.stats', table: 'materials' },
         report_artifact: { artifact_id: 'mocked-artifact-58', artifact_sha256: 'mocked-sha256-58' },
         quality_gate: { decision: 'pass', status: 'ready' },
         repair_context: { trace_id: 'trace-mocked-rail-58', real_backend_proof: false },
@@ -1216,7 +1208,7 @@ async function setupMockedBusinessLineRail(
           supplies: '供给',
           regulated_by: '监管',
         },
-        graph_doc_types: {
+        graph_material_types: {
           market: ['mocked_report'],
         },
       })
@@ -1652,7 +1644,7 @@ async function setupMockedBusinessLineRail(
     }
 
     if (
-      pathname === '/api/v1/resource_pool/extract/from-documents'
+      pathname === '/api/v1/resource_pool/extract/from-materials'
       || pathname === '/api/v1/resource_pool/discover/site-entries'
       || pathname === '/api/v1/resource_pool/site_entries/simplify'
     ) {
@@ -1667,7 +1659,7 @@ async function setupMockedBusinessLineRail(
 
     if (pathname === '/api/v1/admin/stats') {
       await fulfillJson(route, {
-        documents: { total: 58, recent_today: 5 },
+        materials: { total: 58, recent_today: 5 },
         social_data: { total: 12, recent_today: 2 },
         sources: { total: 7 },
         search_history: { total: 3 },
@@ -1686,9 +1678,9 @@ async function setupMockedBusinessLineRail(
       await fulfillJson(route, {
         items: [
           {
-            id: 5801,
-            title: 'Mocked Rail Ops Document',
-            doc_type: 'mocked_report',
+            material_id: 5801,
+            title: 'Mocked Rail Ops Material',
+            material_type: 'mocked_report',
             state: 'ready',
             has_extracted_data: true,
             updated_at: '2026-05-24T18:06:00Z',
@@ -1706,11 +1698,11 @@ async function setupMockedBusinessLineRail(
       const payload = request.postDataJSON() as Record<string, unknown>
       if (payload.preview === true) {
         hits.adminBulkWritePreview += 1
-        await fulfillJson(route, adminPreviewPayload('bulk_structured_write', payload))
+        await fulfillJson(route, adminPreviewPayload('materials.bulk_extracted_data', payload))
         return
       }
       hits.adminBulkWriteExecute += 1
-      await fulfillJson(route, adminExecutionPayload('bulk_structured_write', payload))
+      await fulfillJson(route, adminExecutionPayload('materials.bulk_extracted_data', payload))
       return
     }
 
@@ -1718,11 +1710,11 @@ async function setupMockedBusinessLineRail(
       const payload = request.postDataJSON() as Record<string, unknown>
       if (payload.preview === true) {
         hits.adminDeletePreview += 1
-        await fulfillJson(route, adminPreviewPayload('delete_documents', payload))
+        await fulfillJson(route, adminPreviewPayload('materials.delete', payload))
         return
       }
       hits.adminDeleteExecute += 1
-      await fulfillJson(route, adminExecutionPayload('delete_documents', payload))
+      await fulfillJson(route, adminExecutionPayload('materials.delete', payload))
       return
     }
 
@@ -2082,30 +2074,30 @@ test('batch 58 statistics view -> Projects -> Graph -> Ingest/Search -> Resource
   await expect(page.getByTestId('ops-business-line-evidence-matrix-line-writing_knowledge_graph_agent')).toBeVisible()
   await expect(page.getByTestId('ops-business-line-evidence-matrix-line-runtime_ops')).toBeVisible()
   await page.goto('/#/admin/ops')
-  await expect(page.getByText('Mocked Rail Ops Document')).toBeVisible()
+  await expect(page.getByText('Mocked Rail Ops Material')).toBeVisible()
   await page.getByRole('button', { name: '选择当前页' }).click()
   await page.locator('.ops-page').getByRole('button', { name: '展开高级详情', exact: true }).click()
   await page.getByRole('button', { name: '预览删除' }).click()
-  await expect(page.getByTestId('ops-document-governance-preview')).toContainText('preview evidence')
-  await expect(page.getByTestId('ops-document-governance-preview')).toContainText('delete_documents')
-  await expect(page.getByTestId('ops-document-governance-preview')).toContainText('执行结果可用')
-  await expect(page.getByTestId('ops-document-governance-preview')).toContainText('false')
+  await expect(page.getByTestId('ops-material-governance-preview')).toContainText('preview evidence')
+  await expect(page.getByTestId('ops-material-governance-preview')).toContainText('materials.delete')
+  await expect(page.getByTestId('ops-material-governance-preview')).toContainText('执行结果可用')
+  await expect(page.getByTestId('ops-material-governance-preview')).toContainText('false')
   await page.getByTestId('ops-copy-preview-evidence-package').click()
   const previewClipboard = JSON.parse(await page.evaluate(() => navigator.clipboard.readText()))
   expect(previewClipboard).toMatchObject({
-    action_kind: 'delete_documents',
+    action_kind: 'materials.delete',
     evidence_preview: { execution_result_available: false },
   })
   await page.getByRole('button', { name: '删除材料', exact: true }).click()
-  await expect(page.getByTestId('ops-document-governance-preview')).toContainText('execution evidence')
-  await expect(page.getByTestId('ops-document-governance-preview')).toContainText('trace-admin-execution-delete_documents')
-  await expect(page.getByTestId('ops-document-governance-preview')).toContainText('recorded_in_response_only')
-  await expect(page.getByTestId('ops-document-governance-preview')).toContainText('mocked browser rail does not mutate backend state')
+  await expect(page.getByTestId('ops-material-governance-preview')).toContainText('execution evidence')
+  await expect(page.getByTestId('ops-material-governance-preview')).toContainText('trace-admin-execution-materials.delete')
+  await expect(page.getByTestId('ops-material-governance-preview')).toContainText('recorded_in_response_only')
+  await expect(page.getByTestId('ops-material-governance-preview')).toContainText('mocked browser rail does not mutate backend state')
   await page.getByTestId('ops-copy-preview-evidence-package').click()
   const executionClipboard = JSON.parse(await page.evaluate(() => navigator.clipboard.readText()))
   expect(executionClipboard).toMatchObject({
     schema_version: 'ops.admin.governance_execution_readback.v1',
-    action_kind: 'delete_documents',
+    action_kind: 'materials.delete',
     execution_result: { execution_result_available: true, affected_count: 1 },
     audit_event: { status: 'recorded_in_response_only' },
   })

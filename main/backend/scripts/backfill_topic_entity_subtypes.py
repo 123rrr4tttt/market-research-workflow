@@ -17,7 +17,7 @@ if ROOT not in sys.path:
 from sqlalchemy import select  # noqa: E402
 
 from app.models.base import SessionLocal  # noqa: E402
-from app.models.entities import Document  # noqa: E402
+from app.models.entities import Material  # noqa: E402
 from app.services.projects.context import bind_project  # noqa: E402
 
 
@@ -179,7 +179,7 @@ def process_documents(project_key: str, topics: list[str], limit: int | None, dr
 
     with bind_project(project_key):
         with SessionLocal() as session:
-            q = select(Document).where(Document.extracted_data.isnot(None)).order_by(Document.id.asc())
+            q = select(Material).where(Material.extracted_data.isnot(None)).order_by(Material.id.asc())
             if limit:
                 q = q.limit(limit)
             docs = session.execute(q).scalars().all()

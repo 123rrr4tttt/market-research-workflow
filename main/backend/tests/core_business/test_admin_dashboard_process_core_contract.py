@@ -14,11 +14,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 pytestmark = [pytest.mark.contract, pytest.mark.mocked]
 
 try:
-    from fastapi import HTTPException
-    from fastapi.testclient import TestClient
-
     from app.contracts.errors import ErrorCode
     from app.main import app as backend_app
+    from fastapi import HTTPException, Request
+    from fastapi.testclient import TestClient
 
     _IMPORT_ERROR = None
 except Exception as exc:  # noqa: BLE001
@@ -64,11 +63,11 @@ class _FakeDashboardSession:
         self._execute_count += 1
         match self._execute_count:
             case 1:
-                return _FakeResult(scalar_value=10)  # doc_total
+                return _FakeResult(scalar_value=10)  # material_total
             case 2:
-                return _FakeResult(scalar_value=2)  # doc_recent_today
+                return _FakeResult(scalar_value=2)  # material_recent_today
             case 3:
-                return _FakeResult(scalar_value=4)  # doc_recent_7d
+                return _FakeResult(scalar_value=4)  # material_recent_7d
             case 4:
                 return _FakeResult(scalar_value=3)  # source_total
             case 5:
@@ -84,10 +83,10 @@ class _FakeDashboardSession:
             case 10:
                 return _FakeResult(scalar_value=2)  # task_failed
             case 11:
-                rows = [SimpleNamespace(doc_type="policy", count=6), SimpleNamespace(doc_type="news", count=4)]
-                return _FakeResult(all_value=rows)  # doc_type_dist
+                rows = [SimpleNamespace(material_type="policy", count=6), SimpleNamespace(material_type="news", count=4)]
+                return _FakeResult(all_value=rows)  # material_type_dist
             case 12:
-                return _FakeResult(scalar_value=5)  # doc_with_extracted
+                return _FakeResult(scalar_value=5)  # material_with_extracted
             case 13:
                 rows = [
                     SimpleNamespace(
@@ -174,12 +173,12 @@ class _FakeResultNone:
         return None
 
 
-class _FakeResultDoc:
-    def __init__(self, doc):
-        self._doc = doc
+class _FakeResultMaterial:
+    def __init__(self, material):
+        self._material = material
 
     def scalar_one_or_none(self):
-        return self._doc
+        return self._material
 
 
 class _FakeScalarRowsResult:
@@ -194,38 +193,38 @@ class _FakeScalarRowsResult:
 
 
 class _FakeAdminSession:
-    def __init__(self, doc=None):
-        self._doc = doc
+    def __init__(self, material=None):
+        self._material = material
 
     def execute(self, _query):
-        return _FakeResultDoc(self._doc) if self._doc is not None else _FakeResultNone()
+        return _FakeResultMaterial(self._material) if self._material is not None else _FakeResultNone()
 
     def commit(self):
         return None
 
 
 class _FakeAdminSessionLocal:
-    def __init__(self, doc=None):
-        self._doc = doc
+    def __init__(self, material=None):
+        self._material = material
 
     def __enter__(self):
-        return _FakeAdminSession(self._doc)
+        return _FakeAdminSession(self._material)
 
     def __exit__(self, exc_type, exc, tb):
         return False
 
 
 class _FakePreviewDeleteSession:
-    def __init__(self, docs):
-        self._docs = docs
+    def __init__(self, materials):
+        self._materials = materials
         self.deleted = []
         self.committed = False
 
     def execute(self, _query):
-        return _FakeScalarRowsResult(self._docs)
+        return _FakeScalarRowsResult(self._materials)
 
-    def delete(self, doc):
-        self.deleted.append(doc)
+    def delete(self, material):
+        self.deleted.append(material)
 
     def commit(self):
         self.committed = True
@@ -248,7 +247,7 @@ class _FakeDrilldownSession:
             SimpleNamespace(
                 id=101,
                 title="Policy sample",
-                doc_type="policy",
+                material_type="policy",
                 status="active",
                 state="CA",
                 uri="https://example.test/policy",
@@ -286,28 +285,28 @@ class AdminDashboardProcessCoreContractTestCase(unittest.TestCase):
             "project_key": "demo_proj",
             "dashboard": {
                 "variant": "dashboard",
-                "selected_label": "Documents",
-                "selected_metric": "documents",
-                "selected_source_ref": "dashboard.stats.documents",
-                "filters": {"limit": 1, "doc_type": "policy"},
+                "selected_label": "Materials",
+                "selected_metric": "materials",
+                "selected_source_ref": "dashboard.stats.materials",
+                "filters": {"limit": 1, "material_type": "policy"},
                 "source_query": {
                     "scope": "dashboard.stats",
-                    "card": "documents",
-                    "table": "documents",
-                    "metrics": ["documents"],
-                    "filters": {"doc_type": "policy"},
+                    "card": "materials",
+                    "table": "materials",
+                    "metrics": ["materials"],
+                    "filters": {"material_type": "policy"},
                 },
                 "source_refs": [
                     {
-                        "id": "dashboard.stats.documents",
+                        "id": "dashboard.stats.materials",
                         "kind": "sql_table",
-                        "table": "documents",
-                        "columns": ["id", "title"],
+                        "table": "materials",
+                        "columns": ["material_id", "title"],
                         "published_at": "2026-05-01",
                         "trust_score": 0.92,
                     }
                 ],
-                "sample_rows": [{"id": 101, "title": "Policy sample"}],
+                "sample_rows": [{"material_id": 101, "title": "Policy sample"}],
                 "sample_row_count": 1,
             },
             "report_options": {"include_dashboard_sample_rows": True, "as_of_date": "2026-05-24"},
@@ -315,11 +314,12 @@ class AdminDashboardProcessCoreContractTestCase(unittest.TestCase):
 
     def test_admin_raw_import_success_returns_envelope(self):
         mock_delay = Mock(return_value=SimpleNamespace(id="task-123"))
-        fake_tasks_module = SimpleNamespace(task_raw_import_documents=SimpleNamespace(delay=mock_delay))
-
-        with patch("app.api.admin._tasks_module", return_value=fake_tasks_module):
+        with patch(
+            "app.services.tasks.raw_material_import_task_binding",
+            SimpleNamespace(delay=mock_delay),
+        ):
             resp = self.client.post(
-                "/api/v1/admin/documents/raw-import",
+                "/api/v1/admin/materials/raw-import",
                 headers=self.headers,
                 json={
                     "items": [{"text": "hello"}],
@@ -338,11 +338,12 @@ class AdminDashboardProcessCoreContractTestCase(unittest.TestCase):
 
     def test_admin_raw_import_http_exception_maps_to_rate_limited(self):
         mock_delay = Mock(side_effect=HTTPException(status_code=429, detail="too many requests"))
-        fake_tasks_module = SimpleNamespace(task_raw_import_documents=SimpleNamespace(delay=mock_delay))
-
-        with patch("app.api.admin._tasks_module", return_value=fake_tasks_module):
+        with patch(
+            "app.services.tasks.raw_material_import_task_binding",
+            SimpleNamespace(delay=mock_delay),
+        ):
             resp = self.client.post(
-                "/api/v1/admin/documents/raw-import",
+                "/api/v1/admin/materials/raw-import",
                 headers=self.headers,
                 json={
                     "items": [{"text": "hello"}],
@@ -446,12 +447,12 @@ class AdminDashboardProcessCoreContractTestCase(unittest.TestCase):
         self.assertTrue({"status", "data", "error", "meta"}.issubset(body.keys()))
         self.assertEqual(body["status"], "ok")
         self.assertIsNone(body["error"])
-        self.assertEqual(body["data"]["documents"]["total"], 10)
-        self.assertEqual(body["data"]["documents"]["extraction_rate"], 50.0)
-        self.assertEqual(body["data"]["documents"]["source_query"]["card"], "documents")
-        self.assertEqual(body["data"]["documents"]["source_query"]["table"], "documents")
-        self.assertEqual(body["data"]["documents"]["source_refs"][0]["id"], "dashboard.stats.documents")
-        self.assertEqual(body["data"]["documents"]["source_refs"][0]["table"], "documents")
+        self.assertEqual(body["data"]["materials"]["total"], 10)
+        self.assertEqual(body["data"]["materials"]["extraction_rate"], 50.0)
+        self.assertEqual(body["data"]["materials"]["source_query"]["card"], "materials")
+        self.assertEqual(body["data"]["materials"]["source_query"]["table"], "materials")
+        self.assertEqual(body["data"]["materials"]["source_refs"][0]["id"], "dashboard.stats.materials")
+        self.assertEqual(body["data"]["materials"]["source_refs"][0]["table"], "materials")
         self.assertEqual(body["data"]["sources"]["source_query"]["card"], "sources")
         self.assertNotIn("market_stats", body["data"])
         self.assertEqual(body["data"]["search_history"]["source_refs"][0]["table"], "search_history")
@@ -521,8 +522,8 @@ class AdminDashboardProcessCoreContractTestCase(unittest.TestCase):
         self.assertEqual(resp.status_code, 200)
         body = resp.json()
         self.assertEqual(body["status"], "ok")
-        self.assertEqual(body["data"]["documents"]["total"], 0)
-        self.assertEqual(body["data"]["documents"]["type_distribution"], {})
+        self.assertEqual(body["data"]["materials"]["total"], 0)
+        self.assertEqual(body["data"]["materials"]["type_distribution"], {})
         self.assertEqual(body["data"]["llm_report_quality"]["summary"]["total"], 0)
         self.assertEqual(len(body["data"]["pending_actions"]), 1)
         self.assertEqual(body["data"]["pending_actions"][0]["type"], "config_missing")
@@ -533,26 +534,26 @@ class AdminDashboardProcessCoreContractTestCase(unittest.TestCase):
             resp = self.client.get(
                 "/api/v1/dashboard/drilldown",
                 headers=self.headers,
-                params={"source_ref": "dashboard.stats.documents", "limit": 1},
+                params={"source_ref": "dashboard.stats.materials", "limit": 1},
             )
 
         self.assertEqual(resp.status_code, 200)
         body = resp.json()
         self.assertEqual(body["status"], "ok")
-        self.assertEqual(body["data"]["metric"], "documents")
-        self.assertEqual(body["data"]["source_ref"], "dashboard.stats.documents")
+        self.assertEqual(body["data"]["metric"], "materials")
+        self.assertEqual(body["data"]["source_ref"], "dashboard.stats.materials")
         self.assertEqual(body["data"]["filters"]["limit"], 1)
         self.assertEqual(body["data"]["row_count"], 1)
-        self.assertEqual(body["data"]["sample_rows"][0]["id"], 101)
+        self.assertEqual(body["data"]["sample_rows"][0]["material_id"], 101)
         self.assertEqual(body["data"]["sample_rows"][0]["has_extracted_data"], True)
-        self.assertEqual(body["data"]["source_query"]["table"], "documents")
+        self.assertEqual(body["data"]["source_query"]["table"], "materials")
 
     def test_dashboard_report_from_filter_creates_writing_draft_with_evidence_metadata(self):
         created_doc = {
-            "id": 321,
+            "doc_id": 321,
             "project_key": "demo_proj",
-            "title": "Dashboard report draft - Documents",
-            "body_md": "# Dashboard report draft - Documents",
+            "title": "Dashboard report draft - Materials",
+            "body_md": "# Dashboard report draft - Materials",
             "status": "draft",
             "version": 1,
             "metadata_json": {},
@@ -562,23 +563,23 @@ class AdminDashboardProcessCoreContractTestCase(unittest.TestCase):
             "project_key": "demo_proj",
             "dashboard": {
                 "variant": "dashboard",
-                "selected_label": "Documents",
-                "selected_metric": "documents",
-                "selected_source_ref": "dashboard.stats.documents",
-                "filters": {"limit": 1, "doc_type": "policy"},
+                "selected_label": "Materials",
+                "selected_metric": "materials",
+                "selected_source_ref": "dashboard.stats.materials",
+                "filters": {"limit": 1, "material_type": "policy"},
                 "source_query": {
                     "scope": "dashboard.stats",
-                    "card": "documents",
-                    "table": "documents",
-                    "metrics": ["documents"],
-                    "filters": {"doc_type": "policy"},
+                    "card": "materials",
+                    "table": "materials",
+                    "metrics": ["materials"],
+                    "filters": {"material_type": "policy"},
                 },
                 "source_refs": [
                     {
-                        "id": "dashboard.stats.documents",
+                        "id": "dashboard.stats.materials",
                         "kind": "sql_table",
-                        "table": "documents",
-                        "columns": ["id", "title"],
+                        "table": "materials",
+                        "columns": ["material_id", "title"],
                         "published_at": "2026-05-01",
                         "trust_score": 0.92,
                     }
@@ -597,10 +598,12 @@ class AdminDashboardProcessCoreContractTestCase(unittest.TestCase):
         self.assertEqual(body["status"], "ok")
         data = body["data"]
         self.assertEqual(data["draft_id"], 321)
+        self.assertEqual(data["doc_id"], 321)
         self.assertEqual(data["report_id"], "writing_document:321")
-        self.assertEqual(data["filters"], {"limit": 1, "doc_type": "policy"})
-        self.assertEqual(data["source_refs"][0]["id"], "dashboard.stats.documents")
-        self.assertEqual(data["source_query"]["table"], "documents")
+        self.assertNotIn("document_id", data)
+        self.assertEqual(data["filters"], {"limit": 1, "material_type": "policy"})
+        self.assertEqual(data["source_refs"][0]["id"], "dashboard.stats.materials")
+        self.assertEqual(data["source_query"]["table"], "materials")
         self.assertEqual(data["quality"]["status"], "ready")
         self.assertEqual(data["quality"]["quality_gate_mode"], "compatible")
         self.assertEqual(data["quality"]["next_action"], "continue_to_draft_generation")
@@ -617,27 +620,28 @@ class AdminDashboardProcessCoreContractTestCase(unittest.TestCase):
         self.assertEqual(data["export_artifact"], data["artifact"])
         create_kwargs = mocked_create.call_args.kwargs
         self.assertEqual(create_kwargs["project_key"], "demo_proj")
-        self.assertIn("Dashboard report draft - Documents", create_kwargs["body_md"])
+        self.assertIn("Dashboard report draft - Materials", create_kwargs["body_md"])
         self.assertIn("Report Quality Gate", create_kwargs["body_md"])
         metadata = create_kwargs["metadata_json"]
         self.assertEqual(metadata["contract_version"], "dashboard.report_from_filter.v1")
-        self.assertEqual(metadata["dashboard"]["filters"], {"limit": 1, "doc_type": "policy"})
-        self.assertEqual(metadata["dashboard"]["source_refs"][0]["id"], "dashboard.stats.documents")
-        self.assertEqual(metadata["dashboard"]["source_query"]["table"], "documents")
+        self.assertEqual(metadata["dashboard"]["filters"], {"limit": 1, "material_type": "policy"})
+        self.assertEqual(metadata["dashboard"]["source_refs"][0]["id"], "dashboard.stats.materials")
+        self.assertEqual(metadata["dashboard"]["source_query"]["table"], "materials")
         self.assertEqual(metadata["report_quality_gate"]["status"], "pass")
         self.assertEqual(metadata["export_artifact"], data["export_artifact"])
 
     def test_dashboard_report_from_filter_export_pdf_then_llm_report_detail_preserves_dashboard_evidence(self):
-        from app.services import llm_report_export_audit, llm_report_trends
         from app.services.llm_report_export import reset_llm_report_export_token_state
+
+        from app.services import llm_report_export_audit, llm_report_trends
 
         llm_report_export_audit.clear_llm_report_export_audit_memory()
         llm_report_trends.clear_quality_trend_memory()
         reset_llm_report_export_token_state()
         created_doc = {
-            "id": 324,
+            "doc_id": 324,
             "project_key": "demo_proj",
-            "title": "Dashboard report draft - Documents",
+            "title": "Dashboard report draft - Materials",
             "body_md": "# placeholder",
             "status": "draft",
             "version": 1,
@@ -685,8 +689,8 @@ class AdminDashboardProcessCoreContractTestCase(unittest.TestCase):
         self.assertEqual(detail_resp.status_code, 200)
         detail = detail_resp.json()["data"]
         self.assertTrue(detail["found"])
-        self.assertEqual(detail["source_refs"][0]["id"], "dashboard.stats.documents")
-        self.assertEqual(detail["source_query"]["table"], "documents")
+        self.assertEqual(detail["source_refs"][0]["id"], "dashboard.stats.materials")
+        self.assertEqual(detail["source_query"]["table"], "materials")
         self.assertEqual(detail["quality_gate"]["status"], "pass")
         self.assertEqual(detail["report_artifact"]["artifact_id"], artifact["artifact_id"])
         self.assertNotIn("artifact_token", detail["report_artifact"])
@@ -697,10 +701,10 @@ class AdminDashboardProcessCoreContractTestCase(unittest.TestCase):
 
     def test_dashboard_report_from_filter_prefers_authenticated_actor_context_over_spoofed_header_actor(self):
         created_doc = {
-            "id": 322,
+            "doc_id": 322,
             "project_key": "demo_proj",
-            "title": "Dashboard report draft - Documents",
-            "body_md": "# Dashboard report draft - Documents",
+            "title": "Dashboard report draft - Materials",
+            "body_md": "# Dashboard report draft - Materials",
             "status": "draft",
             "version": 1,
             "metadata_json": {},
@@ -724,10 +728,10 @@ class AdminDashboardProcessCoreContractTestCase(unittest.TestCase):
 
     def test_dashboard_report_from_filter_uses_header_actor_as_legacy_fallback_without_authenticated_context(self):
         created_doc = {
-            "id": 323,
+            "doc_id": 323,
             "project_key": "demo_proj",
-            "title": "Dashboard report draft - Documents",
-            "body_md": "# Dashboard report draft - Documents",
+            "title": "Dashboard report draft - Materials",
+            "body_md": "# Dashboard report draft - Materials",
             "status": "draft",
             "version": 1,
             "metadata_json": {},
@@ -748,7 +752,7 @@ class AdminDashboardProcessCoreContractTestCase(unittest.TestCase):
 
     def test_dashboard_report_from_filter_warns_for_stale_and_low_trust_refs(self):
         created_doc = {
-            "id": 322,
+            "doc_id": 322,
             "project_key": "demo_proj",
             "title": "Dashboard report draft - Sources",
             "body_md": "# Dashboard report draft - Sources",
@@ -800,7 +804,7 @@ class AdminDashboardProcessCoreContractTestCase(unittest.TestCase):
 
     def test_dashboard_report_from_filter_strict_mode_allows_warn_gate_with_draft(self):
         created_doc = {
-            "id": 324,
+            "doc_id": 324,
             "project_key": "demo_proj",
             "title": "Dashboard report draft - Sources",
             "body_md": "# Dashboard report draft - Sources",
@@ -846,10 +850,10 @@ class AdminDashboardProcessCoreContractTestCase(unittest.TestCase):
 
     def test_dashboard_report_from_filter_blocks_quality_gate_for_missing_selected_ref(self):
         created_doc = {
-            "id": 323,
+            "doc_id": 323,
             "project_key": "demo_proj",
-            "title": "Dashboard report draft - Documents",
-            "body_md": "# Dashboard report draft - Documents",
+            "title": "Dashboard report draft - Materials",
+            "body_md": "# Dashboard report draft - Materials",
             "status": "draft",
             "version": 1,
             "metadata_json": {},
@@ -858,10 +862,10 @@ class AdminDashboardProcessCoreContractTestCase(unittest.TestCase):
             "request_type": "report_from_dashboard_filter",
             "project_key": "demo_proj",
             "dashboard": {
-                "selected_label": "Documents",
-                "selected_metric": "documents",
-                "selected_source_ref": "dashboard.stats.documents",
-                "source_query": {"scope": "dashboard.stats", "card": "documents", "table": "documents"},
+                "selected_label": "Materials",
+                "selected_metric": "materials",
+                "selected_source_ref": "dashboard.stats.materials",
+                "source_query": {"scope": "dashboard.stats", "card": "materials", "table": "materials"},
                 "source_refs": [
                     {
                         "id": "dashboard.stats.sources",
@@ -886,7 +890,7 @@ class AdminDashboardProcessCoreContractTestCase(unittest.TestCase):
         self.assertTrue(gate["fail"])
         self.assertEqual(gate["source_ref_coverage"], 0.0)
         self.assertIn("source_ref_coverage", gate["blocking_reasons"])
-        self.assertEqual(gate["evidence"]["expected_source_refs"], ["dashboard.stats.documents"])
+        self.assertEqual(gate["evidence"]["expected_source_refs"], ["dashboard.stats.materials"])
         self.assertEqual(gate["evidence"]["covered_source_refs"], [])
         self.assertEqual(body["data"]["quality"]["quality_gate_mode"], "compatible")
         self.assertEqual(
@@ -901,10 +905,10 @@ class AdminDashboardProcessCoreContractTestCase(unittest.TestCase):
             "project_key": "demo_proj",
             "quality_gate_mode": "strict",
             "dashboard": {
-                "selected_label": "Documents",
-                "selected_metric": "documents",
-                "selected_source_ref": "dashboard.stats.documents",
-                "source_query": {"scope": "dashboard.stats", "card": "documents", "table": "documents"},
+                "selected_label": "Materials",
+                "selected_metric": "materials",
+                "selected_source_ref": "dashboard.stats.materials",
+                "source_query": {"scope": "dashboard.stats", "card": "materials", "table": "materials"},
                 "source_refs": [
                     {
                         "id": "dashboard.stats.sources",
@@ -944,9 +948,9 @@ class AdminDashboardProcessCoreContractTestCase(unittest.TestCase):
             "request_type": "report_from_dashboard_filter",
             "project_key": "demo_proj",
             "dashboard": {
-                "selected_label": "Documents",
+                "selected_label": "Materials",
                 "filters": {"limit": 1},
-                "source_query": {"scope": "dashboard.stats", "card": "documents"},
+                "source_query": {"scope": "dashboard.stats", "card": "materials"},
                 "source_refs": [],
             },
         }
@@ -983,13 +987,13 @@ class AdminDashboardProcessCoreContractTestCase(unittest.TestCase):
             "request_type": "report_from_dashboard_filter",
             "project_key": "demo_proj",
             "dashboard": {
-                "selected_label": "Documents",
-                "source_query": {"scope": "dashboard.stats", "card": "documents"},
+                "selected_label": "Materials",
+                "source_query": {"scope": "dashboard.stats", "card": "materials"},
                 "source_refs": [
                     {
-                        "id": "dashboard.stats.documents",
+                        "id": "dashboard.stats.materials",
                         "kind": "sql_table",
-                        "table": "documents",
+                        "table": "materials",
                     }
                 ],
             },
@@ -1032,22 +1036,22 @@ class AdminDashboardProcessCoreContractTestCase(unittest.TestCase):
             "soft_failure_count": 0,
             "job_id": 2001,
             "job_status": "failed",
-            "topic": "Dashboard report draft - Documents",
+            "topic": "Dashboard report draft - Materials",
             "recorded_at": "2026-05-24T00:03:00+00:00",
             "source_refs": [
                 {
-                    "id": "dashboard.stats.documents",
+                    "id": "dashboard.stats.materials",
                     "kind": "sql_table",
-                    "table": "documents",
-                    "columns": ["id", "title", "extracted_data"],
+                    "table": "materials",
+                    "columns": ["material_id", "title", "extracted_data"],
                 }
             ],
             "source_query": {
                 "scope": "dashboard.stats",
-                "card": "documents",
-                "table": "documents",
+                "card": "materials",
+                "table": "materials",
                 "metrics": ["total", "extraction_rate"],
-                "filters": {"doc_type": "policy"},
+                "filters": {"material_type": "policy"},
             },
             "report_artifact": {
                 "contract_version": "llm_report.export_artifact.v1",
@@ -1143,12 +1147,12 @@ class AdminDashboardProcessCoreContractTestCase(unittest.TestCase):
             ),
         )
         self.assertEqual(data["export_events_summary"]["ui_read_only_context_included_count"], 1)
-        self.assertEqual(data["source_refs"][0]["id"], "dashboard.stats.documents")
-        self.assertEqual(data["source_query"]["table"], "documents")
+        self.assertEqual(data["source_refs"][0]["id"], "dashboard.stats.materials")
+        self.assertEqual(data["source_query"]["table"], "materials")
         self.assertEqual(data["report_artifact"]["artifact_id"], "artifact-detail-hit")
         self.assertEqual(data["quality_gate"]["status"], "blocked")
         self.assertEqual(data["repair_context"]["trace_id"], "trace-detail-hit")
-        self.assertEqual(data["repair_context"]["source_refs"][0]["id"], "dashboard.stats.documents")
+        self.assertEqual(data["repair_context"]["source_refs"][0]["id"], "dashboard.stats.materials")
         self.assertEqual(
             data["repair_context"]["next_action"],
             "fix_blocking_quality_gate_reasons_before_generating_report",
@@ -1235,9 +1239,37 @@ class AdminDashboardProcessCoreContractTestCase(unittest.TestCase):
         self.assertEqual(body["error"]["code"], ErrorCode.UPSTREAM_ERROR.value)
         self.assertEqual(resp.headers.get("x-error-code"), ErrorCode.UPSTREAM_ERROR.value)
 
-    def test_admin_get_document_not_found_returns_error_envelope(self):
+    def test_dashboard_project_key_uses_middleware_database_fallback_over_settings_default(self):
+        from app.api.dashboard import _dashboard_project_key_from_request
+        from app.settings.config import settings
+
+        request = Request({"type": "http", "headers": [], "query_string": b""})
+        request.state.project_key_resolved = "database_active"
+        request.state.project_key_source = "fallback"
+
+        with patch.object(settings, "active_project_key", "settings_default"):
+            self.assertEqual(_dashboard_project_key_from_request(request), "database_active")
+
+    def test_dashboard_project_key_keeps_explicit_header_resolution(self):
+        from app.api.dashboard import _dashboard_project_key_from_request
+        from app.settings.config import settings
+
+        request = Request(
+            {
+                "type": "http",
+                "headers": [(b"x-project-key", b"header_project")],
+                "query_string": b"",
+            }
+        )
+        request.state.project_key_resolved = "header_project"
+        request.state.project_key_source = "header"
+
+        with patch.object(settings, "active_project_key", "settings_default"):
+            self.assertEqual(_dashboard_project_key_from_request(request), "header_project")
+
+    def test_admin_get_material_not_found_returns_error_envelope(self):
         with patch("app.services.document_admin.SessionLocal", return_value=_FakeAdminSessionLocal()):
-            resp = self.client.get("/api/v1/admin/documents/999", headers=self.headers)
+            resp = self.client.get("/api/v1/admin/materials/999", headers=self.headers)
 
         self.assertEqual(resp.status_code, 404)
         body = resp.json()
@@ -1246,11 +1278,11 @@ class AdminDashboardProcessCoreContractTestCase(unittest.TestCase):
         self.assertEqual(body["detail"]["error"]["code"], ErrorCode.NOT_FOUND.value)
         self.assertEqual(resp.headers.get("x-error-code"), ErrorCode.NOT_FOUND.value)
 
-    def test_admin_update_document_invalid_merge_returns_error_envelope(self):
-        doc = SimpleNamespace(id=1, extracted_data="raw")
-        with patch("app.services.document_admin.SessionLocal", return_value=_FakeAdminSessionLocal(doc)):
+    def test_admin_update_material_invalid_merge_returns_error_envelope(self):
+        material = SimpleNamespace(id=1, extracted_data="raw")
+        with patch("app.services.document_admin.SessionLocal", return_value=_FakeAdminSessionLocal(material)):
             resp = self.client.post(
-                "/api/v1/admin/documents/1/extracted-data",
+                "/api/v1/admin/materials/1/extracted-data",
                 headers=self.headers,
                 json={"mode": "merge", "extracted_data": {"a": 1}},
             )
@@ -1262,11 +1294,11 @@ class AdminDashboardProcessCoreContractTestCase(unittest.TestCase):
         self.assertEqual(body["detail"]["error"]["code"], ErrorCode.INVALID_INPUT.value)
         self.assertEqual(resp.headers.get("x-error-code"), ErrorCode.INVALID_INPUT.value)
 
-    def test_admin_bulk_update_requires_doc_ids_returns_error_envelope(self):
-        from app.api.admin import BulkUpdateExtractedDataRequest, bulk_update_document_extracted_data
+    def test_admin_bulk_update_requires_material_ids_returns_error_envelope(self):
+        from app.api.admin import BulkUpdateExtractedDataRequest, bulk_update_material_extracted_data
 
-        resp = bulk_update_document_extracted_data(
-            BulkUpdateExtractedDataRequest(doc_ids=[], mode="replace", extracted_data={})
+        resp = bulk_update_material_extracted_data(
+            BulkUpdateExtractedDataRequest(material_ids=[], mode="replace", extracted_data={})
         )
 
         self.assertEqual(resp.status_code, 400)
@@ -1277,13 +1309,13 @@ class AdminDashboardProcessCoreContractTestCase(unittest.TestCase):
         self.assertEqual(resp.headers.get("x-error-code"), ErrorCode.INVALID_INPUT.value)
 
     def test_admin_bulk_update_extracted_data_preview_returns_impact_without_writes(self):
-        from app.api.admin import BulkUpdateExtractedDataRequest, bulk_update_document_extracted_data
+        from app.api.admin import BulkUpdateExtractedDataRequest, bulk_update_material_extracted_data
 
-        docs = [
+        materials = [
             SimpleNamespace(
                 id=1,
                 title="Policy A",
-                doc_type="policy",
+                material_type="policy",
                 state="CA",
                 uri="https://example.com/policy-a",
                 source_id=11,
@@ -1293,7 +1325,7 @@ class AdminDashboardProcessCoreContractTestCase(unittest.TestCase):
             SimpleNamespace(
                 id=2,
                 title="Market B",
-                doc_type="market_info",
+                material_type="market_info",
                 state=None,
                 uri="https://example.com/market-b",
                 source_id=12,
@@ -1301,12 +1333,12 @@ class AdminDashboardProcessCoreContractTestCase(unittest.TestCase):
                 extracted_data=None,
             ),
         ]
-        fake_session = _FakePreviewDeleteSession(docs)
+        fake_session = _FakePreviewDeleteSession(materials)
 
         with patch("app.services.document_admin.SessionLocal", return_value=_FakePreviewDeleteSessionLocal(fake_session)):
-            resp = bulk_update_document_extracted_data(
+            resp = bulk_update_material_extracted_data(
                 BulkUpdateExtractedDataRequest(
-                    doc_ids=[1, 2, 99],
+                    material_ids=[1, 2, 99],
                     preview=True,
                     mode="merge",
                     extracted_data={"manual": {"reviewed": True}},
@@ -1314,14 +1346,14 @@ class AdminDashboardProcessCoreContractTestCase(unittest.TestCase):
             )
 
         self.assertFalse(fake_session.committed)
-        self.assertEqual(docs[0].extracted_data, {"policy": {"agency": "A"}})
-        self.assertIsNone(docs[1].extracted_data)
+        self.assertEqual(materials[0].extracted_data, {"policy": {"agency": "A"}})
+        self.assertIsNone(materials[1].extracted_data)
         self.assertEqual(resp["status"], "ok")
         self.assertIsNone(resp["error"])
         self.assertEqual(resp["data"]["preview"], True)
-        self.assertEqual(resp["data"]["action_kind"], "documents.bulk_extracted_data")
+        self.assertEqual(resp["data"]["action_kind"], "materials.bulk_extracted_data")
         self.assertEqual(resp["data"]["would_affect_count"], 2)
-        self.assertEqual(resp["data"]["samples"][0]["id"], 1)
+        self.assertEqual(resp["data"]["samples"][0]["material_id"], 1)
         self.assertEqual(resp["data"]["missing"], [99])
         self.assertIn("bulk_write", resp["data"]["risk_tags"])
         self.assertIn("merge_write", resp["data"]["risk_tags"])
@@ -1329,27 +1361,27 @@ class AdminDashboardProcessCoreContractTestCase(unittest.TestCase):
         self.assertEqual(resp["data"]["risk_labels"], resp["data"]["risk_tags"])
         self.assertEqual(resp["data"]["requires_confirmation"], True)
         self.assertEqual(resp["data"]["source_query"]["scope"], "admin.preview")
-        self.assertEqual(resp["data"]["source_query"]["action"], "documents.bulk_extracted_data")
+        self.assertEqual(resp["data"]["source_query"]["action"], "materials.bulk_extracted_data")
         self.assertEqual(resp["data"]["source_query"]["filters"]["mode"], "merge")
-        self.assertEqual(resp["data"]["source_query"]["selection"]["requested_ids"], [1, 2, 99])
-        self.assertEqual(resp["data"]["source_query"]["selection"]["missing_ids"], [99])
-        self.assertEqual(resp["data"]["source_refs"][0]["document_id"], 1)
+        self.assertEqual(resp["data"]["source_query"]["selection"]["requested_material_ids"], [1, 2, 99])
+        self.assertEqual(resp["data"]["source_query"]["selection"]["missing_material_ids"], [99])
+        self.assertEqual(resp["data"]["source_refs"][0]["material_id"], 1)
         self.assertEqual(resp["data"]["source_refs"][0]["uri"], "https://example.com/policy-a")
         self.assertEqual(resp["data"]["trace_chain"][0]["stage"], "admin.preview.request")
         self.assertEqual(resp["data"]["trace_chain"][1]["matched_count"], 2)
         self.assertEqual(resp["data"]["trace_chain"][2]["requires_confirmation"], True)
-        self.assertEqual(resp["data"]["evidence_preview"]["evidence_kind"], "document_selection")
-        self.assertEqual(resp["data"]["evidence_preview"]["documents_matched"], 2)
+        self.assertEqual(resp["data"]["evidence_preview"]["evidence_kind"], "material_selection")
+        self.assertEqual(resp["data"]["evidence_preview"]["materials_matched"], 2)
         self.assertFalse(resp["data"]["evidence_preview"]["execution_result_available"])
 
-    def test_admin_delete_documents_preview_returns_impact_without_writes(self):
-        from app.api.admin import DeleteDocumentsRequest, delete_documents
+    def test_admin_delete_materials_preview_returns_impact_without_writes(self):
+        from app.api.admin import DeleteMaterialsRequest, delete_materials
 
-        docs = [
+        materials = [
             SimpleNamespace(
                 id=1,
                 title="Policy A",
-                doc_type="policy",
+                material_type="policy",
                 state="CA",
                 uri="https://example.com/policy-a",
                 source_id=11,
@@ -1358,26 +1390,26 @@ class AdminDashboardProcessCoreContractTestCase(unittest.TestCase):
             SimpleNamespace(
                 id=2,
                 title="Market B",
-                doc_type="market_info",
+                material_type="market_info",
                 state=None,
                 uri="https://example.com/market-b",
                 source_id=12,
                 extracted_data=None,
             ),
         ]
-        fake_session = _FakePreviewDeleteSession(docs)
+        fake_session = _FakePreviewDeleteSession(materials)
 
         with patch("app.services.document_admin.SessionLocal", return_value=_FakePreviewDeleteSessionLocal(fake_session)):
-            resp = delete_documents(DeleteDocumentsRequest(ids=[1, 2, 99], preview=True))
+            resp = delete_materials(DeleteMaterialsRequest(material_ids=[1, 2, 99], preview=True))
 
         self.assertFalse(fake_session.deleted)
         self.assertFalse(fake_session.committed)
         self.assertEqual(resp["status"], "ok")
         self.assertIsNone(resp["error"])
         self.assertEqual(resp["data"]["preview"], True)
-        self.assertEqual(resp["data"]["action"], "documents.delete")
+        self.assertEqual(resp["data"]["action"], "materials.delete")
         self.assertEqual(resp["data"]["would_affect_count"], 2)
-        self.assertEqual(resp["data"]["samples"][0]["id"], 1)
+        self.assertEqual(resp["data"]["samples"][0]["material_id"], 1)
         self.assertEqual(resp["data"]["missing"], [99])
         self.assertIn("destructive_write", resp["data"]["risk_tags"])
         self.assertIn("bulk_delete", resp["data"]["risk_tags"])
@@ -1385,24 +1417,24 @@ class AdminDashboardProcessCoreContractTestCase(unittest.TestCase):
         self.assertEqual(resp["data"]["risk_labels"], resp["data"]["risk_tags"])
         self.assertEqual(resp["data"]["requires_confirmation"], True)
         self.assertEqual(resp["data"]["source_query"]["scope"], "admin.preview")
-        self.assertEqual(resp["data"]["source_query"]["action"], "documents.delete")
-        self.assertEqual(resp["data"]["source_query"]["filters"]["ids"], [1, 2, 99])
+        self.assertEqual(resp["data"]["source_query"]["action"], "materials.delete")
+        self.assertEqual(resp["data"]["source_query"]["filters"]["material_ids"], [1, 2, 99])
         self.assertEqual(resp["data"]["source_query"]["selection"]["missing_count"], 1)
-        self.assertEqual(resp["data"]["source_refs"][0]["kind"], "document_record")
-        self.assertEqual(resp["data"]["source_refs"][0]["document_id"], 1)
+        self.assertEqual(resp["data"]["source_refs"][0]["kind"], "material_record")
+        self.assertEqual(resp["data"]["source_refs"][0]["material_id"], 1)
         self.assertEqual(resp["data"]["source_refs"][0]["source_id"], 11)
         self.assertEqual(resp["data"]["trace_chain"][2]["status"], "required")
-        self.assertEqual(resp["data"]["evidence_preview"]["missing_ids"], [99])
+        self.assertEqual(resp["data"]["evidence_preview"]["missing_material_ids"], [99])
         self.assertFalse(resp["data"]["evidence_preview"]["execution_result_available"])
 
-    def test_admin_delete_documents_execution_returns_response_audit_readback(self):
-        from app.api.admin import DeleteDocumentsRequest, delete_documents
+    def test_admin_delete_materials_execution_returns_response_audit_readback(self):
+        from app.api.admin import DeleteMaterialsRequest, delete_materials
 
-        docs = [
+        materials = [
             SimpleNamespace(
                 id=1,
                 title="Policy A",
-                doc_type="policy",
+                material_type="policy",
                 state="CA",
                 uri="https://example.com/policy-a",
                 source_id=11,
@@ -1411,26 +1443,26 @@ class AdminDashboardProcessCoreContractTestCase(unittest.TestCase):
             SimpleNamespace(
                 id=2,
                 title="Market B",
-                doc_type="market_info",
+                material_type="market_info",
                 state=None,
                 uri="https://example.com/market-b",
                 source_id=12,
                 extracted_data=None,
             ),
         ]
-        fake_session = _FakePreviewDeleteSession(docs)
+        fake_session = _FakePreviewDeleteSession(materials)
 
         with patch("app.services.document_admin.SessionLocal", return_value=_FakePreviewDeleteSessionLocal(fake_session)):
-            resp = delete_documents(DeleteDocumentsRequest(ids=[1, 2, 99], preview=False))
+            resp = delete_materials(DeleteMaterialsRequest(material_ids=[1, 2, 99], preview=False))
 
-        self.assertEqual(fake_session.deleted, docs)
+        self.assertEqual(fake_session.deleted, materials)
         self.assertTrue(fake_session.committed)
         data = resp["data"]
         self.assertEqual(resp["status"], "ok")
         self.assertEqual(data["deleted"], 2)
         self.assertEqual(data["missing"], [99])
-        self.assertEqual(data["action_kind"], "documents.delete")
-        self.assertEqual(data["audit_event"]["action_kind"], "documents.delete")
+        self.assertEqual(data["action_kind"], "materials.delete")
+        self.assertEqual(data["audit_event"]["action_kind"], "materials.delete")
         self.assertEqual(data["audit_event"]["requested_count"], 3)
         self.assertEqual(data["audit_event"]["affected_count"], 2)
         self.assertEqual(data["audit_event"]["status"], "completed_with_missing")
@@ -1444,20 +1476,20 @@ class AdminDashboardProcessCoreContractTestCase(unittest.TestCase):
         self.assertEqual(data["execution_result"]["missing_ids"], [99])
         self.assertEqual(data["source_query"]["scope"], "admin.after_action.response_readback")
         self.assertEqual(data["source_query"]["selection"]["affected_count"], 2)
-        self.assertEqual(data["source_refs"][0]["document_id"], 1)
+        self.assertEqual(data["source_refs"][0]["material_id"], 1)
         self.assertEqual(data["trace_chain"][2]["stage"], "admin.after_action.mutation")
         self.assertTrue(data["trace_chain"][3]["execution_result_available"])
         self.assertEqual(data["response_level_audit_readback"]["persistence"], "not_persisted")
         self.assertIn("not automatically reversible", data["rollback_hint"])
 
     def test_admin_bulk_update_extracted_data_execution_returns_response_audit_readback(self):
-        from app.api.admin import BulkUpdateExtractedDataRequest, bulk_update_document_extracted_data
+        from app.api.admin import BulkUpdateExtractedDataRequest, bulk_update_material_extracted_data
 
-        docs = [
+        materials = [
             SimpleNamespace(
                 id=1,
                 title="Policy A",
-                doc_type="policy",
+                material_type="policy",
                 state="CA",
                 uri="https://example.com/policy-a",
                 source_id=11,
@@ -1467,7 +1499,7 @@ class AdminDashboardProcessCoreContractTestCase(unittest.TestCase):
             SimpleNamespace(
                 id=2,
                 title="Market B",
-                doc_type="market_info",
+                material_type="market_info",
                 state=None,
                 uri="https://example.com/market-b",
                 source_id=12,
@@ -1475,12 +1507,12 @@ class AdminDashboardProcessCoreContractTestCase(unittest.TestCase):
                 extracted_data=None,
             ),
         ]
-        fake_session = _FakePreviewDeleteSession(docs)
+        fake_session = _FakePreviewDeleteSession(materials)
 
         with patch("app.services.document_admin.SessionLocal", return_value=_FakePreviewDeleteSessionLocal(fake_session)):
-            resp = bulk_update_document_extracted_data(
+            resp = bulk_update_material_extracted_data(
                 BulkUpdateExtractedDataRequest(
-                    doc_ids=[1, 2, 99],
+                    material_ids=[1, 2, 99],
                     preview=False,
                     mode="merge",
                     extracted_data={"manual": {"reviewed": True}},
@@ -1488,14 +1520,14 @@ class AdminDashboardProcessCoreContractTestCase(unittest.TestCase):
             )
 
         self.assertTrue(fake_session.committed)
-        self.assertEqual(docs[0].extracted_data, {"policy": {"agency": "A"}, "manual": {"reviewed": True}})
-        self.assertEqual(docs[1].extracted_data, {"manual": {"reviewed": True}})
+        self.assertEqual(materials[0].extracted_data, {"policy": {"agency": "A"}, "manual": {"reviewed": True}})
+        self.assertEqual(materials[1].extracted_data, {"manual": {"reviewed": True}})
         data = resp["data"]
         self.assertEqual(data["updated"], 2)
         self.assertEqual(data["skipped"], 0)
         self.assertEqual(data["missing"], [99])
-        self.assertEqual(data["action_kind"], "documents.bulk_extracted_data")
-        self.assertEqual(data["audit_event"]["action_kind"], "documents.bulk_extracted_data")
+        self.assertEqual(data["action_kind"], "materials.bulk_extracted_data")
+        self.assertEqual(data["audit_event"]["action_kind"], "materials.bulk_extracted_data")
         self.assertEqual(data["audit_event"]["affected_count"], 2)
         self.assertEqual(data["audit_event"]["status"], "completed_with_skips")
         self.assertTrue(data["execution_result"]["execution_result_available"])
@@ -1504,20 +1536,20 @@ class AdminDashboardProcessCoreContractTestCase(unittest.TestCase):
         self.assertEqual(data["execution_result"]["missing_ids"], [99])
         self.assertEqual(data["execution_result"]["mode"], "merge")
         self.assertEqual(data["source_query"]["filters"]["mode"], "merge")
-        self.assertEqual(data["source_query"]["selection"]["requested_ids"], [1, 2, 99])
-        self.assertEqual(data["source_refs"][0]["id"], "admin.after_action.documents.bulk_extracted_data.document:1")
+        self.assertEqual(data["source_query"]["selection"]["requested_material_ids"], [1, 2, 99])
+        self.assertEqual(data["source_refs"][0]["id"], "admin.after_action.materials.bulk_extracted_data.material:1")
         self.assertEqual(data["trace_chain"][3]["stage"], "admin.after_action.response_readback")
         self.assertEqual(data["response_level_audit_readback"]["scope"], "response_level_only")
         self.assertIn("no automatic rollback", data["rollback_recommendation"])
 
     def test_admin_reextract_preview_returns_impact_without_mutation(self):
-        from app.api.admin import ReExtractRequest, re_extract_documents
+        from app.api.admin import ReExtractRequest, re_extract_materials
 
-        docs = [
+        materials = [
             SimpleNamespace(
                 id=1,
                 title="Policy A",
-                doc_type="policy",
+                material_type="policy",
                 state="CA",
                 content="policy content",
                 uri="https://example.com/a",
@@ -1527,7 +1559,7 @@ class AdminDashboardProcessCoreContractTestCase(unittest.TestCase):
             SimpleNamespace(
                 id=2,
                 title="Market B",
-                doc_type="market_info",
+                material_type="market_info",
                 state=None,
                 content="market content",
                 uri="https://example.com/b",
@@ -1535,16 +1567,16 @@ class AdminDashboardProcessCoreContractTestCase(unittest.TestCase):
                 extracted_data=None,
             ),
         ]
-        fake_session = _FakePreviewDeleteSession(docs)
+        fake_session = _FakePreviewDeleteSession(materials)
 
         with (
             patch("app.services.document_admin.SessionLocal", return_value=_FakePreviewDeleteSessionLocal(fake_session)),
             patch("app.api.admin.run_frontdoor_extraction") as mocked_extract,
             patch("app.api.admin.fetch_html") as mocked_fetch,
         ):
-            resp = re_extract_documents(
+            resp = re_extract_materials(
                 ReExtractRequest(
-                    doc_ids=[1, 2],
+                    material_ids=[1, 2],
                     preview=True,
                     force=True,
                     fetch_missing_content=True,
@@ -1555,25 +1587,25 @@ class AdminDashboardProcessCoreContractTestCase(unittest.TestCase):
         mocked_extract.assert_not_called()
         mocked_fetch.assert_not_called()
         self.assertFalse(fake_session.committed)
-        self.assertEqual(docs[0].extracted_data, {"policy": {"agency": "A"}})
-        self.assertIsNone(docs[1].extracted_data)
+        self.assertEqual(materials[0].extracted_data, {"policy": {"agency": "A"}})
+        self.assertIsNone(materials[1].extracted_data)
         self.assertEqual(resp["status"], "ok")
         self.assertIsNone(resp["error"])
         self.assertEqual(resp["data"]["preview"], True)
-        self.assertEqual(resp["data"]["action_kind"], "documents.re_extract")
+        self.assertEqual(resp["data"]["action_kind"], "materials.re_extract")
         self.assertEqual(resp["data"]["would_affect_count"], 2)
-        self.assertEqual(resp["data"]["samples"][0]["id"], 1)
+        self.assertEqual(resp["data"]["samples"][0]["material_id"], 1)
         self.assertIn("bulk_reextract", resp["data"]["risk_tags"])
         self.assertIn("force_overwrite", resp["data"]["risk_tags"])
         self.assertIn("may_fetch_missing_content", resp["data"]["risk_tags"])
         self.assertEqual(resp["data"]["risk_labels"], resp["data"]["risk_tags"])
         self.assertEqual(resp["data"]["requires_confirmation"], True)
         self.assertEqual(resp["data"]["source_query"]["scope"], "admin.preview")
-        self.assertEqual(resp["data"]["source_query"]["action"], "documents.re_extract")
+        self.assertEqual(resp["data"]["source_query"]["action"], "materials.re_extract")
         self.assertEqual(resp["data"]["source_query"]["filters"]["force"], True)
         self.assertEqual(resp["data"]["source_query"]["filters"]["fetch_missing_content"], True)
-        self.assertEqual(resp["data"]["source_query"]["selection"]["requested_ids"], [1, 2])
-        self.assertEqual(resp["data"]["source_refs"][0]["document_id"], 1)
+        self.assertEqual(resp["data"]["source_query"]["selection"]["requested_material_ids"], [1, 2])
+        self.assertEqual(resp["data"]["source_refs"][0]["material_id"], 1)
         self.assertEqual(resp["data"]["source_refs"][0]["uri"], "https://example.com/a")
         self.assertEqual(resp["data"]["trace_chain"][1]["status"], "matched")
         self.assertEqual(resp["data"]["trace_chain"][2]["risk_tags"], resp["data"]["risk_tags"])
@@ -1581,14 +1613,14 @@ class AdminDashboardProcessCoreContractTestCase(unittest.TestCase):
         self.assertFalse(resp["data"]["evidence_preview"]["fields_are_predicted"])
 
     def test_admin_reextract_execution_returns_response_audit_readback(self):
-        from app.api.admin import ReExtractRequest, re_extract_documents
+        from app.api.admin import ReExtractRequest, re_extract_materials
 
-        docs = [
+        materials = [
             SimpleNamespace(
                 id=1,
                 title="Policy A",
                 summary="summary A",
-                doc_type="policy",
+                material_type="policy",
                 state="CA",
                 content="policy content",
                 uri="https://example.com/a",
@@ -1599,7 +1631,7 @@ class AdminDashboardProcessCoreContractTestCase(unittest.TestCase):
                 id=2,
                 title="Market B",
                 summary="summary B",
-                doc_type="market_info",
+                material_type="market_info",
                 state=None,
                 content="market content",
                 uri="https://example.com/b",
@@ -1607,7 +1639,7 @@ class AdminDashboardProcessCoreContractTestCase(unittest.TestCase):
                 extracted_data=None,
             ),
         ]
-        fake_session = _FakePreviewDeleteSession(docs)
+        fake_session = _FakePreviewDeleteSession(materials)
 
         with (
             patch("app.services.document_admin.SessionLocal", return_value=_FakePreviewDeleteSessionLocal(fake_session)),
@@ -1620,9 +1652,9 @@ class AdminDashboardProcessCoreContractTestCase(unittest.TestCase):
                 },
             ) as mocked_extract,
         ):
-            resp = re_extract_documents(
+            resp = re_extract_materials(
                 ReExtractRequest(
-                    doc_ids=[1, 2],
+                    material_ids=[1, 2],
                     preview=False,
                     force=True,
                     batch_size=5,
@@ -1631,15 +1663,15 @@ class AdminDashboardProcessCoreContractTestCase(unittest.TestCase):
 
         self.assertEqual(mocked_extract.call_count, 2)
         self.assertTrue(fake_session.committed)
-        self.assertEqual(docs[0].extracted_data["policy"], {"agency": "A"})
-        self.assertEqual(docs[0].extracted_data["structured_extraction_status"], "success")
+        self.assertEqual(materials[0].extracted_data["policy"], {"agency": "A"})
+        self.assertEqual(materials[0].extracted_data["structured_extraction_status"], "success")
         data = resp["data"]
         self.assertEqual(data["total"], 2)
         self.assertEqual(data["success"], 2)
         self.assertEqual(data["error"], 0)
         self.assertEqual(data["skipped"], 0)
-        self.assertEqual(data["action_kind"], "documents.re_extract")
-        self.assertEqual(data["audit_event"]["action_kind"], "documents.re_extract")
+        self.assertEqual(data["action_kind"], "materials.re_extract")
+        self.assertEqual(data["audit_event"]["action_kind"], "materials.re_extract")
         self.assertEqual(data["audit_event"]["affected_count"], 2)
         self.assertEqual(data["audit_event"]["status"], "completed")
         self.assertTrue(data["execution_result"]["execution_result_available"])
@@ -1648,12 +1680,12 @@ class AdminDashboardProcessCoreContractTestCase(unittest.TestCase):
         self.assertEqual(data["execution_result"]["missing_ids"], [])
         self.assertEqual(data["source_query"]["filters"]["force"], True)
         self.assertEqual(data["source_query"]["selection"]["affected_count"], 2)
-        self.assertEqual(data["source_refs"][0]["document_id"], 1)
+        self.assertEqual(data["source_refs"][0]["material_id"], 1)
         self.assertEqual(data["trace_chain"][2]["status"], "completed")
         self.assertIn("not automatically reversible", data["rollback_hint"])
 
-    def test_admin_export_graph_empty_doc_ids_returns_error_envelope(self):
-        resp = self.client.get("/api/v1/admin/export-graph?doc_ids=", headers=self.headers)
+    def test_admin_export_graph_empty_material_ids_returns_error_envelope(self):
+        resp = self.client.get("/api/v1/admin/export-graph?material_ids=", headers=self.headers)
 
         self.assertEqual(resp.status_code, 400)
         body = resp.json()
@@ -1662,8 +1694,8 @@ class AdminDashboardProcessCoreContractTestCase(unittest.TestCase):
         self.assertEqual(body["detail"]["error"]["code"], ErrorCode.INVALID_INPUT.value)
         self.assertEqual(resp.headers.get("x-error-code"), ErrorCode.INVALID_INPUT.value)
 
-    def test_admin_export_graph_invalid_doc_ids_returns_error_envelope(self):
-        resp = self.client.get("/api/v1/admin/export-graph?doc_ids=1,abc", headers=self.headers)
+    def test_admin_export_graph_invalid_material_ids_returns_error_envelope(self):
+        resp = self.client.get("/api/v1/admin/export-graph?material_ids=1,abc", headers=self.headers)
 
         self.assertEqual(resp.status_code, 400)
         body = resp.json()

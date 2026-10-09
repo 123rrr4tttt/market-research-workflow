@@ -133,6 +133,15 @@ def build_check(path: Path, *, allow_blocked: bool = False) -> Annotated[
             missing.append("status:passed")
         checks.append(check(f"step.{name}", not missing, {"missing_fields": missing}))
 
+    stats = step_evidence(steps, "dashboard_stats_source_refs")
+    checks.append(
+        check(
+            "stats.material_source_refs",
+            as_int(stats.get("materials_source_ref_count")) > 0,
+            {"materials_source_ref_count": stats.get("materials_source_ref_count")},
+        )
+    )
+
     report = step_evidence(steps, "dashboard_report_from_filter")
     trace_id = report.get("trace_id") or evidence.get("trace_id")
     checks.append(check("report.trace_id", is_present(trace_id), {"trace_id": trace_id}))

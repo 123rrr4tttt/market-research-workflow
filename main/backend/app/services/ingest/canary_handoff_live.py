@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from copy import deepcopy
-from typing import Annotated, Iterable, Protocol, TypeGuard, runtime_checkable
+from typing import Annotated, Iterable, Protocol, TypeGuard, TypedDict, runtime_checkable
 from typing import Mapping as TypingMapping
 from unittest.mock import patch
 from uuid import uuid4
@@ -10,7 +10,7 @@ from uuid import uuid4
 from sqlalchemy import text
 
 from ...models.base import SessionLocal, engine, require_model_table
-from ...models.entities import Document, Source
+from ...models.entities import Material, Source
 from ...models.ingest_registry import IngestSubmissionRegistry
 from ..projects import bind_project
 from ..projects.context import project_schema_name
@@ -26,6 +26,14 @@ _REMAINING_EXTERNAL_GAPS = [
     "production 24h inserted-valid ratio readback remains open",
     "production all-project strict-gate enablement remains operations-owned",
 ]
+
+
+class _MaterialReadback(TypedDict):
+    accepted_material_count: int
+    accepted_material_ids: list[int]
+    accepted_titles: list[str]
+    rejected_material_count: int
+    rejected_material_ids: list[int]
 
 
 class _JsonResponse(Protocol):
@@ -130,7 +138,7 @@ def _prepare_project_schema(project_key: str) -> str:
         conn.execute(text(f'CREATE SCHEMA IF NOT EXISTS "{schema_name}"'))
     for table in (
         require_model_table(Source.__table__),
-        require_model_table(Document.__table__),
+        require_model_table(Material.__table__),
         require_model_table(IngestSubmissionRegistry.__table__),
     ):
         with engine.begin() as conn:
@@ -207,18 +215,18 @@ def _handoff_from_result(result: Mapping[str, object]) -> dict[str, object]:
     return _object_dict(result.get("canary_handoff"))
 
 
-def _readback_documents(*, project_key: str, accepted_url: str, rejected_url: str) -> dict[str, object]:
+def _readback_materials(*, project_key: str, accepted_url: str, rejected_url: str) -> _MaterialReadback:
     with bind_project(project_key):
         with SessionLocal() as session:
-            rows = session.query(Document).filter(Document.uri.in_([accepted_url, rejected_url])).all()
+            rows = session.query(Material).filter(Material.uri.in_([accepted_url, rejected_url])).all()
             accepted = [row for row in rows if _model_value(row, "uri") == accepted_url]
             rejected = [row for row in rows if _model_value(row, "uri") == rejected_url]
             return {
-                "accepted_doc_count": len(accepted),
-                "accepted_doc_ids": [_coerce_int(_model_value(row, "id")) for row in accepted],
+                "accepted_material_count": len(accepted),
+                "accepted_material_ids": [_coerce_int(_model_value(row, "id")) for row in accepted],
                 "accepted_titles": [str(_model_value(row, "title") or "") for row in accepted],
-                "rejected_doc_count": len(rejected),
-                "rejected_doc_ids": [_coerce_int(_model_value(row, "id")) for row in rejected],
+                "rejected_material_count": len(rejected),
+                "rejected_material_ids": [_coerce_int(_model_value(row, "id")) for row in rejected],
             }
 
 
@@ -231,7 +239,7 @@ def build_production_like_handoff_evidence(
     rejected_status_code: int,
     accepted_result: Mapping[str, object],
     rejected_result: Mapping[str, object],
-    db_readback: Mapping[str, object],
+    db_readback: _MaterialReadback,
 ) -> Annotated[
     dict[str, object],
     "kit:non-authoritative derived_as=generated_evidence fact_source=repo_local_api_responses+db_readback witness=test:test_w03_ingest_ports_authority_metadata",
@@ -248,8 +256,8 @@ def build_production_like_handoff_evidence(
         and rejected_status_code == 200
         and str(accepted_result.get("status") or "") == "success"
         and str(rejected_result.get("status") or "") in {"failed", "degraded_success"},
-        "db_readback_validated": _coerce_int(db_readback.get("accepted_doc_count")) == 1
-        and _coerce_int(db_readback.get("rejected_doc_count")) == 0,
+        "db_readback_validated": db_readback["accepted_material_count"] == 1
+        and db_readback["rejected_material_count"] == 0,
         "guardrail_pass_observed": accepted_gate.get("state") == "strict_passed"
         and accepted_gate.get("strict_gate_enabled") is True
         and accepted_rollout.get("channel") == "canary",
@@ -368,7 +376,7 @@ def run_repo_local_production_like_handoff_canary(*, project_key: str | None = N
         rejected_payload = _response_payload(rejected_response)
         accepted_result = _response_data(accepted_payload)
         rejected_result = _response_data(rejected_payload)
-        db_readback = _readback_documents(
+        db_readback = _readback_materials(
             project_key=resolved_project_key,
             accepted_url=accepted_url,
             rejected_url=rejected_url,

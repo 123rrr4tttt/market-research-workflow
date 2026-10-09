@@ -885,13 +885,153 @@ class SharedCoreToolProjectionUnitTest(unittest.TestCase):
 
         context = AuthoringToolContext(
             service=service,
-            structured_data_searcher=lambda **_kwargs: {"items": [{"document_id": 999}]},
+            structured_data_searcher=lambda **_kwargs: {"items": [{"material_id": 999}]},
         )
         return next(
             item
             for item in authoring_ingest_writing_batch_sources(context)
             if item.tool_spec.name == "ingest.url_pool.status"
         )
+
+    def test_url_pool_outcome_reader_uses_exact_contract_version_without_identity_aliasing(self):
+        from app.services.agent_core.authoring_tools import _decode_url_outcome_bytes
+        from app.successor_runtime.capabilities.acquisition_url import (
+            LegacyUrlSingleUrlOutcome,
+            UrlSingleUrlOutcome,
+            build_url_single_url_contract,
+            build_url_single_url_legacy_outcome_codec,
+            build_url_single_url_outcome_codec,
+            build_url_single_url_readback_legacy_contract,
+        )
+
+        legacy_contract = build_url_single_url_readback_legacy_contract()
+        current_contract = build_url_single_url_contract()
+        legacy_payload = build_url_single_url_legacy_outcome_codec(
+            legacy_contract.ref
+        ).encode_payload(
+            LegacyUrlSingleUrlOutcome(
+                status="completed",
+                inserted=1,
+                updated=0,
+                skipped=0,
+                document_id=41,
+            )
+        )
+        current_payload = build_url_single_url_outcome_codec(
+            current_contract.ref
+        ).encode_payload(
+            UrlSingleUrlOutcome(
+                status="completed",
+                inserted=1,
+                updated=0,
+                skipped=0,
+                material_id=42,
+            )
+        )
+
+        legacy = _decode_url_outcome_bytes(
+            json.dumps(legacy_payload).encode("utf-8"),
+            legacy_contract.ref,
+        )
+        current = _decode_url_outcome_bytes(
+            json.dumps(current_payload).encode("utf-8"),
+            current_contract.ref,
+        )
+
+        assert isinstance(legacy, LegacyUrlSingleUrlOutcome)
+        assert legacy.document_id == 41
+        assert not hasattr(legacy, "material_id")
+        assert isinstance(current, UrlSingleUrlOutcome)
+        assert current.material_id == 42
+        assert not hasattr(current, "document_id")
+
+    def test_historical_unknown_url_run_is_read_only_and_never_invokes_provider(self):
+        from app.services.agent_core.authoring_tools import _url_pool_runtime_evidence
+        from app.services.agent_core.host_authorization import (
+            TrustedHostContext,
+            VerifiedHostAuthorization,
+            verified_host_authorization_channel,
+        )
+        from app.services.request_identity import authenticated_actor_context
+        from app.successor_runtime.capabilities.acquisition_url import (
+            URL_SINGLE_URL_KIND,
+            build_url_single_url_readback_legacy_contract,
+        )
+
+        actor = authenticated_actor_context(
+            actor_id="historical-reader",
+            source="test-host",
+            auth_mode="test-auth",
+        )
+        authorization = VerifiedHostAuthorization(
+            context=TrustedHostContext(
+                "demo_proj",
+                "session-historical",
+                "host",
+                "turn",
+                "message",
+                actor_context=actor,
+            ),
+            tool_name="ingest.url_pool.status",
+            arguments_sha256="0" * 64,
+            package_digest=None,
+            permission="allow",
+            approval_id=None,
+            origin_call_id="status-call",
+            origin_turn_id="turn",
+            origin_user_message_id="message",
+        )
+        contract = build_url_single_url_readback_legacy_contract()
+        invoke = MagicMock()
+        with (
+            patch(
+                "app.services.agent_core.authoring_tools._url_pool_capability_grant_is_current",
+                return_value=True,
+            ),
+            patch(
+                "app.composition.production.read_installed_program",
+                return_value=(
+                    {
+                        "run_id": "legacy-unknown",
+                        "project_key": "demo_proj",
+                        "state": "UNKNOWN",
+                    },
+                    ({
+                        "step_id": "legacy-url-step",
+                        "operation_kind": URL_SINGLE_URL_KIND,
+                        "operation_contract_ref": contract.ref,
+                    },),
+                    (),
+                ),
+            ),
+            patch(
+                "app.services.agent_core.authoring_tools._read_url_pool_runtime_url",
+                return_value="https://example.gov/historical",
+            ),
+            patch("app.composition.production.read_installed_program_outputs") as outputs,
+            patch("app.composition.production.read_installed_program_failures") as failures,
+            patch("app.services.ingest.url_pool.invoke_url_single_url", invoke),
+            verified_host_authorization_channel(authorization),
+        ):
+            evidence = _url_pool_runtime_evidence(
+                submission={
+                    "project_key": "demo_proj",
+                    "runtime_run_ref": "runtime-run:legacy-unknown",
+                },
+                project_key="demo_proj",
+                session_id="session-historical",
+                url="https://example.gov/historical",
+                tool_name="ingest.url_pool.status",
+            )
+
+        assert evidence.pending is False
+        assert evidence.verified is False
+        assert evidence.error is not None
+        assert evidence.error["code"] == "url_pool_runtime_state_unknown"
+        assert evidence.error["state"] == "UNKNOWN"
+        outputs.assert_not_called()
+        failures.assert_not_called()
+        invoke.assert_not_called()
 
     def _write_url_pool_submission(self, service: AgentSessionService, session_id: str) -> None:
         service.store.upsert_artifact({
@@ -925,6 +1065,7 @@ class SharedCoreToolProjectionUnitTest(unittest.TestCase):
             verified_host_authorization_channel,
         )
         from app.services.request_identity import authenticated_actor_context
+        from app.successor_runtime.capabilities.acquisition_url import build_url_single_url_contract
 
         service = AgentSessionService(store=InMemoryAgentSessionStore())
         session_id = service.create_session(
@@ -954,7 +1095,15 @@ class SharedCoreToolProjectionUnitTest(unittest.TestCase):
             ),
             patch(
                 "app.composition.production.read_installed_program",
-                return_value=({"run_id": "url-runtime-1", "project_key": "demo_proj", "state": "FAILED"}, (), ()),
+                return_value=(
+                    {"run_id": "url-runtime-1", "project_key": "demo_proj", "state": "FAILED"},
+                    ({
+                        "step_id": "url-step",
+                        "operation_kind": "acquisition.url.single_url.v1",
+                        "operation_contract_ref": build_url_single_url_contract().ref,
+                    },),
+                    (),
+                ),
             ) as read_runtime,
             patch(
                 "app.services.agent_core.authoring_tools._read_url_pool_runtime_url",
@@ -990,7 +1139,7 @@ class SharedCoreToolProjectionUnitTest(unittest.TestCase):
         read_failures.assert_called_once()
         read_outputs.assert_not_called()
 
-    def test_url_pool_status_completed_requires_runtime_output_and_document_readback(self):
+    def test_url_pool_status_completed_requires_runtime_output_and_material_readback(self):
         import json as json_module
 
         from app.services.agent_core.contracts import AgentCoreRequest, CoreToolCall
@@ -1027,7 +1176,7 @@ class SharedCoreToolProjectionUnitTest(unittest.TestCase):
         )
         contract = build_url_single_url_contract()
         outcome_payload = build_url_single_url_outcome_codec(contract.ref).encode_payload(
-            UrlSingleUrlOutcome(status="completed", inserted=1, updated=0, skipped=0, document_id=42)
+            UrlSingleUrlOutcome(status="completed", inserted=1, updated=0, skipped=0, material_id=42)
         )
         exact = json_module.dumps(outcome_payload).encode("utf-8")
 
@@ -1041,7 +1190,11 @@ class SharedCoreToolProjectionUnitTest(unittest.TestCase):
                 "app.composition.production.read_installed_program",
                 return_value=(
                     {"run_id": "url-runtime-1", "project_key": "demo_proj", "state": "COMPLETED"},
-                    ({"step_id": "url-step", "operation_kind": "acquisition.url.single_url.v1"},),
+                    ({
+                        "step_id": "url-step",
+                        "operation_kind": "acquisition.url.single_url.v1",
+                        "operation_contract_ref": contract.ref,
+                    },),
                     (),
                 ),
             ),
@@ -1054,13 +1207,13 @@ class SharedCoreToolProjectionUnitTest(unittest.TestCase):
                 return_value=(("url-step", object(), exact),),
             ),
             patch(
-                "app.services.agent_core.authoring_tools._read_url_pool_document",
+                "app.services.agent_core.authoring_tools._read_url_pool_material",
                 return_value={
                     "project_key": "demo_proj",
-                    "document_id": 42,
+                    "material_id": 42,
                     "matched_url": "https://example.gov/report",
                 },
-            ) as read_document,
+            ) as read_material,
         ):
             with verified_host_authorization_channel(authorization):
                 result = source.handler(
@@ -1074,14 +1227,14 @@ class SharedCoreToolProjectionUnitTest(unittest.TestCase):
         assert result.structured_content["runtime_error"] is None, result.structured_content["runtime_error"]
         assert result.structured_content["verified"] is True
         assert result.structured_content["pending"] is False
-        assert result.structured_content["runtime_output"]["document_id"] == 42
-        assert result.structured_content["document_readback"]["document_id"] == 42
-        assert result.structured_content["document_readback"]["project_key"] == "demo_proj"
-        assert result.structured_content["causal_evidence"]["document"]["matched_url"] == "https://example.gov/report"
-        read_document.assert_called_once_with("demo_proj", 42, "https://example.gov/report")
+        assert result.structured_content["runtime_output"]["material_id"] == 42
+        assert result.structured_content["material_readback"]["material_id"] == 42
+        assert result.structured_content["material_readback"]["project_key"] == "demo_proj"
+        assert result.structured_content["causal_evidence"]["material"]["matched_url"] == "https://example.gov/report"
+        read_material.assert_called_once_with("demo_proj", 42, "https://example.gov/report")
 
-    def test_url_pool_document_rejects_same_domain_root_and_accepts_persisted_redirect(self):
-        from app.services.agent_core.authoring_tools import _read_url_pool_document
+    def test_url_pool_material_rejects_same_domain_root_and_accepts_persisted_redirect(self):
+        from app.services.agent_core.authoring_tools import _read_url_pool_material
 
         session = MagicMock()
         session.execute.return_value.first.side_effect = (
@@ -1110,10 +1263,10 @@ class SharedCoreToolProjectionUnitTest(unittest.TestCase):
                 return_value=session_context,
             ),
         ):
-            root_match = _read_url_pool_document(
+            root_match = _read_url_pool_material(
                 "demo_proj", 42, "https://example.gov"
             )
-            redirect_match = _read_url_pool_document(
+            redirect_match = _read_url_pool_material(
                 "demo_proj", 42, "https://example.gov/requested"
             )
 
@@ -1261,6 +1414,7 @@ class SharedCoreToolProjectionUnitTest(unittest.TestCase):
             verified_host_authorization_channel,
         )
         from app.services.request_identity import authenticated_actor_context
+        from app.successor_runtime.capabilities.acquisition_url import build_url_single_url_contract
 
         service = AgentSessionService(store=InMemoryAgentSessionStore())
         session_id = service.create_session(
@@ -1313,7 +1467,11 @@ class SharedCoreToolProjectionUnitTest(unittest.TestCase):
                                 "project_key": "demo_proj",
                                 "state": state,
                             },
-                            (),
+                            ({
+                                "step_id": "url-step",
+                                "operation_kind": "acquisition.url.single_url.v1",
+                                "operation_contract_ref": build_url_single_url_contract().ref,
+                            },),
                             (),
                         ),
                     ),

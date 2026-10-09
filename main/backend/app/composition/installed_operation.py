@@ -123,7 +123,10 @@ def validate_installed_operation(
 def _install(
     source: Source, contract: OperationContract, profiles: OperationProfiles,
     input_codec: PayloadCodec[Input], output_codec: PayloadCodec[Output],
-    assemble: Callable[[InstalledOperationView[Source, Input, Output], InstalledOperationContext], RuntimeHandler],
+    assemble: Callable[
+        [InstalledOperationView[Source, Input, Output], InstalledOperationContext],
+        RuntimeHandler | Failure,
+    ],
     interpreter_digest: str | None = None, authority_digest: str | None = None,
 ) -> NativeContribution[InstalledOperationView[Source, Input, Output], InstalledOperationContext, RuntimeHandler]:
     view = InstalledOperationView(
@@ -470,6 +473,27 @@ def _url(
     )
 
 
+def _historical_url_read_only(
+    view: InstalledOperationView[
+        OperationContract,
+        url.LegacyUrlSingleUrlRequest,
+        url.LegacyUrlSingleUrlOutcome,
+    ],
+    _context: InstalledOperationContext,
+) -> Failure:
+    """Keep frozen URL codecs available for readback without an effect path."""
+    return Failure(
+        "mrw.installed-operation",
+        "HISTORICAL_OPERATION_READ_ONLY",
+        "historical URL operation contracts are available for exact readback only",
+        {
+            "operation_kind": view.contract.ref.kind,
+            "contract_version": view.contract.ref.contract_version,
+            "contract_digest": view.contract.ref.contract_digest,
+        },
+    )
+
+
 def _wait(
     view: InstalledOperationView[
         OperationContract,
@@ -579,8 +603,10 @@ leaf_installed_operations = (*(_work_leaf_install(kind) for kind in leaf.WORK_LE
                              *(_control_leaf_install(kind) for kind in leaf.CONTROL_LEAF_KINDS))
 
 
-url_contracts = url.build_url_single_url_contracts()
-url_installed_operations = tuple(
+url_legacy_contract, url_readback_legacy_contract, url_current_contract = (
+    url.build_url_single_url_contracts()
+)
+url_historical_installed_operations = tuple(
     _install(
         contract,
         contract,
@@ -588,13 +614,25 @@ url_installed_operations = tuple(
             url.build_url_single_url_legacy_profiles()
             if contract.ref.contract_version
             == url.URL_SINGLE_URL_LEGACY_CONTRACT_VERSION
-            else url.build_url_single_url_profiles()
+            else url.build_url_single_url_readback_legacy_profiles()
         ),
-        url.build_url_single_url_request_codec(contract.ref),
-        url.build_url_single_url_outcome_codec(contract.ref),
-        _url,
+        url.build_url_single_url_legacy_request_codec(contract.ref),
+        url.build_url_single_url_legacy_outcome_codec(contract.ref),
+        _historical_url_read_only,
     )
-    for contract in url_contracts
+    for contract in (url_legacy_contract, url_readback_legacy_contract)
+)
+url_current_installed_operation = _install(
+    url_current_contract,
+    url_current_contract,
+    url.build_url_single_url_profiles(),
+    url.build_url_single_url_request_codec(url_current_contract.ref),
+    url.build_url_single_url_outcome_codec(url_current_contract.ref),
+    _url,
+)
+url_installed_operations = (
+    *url_historical_installed_operations,
+    url_current_installed_operation,
 )
 wait_contract = wait.build_batch_business_wait_contract()
 dispatch_contract = dispatch.build_batch_task_single_dispatch_contract()

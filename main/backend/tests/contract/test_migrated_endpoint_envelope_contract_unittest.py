@@ -38,14 +38,12 @@ class MigratedEndpointEnvelopeContractTestCase(unittest.TestCase):
         client = TestClient(self._build_app())
         mocked_results = [
             {
-                "id": "doc-1",
-                "document_id": "doc-1",
-                "material_id": "doc-1",
+                "material_id": "material-1",
                 "score": 0.99,
                 "source_type": "material",
                 "provenance": {
                     "source_id": "source-1",
-                    "source_reference": "document:doc-1",
+                    "source_reference": "material:material-1",
                 },
             }
         ]
@@ -64,20 +62,20 @@ class MigratedEndpointEnvelopeContractTestCase(unittest.TestCase):
         self.assertEqual(payload["data"]["query"], "market")
         self.assertEqual(payload["data"]["top_k"], 1)
         self.assertEqual(
-            payload["data"]["document_query_contract_version"],
-            "document_queries.v2",
+            payload["data"]["material_query_contract_version"],
+            "material_queries.v2",
         )
-        self.assertEqual(payload["data"]["document_query"]["sources"], ["material"])
-        typed_hit = payload["data"]["document_query_results"][0]
-        self.assertEqual(typed_hit["material_id"], "doc-1")
+        self.assertEqual(payload["data"]["material_query"]["sources"], ["material"])
+        typed_hit = payload["data"]["material_query_results"][0]
+        self.assertEqual(typed_hit["material_id"], "material-1")
         self.assertEqual(typed_hit["source_type"], "material")
         self.assertEqual(typed_hit["rank"], 1)
         evidence_hit = payload["data"]["evidence_hits"][0]
-        self.assertEqual(evidence_hit["material_id"], "doc-1")
-        self.assertEqual(evidence_hit["global_vector_object"]["material_id"], "doc-1")
+        self.assertEqual(evidence_hit["material_id"], "material-1")
+        self.assertEqual(evidence_hit["global_vector_object"]["material_id"], "material-1")
         self.assertEqual(
             evidence_hit["global_vector_object"]["provenance"]["source_reference"],
-            "document:doc-1",
+            "material:material-1",
         )
 
     def test_projects_auto_create_success_envelope_shape(self):

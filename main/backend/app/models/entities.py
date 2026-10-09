@@ -41,18 +41,18 @@ class Source(BigIDMixin, Base):
         DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
     )
 
-    documents = relationship("Material", back_populates="source")
+    materials = relationship("Material", back_populates="source")
 
 
 class Material(BigIDMixin, Base):
-    """Canonical source material; the existing table preserves all addresses."""
-    __tablename__ = "documents"
+    """Canonical source material."""
+    __tablename__ = "materials"
 
     source_id: Mapped[int | None] = mapped_column(
         BigInteger, ForeignKey("sources.id", ondelete="SET NULL")
     )
     state: Mapped[str | None] = mapped_column(String(8), nullable=True)
-    doc_type: Mapped[str] = mapped_column(String(16), nullable=False)
+    material_type: Mapped[str] = mapped_column(String(16), nullable=False)
     title: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[str | None] = mapped_column(String(32), nullable=True)
     publish_date: Mapped[date | None] = mapped_column(Date, nullable=True)
@@ -68,11 +68,7 @@ class Material(BigIDMixin, Base):
         DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
     )
 
-    source = relationship("Source", back_populates="documents")
-
-
-# Compatibility import for existing integrations, not a second mapped entity.
-Document = Material
+    source = relationship("Source", back_populates="materials")
 
 
 # Keep the persisted table model so project-schema moves preserve historical rows.
@@ -666,7 +662,7 @@ class GraphNodeRecord(BigIDMixin, Base):
     canonical_id = Column(String(255), nullable=False)
     display_name = Column(Text, nullable=True)
     properties = Column(JSONB, nullable=True)
-    source_doc_id = Column(BigInteger, nullable=True)
+    source_material_id = Column(BigInteger, nullable=True)
     node_schema_version = Column(String(32), nullable=False, server_default="v1")
     quality_flags = Column(JSONB, nullable=True)
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())

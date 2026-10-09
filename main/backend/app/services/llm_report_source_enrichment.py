@@ -8,7 +8,7 @@ from typing import Any, TypeGuard
 from sqlalchemy import select
 
 from ..models.base import SessionLocal
-from ..models.entities import Document, GraphNodeRecord
+from ..models.entities import Material, GraphNodeRecord
 from .search.hybrid import hybrid_search
 from .search.web import search_sources
 
@@ -65,8 +65,8 @@ def _score_text_match(text: str, topic: str) -> int:
     return sum(1 for term in _topic_terms(topic) if term and term in lowered)
 
 
-def _extract_graph_evidence_from_document(document: Document) -> str:
-    extracted = _string_object_dict(document.extracted_data)
+def _extract_graph_evidence_from_document(material: Material) -> str:
+    extracted = _string_object_dict(material.extracted_data)
     snippets: list[str] = []
 
     er = _string_object_dict(extracted.get("entities_relations"))
@@ -95,25 +95,25 @@ def _extract_graph_evidence_from_document(document: Document) -> str:
 
     if snippets:
         return "；".join(snippets[:2])
-    return str(document.summary or "").strip()[:240]
+    return str(material.summary or "").strip()[:240]
 
 
-def _source_from_document(document: Document, source_id: str) -> dict[str, Any] | None:
-    uri = str(document.uri or "").strip()
+def _source_from_document(material: Material, source_id: str) -> dict[str, Any] | None:
+    uri = str(material.uri or "").strip()
     if not uri.startswith("http://") and not uri.startswith("https://"):
         return None
 
-    extracted = _string_object_dict(document.extracted_data)
+    extracted = _string_object_dict(material.extracted_data)
     publisher = (
-        str(extracted.get("source_domain") or extracted.get("source") or document.doc_type or "internal_rag").strip()
+        str(extracted.get("source_domain") or extracted.get("source") or material.material_type or "internal_rag").strip()
         or "internal_rag"
     )
-    publish_date = document.publish_date.isoformat() if document.publish_date else None
-    evidence = _extract_graph_evidence_from_document(document)
+    publish_date = material.publish_date.isoformat() if material.publish_date else None
+    evidence = _extract_graph_evidence_from_document(material)
 
     return {
         "id": source_id,
-        "title": str(document.title or f"Document {document.id}").strip() or f"Document {document.id}",
+        "title": str(material.title or f"Material {material.id}").strip() or f"Material {material.id}",
         "url": uri,
         "publisher": publisher,
         "published_at": publish_date,
@@ -131,28 +131,28 @@ def _collect_from_rag_documents(topic: str, max_results: int) -> list[dict[str, 
 
     doc_ids: list[int] = []
     for hit in rag_hits:
-        doc_id = _int_or_none(hit.get("document_id"))
-        if doc_id is None:
+        material_id = _int_or_none(hit.get("material_id"))
+        if material_id is None:
             continue
-        if doc_id not in doc_ids:
-            doc_ids.append(doc_id)
+        if material_id not in doc_ids:
+            doc_ids.append(material_id)
     if not doc_ids:
         return []
 
     try:
         with SessionLocal() as session:
-            rows = session.execute(select(Document).where(Document.id.in_(doc_ids))).scalars().all()
+            rows = session.execute(select(Material).where(Material.id.in_(doc_ids))).scalars().all()
     except Exception as exc:  # noqa: BLE001
         logger.info("llm_report_source_enrichment: failed loading rag docs: %s", exc)
         return []
 
     docs_by_id = {int(row.id): row for row in rows}
     collected: list[dict[str, Any]] = []
-    for rank, doc_id in enumerate(doc_ids, start=1):
-        document = docs_by_id.get(doc_id)
-        if document is None:
+    for rank, material_id in enumerate(doc_ids, start=1):
+        material = docs_by_id.get(material_id)
+        if material is None:
             continue
-        source = _source_from_document(document, source_id=f"RAG{rank}")
+        source = _source_from_document(material, source_id=f"RAG{rank}")
         if source is not None:
             collected.append(source)
         if len(collected) >= max_results:

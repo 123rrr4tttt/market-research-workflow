@@ -15,7 +15,7 @@ from sqlalchemy import select, and_, func
 from collections import defaultdict
 
 from app.models.base import SessionLocal
-from app.models.entities import Document
+from app.models.entities import Material
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -40,15 +40,15 @@ def remove_duplicate_social_data(
     with SessionLocal() as session:
         # 构建查询条件
         conditions = [
-            Document.doc_type == "social_sentiment",
-            Document.uri.isnot(None)
+            Material.material_type == "social_sentiment",
+            Material.uri.isnot(None)
         ]
         
         if days:
             cutoff_date = datetime.now() - timedelta(days=days)
-            conditions.append(Document.created_at >= cutoff_date)
+            conditions.append(Material.created_at >= cutoff_date)
         
-        query = select(Document).where(and_(*conditions)).order_by(Document.uri, Document.created_at)
+        query = select(Material).where(and_(*conditions)).order_by(Material.uri, Material.created_at)
         docs = session.execute(query).scalars().all()
         
         logger.info(f"找到 {len(docs)} 条文档")
@@ -85,7 +85,7 @@ def remove_duplicate_social_data(
         if not dry_run and to_delete:
             # 删除重复记录
             delete_ids = [doc.id for doc in to_delete]
-            deleted = session.query(Document).filter(Document.id.in_(delete_ids)).delete(synchronize_session=False)
+            deleted = session.query(Material).filter(Material.id.in_(delete_ids)).delete(synchronize_session=False)
             session.commit()
             logger.info(f"已删除 {deleted} 条重复记录")
         else:

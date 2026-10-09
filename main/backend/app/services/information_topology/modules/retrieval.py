@@ -19,7 +19,8 @@ from ..profiles import AttributeRule, EndpointRule, ProfileSpec, TypeRule
 from ..structural_schema import with_structural_attributes
 
 PROFILE_ID_PREFIX = "retrieval.domain."
-PROFILE_VERSION_PREFIX = "1+"
+PROFILE_VERSION_PREFIX = "3+"
+_LEGACY_PROFILE_VERSION_PREFIX = "1+"
 RAPID_PROPOSAL_PROFILE_ID_PREFIX = "retrieval.rapid_proposal."
 RAPID_PROPOSAL_PROFILE_VERSION_PREFIX = "1+"
 
@@ -125,7 +126,7 @@ def _domain_constraint(vocabulary: DomainVocabulary):
     return validate
 
 
-def make_retrieval_profile(vocabulary: DomainVocabulary) -> ProfileSpec:
+def _make_legacy_retrieval_profile(vocabulary: DomainVocabulary) -> ProfileSpec:
     """Build a domain-specific profile keyed by stable source identity and observation.
 
     Revisions/digests alter the profile version, preserving older persisted
@@ -167,7 +168,9 @@ def make_retrieval_profile(vocabulary: DomainVocabulary) -> ProfileSpec:
             "grades": vocabulary.grades,
         },
     }
-    profile_version = PROFILE_VERSION_PREFIX + sha256(_canonical_json(observed_source).encode("utf-8")).hexdigest()
+    profile_version = _LEGACY_PROFILE_VERSION_PREFIX + sha256(
+        _canonical_json(observed_source).encode("utf-8")
+    ).hexdigest()
 
     node_ids = {f"node:{value}" for value in vocabulary.node_types}
     # The schema has relation categories; domain edge names remain data values.
@@ -375,9 +378,9 @@ def vocabulary_record_attributes(vocabulary: DomainVocabulary) -> Mapping[str, A
     }
 
 
-def make_document_retrieval_profile(vocabulary: DomainVocabulary) -> ProfileSpec:
-    """V2 materials are placements of canonical Documents, not source bodies."""
-    legacy = make_retrieval_profile(vocabulary)
+def _make_legacy_document_retrieval_profile(vocabulary: DomainVocabulary) -> ProfileSpec:
+    """Reconstruct a persisted V2 profile for migration and historical readback."""
+    legacy = _make_legacy_retrieval_profile(vocabulary)
     types = dict(legacy.types)
     attributes = dict(types["material"].attributes)
     for key in ("title", "url", "content_name", "content_summary", "source_uri", "source_status"):
@@ -411,14 +414,16 @@ def make_document_retrieval_profile(vocabulary: DomainVocabulary) -> ProfileSpec
                    types=types, constraints=(*legacy.constraints, validate_documents))
 
 
-def make_material_retrieval_profile(vocabulary: DomainVocabulary) -> ProfileSpec:
-    """V3 placements refer to the sole material body owner."""
-    legacy = make_retrieval_profile(vocabulary)
+def make_retrieval_profile(vocabulary: DomainVocabulary) -> ProfileSpec:
+    """Build the current V3 profile whose placements refer to Material owners."""
+    legacy = _make_legacy_retrieval_profile(vocabulary)
     types = dict(legacy.types)
     attributes = dict(types["material"].attributes)
     for key in ("title", "url", "content_name", "content_summary", "source_uri", "source_status", "document_ref"):
         attributes.pop(key, None)
     attributes["material_ref"] = AttributeRule("object")
+    attributes["placement_title"] = AttributeRule("string")
+    attributes["migration_source_evidence"] = AttributeRule("array")
     types["material"] = replace(types["material"], attributes=attributes)
 
     def validate_materials(state: TopologyState) -> Failure | None:
@@ -427,6 +432,60 @@ def make_material_retrieval_profile(vocabulary: DomainVocabulary) -> ProfileSpec
         for element in state.elements:
             if element.ref.ref.type_id != "material":
                 continue
+            source_evidence_value: object = element.attributes.get("migration_source_evidence")
+            if source_evidence_value is not None:
+                evidence_keys = {
+                    "locator", "raw_sha256", "mime_type", "extractor", "extraction_status", "reason",
+                    "snapshot_text_hash", "material_text_hash", "selected_for_material_body",
+                    "legacy_material_identity",
+                }
+                if not _is_object_list(source_evidence_value):
+                    return topology_failures.fail(
+                        "INVALID_STRUCTURE", "material migration source evidence must be an array"
+                    )
+                for record_value in source_evidence_value:
+                    if not _is_object_mapping(record_value) or set(record_value) != evidence_keys:
+                        return topology_failures.fail(
+                            "INVALID_STRUCTURE", "material migration source evidence fields are malformed"
+                        )
+                    if (
+                        not isinstance(record_value.get("locator"), str)
+                        or not record_value["locator"]
+                        or record_value.get("extraction_status") not in {
+                            "extracted", "partial", "reference_only",
+                        }
+                        or not isinstance(record_value.get("selected_for_material_body"), bool)
+                        or any(
+                            record_value.get(key) is not None
+                            and not isinstance(record_value.get(key), str)
+                            for key in (
+                                "raw_sha256", "mime_type", "extractor", "reason",
+                                "snapshot_text_hash", "material_text_hash",
+                            )
+                        )
+                    ):
+                        return topology_failures.fail(
+                            "INVALID_STRUCTURE", "material migration source evidence values are malformed"
+                        )
+                    legacy_identity = record_value.get("legacy_material_identity")
+                    if (
+                        not _is_object_mapping(legacy_identity)
+                        or set(legacy_identity) != {
+                            "project_key", "module_id", "namespace", "type_id", "local_id",
+                        }
+                        or any(not isinstance(value, str) or not value for value in legacy_identity.values())
+                        or legacy_identity.get("project_key") != element.ref.ref.project_key
+                    ):
+                        return topology_failures.fail(
+                            "INVALID_STRUCTURE", "material migration source evidence identity is malformed"
+                        )
+                    if record_value["selected_for_material_body"] and (
+                        record_value.get("snapshot_text_hash") is None
+                        or record_value.get("snapshot_text_hash") != record_value.get("material_text_hash")
+                    ):
+                        return topology_failures.fail(
+                            "INVALID_STRUCTURE", "selected migration source does not match the Material body"
+                        )
             ref_value: object = element.attributes.get("material_ref")
             if element.attributes.get("reference_status") == "unresolved_reference":
                 if ref_value is not None:
@@ -445,8 +504,14 @@ def make_material_retrieval_profile(vocabulary: DomainVocabulary) -> ProfileSpec
                 return topology_failures.fail("INVALID_STRUCTURE", "material requires a canonical project material reference")
         return None
 
-    return replace(legacy, version="3+" + legacy.version.removeprefix("1+"),
+    return replace(legacy, version=PROFILE_VERSION_PREFIX + legacy.version.removeprefix(
+                       _LEGACY_PROFILE_VERSION_PREFIX),
                    types=types, constraints=(*legacy.constraints, validate_materials))
+
+
+def make_material_retrieval_profile(vocabulary: DomainVocabulary) -> ProfileSpec:
+    """Retained current-name entry for callers already explicit about Material V3."""
+    return make_retrieval_profile(vocabulary)
 
 
 def domain_vocabulary_element(vocabulary: DomainVocabulary) -> Element:
@@ -536,9 +601,9 @@ def profile_from_state_payload(
         profile = (
             make_rapid_proposal_profile(vocabulary)
             if profile_id.startswith(RAPID_PROPOSAL_PROFILE_ID_PREFIX)
-            else (make_material_retrieval_profile(vocabulary)
-                  if profile_version.startswith("3+") else make_document_retrieval_profile(vocabulary)
-                  if profile_version.startswith("2+") else make_retrieval_profile(vocabulary))
+            else (make_retrieval_profile(vocabulary)
+                  if profile_version.startswith("3+") else _make_legacy_document_retrieval_profile(vocabulary)
+                  if profile_version.startswith("2+") else _make_legacy_retrieval_profile(vocabulary))
         )
     except (TypeError, ValueError) as exc:
         return topology_failures.fail("INVALID_STRUCTURE", f"persisted domain vocabulary is invalid: {exc}")

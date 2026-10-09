@@ -9,6 +9,7 @@ export const endpoints = {
   },
   dashboard: {
     stats: `${API_BASE}/dashboard/stats`,
+    globalStats: `${API_BASE}/dashboard/global/stats`,
     reportFromFilter: `${API_BASE}/dashboard/report-from-filter`,
     llmReportDetail: (query: URLSearchParams | string) =>
       withQuery(`${API_BASE}/dashboard/llm-report-detail`, query),
@@ -79,7 +80,7 @@ export const endpoints = {
     siteEntriesGrouped: `${API_BASE}/resource_pool/site_entries/grouped`,
     siteEntriesGroupedQuery: (query: URLSearchParams | string) =>
       withQuery(`${API_BASE}/resource_pool/site_entries/grouped`, query),
-    extractFromDocuments: `${API_BASE}/resource_pool/extract/from-documents`,
+    extractFromMaterials: `${API_BASE}/resource_pool/extract/from-materials`,
     discoverSiteEntries: `${API_BASE}/resource_pool/discover/site-entries`,
   },
   clueChains: {
@@ -249,14 +250,12 @@ export const endpoints = {
     searchHistory: `${API_BASE}/admin/search-history`,
     materialList: `${API_BASE}/admin/materials/list`,
     materialById: (materialId: number) => `${API_BASE}/admin/materials/${materialId}`,
-    documentList: `${API_BASE}/admin/materials/list`,
-    documentById: (docId: number) => `${API_BASE}/admin/materials/${docId}`,
-    documentExtractedData: (docId: number) => `${API_BASE}/admin/materials/${docId}/extracted-data`,
-    documentsBulkExtractedData: `${API_BASE}/admin/materials/bulk/extracted-data`,
-    documentsDelete: `${API_BASE}/admin/materials/delete`,
-    documentsReExtract: `${API_BASE}/admin/materials/re-extract`,
-    documentsTopicExtract: `${API_BASE}/admin/materials/topic-extract`,
-    documentsRawImport: `${API_BASE}/admin/materials/raw-import`,
+    materialExtractedData: (materialId: number) => `${API_BASE}/admin/materials/${materialId}/extracted-data`,
+    materialsBulkExtractedData: `${API_BASE}/admin/materials/bulk/extracted-data`,
+    materialsDelete: `${API_BASE}/admin/materials/delete`,
+    materialsReExtract: `${API_BASE}/admin/materials/re-extract`,
+    materialsTopicExtract: `${API_BASE}/admin/materials/topic-extract`,
+    materialsRawImport: `${API_BASE}/admin/materials/raw-import`,
     exportGraph: `${API_BASE}/admin/export-graph`,
     policyGraph: `${API_BASE}/admin/policy-graph`,
     contentGraph: `${API_BASE}/admin/content-graph`,

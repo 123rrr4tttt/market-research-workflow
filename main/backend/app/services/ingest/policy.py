@@ -12,7 +12,7 @@ from functorial_kit import Failure
 from mrw_functorial_kit.core.provider_port_failures import ingest_policy_failures
 
 from ...models.base import SessionLocal
-from ...models.entities import Document, Source
+from ...models.entities import Material, Source
 from ..collect_runtime.contracts import (
     COLLECT_BATCH_FOLD_SCHEMA_REF,
     CollectBatchCounts,
@@ -344,10 +344,10 @@ def ingest_policy_documents(
                     continue
 
                 text_hash = _hash_text(content)
-                existed = session.query(Document).filter(Document.text_hash == text_hash).first()
+                existed = session.query(Material).filter(Material.text_hash == text_hash).first()
                 if existed:
                     skipped += 1
-                    item_results.append({"status": "skipped_exists", "doc_id": existed.id, "uri": doc.uri})
+                    item_results.append({"status": "skipped_exists", "material_id": existed.id, "uri": doc.uri})
                     continue
 
                 source = _get_or_create_source(session, doc)
@@ -373,12 +373,12 @@ def ingest_policy_documents(
                     project_key=None,
                     source_ref={"url": doc.uri, "locator": doc.uri},
                     collection_payload={
-                        "document_candidate": {
+                        "material_candidate": {
                             "source_name": source.name,
                             "source_kind": "state_site",
                             "source_base_url": doc.uri,
                             "state": doc.state,
-                            "doc_type": "policy",
+                            "material_type": "policy",
                             "title": doc.title,
                             "status": doc.status,
                             "publish_date": doc.publish_date,
@@ -431,11 +431,11 @@ def ingest_policy_documents(
                 item_result = {
                     "status": "ok",
                     "uri": doc.uri,
-                    "doc_id": writer_result.get("doc_id"),
+                    "material_id": writer_result.get("material_id"),
                     "extraction": extraction_readback,
                 }
                 if _safe_int(writer_result.get("inserted")) > 0:
-                    inserted_ids.append(_safe_int(writer_result.get("doc_id")))
+                    inserted_ids.append(_safe_int(writer_result.get("material_id")))
                     inserted += 1
                 elif str(writer_result.get("reason") or "") == "skipped_exists":
                     skipped += 1
@@ -453,7 +453,7 @@ def ingest_policy_documents(
         if inserted_ids:
             from ..indexer import index_policy_documents
 
-            index_policy_documents(document_ids=inserted_ids)
+            index_policy_documents(material_ids=inserted_ids)
 
         materialization_status = (
             "CANCELLED"
@@ -482,7 +482,7 @@ def ingest_policy_documents(
             "inserted": inserted,
             "skipped": skipped,
             "state": state.upper(),
-            "document_ids": inserted_ids,
+            "material_ids": inserted_ids,
             "items": item_results[:50],
             "materialization": {
                 "schema_version": POLICY_MATERIALIZATION_PROJECTION_SCHEMA_REF,

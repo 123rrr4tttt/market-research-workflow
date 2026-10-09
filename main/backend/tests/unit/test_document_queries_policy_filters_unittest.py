@@ -11,7 +11,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 pytestmark = pytest.mark.unit
 
 from app.services.document_queries import (
-    document_json_iso_date_expr,
+    material_json_iso_date_expr,
     policy_effective_date_expr,
     policy_has_data_condition,
     policy_state_condition,
@@ -31,7 +31,7 @@ class PolicyFiltersUnitTestCase(unittest.TestCase):
             policy_state_condition("CA"),
             policy_type_condition("licensing"),
             policy_type_order_expr(),
-            document_json_iso_date_expr("source_time"),
+            material_json_iso_date_expr("source_time"),
             prompt_time_density_time_expr(),
         ]
         for expr in expressions:

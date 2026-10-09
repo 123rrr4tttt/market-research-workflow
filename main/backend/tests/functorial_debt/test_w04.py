@@ -126,6 +126,41 @@ def test_w04_authority_metadata() -> None:
     assert historical_retired_targets <= expected_targets
     assert all(not (REPO_ROOT / relative_path).exists() for relative_path, _ in historical_retired_targets)
     active_expected_targets = expected_targets - historical_retired_targets
+    historical_material_query_renames = {
+        (
+            "main/backend/app/services/document_queries/contracts.py",
+            "build_document_query_result_item",
+        ): (
+            "main/backend/app/services/document_queries/contracts.py",
+            "build_material_query_result_item",
+        ),
+        (
+            "main/backend/app/services/document_queries/contracts.py",
+            "build_document_query_result_envelope",
+        ): (
+            "main/backend/app/services/document_queries/contracts.py",
+            "build_material_query_result_envelope",
+        ),
+        (
+            "main/backend/app/services/document_queries/search_endpoint.py",
+            "build_search_endpoint_document_query",
+        ): (
+            "main/backend/app/services/document_queries/search_endpoint.py",
+            "build_search_endpoint_material_query",
+        ),
+        (
+            "main/backend/app/services/document_queries/statement_builder.py",
+            "build_document_query_statement",
+        ): (
+            "main/backend/app/services/document_queries/statement_builder.py",
+            "build_material_query_statement",
+        ),
+    }
+    assert historical_material_query_renames.keys() <= active_expected_targets
+    active_expected_targets = {
+        historical_material_query_renames.get(target, target)
+        for target in active_expected_targets
+    }
 
     classifications: dict[tuple[str, str], tuple[str, dict[str, str]]] = {
         ("main/backend/app/services/clue_chains/external_search_expansion.py", "build_external_search_provider"): (
@@ -136,21 +171,21 @@ def test_w04_authority_metadata() -> None:
             "kit:prepared-command",
             {"effect_boundary": "ingest_config_clue_chain_store"},
         ),
-        ("main/backend/app/services/document_queries/contracts.py", "build_document_query_result_item"): (
+        ("main/backend/app/services/document_queries/contracts.py", "build_material_query_result_item"): (
             "kit:non-authoritative",
             {"derived_as": "view", "fact_source": "repository_row+source_type+rank"},
         ),
-        ("main/backend/app/services/document_queries/contracts.py", "build_document_query_result_envelope"): (
+        ("main/backend/app/services/document_queries/contracts.py", "build_material_query_result_envelope"): (
             "kit:non-authoritative",
-            {"derived_as": "view", "fact_source": "document_query+rows+source+meta"},
+            {"derived_as": "view", "fact_source": "material_query+rows+source+meta"},
         ),
-        ("main/backend/app/services/document_queries/search_endpoint.py", "build_search_endpoint_document_query"): (
+        ("main/backend/app/services/document_queries/search_endpoint.py", "build_search_endpoint_material_query"): (
             "kit:prepared-command",
-            {"effect_boundary": "app.services.document_queries.statement_builder"},
+            {"effect_boundary": "app.services.material_queries.statement_builder"},
         ),
-        ("main/backend/app/services/document_queries/statement_builder.py", "build_document_query_statement"): (
+        ("main/backend/app/services/document_queries/statement_builder.py", "build_material_query_statement"): (
             "kit:prepared-command",
-            {"effect_boundary": "document_query_statement"},
+            {"effect_boundary": "material_query_statement"},
         ),
         ("main/backend/app/services/document_views/policy_view.py", "build_policy_summary"): (
             "kit:non-authoritative",

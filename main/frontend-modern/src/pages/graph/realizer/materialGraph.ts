@@ -1,33 +1,32 @@
-import { isCanonicalMaterialRef, normalizeMaterialGraphId, normalizeMaterialRef } from '../../../features/information-topology/materialIdentity'
-import type { AdminDocumentItem, GraphEdgeItem, GraphNodeItem, GraphResponse } from '../../../lib/types'
+import { isCanonicalMaterialRef } from '../../../features/information-topology/materialIdentity'
+import type { AdminMaterialItem, GraphEdgeItem, GraphNodeItem, GraphResponse } from '../../../lib/types'
 import { normalizeNodeType } from './nodeStyleLibrary'
 
 export function materialReaderId(node: GraphNodeItem | null): number | null {
   if (!node) return null
-  const ref = node.material_ref ?? node.topology_ref
-  const value = node.material_id ?? node.document_id ?? (isCanonicalMaterialRef(ref) ? ref.local_id
-    : !node.topology_ref && normalizeNodeType(node.type) === 'material' ? node.id : undefined)
-  if (value == null || value === '') return null
-  const id = Number(value)
-  return Number.isSafeInteger(id) && id > 0 ? id : null
+  const ref = node.material_ref
+  if (!isCanonicalMaterialRef(ref)) return null
+  const id = Number(ref.local_id)
+  if (!Number.isSafeInteger(id) || id <= 0) return null
+  if (node.material_id != null && Number(node.material_id) !== id) return null
+  return id
 }
 
 export function normalizeMaterialGraphNode(node: GraphNodeItem): GraphNodeItem {
-  const legacyPlacement = node.document_id != null && !isCanonicalMaterialRef(node.material_ref) ? node.material_ref : undefined
-  const ref = isCanonicalMaterialRef(node.material_ref) ? node.material_ref : node.topology_ref
+  const ref = node.material_ref
   return {
     ...node,
-    id: normalizeMaterialGraphId(node.id),
+    id: node.id,
     type: normalizeNodeType(node.type),
-    ...(isCanonicalMaterialRef(ref) ? { topology_ref: normalizeMaterialRef(ref), material_ref: normalizeMaterialRef(ref) } : {}),
-    ...(node.placement_ref || legacyPlacement ? { placement_ref: node.placement_ref ?? legacyPlacement } : {}),
+    ...(isCanonicalMaterialRef(ref) ? { material_ref: ref } : {}),
+    ...(node.placement_ref ? { placement_ref: node.placement_ref } : {}),
     ...(materialReaderId(node) != null ? { material_id: materialReaderId(node) } : {}),
   }
 }
 
 export function normalizeMaterialGraphEdge(edge: GraphEdgeItem): GraphEdgeItem {
   const endpoint = (value: GraphEdgeItem['from']) => ({
-    ...value, id: value.id == null ? value.id : normalizeMaterialGraphId(value.id), type: normalizeNodeType(value.type),
+    ...value, type: normalizeNodeType(value.type),
   })
   return { ...edge, from: endpoint(edge.from), to: endpoint(edge.to) }
 }
@@ -67,10 +66,10 @@ export function normalizeMaterialGraph(graph: GraphResponse): GraphResponse {
   return { ...graph, nodes: [...nodes.values()], edges: graph.edges.map(normalizeMaterialGraphEdge) }
 }
 
-/** Read-only projection of canonical Document rows into GraphPage material nodes. */
-export function projectDocumentMaterials(items: AdminDocumentItem[], projectKey: string): GraphResponse {
+/** Read-only projection of canonical Material rows into GraphPage material nodes. */
+export function projectAdminMaterials(items: AdminMaterialItem[], projectKey: string): GraphResponse {
   const nodes = items.flatMap((item): GraphNodeItem[] => {
-    const materialId = Number(item.material_id ?? item.id)
+    const materialId = Number(item.material_id)
     if (!Number.isSafeInteger(materialId) || materialId <= 0) return []
     const materialRef = {
       project_key: projectKey,
@@ -90,10 +89,10 @@ export function projectDocumentMaterials(items: AdminDocumentItem[], projectKey:
       topology_ref: materialRef,
       material_ref: materialRef,
       observed_revision: String(item.updated_at || item.created_at || 'current'),
-      doc_type: item.doc_type,
+      material_type: item.material_type,
       state: item.state,
       uri: item.uri,
     }]
   })
-  return normalizeMaterialGraph({ nodes, edges: [], source_kind: 'document_materials' })
+  return normalizeMaterialGraph({ nodes, edges: [], source_kind: 'admin_materials' })
 }

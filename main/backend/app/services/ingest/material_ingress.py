@@ -23,7 +23,7 @@ class MaterialSourceContext:
 
 @dataclass(frozen=True, slots=True)
 class MaterialTargetSpec:
-    doc_type: str
+    material_type: str
     title: str | None
     summary: str | None
     publish_date: date | None
@@ -51,7 +51,7 @@ def build_material_frontdoor_payload(
         "source_kind": source.source_kind,
         "source_base_url": None,
         "state": target.state,
-        "doc_type": target.doc_type,
+        "material_type": target.material_type,
         "title": target.title,
         "publish_date": target.publish_date,
         "content": prepared.text,
@@ -84,7 +84,7 @@ def build_material_frontdoor_payload(
         },
     }
     return {
-        "document_candidate": candidate,
+        "material_candidate": candidate,
         "terminal_context": terminal_context,
         "extraction_plan": extraction_plan,
     }

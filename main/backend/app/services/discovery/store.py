@@ -13,7 +13,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from ...models.base import SessionLocal
-from ...models.entities import Document, Source
+from ...models.entities import Material, Source
 from ...settings.config import settings
 from ..http.client import default_http_client
 from ..indexer.policy import index_policy_documents
@@ -125,7 +125,7 @@ def _discovery_gate_check(
     *,
     url: str,
     content: str | None,
-    doc_type: str | None,
+    material_type: str | None,
     extracted_data: Mapping[str, object] | None = None,
 ) -> tuple[bool, str, dict[str, object]]:
     gate_cfg: dict[str, object] = {"enable_strict_gate": True}
@@ -135,7 +135,7 @@ def _discovery_gate_check(
     content_gate = content_quality_check(
         uri=url,
         content=str(content or ""),
-        doc_type=doc_type or "external",
+        material_type=material_type or "external",
         extraction_status={"extraction_enabled": bool(extracted_data)},
         config=gate_cfg,
     )
@@ -801,7 +801,7 @@ def store_results(
                 _get_or_create_source(session, domain)
 
                 # Dedup by URI first
-                doc = session.query(Document).filter(Document.uri == link).one_or_none()
+                doc = session.query(Material).filter(Material.uri == link).one_or_none()
                 if doc:
                     # Fetch content for date extraction if publish_date is missing
                     content_for_date = None
@@ -818,7 +818,7 @@ def store_results(
                             content_ok, reject_reason, _ = _discovery_gate_check(
                                 url=link,
                                 content=content_fetched,
-                                doc_type=doc.doc_type or "external",
+                                material_type=doc.material_type or "external",
                                 extracted_data=(doc.extracted_data if isinstance(doc.extracted_data, dict) else None),
                             )
                             if not content_ok:
@@ -839,10 +839,10 @@ def store_results(
                     if not doc.summary and snippet:
                         doc.summary = snippet
                         changed = True
-                    # 补充 doc_type（若之前为 external）
-                    if doc.doc_type in (None, "external"):
+                    # 补充 material_type（若之前为 external）
+                    if doc.material_type in (None, "external"):
                         content_peek = (doc.content or "")[:800]
-                        doc.doc_type = _classify_kind(title, snippet, content_peek)
+                        doc.material_type = _classify_kind(title, snippet, content_peek)
                         changed = True
                     # 补充 state
                     if not doc.state:
@@ -861,7 +861,7 @@ def store_results(
                             logger.info("discovery.store updated publish_date=%s for existing doc url=%s", publish_date, link)
                     if changed:
                         updated += 1
-                        if doc.doc_type == "policy":
+                        if doc.material_type == "policy":
                             policy_to_index.append(doc.id)
                     else:
                         skipped += 1
@@ -872,7 +872,7 @@ def store_results(
                 text_hash = _sha256((content or title) + "\n" + link)
 
                 # Unique by text_hash as well（DB 层有唯一约束可利用）
-                exists = session.query(Document).filter(Document.text_hash == text_hash).one_or_none()
+                exists = session.query(Material).filter(Material.text_hash == text_hash).one_or_none()
                 if exists:
                     skipped += 1
                     continue
@@ -890,7 +890,7 @@ def store_results(
                 content_ok, reject_reason, gate_diagnostics = _discovery_gate_check(
                     url=link,
                     content=content,
-                    doc_type=kind,
+                    material_type=kind,
                     extracted_data=extracted_data,
                 )
                 if not content_ok:
@@ -911,7 +911,7 @@ def store_results(
                         "source_kind": "web",
                         "source_base_url": domain,
                         "state": state,
-                        "doc_type": kind,
+                        "material_type": kind,
                         "title": title,
                         "status": None,
                         "publish_date": publish_date.isoformat() if publish_date else None,
@@ -928,7 +928,7 @@ def store_results(
                     "source_kind": "web",
                     "source_base_url": domain,
                     "state": state,
-                    "doc_type": kind,
+                    "material_type": kind,
                     "title": title,
                     "status": None,
                     "publish_date": publish_date,
@@ -976,7 +976,7 @@ def store_results(
     # 触发索引（仅当配置了 OPENAI_API_KEY 且有新增/更新政策文档）
     if settings.openai_api_key and policy_to_index:
         try:
-            index_policy_documents(document_ids=policy_to_index)
+            index_policy_documents(material_ids=policy_to_index)
         except Exception as exc:  # noqa: BLE001
             logger.warning("discovery.store index failed ids=%s err=%s", policy_to_index, exc)
 

@@ -16,12 +16,13 @@ ClueChainFailureCode = Literal[
     "graph_projection_invalid",
 ]
 
-DocumentQueryFailureCode = Literal[
+MaterialQueryFailureCode = Literal[
     "filter_invalid",
     "sort_invalid",
     "statement_invalid",
+    "result_row_invalid",
     "result_envelope_invalid",
-    "document_not_found",
+    "material_not_found",
 ]
 
 GraphBackfillFailureCode = Literal["transaction_failed"]
@@ -67,9 +68,9 @@ clue_chain_failures = define_failure_family(
     "clue_chain.failure",
     get_args(ClueChainFailureCode),
 )
-document_query_failures = define_failure_family(
-    "document_query.failure",
-    get_args(DocumentQueryFailureCode),
+material_query_failures = define_failure_family(
+    "material_query.failure",
+    get_args(MaterialQueryFailureCode),
 )
 graph_backfill_failures = define_failure_family(
     "graph.backfill.failure",
@@ -95,7 +96,7 @@ writing_failures = define_failure_family(
 
 __all__ = [
     "clue_chain_failures",
-    "document_query_failures",
+    "material_query_failures",
     "graph_backfill_failures",
     "search_failures",
     "typed_knowledge_contract_failures",

@@ -32,7 +32,7 @@ class PolicyStateDocumentQueryBoundaryUnitTestCase(unittest.TestCase):
         self.assertEqual(result["surface"]["function"], "get_state_policies")
         self.assertFalse(result["surface"]["missing_imports"])
         self.assertFalse(result["surface"]["missing_calls"])
-        self.assertFalse(result["surface"]["direct_document_extracted_data_reads"])
+        self.assertFalse(result["surface"]["direct_material_extracted_data_reads"])
         self.assertFalse(result["helper"]["missing_definitions"])
 
     def test_policy_state_helpers_are_exported_and_compile(self) -> None:

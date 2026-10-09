@@ -10,58 +10,53 @@ from sqlalchemy import SQLColumnExpression, Select, or_, select
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.sql.elements import ColumnElement
 
-from ...models.entities import Document
+from ...models.entities import Material
 from .contracts import (
-    DocumentQuery,
-    DocumentQueryFilter,
-    DocumentQueryFilterInput,
-    DocumentQueryInput,
-    DocumentQueryJsonValue,
-    DocumentQuerySort,
-    DocumentQuerySortInput,
-    document_query_failure,
-    raise_document_query_legacy,
-    try_build_document_query,
+    MaterialQuery,
+    MaterialQueryFilter,
+    MaterialQueryFilterInput,
+    MaterialQueryInput,
+    MaterialQueryJsonValue,
+    MaterialQuerySort,
+    MaterialQuerySortInput,
+    material_query_failure,
+    raise_material_query_legacy,
+    try_build_material_query,
 )
 
 
-DOCUMENT_QUERY_STATEMENT_BUILDER_VERSION = "document_query_statement_builder.v1"
+MATERIAL_QUERY_STATEMENT_BUILDER_VERSION = "material_query_statement_builder.v1"
 
 _TEXT_SEARCH_FIELDS = ("title", "summary", "content", "uri")
-_DOCUMENT_SOURCE_ALIASES = frozenset(
+_MATERIAL_SOURCE_ALIASES = frozenset(
     {
         "material",
         "materials",
         "project.material",
         "project.materials",
-        "document",
-        "documents",
-        "project.document",
-        "project.documents",
         "project.structured_data",
     }
 )
 _FIELD_MAP = {
-    "id": Document.id,
-    "document_id": Document.id,
-    "material_id": Document.id,
-    "source_id": Document.source_id,
-    "state": Document.state,
-    "doc_type": Document.doc_type,
-    "title": Document.title,
-    "status": Document.status,
-    "publish_date": Document.publish_date,
-    "published_at": Document.publish_date,
-    "content": Document.content,
-    "summary": Document.summary,
-    "uri": Document.uri,
-    "url": Document.uri,
-    "created_at": Document.created_at,
-    "updated_at": Document.updated_at,
+    "id": Material.id,
+    "material_id": Material.id,
+    "source_id": Material.source_id,
+    "state": Material.state,
+    "material_type": Material.material_type,
+    "title": Material.title,
+    "status": Material.status,
+    "publish_date": Material.publish_date,
+    "published_at": Material.publish_date,
+    "content": Material.content,
+    "summary": Material.summary,
+    "uri": Material.uri,
+    "url": Material.uri,
+    "created_at": Material.created_at,
+    "updated_at": Material.updated_at,
 }
 _SORT_MAP = {
     **_FIELD_MAP,
-    "relevance": Document.publish_date,
+    "relevance": Material.publish_date,
 }
 
 FieldExpression = (
@@ -92,8 +87,8 @@ def _clean_text(value: object) -> str:
     return " ".join(str(value or "").strip().split())
 
 
-def _coerce_query(value: DocumentQueryInput) -> DocumentQuery | Failure:
-    if isinstance(value, DocumentQuery):
+def _coerce_query(value: MaterialQueryInput) -> MaterialQuery | Failure:
+    if isinstance(value, MaterialQuery):
         return value
     payload = _as_mapping(value)
     limit_value = payload.get("limit")
@@ -110,17 +105,17 @@ def _coerce_query(value: DocumentQueryInput) -> DocumentQuery | Failure:
     if isinstance(sort, Failure):
         return sort
     if not isinstance(limit_value, (str, int)) or not isinstance(offset_value, (str, int)):
-        return document_query_failure("statement_invalid", "document query pagination must be integers", owner="document_queries.statement_builder.query")
+        return material_query_failure("statement_invalid", "material query pagination must be integers", owner="material_queries.statement_builder.query")
     try:
         limit = int(limit_value)
         offset = int(offset_value)
     except (TypeError, ValueError):
-        return document_query_failure("statement_invalid", "document query pagination must be integers", owner="document_queries.statement_builder.query")
+        return material_query_failure("statement_invalid", "material query pagination must be integers", owner="material_queries.statement_builder.query")
     if project_key is not None and not isinstance(project_key, str):
-        return document_query_failure("statement_invalid", "document query project_key must be a string", owner="document_queries.statement_builder.query")
+        return material_query_failure("statement_invalid", "material query project_key must be a string", owner="material_queries.statement_builder.query")
     if consumer is not None and not isinstance(consumer, str):
-        return document_query_failure("statement_invalid", "document query consumer must be a string", owner="document_queries.statement_builder.query")
-    return try_build_document_query(
+        return material_query_failure("statement_invalid", "material query consumer must be a string", owner="material_queries.statement_builder.query")
+    return try_build_material_query(
         str(payload.get("query") or ""),
         project_key=project_key,
         consumer=consumer,
@@ -138,44 +133,44 @@ def _coerce_source_sequence(value: object) -> tuple[str, ...] | Failure:
     if isinstance(value, str):
         return (value,)
     if not _is_object_sequence(value):
-        return document_query_failure("statement_invalid", "document query sources must be a sequence", owner="document_queries.statement_builder.query.sources")
+        return material_query_failure("statement_invalid", "material query sources must be a sequence", owner="material_queries.statement_builder.query.sources")
     output: list[str] = []
     for item in value:
         if not isinstance(item, str):
-            return document_query_failure("statement_invalid", "document query source must be a string", owner="document_queries.statement_builder.query.sources")
+            return material_query_failure("statement_invalid", "material query source must be a string", owner="material_queries.statement_builder.query.sources")
         output.append(item)
     return tuple(output)
 
 
-def _coerce_filter_sequence(value: object) -> tuple[DocumentQueryFilterInput, ...] | Failure:
+def _coerce_filter_sequence(value: object) -> tuple[MaterialQueryFilterInput, ...] | Failure:
     if value is None:
         return ()
     if _is_str_object_mapping(value):
         return (value,)
     if not _is_object_sequence(value):
-        return document_query_failure("statement_invalid", "document query filters must be a sequence", owner="document_queries.statement_builder.query.filters")
-    output: list[DocumentQueryFilterInput] = []
+        return material_query_failure("statement_invalid", "material query filters must be a sequence", owner="material_queries.statement_builder.query.filters")
+    output: list[MaterialQueryFilterInput] = []
     for item in value:
-        if isinstance(item, DocumentQueryFilter) or _is_str_object_mapping(item):
+        if isinstance(item, MaterialQueryFilter) or _is_str_object_mapping(item):
             output.append(item)
         else:
-            return document_query_failure("statement_invalid", "document query filter must be an object", owner="document_queries.statement_builder.query.filters")
+            return material_query_failure("statement_invalid", "material query filter must be an object", owner="material_queries.statement_builder.query.filters")
     return tuple(output)
 
 
-def _coerce_sort_sequence(value: object) -> tuple[DocumentQuerySortInput, ...] | Failure:
+def _coerce_sort_sequence(value: object) -> tuple[MaterialQuerySortInput, ...] | Failure:
     if value is None:
         return ()
     if _is_str_object_mapping(value):
         return (value,)
     if not _is_object_sequence(value):
-        return document_query_failure("statement_invalid", "document query sort must be a sequence", owner="document_queries.statement_builder.query.sort")
-    output: list[DocumentQuerySortInput] = []
+        return material_query_failure("statement_invalid", "material query sort must be a sequence", owner="material_queries.statement_builder.query.sort")
+    output: list[MaterialQuerySortInput] = []
     for item in value:
-        if isinstance(item, DocumentQuerySort) or _is_str_object_mapping(item):
+        if isinstance(item, MaterialQuerySort) or _is_str_object_mapping(item):
             output.append(item)
         else:
-            return document_query_failure("statement_invalid", "document query sort must be an object", owner="document_queries.statement_builder.query.sort")
+            return material_query_failure("statement_invalid", "material query sort must be an object", owner="material_queries.statement_builder.query.sort")
     return tuple(output)
 
 
@@ -186,30 +181,30 @@ def _field_expression(field: str) -> FieldExpression | Failure:
     if cleaned.startswith("extracted_data."):
         path = [part for part in cleaned.split(".")[1:] if part]
         if not path:
-            return document_query_failure("statement_invalid", "extracted_data filter path is required", owner="document_queries.statement_builder.field")
-        expr: FieldExpression = Document.extracted_data
+            return material_query_failure("statement_invalid", "extracted_data filter path is required", owner="material_queries.statement_builder.field")
+        expr: FieldExpression = Material.extracted_data
         for part in path:
             expr = expr[part]
         return expr.astext
-    return document_query_failure("statement_invalid", f"unsupported document query field for SQL statement builder: {cleaned}", owner="document_queries.statement_builder.field")
+    return material_query_failure("statement_invalid", f"unsupported material query field for SQL statement builder: {cleaned}", owner="material_queries.statement_builder.field")
 
 
-def _sort_expression(sort: DocumentQuerySort) -> FieldExpression | Failure:
+def _sort_expression(sort: MaterialQuerySort) -> FieldExpression | Failure:
     field = _clean_text(sort.field)
     if field in _SORT_MAP:
         return _SORT_MAP[field]
     if field.startswith("extracted_data."):
         return _field_expression(field)
-    return document_query_failure("sort_invalid", f"unsupported document query sort field for SQL statement builder: {field}", owner="document_queries.statement_builder.sort")
+    return material_query_failure("sort_invalid", f"unsupported material query sort field for SQL statement builder: {field}", owner="material_queries.statement_builder.sort")
 
 
-def _value_sequence(value: DocumentQueryJsonValue) -> tuple[DocumentQueryJsonValue, ...]:
+def _value_sequence(value: MaterialQueryJsonValue) -> tuple[MaterialQueryJsonValue, ...]:
     if isinstance(value, str) or not isinstance(value, list):
         return (value,)
     return tuple(value)
 
 
-def _filter_condition(filter_: DocumentQueryFilter) -> ColumnElement[bool] | Failure:
+def _filter_condition(filter_: MaterialQueryFilter) -> ColumnElement[bool] | Failure:
     field = _field_expression(filter_.field)
     if isinstance(field, Failure):
         return field
@@ -228,10 +223,10 @@ def _filter_condition(filter_: DocumentQueryFilter) -> ColumnElement[bool] | Fai
         return field <= value
     if op == "exists":
         return field.isnot(None) if bool(value) else field.is_(None)
-    return document_query_failure("filter_invalid", f"unsupported document query filter operator for SQL statement builder: {op}", owner="document_queries.statement_builder.filter")
+    return material_query_failure("filter_invalid", f"unsupported material query filter operator for SQL statement builder: {op}", owner="material_queries.statement_builder.filter")
 
 
-def _query_text_condition(query: DocumentQuery) -> ColumnElement[bool] | None:
+def _query_text_condition(query: MaterialQuery) -> ColumnElement[bool] | None:
     term = _clean_text(query.query)
     if not term:
         return None
@@ -239,37 +234,37 @@ def _query_text_condition(query: DocumentQuery) -> ColumnElement[bool] | None:
     return or_(*(_FIELD_MAP[field].ilike(pattern) for field in _TEXT_SEARCH_FIELDS))
 
 
-def _source_condition(query: DocumentQuery) -> ColumnElement[bool] | None:
-    doc_types = sorted(
+def _source_condition(query: MaterialQuery) -> ColumnElement[bool] | None:
+    material_types = sorted(
         {
             source
             for source in query.sources
-            if source and source not in _DOCUMENT_SOURCE_ALIASES
+            if source and source not in _MATERIAL_SOURCE_ALIASES
         }
     )
-    if not doc_types:
+    if not material_types:
         return None
-    return Document.doc_type.in_(doc_types)
+    return Material.material_type.in_(material_types)
 
 
-def apply_document_query_to_statement(
-    query: DocumentQueryInput,
-    statement: Select[tuple[Document]] | None = None,
-) -> Select[tuple[Document]]:
-    result = try_apply_document_query_to_statement(query, statement)
+def apply_material_query_to_statement(
+    query: MaterialQueryInput,
+    statement: Select[tuple[Material]] | None = None,
+) -> Select[tuple[Material]]:
+    result = try_apply_material_query_to_statement(query, statement)
     if isinstance(result, Failure):
-        raise_document_query_legacy(result)
+        raise_material_query_legacy(result)
     return result
 
 
-def try_apply_document_query_to_statement(
-    query: DocumentQueryInput,
-    statement: Select[tuple[Document]] | None = None,
-) -> Select[tuple[Document]] | Failure:
+def try_apply_material_query_to_statement(
+    query: MaterialQueryInput,
+    statement: Select[tuple[Material]] | None = None,
+) -> Select[tuple[Material]] | Failure:
     query_object = _coerce_query(query)
     if isinstance(query_object, Failure):
         return query_object
-    stmt = statement if statement is not None else select(Document)
+    stmt = statement if statement is not None else select(Material)
 
     query_condition = _query_text_condition(query_object)
     if query_condition is not None:
@@ -278,7 +273,7 @@ def try_apply_document_query_to_statement(
     if source_condition is not None:
         stmt = stmt.where(source_condition)
     if query_object.project_key:
-        stmt = stmt.where(Document.extracted_data["project_key"].astext == query_object.project_key)
+        stmt = stmt.where(Material.extracted_data["project_key"].astext == query_object.project_key)
     for filter_ in query_object.filters:
         condition = _filter_condition(filter_)
         if isinstance(condition, Failure):
@@ -291,30 +286,30 @@ def try_apply_document_query_to_statement(
             return sort_expr
         ordered = sort_expr.asc() if sort.direction == "asc" else sort_expr.desc()
         stmt = stmt.order_by(ordered.nullslast())
-    stmt = stmt.order_by(Document.id.desc()).limit(query_object.limit).offset(query_object.offset)
+    stmt = stmt.order_by(Material.id.desc()).limit(query_object.limit).offset(query_object.offset)
     return stmt
 
 
-def build_document_query_statement(
-    query: DocumentQueryInput,
+def build_material_query_statement(
+    query: MaterialQueryInput,
 ) -> Annotated[
-    Select[tuple[Document]],
-    "kit:prepared-command effect_boundary=document_query_statement "
+    Select[tuple[Material]],
+    "kit:prepared-command effect_boundary=material_query_statement "
     "witness=test:test_w04_authority_metadata",
 ]:
-    return apply_document_query_to_statement(query)
+    return apply_material_query_to_statement(query)
 
 
-def try_build_document_query_statement(query: DocumentQueryInput) -> Select[tuple[Document]] | Failure:
-    return try_apply_document_query_to_statement(query)
+def try_build_material_query_statement(query: MaterialQueryInput) -> Select[tuple[Material]] | Failure:
+    return try_apply_material_query_to_statement(query)
 
 
-def document_query_to_statement(query: DocumentQueryInput) -> Select[tuple[Document]]:
-    return build_document_query_statement(query)
+def material_query_to_statement(query: MaterialQueryInput) -> Select[tuple[Material]]:
+    return build_material_query_statement(query)
 
 
-def compile_document_query_statement(query: DocumentQueryInput | Select[tuple[Document]]) -> str:
-    statement = query if isinstance(query, Select) else build_document_query_statement(query)
+def compile_material_query_statement(query: MaterialQueryInput | Select[tuple[Material]]) -> str:
+    statement = query if isinstance(query, Select) else build_material_query_statement(query)
     return str(
         statement.compile(
             dialect=postgresql.dialect(),

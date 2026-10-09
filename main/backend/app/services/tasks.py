@@ -1,14 +1,20 @@
 from __future__ import annotations
 
-from importlib import import_module
 from contextlib import nullcontext
 from datetime import datetime, timezone
+from importlib import import_module
 from math import ceil
-from typing import TYPE_CHECKING, Mapping, Protocol, TypeGuard, TypedDict
+from typing import TYPE_CHECKING, Mapping, Protocol, TypedDict, TypeGuard
 
 from functorial_kit import Failure
 
 from ..celery_app import celery_app
+from ..composition.raw_material_import_task import (
+    RawMaterialImportTaskAssemblyContext,
+    RawMaterialImportTaskBinding,
+    RawMaterialImportTaskRun,
+    raw_material_import_task_native,
+)
 from ..models.base import SessionLocal
 from ..models.entities import EtlJobRun
 from .job_logger import complete_job, fail_job, start_job
@@ -29,6 +35,7 @@ TaskResult = Mapping[str, object]
 def task_successor_runtime(self: BoundTask, work_item_id: str) -> TaskObject:
     """Transport one durable work identity to the shared RuntimeNode."""
     from uuid import uuid4
+
     from app.composition.production import execute_successor_work_item, successor_ready_work
     from app.settings.config import settings
     from app.successor_runtime.substrate.postgres.session import create_runtime_engine
@@ -501,10 +508,10 @@ def task_ingest_market(
 
 
 @celery_app.task
-def task_index_policy(document_ids: list[int], project_key: str | None = None) -> TaskObject:
+def task_index_policy(material_ids: list[int], project_key: str | None = None) -> TaskObject:
     ctx = bind_project(project_key) if project_key else nullcontext()
     with ctx:
-        return _task_object(_get_indexing_app().index_policy(document_ids=document_ids))
+        return _task_object(_get_indexing_app().index_policy(material_ids=material_ids))
 
 
 @celery_app.task
@@ -529,26 +536,26 @@ def task_collect_news_resource(
 
 
 @celery_app.task(bind=True)
-def task_extract_resource_pool_from_documents(
+def task_extract_resource_pool_from_materials(
     self: BoundTask,
     project_key: str,
     scope: str = "project",
-    doc_type: list[str] | None = None,
+    material_type: list[str] | None = None,
     state: list[str] | None = None,
-    document_ids: list[int] | None = None,
+    material_ids: list[int] | None = None,
     limit: int = 500,
 ) -> TaskObject:
-    """Extract URLs from documents into resource pool."""
-    from .resource_pool import extract_from_documents
+    """Extract URLs from materials into the resource pool."""
+    from .resource_pool import extract_from_materials
 
     ctx = bind_project(project_key) if project_key else nullcontext()
     with ctx:
         params: TaskObject = {
             "project_key": project_key,
             "scope": scope,
-            "doc_type": doc_type,
+            "material_type": material_type,
             "state": state,
-            "document_ids": document_ids,
+            "material_ids": material_ids,
             "limit": limit,
         }
         job_id = _start_resource_pool_job(
@@ -557,12 +564,12 @@ def task_extract_resource_pool_from_documents(
             params=params,
         )
         try:
-            result = _task_object(extract_from_documents(
+            result = _task_object(extract_from_materials(
                 project_key=project_key,
                 scope=scope,
-                doc_type=doc_type,
+                material_type=material_type,
                 state=state,
-                document_ids=document_ids,
+                material_ids=material_ids,
                 limit=limit,
             ))
         except Exception as exc:
@@ -936,13 +943,28 @@ def task_worker_observability_noop(
     return response
 
 
-@celery_app.task
-def task_raw_import_documents(payload: TaskObject, project_key: str | None = None) -> TaskObject:
-    from .ingest.raw_import import run_raw_import_documents
+def _register_raw_material_import_task(
+    task_name: str,
+    run: RawMaterialImportTaskRun,
+) -> object:
+    return celery_app.task(name=task_name)(run)
 
-    ctx = bind_project(project_key) if project_key else nullcontext()
-    with ctx:
-        return _task_object(run_raw_import_documents(payload=payload or {}, project_key=project_key or ""))
+
+_raw_material_import_task_binding = raw_material_import_task_native.assemble(
+    RawMaterialImportTaskAssemblyContext(
+        register_task=_register_raw_material_import_task,
+        resolve_task=celery_app.tasks.get,
+    )
+)
+if isinstance(_raw_material_import_task_binding, Failure):
+    raise RuntimeError(
+        "failed to register raw Material import task: "
+        f"{_raw_material_import_task_binding.message}"
+    )
+raw_material_import_task_binding: RawMaterialImportTaskBinding = (
+    _raw_material_import_task_binding
+)
+task_raw_import_materials = raw_material_import_task_binding.task
 
 
 @celery_app.task(bind=True)

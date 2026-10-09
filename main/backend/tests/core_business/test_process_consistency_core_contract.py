@@ -6,7 +6,7 @@ from unittest.mock import patch
 
 import pytest
 
-from app.services.tasks import task_extract_resource_pool_from_documents
+from app.services.tasks import task_extract_resource_pool_from_materials
 
 pytestmark = [pytest.mark.contract, pytest.mark.mocked]
 
@@ -315,7 +315,7 @@ def test_process_list_filters_projects_and_deduplicates_celery_db_identity(
     contract_headers: dict[str, str],
 ) -> None:
     now = datetime(2026, 10, 5, 12, 0, 0)
-    resource_task_name = task_extract_resource_pool_from_documents.name
+    resource_task_name = task_extract_resource_pool_from_materials.name
     inspect = SimpleNamespace(
         active=lambda: {
             "worker-a": [

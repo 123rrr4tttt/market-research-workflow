@@ -48,15 +48,6 @@ _READ_OUTPUT_SCHEMA = _object_schema(
         "content": {"type": "string"},
     }
 )
-_WRITE_OUTPUT_SCHEMA = _object_schema(
-    {
-        "document_id": {"type": "string"},
-        "id": {"type": "string"},
-        "title": {"type": "string"},
-        "content": {"type": "string"},
-        "accepted": {"type": "boolean"},
-    }
-)
 _STATUS_OUTPUT_SCHEMA = _object_schema(
     {
         "status": {"type": "string"},

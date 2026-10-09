@@ -547,8 +547,8 @@ def test_codex_oauth_model_registered_tool_persists_and_reads_back_material() ->
     )
 
 
-def test_codex_oauth_model_url_submit_reaches_independent_worker_and_document() -> None:
-    """Drive one registered URL submission through Redis, a worker, Runtime, and Document."""
+def test_codex_oauth_model_url_submit_reaches_independent_worker_and_material() -> None:
+    """Drive one registered URL submission through Redis, a worker, Runtime, and Material."""
 
     config = _live_url_worker_config()
     host = config.host
@@ -628,7 +628,7 @@ def test_codex_oauth_model_url_submit_reaches_independent_worker_and_document() 
         raise
 
     from app.models.base import SessionLocal, engine
-    from app.models.entities import AgentApproval, AgentEvent, AgentSession, Document
+    from app.models.entities import AgentApproval, AgentEvent, AgentSession, Material
     from app.services.projects import bind_project
     from app.services.projects.context import bind_schema
     from app.successor_runtime.substrate.postgres.models import PUBLIC_TABLES
@@ -739,7 +739,7 @@ def test_codex_oauth_model_url_submit_reaches_independent_worker_and_document() 
         "ingest.url_pool.status tool exactly once with project_key "
         f"{json.dumps(host.project_key)} and url {json.dumps(config.fixture_url)}. "
         "Do not submit another URL and do not call any write tool. Report verified, pending, "
-        "runtime_run_ref, runtime output status, and document_id exactly as returned."
+        "runtime_run_ref, runtime output status, and material_id exactly as returned."
     )
     status_started = _webui(
         host,
@@ -792,16 +792,16 @@ def test_codex_oauth_model_url_submit_reaches_independent_worker_and_document() 
         runtime_output = status_content.get("runtime_output") or {}
         assert isinstance(runtime_output, dict)
         assert runtime_output.get("status") == "completed"
-        document_id = runtime_output.get("document_id")
-        assert isinstance(document_id, int) and document_id > 0
-        document_readback = status_content.get("document_readback") or {}
-        assert isinstance(document_readback, dict)
-        assert int(document_readback.get("document_id") or 0) == document_id
+        material_id = runtime_output.get("material_id")
+        assert isinstance(material_id, int) and material_id > 0
+        material_readback = status_content.get("material_readback") or {}
+        assert isinstance(material_readback, dict)
+        assert int(material_readback.get("material_id") or 0) == material_id
 
     api_response = _json_request(
         "GET",
         (
-            f"{host.backend_url}/api/v1/admin/materials/{document_id}"
+            f"{host.backend_url}/api/v1/admin/materials/{material_id}"
             f"?project_key={quote(host.project_key, safe='')}"
         ),
     )
@@ -812,16 +812,16 @@ def test_codex_oauth_model_url_submit_reaches_independent_worker_and_document() 
     assert config.fixture_marker in json.dumps(api_document, ensure_ascii=False, default=str)
 
     with SessionLocal() as session, bind_project(host.project_key):
-        db_document = session.execute(
-            select(Document).where(Document.id == document_id)
+        db_material = session.execute(
+            select(Material).where(Material.id == material_id)
         ).scalar_one()
-        assert db_document.uri == config.fixture_url
+        assert db_material.uri == config.fixture_url
         assert config.fixture_marker in json.dumps(
             {
-                "title": db_document.title,
-                "content": db_document.content,
-                "summary": db_document.summary,
-                "extracted_data": db_document.extracted_data,
+                "title": db_material.title,
+                "content": db_material.content,
+                "summary": db_material.summary,
+                "extracted_data": db_material.extracted_data,
             },
             ensure_ascii=False,
             default=str,
@@ -849,7 +849,7 @@ def test_codex_oauth_model_url_submit_reaches_independent_worker_and_document() 
                 "approval_status": approval.status if approval is not None else "preauthorized",
                 "runtime_run_ref": runtime_run_ref,
                 "work_item_ids": work_item_ids,
-                "document_id": document_id,
+                "material_id": material_id,
             },
             ensure_ascii=False,
             sort_keys=True,

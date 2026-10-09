@@ -24,7 +24,7 @@ project_root = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(project_root))
 
 from app.models.base import SessionLocal
-from app.models.entities import Document
+from app.models.entities import Material
 from app.services.ingest.llm_dirty_review import LlmDirtyReviewService
 from app.services.ingest.meaningful_gate import normalize_content_for_ingest
 from app.services.ingest.meaningful_gate import content_quality_check
@@ -75,15 +75,15 @@ MOJIBAKE_CONTENT_MARKERS = (
 
 def _build_reason_expr(low_quality_threshold: float, target_mode: str = "all") -> Any:
     """Build reason tag with strict-first ordering."""
-    content_lower = func.lower(func.coalesce(Document.content, ""))
-    uri_lower = func.lower(func.coalesce(Document.uri, ""))
-    title_lower = func.lower(func.coalesce(Document.title, ""))
-    structured_status = func.lower(func.coalesce(Document.extracted_data["structured_extraction_status"].astext, ""))
-    quality_score_text = func.nullif(Document.extracted_data["quality_score"].astext, "")
+    content_lower = func.lower(func.coalesce(Material.content, ""))
+    uri_lower = func.lower(func.coalesce(Material.uri, ""))
+    title_lower = func.lower(func.coalesce(Material.title, ""))
+    structured_status = func.lower(func.coalesce(Material.extracted_data["structured_extraction_status"].astext, ""))
+    quality_score_text = func.nullif(Material.extracted_data["quality_score"].astext, "")
     quality_score_num = cast(quality_score_text, Float)
-    degradation_flags_text = func.lower(func.coalesce(Document.extracted_data["degradation_flags"].astext, ""))
+    degradation_flags_text = func.lower(func.coalesce(Material.extracted_data["degradation_flags"].astext, ""))
 
-    empty_content = or_(Document.content.is_(None), func.btrim(Document.content) == "")
+    empty_content = or_(Material.content.is_(None), func.btrim(Material.content) == "")
     pdf_binary = content_lower.like("%pdf-1.%")
     google_wiz_shell = content_lower.like("%window.wiz_progre%")
     wix_shell = content_lower.like("%var bodycacheable = true%")
@@ -93,7 +93,7 @@ def _build_reason_expr(low_quality_threshold: float, target_mode: str = "all") -
     low_value_domain = or_(*[uri_lower.like(f"%{d}%") for d in STRICT_LOW_VALUE_DOMAINS])
     low_value_path = or_(*[uri_lower.like(f"%{p}%") for p in STRICT_LOW_VALUE_PATH_KEYWORDS])
     ddg_intermediate_page = and_(
-        Document.doc_type == "url_fetch",
+        Material.material_type == "url_fetch",
         or_(
             uri_lower.like("%html.duckduckgo.com/html?%"),
             and_(uri_lower.like("%duckduckgo.com/%"), uri_lower.like("%?q=%")),
@@ -101,11 +101,11 @@ def _build_reason_expr(low_quality_threshold: float, target_mode: str = "all") -
         ),
     )
     github_api_intermediate = and_(
-        Document.doc_type == "url_fetch",
+        Material.material_type == "url_fetch",
         uri_lower.like("%api.github.com/repos/%"),
     )
     github_repo_intermediate = and_(
-        Document.doc_type == "url_fetch",
+        Material.material_type == "url_fetch",
         uri_lower.like("%github.com/%"),
         or_(
             content_lower.like("%source: github repository page%"),
@@ -118,14 +118,14 @@ def _build_reason_expr(low_quality_threshold: float, target_mode: str = "all") -
         ),
     )
     api_status_wrapper = and_(
-        or_(Document.doc_type == "url_fetch", Document.doc_type == "news"),
+        or_(Material.material_type == "url_fetch", Material.material_type == "news"),
         content_lower.like("{%"),
         content_lower.like("%\"url\"%"),
         content_lower.like("%\"status\"%"),
         or_(content_lower.like("%\"text\": \"\"%"), content_lower.like("%\"text\":\"\"%")),
     )
     rss_feed_shell = and_(
-        or_(Document.doc_type == "url_fetch", Document.doc_type == "news", Document.doc_type == "social_sentiment"),
+        or_(Material.material_type == "url_fetch", Material.material_type == "news", Material.material_type == "social_sentiment"),
         or_(uri_lower.like("%/rss%"), uri_lower.like("%/feed%"), uri_lower.like("%.xml%")),
         or_(
             content_lower.like("%no archive specified%"),
@@ -135,7 +135,7 @@ def _build_reason_expr(low_quality_threshold: float, target_mode: str = "all") -
         ),
     )
     js_template_shell = and_(
-        Document.doc_type == "url_fetch",
+        Material.material_type == "url_fetch",
         or_(
             content_lower.like("%__dopostback%"),
             content_lower.like("%__eventtarget%"),
@@ -145,7 +145,7 @@ def _build_reason_expr(low_quality_threshold: float, target_mode: str = "all") -
             content_lower.like("%document.%"),
             content_lower.like("%sourcemappingurl%"),
         ),
-        func.length(func.coalesce(Document.content, "")) < 20000,
+        func.length(func.coalesce(Material.content, "")) < 20000,
     )
     mojibake_title = or_(*[title_lower.like(f"%{m}%") for m in MOJIBAKE_TITLE_MARKERS])
     mojibake_content = or_(*[content_lower.like(f"%{m.lower()}%") for m in MOJIBAKE_CONTENT_MARKERS])
@@ -155,16 +155,16 @@ def _build_reason_expr(low_quality_threshold: float, target_mode: str = "all") -
         content_lower.like("%function%"),
     )
     mojibake_script_shell = and_(
-        Document.doc_type == "url_fetch",
+        Material.material_type == "url_fetch",
         mojibake_title,
         script_shell_heavy,
     )
     mojibake_garbled = and_(
-        Document.doc_type == "url_fetch",
+        Material.material_type == "url_fetch",
         or_(mojibake_title, mojibake_content),
     )
     search_summary_doc = and_(
-        Document.doc_type == "url_fetch",
+        Material.material_type == "url_fetch",
         or_(
             title_lower.like("search results - %"),
             uri_lower.like("%html.duckduckgo.com/html?%"),
@@ -183,7 +183,7 @@ def _build_reason_expr(low_quality_threshold: float, target_mode: str = "all") -
     )
 
     # For URL fetch rows, low-value domain/path is considered strict noise.
-    url_fetch_low_value = and_(Document.doc_type == "url_fetch", or_(low_value_domain, low_value_path))
+    url_fetch_low_value = and_(Material.material_type == "url_fetch", or_(low_value_domain, low_value_path))
 
     if str(target_mode).strip().lower() == "quality_only":
         return case(
@@ -259,16 +259,16 @@ def run_dry(
     ).label("reason")
     stmt = (
         select(
-            Document.id,
-            Document.doc_type,
-            Document.title,
-            Document.uri,
-            func.substr(func.coalesce(Document.content, ""), 1, 600).label("content_preview"),
-            func.length(func.coalesce(Document.content, "")).label("content_len"),
+            Material.id,
+            Material.material_type,
+            Material.title,
+            Material.uri,
+            func.substr(func.coalesce(Material.content, ""), 1, 600).label("content_preview"),
+            func.length(func.coalesce(Material.content, "")).label("content_len"),
             reason_expr,
         )
         .where(reason_expr.is_not(None))
-        .order_by(Document.id.asc())
+        .order_by(Material.id.asc())
     )
 
     with bind_project(project_key):
@@ -277,7 +277,7 @@ def run_dry(
 
     ids = [int(r.id) for r in rows]
     breakdown = Counter(str(r.reason) for r in rows)
-    by_type = Counter(str(r.doc_type) for r in rows)
+    by_type = Counter(str(r.material_type) for r in rows)
     llm_approved_ids: list[int] = []
 
     print(f"[dry-run] project={project_key}")
@@ -294,16 +294,16 @@ def run_dry(
     for reason, cnt in sorted(breakdown.items(), key=lambda x: (-x[1], x[0])):
         print(f"  - {reason}: {cnt}")
 
-    print("[dry-run] doc_type_breakdown:")
-    for doc_type, cnt in sorted(by_type.items(), key=lambda x: (-x[1], x[0])):
-        print(f"  - {doc_type}: {cnt}")
+    print("[dry-run] material_type_breakdown:")
+    for material_type, cnt in sorted(by_type.items(), key=lambda x: (-x[1], x[0])):
+        print(f"  - {material_type}: {cnt}")
 
     print(f"[dry-run] sample_top_{limit}:")
     for r in rows[:limit]:
         title = (r.title or "").replace("\n", " ")[:80]
         uri = (r.uri or "")[:120]
         print(
-            f"  id={r.id} type={r.doc_type} len={r.content_len} reason={r.reason} "
+            f"  id={r.id} type={r.material_type} len={r.content_len} reason={r.reason} "
             f"title={title!r} uri={uri!r}"
         )
 
@@ -312,10 +312,10 @@ def run_dry(
         review_rows = rows[: max(1, int(llm_review_max_items))]
         review_payloads = [
             {
-                "doc_id": int(r.id),
+                "material_id": int(r.id),
                 "uri": str(r.uri or ""),
                 "title": str(r.title or ""),
-                "doc_type": str(r.doc_type or ""),
+                "material_type": str(r.material_type or ""),
                 "rule_reason": str(r.reason or ""),
                 "content_preview": str(r.content_preview or ""),
             }
@@ -378,9 +378,9 @@ def run_apply(project_key: str, id_file: Path) -> int:
         with SessionLocal() as session:
             rows = list(
                 session.execute(
-                    select(Document.id, Document.doc_type)
-                    .where(Document.id.in_(ids))
-                    .order_by(Document.id.asc())
+                    select(Material.id, Material.material_type)
+                    .where(Material.id.in_(ids))
+                    .order_by(Material.id.asc())
                 ).all()
             )
             found_ids = {int(r.id) for r in rows}
@@ -391,18 +391,18 @@ def run_apply(project_key: str, id_file: Path) -> int:
                 print("[apply] missing_ids=" + ",".join(str(x) for x in missing))
 
             deleted = (
-                session.query(Document)
-                .filter(Document.id.in_(list(found_ids)))
+                session.query(Material)
+                .filter(Material.id.in_(list(found_ids)))
                 .delete(synchronize_session=False)
             )
             session.commit()
 
-    type_counter = Counter(str(r.doc_type) for r in rows)
+    type_counter = Counter(str(r.material_type) for r in rows)
     print(f"[apply] project={project_key}")
     print(f"[apply] requested={len(ids)} deleted={deleted}")
-    print("[apply] deleted_doc_type_breakdown:")
-    for doc_type, cnt in sorted(type_counter.items(), key=lambda x: (-x[1], x[0])):
-        print(f"  - {doc_type}: {cnt}")
+    print("[apply] deleted_material_type_breakdown:")
+    for material_type, cnt in sorted(type_counter.items(), key=lambda x: (-x[1], x[0])):
+        print(f"  - {material_type}: {cnt}")
     return int(deleted)
 
 
@@ -418,7 +418,7 @@ def run_sanitize(project_key: str, id_file: Path, *, apply: bool, max_chars: int
         with SessionLocal() as session:
             docs = list(
                 session.execute(
-                    select(Document).where(Document.id.in_(ids)).order_by(Document.id.asc())
+                    select(Material).where(Material.id.in_(ids)).order_by(Material.id.asc())
                 ).scalars()
             )
             found_ids = {int(d.id) for d in docs}
@@ -471,7 +471,7 @@ def _has_structured_signal(extracted_data: dict[str, Any]) -> bool:
     return False
 
 
-def _is_unstructured_or_pseudo_success(doc: Document) -> bool:
+def _is_unstructured_or_pseudo_success(doc: Material) -> bool:
     extracted_data = doc.extracted_data if isinstance(doc.extracted_data, dict) else {}
     status = str(extracted_data.get("structured_extraction_status") or "").strip().lower()
     if status in {"", "none", "failed"}:
@@ -481,7 +481,7 @@ def _is_unstructured_or_pseudo_success(doc: Document) -> bool:
     return False
 
 
-def _is_real_low_quality(doc: Document, quality_threshold: float) -> tuple[bool, str]:
+def _is_real_low_quality(doc: Material, quality_threshold: float) -> tuple[bool, str]:
     extracted_data = doc.extracted_data if isinstance(doc.extracted_data, dict) else {}
     status = str(extracted_data.get("structured_extraction_status") or "").strip().lower()
     quality_score = None
@@ -493,7 +493,7 @@ def _is_real_low_quality(doc: Document, quality_threshold: float) -> tuple[bool,
     gate = content_quality_check(
         uri=str(doc.uri or ""),
         content=content,
-        doc_type=str(doc.doc_type or ""),
+        material_type=str(doc.material_type or ""),
         extraction_status={"extraction_enabled": status == "ok"},
         config={"enable_strict_gate": True},
     )
@@ -520,7 +520,7 @@ def run_recent_quality_pipeline(
         with SessionLocal() as session:
             docs = list(
                 session.execute(
-                    select(Document).order_by(Document.id.desc()).limit(max(1, int(recent_limit)))
+                    select(Material).order_by(Material.id.desc()).limit(max(1, int(recent_limit)))
                 ).scalars()
             )
             low_quality_ids_pre: list[int] = []
@@ -589,7 +589,7 @@ def run_recent_quality_pipeline(
             # backfill summary for "pseudo-success": status=ok with structured signals but missing summary
             docs_for_summary = list(
                 session.execute(
-                    select(Document).order_by(Document.id.desc()).limit(max(1, int(recent_limit)))
+                    select(Material).order_by(Material.id.desc()).limit(max(1, int(recent_limit)))
                 ).scalars()
             )
             for doc in docs_for_summary:
@@ -614,7 +614,7 @@ def run_recent_quality_pipeline(
             # re-query after optional reextract commit
             docs_after = list(
                 session.execute(
-                    select(Document).order_by(Document.id.desc()).limit(max(1, int(recent_limit)))
+                    select(Material).order_by(Material.id.desc()).limit(max(1, int(recent_limit)))
                 ).scalars()
             )
             low_quality_ids: list[int] = []
@@ -628,8 +628,8 @@ def run_recent_quality_pipeline(
             deleted = 0
             if delete_real_low_quality and apply and low_quality_ids:
                 deleted = (
-                    session.query(Document)
-                    .filter(Document.id.in_(low_quality_ids))
+                    session.query(Material)
+                    .filter(Material.id.in_(low_quality_ids))
                     .delete(synchronize_session=False)
                 )
                 session.commit()

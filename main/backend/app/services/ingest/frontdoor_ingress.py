@@ -69,7 +69,7 @@ class SourceLibraryTerminalPayload(TypedDict):
 
 
 class MaterializedTerminalPayload(TypedDict):
-    document_candidate: FrontdoorObject
+    material_candidate: FrontdoorObject
     records: list[TerminalRecordView]
     source_artifacts: list[FrontdoorObject]
     terminal_context: TerminalContext
@@ -208,7 +208,7 @@ def build_source_library_ingress_envelope(
     collection_payload: MaterializedTerminalPayload | SourceLibraryTerminalPayload
     if article_body_record is not None:
         collection_payload = {
-            "document_candidate": _build_document_candidate_from_record(article_body_record, external_manifest=external_manifest),
+            "material_candidate": _build_material_candidate_from_record(article_body_record, external_manifest=external_manifest),
             "records": list(records or []),
             "source_artifacts": source_artifacts,
             "terminal_context": {
@@ -307,7 +307,7 @@ def build_discovery_ingress_envelope(
         source_mode="discovery",
         project_key=project_key,
         source_ref={"url": item.get("uri"), "locator": item.get("uri")},
-        collection_payload={"document_candidate": dict(item or {})},
+        collection_payload={"material_candidate": dict(item or {})},
         raw_snapshot=dict(item or {}),
     )
 
@@ -386,7 +386,7 @@ def _select_article_body_record(
     return None
 
 
-def _build_document_candidate_from_record(
+def _build_material_candidate_from_record(
     record: TerminalRecordView, *, external_manifest: dict[str, object],
 ) -> FrontdoorObject:
     url = str(record.get("url") or "").strip()
@@ -397,7 +397,7 @@ def _build_document_candidate_from_record(
         "source_kind": str(external_manifest.get("source_kind") or "source_library"),
         "source_base_url": str(external_manifest.get("project_link") or "").strip() or None,
         "state": None,
-        "doc_type": "source_library_article",
+        "material_type": "source_library_article",
         "title": str(record.get("title") or "").strip() or None,
         "summary": str(record.get("summary") or "").strip() or None,
         "publish_date": record.get("published_at"),

@@ -20,7 +20,7 @@ from sqlalchemy.orm import Session
 from bs4 import BeautifulSoup
 
 from app.models.base import SessionLocal
-from app.models.entities import Document
+from app.models.entities import Material
 
 logger = logging.getLogger(__name__)
 
@@ -260,12 +260,12 @@ def check_and_fix_suspicious_dates(
         
         if target_date:
             # 如果指定了目标日期，只查找这个日期的数据
-            conditions.append(Document.publish_date == target_date)
+            conditions.append(Material.publish_date == target_date)
         else:
             # 否则查找所有有发布日期的数据
-            conditions.append(Document.publish_date.isnot(None))
+            conditions.append(Material.publish_date.isnot(None))
         
-        query = select(Document).where(and_(*conditions))
+        query = select(Material).where(and_(*conditions))
         
         if limit:
             query = query.limit(limit)
@@ -326,8 +326,8 @@ def check_and_fix_suspicious_dates(
                                 )
                             else:
                                 session.execute(
-                                    update(Document)
-                                    .where(Document.id == doc.id)
+                                    update(Material)
+                                    .where(Material.id == doc.id)
                                     .values(publish_date=new_date)
                                 )
                                 logger.info(
@@ -343,8 +343,8 @@ def check_and_fix_suspicious_dates(
                                 )
                             else:
                                 session.execute(
-                                    update(Document)
-                                    .where(Document.id == doc.id)
+                                    update(Material)
+                                    .where(Material.id == doc.id)
                                     .values(publish_date=None)
                                 )
                                 logger.info(f"已将文档 {doc.id} 的发布时间设置为 NULL")
@@ -355,8 +355,8 @@ def check_and_fix_suspicious_dates(
                             logger.info(f"  无法提取新日期，将设置为 NULL")
                         else:
                             session.execute(
-                                update(Document)
-                                .where(Document.id == doc.id)
+                                update(Material)
+                                .where(Material.id == doc.id)
                                 .values(publish_date=None)
                             )
                             logger.info(f"已将文档 {doc.id} 的发布时间设置为 NULL")

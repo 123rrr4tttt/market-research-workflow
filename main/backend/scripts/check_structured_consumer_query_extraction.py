@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Annotated, Any
 
 
-DOCUMENT_QUERY_CONTRACT_VERSION = "document_queries.v2"
+MATERIAL_QUERY_CONTRACT_VERSION = "material_queries.v2"
 REPO_ROOT = Path(__file__).resolve().parents[3]
 BACKEND_ROOT = REPO_ROOT / "main" / "backend"
 PROMPT_TIME_DENSITY_PATH = BACKEND_ROOT / "app" / "services" / "stats" / "prompt_time_density.py"
@@ -59,16 +59,16 @@ def build_check() -> Annotated[
     prompt_function_names = _function_names(prompt_tree)
     policy_function_names = _function_names(policy_tree)
     checks = {
-        "imports_document_query_boundary": _imports_prompt_time_density_query_boundary(prompt_tree),
-        "query_function_uses_document_query_boundary": _function_calls_name(
+        "imports_material_query_boundary": _imports_prompt_time_density_query_boundary(prompt_tree),
+        "query_function_uses_material_query_boundary": _function_calls_name(
             prompt_tree,
             function_name="query_prompt_time_density",
             called_name="prompt_time_density_time_expr",
         ),
         "local_json_iso_date_expr_removed": "_json_iso_date_expr" not in prompt_function_names,
         "local_effective_date_expr_removed": "_effective_date_expr" not in prompt_function_names,
-        "no_local_document_extracted_data_sql_path": "Document.extracted_data[" not in prompt_text,
-        "document_json_iso_date_expr_exported": "document_json_iso_date_expr" in policy_function_names,
+        "no_local_material_extracted_data_sql_path": "Material.extracted_data[" not in prompt_text,
+        "material_json_iso_date_expr_exported": "material_json_iso_date_expr" in policy_function_names,
         "prompt_time_density_time_expr_exported": "prompt_time_density_time_expr" in policy_function_names,
         "prompt_time_density_time_expr_uses_policy_time_expr": _function_calls_name(
             policy_tree,
@@ -82,7 +82,7 @@ def build_check() -> Annotated[
     passed = all(checks.values())
     return {
         "status": "passed" if passed else "failed",
-        "contract_version": DOCUMENT_QUERY_CONTRACT_VERSION,
+        "contract_version": MATERIAL_QUERY_CONTRACT_VERSION,
         "topic_ids": [
             "2026-03-12-data-structured-service-modularization",
             "2026-03-14-consumer-side-modularization",

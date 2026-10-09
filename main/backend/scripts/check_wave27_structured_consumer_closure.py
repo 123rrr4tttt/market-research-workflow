@@ -22,13 +22,13 @@ if str(BACKEND_ROOT / "scripts") not in sys.path:
     sys.path.insert(0, str(BACKEND_ROOT / "scripts"))
 
 from app.services.document_queries import (  # noqa: E402
-    DOCUMENT_QUERY_CONTRACT_VERSION,
-    build_document_query,
-    build_document_query_statement,
-    build_search_endpoint_document_query_envelope,
-    build_structured_data_search_document_query_envelope,
-    compile_document_query_statement,
-    validate_document_query_result_envelope,
+    MATERIAL_QUERY_CONTRACT_VERSION,
+    build_material_query,
+    build_material_query_statement,
+    build_search_endpoint_material_query_envelope,
+    build_structured_data_search_material_query_envelope,
+    compile_material_query_statement,
+    validate_material_query_result_envelope,
 )
 from check_admin_dashboard_consumer_boundary import build_check as build_admin_dashboard_check  # noqa: E402
 from check_consumer_side_facade_contract import build_check as build_consumer_side_check  # noqa: E402
@@ -38,18 +38,18 @@ from check_prompt_time_density_consumer_boundary import build_check as build_pro
 from check_structured_sql_helper_migration import build_check as build_structured_sql_check  # noqa: E402
 
 
-CONTRACT_VERSION = "wave27.structured_consumer_closure.v1"
+CONTRACT_VERSION = "wave27.structured_consumer_closure.v2"
 STRUCTURED_TOPIC_ID = "2026-03-12-data-structured-service-modularization"
 CONSUMER_TOPIC_ID = "2026-03-14-consumer-side-modularization"
 LIVE_EVIDENCE_CONTRACT_VERSION = "wave45.structured_consumer_live_api_evidence.v1"
 
 SEARCH_API_PATH = "main/backend/app/api/search.py"
 STRUCTURED_SEARCH_SERVICE_PATH = "main/backend/app/services/agent_runtime/structured_data_search.py"
-DOCUMENT_QUERY_BUILDER_EXPECTED_EXPORTS = (
-    "build_document_query_statement",
-    "compile_document_query_statement",
-    "apply_document_query_to_statement",
-    "document_query_to_statement",
+MATERIAL_QUERY_BUILDER_EXPECTED_EXPORTS = (
+    "build_material_query_statement",
+    "compile_material_query_statement",
+    "apply_material_query_to_statement",
+    "material_query_to_statement",
 )
 
 
@@ -83,7 +83,7 @@ def _gate(name: str, *, topic_id: str, result: dict[str, Any], passed: bool | No
 
 
 def _build_endpoint_projection_gate(root: Path) -> dict[str, Any]:
-    search_envelope = build_search_endpoint_document_query_envelope(
+    search_envelope = build_search_endpoint_material_query_envelope(
         query=" robotics policy ",
         state="CA",
         modality="text",
@@ -94,7 +94,7 @@ def _build_endpoint_projection_gate(root: Path) -> dict[str, Any]:
         results=[
             {
                 "id": "doc-1",
-                "document_id": 1,
+                "material_id": 1,
                 "title": "Robotics policy note",
                 "summary": "Evidence for robotics policy pilots.",
                 "url": "https://example.org/robotics-policy",
@@ -103,7 +103,7 @@ def _build_endpoint_projection_gate(root: Path) -> dict[str, Any]:
             }
         ],
     )
-    structured_envelope = build_structured_data_search_document_query_envelope(
+    structured_envelope = build_structured_data_search_material_query_envelope(
         project_key="demo_proj",
         query="robotics",
         datasets_requested=("documents",),
@@ -122,8 +122,8 @@ def _build_endpoint_projection_gate(root: Path) -> dict[str, Any]:
             }
         ],
     )
-    validate_document_query_result_envelope(search_envelope)
-    validate_document_query_result_envelope(structured_envelope)
+    validate_material_query_result_envelope(search_envelope)
+    validate_material_query_result_envelope(structured_envelope)
 
     search_data = search_envelope["data"]
     structured_data = structured_envelope["data"]
@@ -131,26 +131,26 @@ def _build_endpoint_projection_gate(root: Path) -> dict[str, Any]:
         root,
         SEARCH_API_PATH,
         (
-            "build_search_endpoint_document_query_envelope",
-            "document_query_contract_version",
-            "document_query_results",
-            "document_query_pagination",
-            "document_query_meta",
+            "build_search_endpoint_material_query_envelope",
+            "material_query_contract_version",
+            "material_query_results",
+            "material_query_pagination",
+            "material_query_meta",
         ),
     )
     structured_marker_gaps = _marker_gaps(
         root,
         STRUCTURED_SEARCH_SERVICE_PATH,
         (
-            "build_structured_data_search_document_query_envelope",
-            "document_query_contract_version",
-            "document_query_results",
-            "document_query_pagination",
-            "document_query_meta",
+            "build_structured_data_search_material_query_envelope",
+            "material_query_contract_version",
+            "material_query_results",
+            "material_query_pagination",
+            "material_query_meta",
         ),
     )
     problems: list[str] = []
-    if search_data["contract_version"] != DOCUMENT_QUERY_CONTRACT_VERSION:
+    if search_data["contract_version"] != MATERIAL_QUERY_CONTRACT_VERSION:
         problems.append("api.search projection contract version mismatch")
     if search_data["query"]["consumer"] != "api.search":
         problems.append("api.search projection consumer mismatch")
@@ -179,43 +179,43 @@ def _build_endpoint_projection_gate(root: Path) -> dict[str, Any]:
     }
 
 
-def _document_query_statement_builder_status(root: Path) -> dict[str, Any]:
+def _material_query_statement_builder_status(root: Path) -> dict[str, Any]:
     query_dir = root / "main" / "backend" / "app" / "services" / "document_queries"
     exports = _read_text(query_dir / "__init__.py") if (query_dir / "__init__.py").is_file() else ""
     candidates: list[dict[str, Any]] = []
     for path in sorted(query_dir.glob("*.py")):
         text = _read_text(path)
-        matched = [token for token in DOCUMENT_QUERY_BUILDER_EXPECTED_EXPORTS if token in text]
+        matched = [token for token in MATERIAL_QUERY_BUILDER_EXPECTED_EXPORTS if token in text]
         if matched:
             candidates.append({"path": str(path.relative_to(root)), "matched_tokens": matched})
-    exported = [token for token in DOCUMENT_QUERY_BUILDER_EXPECTED_EXPORTS if token in exports]
+    exported = [token for token in MATERIAL_QUERY_BUILDER_EXPECTED_EXPORTS if token in exports]
     compile_gaps: list[str] = []
     compiled_sql = ""
     if exported and candidates:
         try:
-            sample_query = build_document_query(
+            sample_query = build_material_query(
                 "robotics policy",
                 project_key="demo_proj",
                 consumer="wave27.structured_closure",
-                sources=("document",),
+                sources=("material",),
                 filters=(
                     {"field": "state", "op": "eq", "value": "CA"},
-                    {"field": "doc_type", "op": "in", "value": ["policy", "news"]},
+                    {"field": "material_type", "op": "in", "value": ["policy", "news"]},
                     {"field": "extracted_data.policy.policy_type", "op": "contains", "value": "grant"},
                 ),
                 sort=({"field": "published_at", "direction": "desc"},),
                 limit=7,
                 offset=3,
             )
-            statement = build_document_query_statement(sample_query)
-            compiled_sql = compile_document_query_statement(statement)
+            statement = build_material_query_statement(sample_query)
+            compiled_sql = compile_material_query_statement(statement)
             required_fragments = (
-                "FROM documents",
-                "documents.state = 'CA'",
-                "documents.doc_type IN ('policy', 'news')",
+                "FROM materials",
+                "materials.state = 'CA'",
+                "materials.material_type IN ('policy', 'news')",
                 "project_key",
                 "policy_type",
-                "ORDER BY documents.publish_date DESC NULLS LAST",
+                "ORDER BY materials.publish_date DESC NULLS LAST",
                 "LIMIT 7 OFFSET 3",
             )
             compile_gaps = [fragment for fragment in required_fragments if fragment not in compiled_sql]
@@ -223,8 +223,8 @@ def _document_query_statement_builder_status(root: Path) -> dict[str, Any]:
             compile_gaps = [f"{type(exc).__name__}: {exc}"]
     covered = bool(exported and candidates and not compile_gaps)
     return {
-        "boundary_id": "generic_document_query_db_statement_builder",
-        "expected_exports": list(DOCUMENT_QUERY_BUILDER_EXPECTED_EXPORTS),
+        "boundary_id": "generic_material_query_db_statement_builder",
+        "expected_exports": list(MATERIAL_QUERY_BUILDER_EXPECTED_EXPORTS),
         "exported_tokens": exported,
         "candidate_definitions": candidates,
         "compiled_sql_sample": compiled_sql,
@@ -338,7 +338,7 @@ def build_check(
     policy_state = build_policy_state_check(root)
     prompt_time_density = build_prompt_time_density_check(root)
     endpoint_projection = _build_endpoint_projection_gate(root)
-    builder_status = _document_query_statement_builder_status(root)
+    builder_status = _material_query_statement_builder_status(root)
     live_evidence = _load_live_evidence(live_evidence_path)
     live_evidence_status = _live_evidence_status(live_evidence)
 
@@ -352,7 +352,7 @@ def build_check(
         _gate("consumer_side_facade_contract", topic_id=CONSUMER_TOPIC_ID, result=consumer_side),
         _gate("consumer_sql_predicate_facade", topic_id=CONSUMER_TOPIC_ID, result=consumer_sql),
         _gate("admin_dashboard_consumer_boundary", topic_id=CONSUMER_TOPIC_ID, result=admin_dashboard),
-        _gate("policy_state_document_query_boundary", topic_id=CONSUMER_TOPIC_ID, result=policy_state),
+        _gate("policy_state_material_query_boundary", topic_id=CONSUMER_TOPIC_ID, result=policy_state),
         _gate("prompt_time_density_consumer_boundary", topic_id=CONSUMER_TOPIC_ID, result=prompt_time_density),
     ]
 
@@ -371,11 +371,11 @@ def build_check(
     if builder_status["status"] != "covered":
         repo_local_blockers.append(
             {
-                "id": "generic_document_query_db_statement_builder_missing",
+                "id": "generic_material_query_db_statement_builder_missing",
                 "kind": "repo_local_db_builder_gap",
                 "topic_id": STRUCTURED_TOPIC_ID,
                 "detail": (
-                    "No exported DocumentQuery-to-SQLAlchemy statement builder was found under "
+                    "No exported MaterialQuery-to-SQLAlchemy statement builder was found under "
                     "main/backend/app/services/document_queries. Existing endpoint/predicate helpers are covered, "
                     "but the generic DB statement-builder scope remains repo-local if it is still required."
                 ),
@@ -456,7 +456,7 @@ def build_check(
             "passed": validation_passed,
             "gate_count": len(gates),
             "passed_gate_count": sum(1 for gate in gates if gate["passed"]),
-            "document_query_statement_builder": builder_status,
+            "material_query_statement_builder": builder_status,
             "live_evidence": live_evidence_status,
             "closure_ready": closure_ready,
         },

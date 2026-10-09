@@ -108,7 +108,7 @@ def witness(monkeypatch: pytest.MonkeyPatch):
         with engine.begin() as connection:
             connection.execute(text(f'CREATE SCHEMA "{schema}"'))
             schema_created = True
-            for table in ("documents", "market_metric_points", "price_observations"):
+            for table in ("materials", "market_metric_points", "price_observations"):
                 connection.execute(text(f'CREATE TABLE "{schema}".{table} (id BIGSERIAL PRIMARY KEY)'))
 
         yield SimpleNamespace(engine=engine, schema=schema, project_key=project_key)
@@ -167,7 +167,7 @@ def _insert_count(
 
 def test_enabled_project_counts_follow_current_canonical_rows(witness) -> None:
     _insert_project(witness.engine, project_key=witness.project_key, schema=witness.schema)
-    _insert_count(witness.engine, schema=witness.schema, table="documents", count=3)
+    _insert_count(witness.engine, schema=witness.schema, table="materials", count=3)
     _insert_count(witness.engine, schema=witness.schema, table="market_metric_points", count=5)
     _insert_count(witness.engine, schema=witness.schema, table="price_observations", count=2)
 
@@ -175,22 +175,22 @@ def test_enabled_project_counts_follow_current_canonical_rows(witness) -> None:
     disabled_key = f"{witness.project_key}_disabled"
     with witness.engine.begin() as connection:
         connection.execute(text(f'CREATE SCHEMA "{disabled_schema}"'))
-        connection.execute(text(f'CREATE TABLE "{disabled_schema}".documents (id BIGSERIAL PRIMARY KEY)'))
+        connection.execute(text(f'CREATE TABLE "{disabled_schema}".materials (id BIGSERIAL PRIMARY KEY)'))
     _insert_project(witness.engine, project_key=disabled_key, schema=disabled_schema, enabled=False)
-    _insert_count(witness.engine, schema=disabled_schema, table="documents", count=9)
+    _insert_count(witness.engine, schema=disabled_schema, table="materials", count=9)
 
     assert global_stats.query_global_canonical_stats() == {
-        "documents_total": 3,
+        "materials_total": 3,
         "metrics_total": 5,
         "prices_total": 2,
     }
 
     with witness.engine.begin() as connection:
-        connection.execute(text(f'DELETE FROM "{witness.schema}".documents WHERE id = 1'))
+        connection.execute(text(f'DELETE FROM "{witness.schema}".materials WHERE id = 1'))
         connection.execute(text(f'DELETE FROM "{witness.schema}".price_observations WHERE id = 2'))
 
     assert global_stats.query_global_canonical_stats() == {
-        "documents_total": 2,
+        "materials_total": 2,
         "metrics_total": 5,
         "prices_total": 1,
     }
@@ -201,7 +201,7 @@ def test_enabled_project_counts_follow_current_canonical_rows(witness) -> None:
 
 def test_one_repeatable_read_snapshot_excludes_concurrent_committed_change(witness) -> None:
     _insert_project(witness.engine, project_key=witness.project_key, schema=witness.schema)
-    _insert_count(witness.engine, schema=witness.schema, table="documents", count=1)
+    _insert_count(witness.engine, schema=witness.schema, table="materials", count=1)
     _insert_count(witness.engine, schema=witness.schema, table="market_metric_points", count=1)
     _insert_count(witness.engine, schema=witness.schema, table="price_observations", count=1)
 
@@ -228,7 +228,7 @@ def test_one_repeatable_read_snapshot_excludes_concurrent_committed_change(witne
             assert project_query_seen.wait(timeout=10)
 
             with witness.engine.begin() as connection:
-                connection.execute(text(f'INSERT INTO "{witness.schema}".documents DEFAULT VALUES'))
+                connection.execute(text(f'INSERT INTO "{witness.schema}".materials DEFAULT VALUES'))
 
             project_query_may_finish.set()
             result = future.result(timeout=10)
@@ -236,10 +236,10 @@ def test_one_repeatable_read_snapshot_excludes_concurrent_committed_change(witne
         project_query_may_finish.set()
         event.remove(witness.engine, "after_cursor_execute", pause_after_project_snapshot)
 
-    assert result == {"documents_total": 1, "metrics_total": 1, "prices_total": 1}
+    assert result == {"materials_total": 1, "metrics_total": 1, "prices_total": 1}
 
     assert global_stats.query_global_canonical_stats() == {
-        "documents_total": 2,
+        "materials_total": 2,
         "metrics_total": 1,
         "prices_total": 1,
     }
@@ -251,7 +251,7 @@ def test_one_repeatable_read_snapshot_excludes_concurrent_committed_change(witne
         )
 
     assert global_stats.query_global_canonical_stats() == {
-        "documents_total": 0,
+        "materials_total": 0,
         "metrics_total": 0,
         "prices_total": 0,
     }

@@ -4,7 +4,7 @@ import { CheckCheck, ChevronDown, ChevronRight, Database, LoaderCircle, Play, Ra
 import {
   bindSiteEntry,
   discoverSiteEntriesAdvanced,
-  extractResourcePoolFromDocuments,
+  extractResourcePoolFromMaterials,
   listResourcePoolUrlsWithFilters,
   listSourceLibraryChannels,
   listSourceLibraryItemsGrouped,
@@ -1182,7 +1182,7 @@ export function ResourcePage({ projectKey, variant = 'resource' }: ResourcePageP
         </div>
 
         <div className="action-grid">
-          <button disabled={actionPending} onClick={() => runAction(t('resourcePage.actionName.extractUrls'), () => extractResourcePoolFromDocuments(true))}>
+          <button disabled={actionPending} onClick={() => runAction(t('resourcePage.actionName.extractUrls'), () => extractResourcePoolFromMaterials(true))}>
             <Play size={16} />{t('resourcePage.action.extractUrls')}
           </button>
           <button

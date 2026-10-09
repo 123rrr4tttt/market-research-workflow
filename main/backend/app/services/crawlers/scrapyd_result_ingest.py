@@ -8,7 +8,7 @@ from urllib.parse import urljoin
 
 import httpx
 
-from ..ingest.raw_import import run_raw_import_documents
+from ..ingest.raw_import import run_raw_import_materials
 from ..projects.context import bind_project
 from .base import CrawlerJsonObject, CrawlerJsonValue
 from .providers.scrapy import finished_job_status
@@ -103,7 +103,7 @@ def _parse_log_items(text: str) -> list[CrawlerJsonObject]:
 def _normalize_raw_items_to_import_items(
     raw_items: list[CrawlerJsonObject],
     *,
-    doc_type: str,
+    material_type: str,
 ) -> list[CrawlerJsonObject]:
     out: list[CrawlerJsonObject] = []
     for row in raw_items:
@@ -120,7 +120,7 @@ def _normalize_raw_items_to_import_items(
                 "text": text,
                 "title": title,
                 "uri": uri,
-                "doc_type": doc_type,
+                "material_type": material_type,
             }
         )
     return out
@@ -135,7 +135,7 @@ def ingest_scrapyd_job_output(
     wait_timeout_seconds: float = 8.0,
     poll_interval_seconds: float = 0.8,
     source_name: str | None = None,
-    doc_type: str = "news",
+    material_type: str = "news",
     enable_extraction: bool = False,
     max_items: int = 100,
 ) -> CrawlerJsonObject:
@@ -209,7 +209,10 @@ def ingest_scrapyd_job_output(
 
     if max_items > 0:
         raw_items = raw_items[: int(max_items)]
-    import_items = _normalize_raw_items_to_import_items(raw_items, doc_type=doc_type)
+    import_items = _normalize_raw_items_to_import_items(
+        raw_items,
+        material_type=material_type,
+    )
     if not import_items:
         return {
             "status": "finished_no_items",
@@ -223,10 +226,10 @@ def ingest_scrapyd_job_output(
         }
 
     with bind_project(project_key):
-        import_result = run_raw_import_documents(
+        import_result = run_raw_import_materials(
             payload={
                 "source_name": source_name or f"crawler.{scrapy_project}",
-                "default_doc_type": doc_type,
+                "default_material_type": material_type,
                 "enable_extraction": bool(enable_extraction),
                 "items": import_items,
             },

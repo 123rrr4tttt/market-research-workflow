@@ -45,7 +45,7 @@ export type ChainSourceRef = {
   source_item_key?: string | null
   channel_key?: string | null
   source_scope?: 'project' | 'shared' | 'effective' | string | null
-  document_id?: string | number | null
+  material_id?: string | number | null
   chunk_id?: string | number | null
   row_id?: string | number | null
   url?: string | null

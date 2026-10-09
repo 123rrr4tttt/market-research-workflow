@@ -17,7 +17,7 @@ try:
     from app.api import resource_pool as resource_pool_api
     from app.services.tasks import (
         task_discover_site_entries_batched,
-        task_extract_resource_pool_from_documents,
+        task_extract_resource_pool_from_materials,
         task_extract_resource_pool_from_tasks,
     )
 
@@ -971,7 +971,7 @@ def test_simplify_site_entries_shared_scope_allows_missing_project_key(
     assert captured["project_key"] is None
 
 
-def test_extract_from_documents_sync_returns_task_result_envelope(
+def test_extract_from_materials_sync_returns_task_result_envelope(
     client: TestClient,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -979,12 +979,12 @@ def test_extract_from_documents_sync_returns_task_result_envelope(
 
     def _fake_extract(**kwargs: Any) -> dict[str, Any]:
         captured.update(kwargs)
-        return {"documents_scanned": 2, "urls_extracted": 4, "scope": kwargs["scope"]}
+        return {"materials_scanned": 2, "urls_extracted": 4, "scope": kwargs["scope"]}
 
-    monkeypatch.setattr(resource_pool_api, "extract_from_documents", _fake_extract)
+    monkeypatch.setattr(resource_pool_api, "extract_from_materials", _fake_extract)
 
     resp = client.post(
-        "/api/v1/resource_pool/extract/from-documents",
+        "/api/v1/resource_pool/extract/from-materials",
         json={"project_key": "demo_proj", "scope": "project", "filters": {"limit": 2}, "async_mode": False},
     )
 
@@ -993,12 +993,12 @@ def test_extract_from_documents_sync_returns_task_result_envelope(
     assert body["status"] == "ok"
     assert body["error"] is None
     assert body["data"]["status"] == "finished"
-    assert body["data"]["result"]["documents_scanned"] == 2
+    assert body["data"]["result"]["materials_scanned"] == 2
     assert body["data"]["params"]["project_key"] == "demo_proj"
     assert captured["project_key"] == "demo_proj"
 
 
-def test_extract_from_documents_async_returns_queued_task_envelope(
+def test_extract_from_materials_async_returns_queued_task_envelope(
     client: TestClient,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -1006,7 +1006,7 @@ def test_extract_from_documents_async_returns_queued_task_envelope(
         id = "task-docs-1"
 
     class _TasksModule:
-        class task_extract_resource_pool_from_documents:
+        class task_extract_resource_pool_from_materials:
             @staticmethod
             def delay(**_kwargs: Any):
                 return _Task()
@@ -1014,7 +1014,7 @@ def test_extract_from_documents_async_returns_queued_task_envelope(
     monkeypatch.setattr(resource_pool_api, "_get_tasks_module", lambda: _TasksModule)
 
     resp = client.post(
-        "/api/v1/resource_pool/extract/from-documents",
+        "/api/v1/resource_pool/extract/from-materials",
         json={"project_key": "demo_proj", "scope": "project", "filters": {}, "async_mode": True},
     )
 
@@ -1026,17 +1026,17 @@ def test_extract_from_documents_async_returns_queued_task_envelope(
     assert body["data"]["task_id"] == "task-docs-1"
 
 
-def test_resource_pool_document_worker_persists_celery_identity_and_actual_result(
+def test_resource_pool_material_worker_persists_celery_identity_and_actual_result(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     actual_result = {
-        "documents_scanned": 3,
+        "materials_scanned": 3,
         "urls_extracted": 5,
         "urls_new": 4,
         "urls_duplicate": 1,
         "scope": "project",
     }
-    task_extract_resource_pool_from_documents.push_request(
+    task_extract_resource_pool_from_materials.push_request(
         id="celery-docs-persisted",
         hostname="worker@resource",
         delivery_info={"routing_key": "celery"},
@@ -1048,26 +1048,26 @@ def test_resource_pool_document_worker_persists_celery_identity_and_actual_resul
             patch("app.services.tasks.complete_job") as complete_job,
             patch("app.services.tasks.fail_job") as fail_job,
             patch(
-                "app.services.resource_pool.extract_from_documents",
+                "app.services.resource_pool.extract_from_materials",
                 return_value=actual_result,
             ) as extract,
         ):
-            result = task_extract_resource_pool_from_documents.run(
+            result = task_extract_resource_pool_from_materials.run(
                 "project_alpha",
                 scope="project",
-                document_ids=[1, 2, 3],
+                material_ids=[1, 2, 3],
                 limit=3,
             )
     finally:
-        task_extract_resource_pool_from_documents.pop_request()
+        task_extract_resource_pool_from_materials.pop_request()
 
     assert result == actual_result
     extract.assert_called_once_with(
         project_key="project_alpha",
         scope="project",
-        doc_type=None,
+        material_type=None,
         state=None,
-        document_ids=[1, 2, 3],
+        material_ids=[1, 2, 3],
         limit=3,
     )
     assert start_job.call_args.kwargs["external_job_id"] == "celery-docs-persisted"
@@ -1391,9 +1391,9 @@ def test_source_library_collect_runs_keyword_to_structured_project_flow(
     data = body["data"]
     assert data["contract_version"] == "source_library.keyword_collect.v1"
     assert data["lifecycle_summary"]["state"] == "ready"
-    assert data["lifecycle_summary"]["documents_inserted_valid"] == 2
+    assert data["lifecycle_summary"]["materials_inserted_valid"] == 2
     assert data["summary"]["candidates_found"] == 2
-    assert data["summary"]["documents_inserted_valid"] == 2
+    assert data["summary"]["materials_inserted_valid"] == 2
     assert data["summary"]["ready_for_project_flows"] is True
     assert data["pipeline"]["structured_extraction"] == "frontdoor.unified.structured.v1"
     assert "writing_materials" in data["pipeline"]["project_downstream"]
@@ -1432,7 +1432,7 @@ def test_source_library_collect_reports_not_ready_when_no_material_is_ingested(
     data = resp.json()["data"]
     assert data["lifecycle_summary"]["state"] == "not_ready"
     assert data["summary"]["candidates_found"] == 0
-    assert data["summary"]["documents_inserted_valid"] == 0
+    assert data["summary"]["materials_inserted_valid"] == 0
     assert data["summary"]["ready_for_project_flows"] is False
     assert data["errors"] == [{"phase": "search", "error": "no candidates"}]
 

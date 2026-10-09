@@ -107,6 +107,7 @@ export {
   createProject,
   deleteProject,
   getDashboardLlmReportDetail,
+  getDashboardGlobalStats,
   getDashboardStats,
   listProjects,
   restoreProject,
@@ -130,7 +131,7 @@ export {
   bindSiteEntry,
   discoverSiteEntries,
   discoverSiteEntriesAdvanced,
-  extractResourcePoolFromDocuments,
+  extractResourcePoolFromMaterials,
   listResourcePoolUrls,
   listResourcePoolUrlsWithFilters,
   listSiteEntries,
@@ -813,20 +814,17 @@ export async function copyProjectLlmTemplates(payload: LlmTemplateCopyPayload, p
 }
 
 export {
-  bulkUpdateDocumentExtractedData,
-  clearDocumentExtractedData,
-  deleteAdminDocuments,
-  getAdminDocument,
+  bulkUpdateMaterialExtractedData,
+  clearMaterialExtractedData,
+  deleteAdminMaterials,
   getAdminMaterial,
   getAdminStats,
   getSearchHistory,
-  listAdminDocuments,
   listAdminMaterials,
-  rawImportDocuments,
   rawImportMaterials,
-  reExtractDocuments,
-  topicExtractDocuments,
-  updateDocumentExtractedData,
+  reExtractMaterials,
+  topicExtractMaterials,
+  updateMaterialExtractedData,
 } from './api/domains/project-admin'
 
 export async function cleanupGovernance(retentionDays: number) {

@@ -11,7 +11,7 @@ import pytest
 from functorial_kit import Failure
 
 from app.services.project_retrieval import mode
-from app.services.project_retrieval.formalization import formalize_document
+from app.services.project_retrieval.formalization import formalize_material
 from app.services.information_topology.io.retrieval import resolve_domain_vocabulary
 from app.services.information_topology.modules.retrieval import make_retrieval_profile
 from app.subprojects.demo_proj.mappings import FIELD_MAPPING, WORKFLOW_MAPPING
@@ -194,8 +194,8 @@ def test_demo_formalization_uses_only_explicit_unrated_grade(grade, expected_sta
     source = {
         "project_key": "demo_proj", "run_id": "retrieval:test-demo", "plan_id": "retrieval-plan:test-demo",
         "route_id": route["route_id"], "query_id": query["query_id"], "candidate_id": "candidate:test-demo",
-        "document_id": 19, "title": "信号记录", "url": "https://example.invalid/demo-signal", "body": body,
-        "body_digest": sha256(body.encode("utf-8")).hexdigest(), "document_updated_at": "2026-10-08T00:00:00Z",
+        "material_id": 19, "title": "信号记录", "url": "https://example.invalid/demo-signal", "body": body,
+        "body_digest": sha256(body.encode("utf-8")).hexdigest(), "material_updated_at": "2026-10-08T00:00:00Z",
         "domain_vocabulary": snapshot["domain_vocabulary"], "query": query, "source_route": route,
     }
     response = {
@@ -219,7 +219,7 @@ def test_demo_formalization_uses_only_explicit_unrated_grade(grade, expected_sta
             "clue": {"name": "信号关键词", "scene_key": "scene"},
         }, "gaps": [],
     }
-    result = formalize_document(source, model_invoke=lambda _: response)
+    result = formalize_material(source, model_invoke=lambda _: response)
     assert result["status"] == expected_status
     if expected_status == "proposed":
         assert result["proposal"]["evidence"]["grade"] == "未评级"

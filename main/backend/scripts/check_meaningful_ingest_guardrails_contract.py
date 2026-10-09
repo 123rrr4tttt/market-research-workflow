@@ -53,7 +53,7 @@ def _runtime_checks(root: Path) -> list[dict[str, Any]]:
         "summary": "summary",
         "content": "Robotics market update with enough meaningful context. " * 8,
         "source_base_url": "example.com",
-        "doc_type": "market",
+        "material_type": "market",
     }
     base_context = {
         "capability_profile": {"entry_type": "search_template"},
@@ -65,11 +65,11 @@ def _runtime_checks(root: Path) -> list[dict[str, Any]]:
 
     with patch("app.services.ingest.postprocess_frontdoor.settings.ingest_enable_strict_gate", False):
         disabled_result = _evaluate_quality_frontdoor(
-            document_candidate=low_value_candidate,
+            material_candidate=low_value_candidate,
             terminal_context=dict(base_context),
         )
         strict_result = _evaluate_quality_frontdoor(
-            document_candidate=low_value_candidate,
+            material_candidate=low_value_candidate,
             terminal_context={**base_context, "strict_mode": True},
         )
 
