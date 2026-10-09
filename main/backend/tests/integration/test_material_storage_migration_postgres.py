@@ -760,14 +760,24 @@ def test_required_tenant_table_followup_is_tenant_ddl_noop_when_complete(
             statements.append(str(statement))
 
         from sqlalchemy import event
+        from sqlalchemy.engine import Engine
 
-        event.listen(exclusive_engine, "before_cursor_execute", capture)
+        event.listen(Engine, "before_cursor_execute", capture)
         try:
             command.upgrade(_config(dsn), FOLLOWUP_HEAD)
         finally:
-            event.remove(exclusive_engine, "before_cursor_execute", capture)
+            event.remove(Engine, "before_cursor_execute", capture)
 
         assert _head(exclusive_engine) == FOLLOWUP_HEAD
+        assert any(
+            "SELECT project_key, schema_name FROM public.projects" in statement
+            for statement in statements
+        )
+        assert any(
+            statement.lstrip().upper().startswith("UPDATE")
+            and "alembic_version" in statement
+            for statement in statements
+        )
         tenant_ddl = [
             statement
             for statement in statements
