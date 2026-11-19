@@ -97,7 +97,6 @@ def test_query_execution_reports_actual_term_fallback(
     route: str, allow: bool, case: str, expected_used: bool, expected_state: str,
 ) -> None:
     params = {
-        "allow_candidate_semantic_llm": False,
         "enable_external_search_slowlane": False,
     }
     common = dict(query_terms=["robotics"], probe_timeout=0.1, allow_term_fallback=allow, params=params)
@@ -105,7 +104,6 @@ def test_query_execution_reports_actual_term_fallback(
     with (
         patch("app.services.resource_pool.search_template_service.fetch_html", return_value=(payload, object())),
         patch("app.services.search.web.search_sources", return_value=payload),
-        patch("app.services.resource_pool.search_capabilities._expand_semantic_query_terms_with_llm") as llm,
     ):
         if route == "search_template":
             result = execute_search_template(
@@ -120,7 +118,6 @@ def test_query_execution_reports_actual_term_fallback(
                 sitemap_url="https://example.com/sitemap.xml", max_depth=1, max_sitemaps=1, **common,
             )
 
-    llm.assert_not_called()
     assert [item.url for item in result.selected_candidates] == _expected_urls(route, allow=allow, case=case)
     _assert_observation(result, expected_used=expected_used, expected_state=expected_state)
 
@@ -150,21 +147,18 @@ def test_unified_search_preserves_filter_diagnostics_without_false_fallback_revi
         "params": {
             "site_entries": [site_url],
             "enable_external_search_fallback": False,
-            "allow_candidate_semantic_llm": False,
         },
     }
     with (
         patch("app.services.resource_pool.unified_search.get_site_entry_by_url", return_value=entry),
         patch("app.services.resource_pool.search_template_service.fetch_html", return_value=(_source_payload(route, case), object())),
         patch("app.services.resource_pool.unified_search.execute_external_site_search") as external,
-        patch("app.services.resource_pool.search_capabilities._expand_semantic_query_terms_with_llm") as llm,
     ):
         result = unified_search_by_item_payload(
             project_key="demo", item=item, query_terms=["robotics"], allow_term_fallback=allow,
         )
 
     external.assert_not_called()
-    llm.assert_not_called()
     assert result.candidates == _expected_urls(route, allow=allow, case=case)
     errors = {row["error"] for row in result.errors}
     assert ("url_term_filter_empty_fallback_used" in errors) is expected_used

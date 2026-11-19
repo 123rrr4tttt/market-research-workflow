@@ -112,38 +112,7 @@ def test_FAILURE_PRESERVED__unregistered_provider_fails_closed(
     monkeypatch.setattr(provider.settings, "llm_provider", "local")
 
     with pytest.raises(RuntimeError, match="No LLM provider port registered for 'local'"):
-        provider.get_chat_model()
-
-
-def test_provider_preserves_chat_options(
-    monkeypatch: pytest.MonkeyPatch, isolated_registry: None
-) -> None:
-    recorded = RecordingProvider(result=FixtureChatModel("chat-model"))
-    register_llm_provider(("openai",), recorded)
-    monkeypatch.setattr(provider.settings, "llm_provider", "openai")
-
-    result = provider.get_chat_model(
-        "test-model",
-        max_tokens=128,
-        top_p=0.7,
-        presence_penalty=0.1,
-        frequency_penalty=0.2,
-        custom_option="value",
-    )
-
-    if TYPE_CHECKING:
-        assert_type(result, ChatModel)
-    assert isinstance(result, FixtureChatModel)
-    assert result.content == "chat-model"
-    assert recorded.options is not None
-    assert recorded.options.model == "test-model"
-    assert recorded.options.temperature is None
-    assert recorded.options.max_tokens == 128
-    assert recorded.options.top_p == 0.7
-    assert recorded.options.presence_penalty == 0.1
-    assert recorded.options.frequency_penalty == 0.2
-    assert recorded.options.extra == {"custom_option": "value"}
-
+        provider.get_embeddings()
 
 def test_litellm_adapter_constructs_openai_compatible_models(
     monkeypatch: pytest.MonkeyPatch,
@@ -326,23 +295,6 @@ def test_langchain_adapter_constructs_azure_models_with_current_contract(
     assert chat.deployment_name == "chat"
     assert isinstance(embeddings, AzureOpenAIEmbeddings)
     assert embeddings.deployment == "embedding"
-
-
-def test_local_fallback_wraps_registered_chat(
-    monkeypatch: pytest.MonkeyPatch, isolated_registry: None
-) -> None:
-    recorded = RecordingProvider(result=FixtureChatModel("fallback"))
-    register_llm_provider(("litellm",), recorded)
-    monkeypatch.setattr(provider.settings, "llm_provider", "litellm")
-
-    chat = provider.get_local_fallback_chat("fallback-model", temperature=0.1)
-    result = chat.invoke("prompt")
-
-    assert recorded.options is not None
-    assert recorded.options.model == "fallback-model"
-    assert recorded.options.temperature == 0.1
-    assert chat.with_retry() is chat
-    assert result.content == "fallback"
 
 
 def test_config_loader_reads_typed_orm_fields(

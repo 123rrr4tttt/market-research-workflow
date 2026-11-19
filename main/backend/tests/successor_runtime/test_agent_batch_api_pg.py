@@ -13,6 +13,7 @@ from fastapi.testclient import TestClient
 from app.api import agent_batch as agent_batch_api
 from app.api.agent_batch import AgentBatchSubmitRequest, AgentBatchSubmitBatch, AgentBatchItemSubmit
 from app.composition.production_runtime import install_runtime_authority
+from app.models.entities import Project
 from app.services.agent_batch import dispatch as dispatch_module
 from app.services import tasks as tasks_module
 from app.services.request_identity import RequestActorContext
@@ -49,8 +50,18 @@ REQUEST_ACTOR_ID = "request-actor-1"
 
 
 @pytest.fixture(autouse=True)
-def _clean_tables(empty_successor_tables: None) -> None:
-    return None
+def _application_project(live_database: LiveDatabase, empty_successor_tables: None):
+    project = Project.__table__
+    with live_database.engine.begin() as connection:
+        project.create(connection)
+        connection.execute(project.insert().values(
+            project_key=PROJECT_KEY, schema_name=PROJECT_SCHEMA, name="Batch API test",
+        ))
+    try:
+        yield
+    finally:
+        with live_database.engine.begin() as connection:
+            project.drop(connection)
 
 
 def _install(
@@ -183,6 +194,26 @@ def test_post_two_items_returns_run_id_and_two_work_items(
     assert data["status"] == "accepted"
     assert data["accepted_count"] == 2
     assert len(data["work_item_ids"]) == 1
+    assert len(dispatched) == 1
+
+
+def test_archived_project_cannot_admit_a_dispatch(
+    live_database: LiveDatabase, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _install(live_database)
+    client, dispatched = _make_client(live_database, monkeypatch)
+    projects = Project.__table__
+    with live_database.engine.begin() as connection:
+        connection.execute(projects.update().where(projects.c.project_key == PROJECT_KEY).values(enabled=False))
+    response = client.post("/agent-batch/jobs", json=_submit().model_dump())
+    assert response.status_code == 409, response.text
+    assert response.json()["detail"]["error"]["details"]["reason_code"] == "project_not_writable"
+    assert not dispatched
+
+    with live_database.engine.begin() as connection:
+        connection.execute(projects.update().where(projects.c.project_key == PROJECT_KEY).values(enabled=True))
+    response = client.post("/agent-batch/jobs", json=_submit().model_dump())
+    assert response.status_code == 200, response.text
     assert len(dispatched) == 1
 
 

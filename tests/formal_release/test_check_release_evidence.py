@@ -135,6 +135,40 @@ def test_missing_family_is_rejected() -> None:
     assert result.readiness.formal_production_ready is False
 
 
+def test_missing_non_promotion_family_cannot_report_readiness() -> None:
+    records = [record for record in base_records() if record["family"] != "artifact_build"]
+    result = checker.validate_manifest(make_manifest(records))
+
+    assert result.report.status == "FAIL"
+    assert result.readiness.formal_rc_ready is False
+    assert result.readiness.formal_production_ready is False
+
+
+def test_duplicate_family_reports_failure_without_raising() -> None:
+    records = base_records()
+    records.extend([
+        make_record("candidate_identity", gate_id="duplicate-1"),
+        make_record("candidate_identity", gate_id="duplicate-2"),
+    ])
+    result = checker.validate_manifest(make_manifest(records))
+
+    assert result.report.status == "FAIL"
+    assert any("duplicate_family" in finding.check_id for finding in result.report.findings)
+    assert result.readiness.formal_rc_ready is False
+    assert result.readiness.formal_production_ready is False
+    assert result.readiness.candidate_identity_exact is False
+
+
+def test_multiple_malformed_records_report_failures_without_raising() -> None:
+    manifest = make_manifest(base_records())
+    manifest["records"] = [*base_records(), None, False]
+    result = checker.validate_manifest(manifest)
+
+    assert result.report.status == "FAIL"
+    assert result.readiness.formal_rc_ready is False
+    assert result.readiness.formal_production_ready is False
+
+
 def test_invalid_digest_is_rejected() -> None:
     records = base_records()
     records[0]["evidence_sha256"] = ["not-a-digest"]
@@ -144,6 +178,8 @@ def test_invalid_digest_is_rejected() -> None:
 
     assert result.report.status == "FAIL"
     assert any("digest" in finding.check_id for finding in result.report.findings)
+    assert result.readiness.formal_rc_ready is False
+    assert result.readiness.formal_production_ready is False
 
 
 def test_pass_without_evidence_is_rejected() -> None:
@@ -156,7 +192,7 @@ def test_pass_without_evidence_is_rejected() -> None:
 
     assert result.report.status == "FAIL"
     assert any(finding.check_id == "semantic_closure.gate" for finding in result.report.findings)
-    assert any(finding.check_id == "semantic_closure.evidence" for finding in result.report.findings)
+    assert any(finding.check_id == "record.0.evidence" for finding in result.report.findings)
 
 
 def test_blocked_and_unexecuted_statuses_are_preserved() -> None:

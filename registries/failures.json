@@ -144,6 +144,7 @@
       "codes": [
         "project_key_required",
         "project_binding_conflict",
+        "project_not_writable",
         "schema_binding_conflict",
         "workflow_not_found",
         "workflow_handler_not_found",
@@ -748,6 +749,7 @@
         "FORMALIZATION_RESPONSE_INVALID",
         "FORMALIZATION_PROPOSAL_INVALID",
         "FORMALIZATION_PROVIDER_FAILED",
+        "FORMALIZATION_CELL_BINDING_MISSING",
         "PROJECT_MISMATCH",
         "MODE_NOT_FOUND",
         "MODE_VERSION_CONFLICT",

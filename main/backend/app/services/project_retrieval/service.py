@@ -20,6 +20,7 @@ from sqlalchemy.orm import Session
 from app.models.base import SessionLocal
 from app.models.project_retrieval import ProjectRetrievalMode, ProjectRetrievalPlan
 from app.services.information_topology.modules.retrieval import DomainVocabulary
+from app.services.projects.context import ProjectNotWritableError
 from app.successor_runtime.capabilities.retrieval_candidate_native import (
     RETRIEVAL_CANDIDATE_DISCOVER_V3_KIND,
     RETRIEVAL_CANDIDATE_DISCOVER_V3_OWNER,
@@ -359,6 +360,8 @@ class ProjectRetrievalService:
                 now=datetime.now(UTC),
                 queue="celery",
             )
+        except ProjectNotWritableError as exc:
+            raise_retrieval_failure("DISPATCH_FAILED", str(exc), 409, cause=exc)
         except CurrentAuthorityGrantUnavailable as exc:
             raise_retrieval_failure(
                 "DISPATCH_FAILED", "retrieval Runtime authority is unavailable", 403, cause=exc

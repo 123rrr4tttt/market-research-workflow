@@ -350,7 +350,7 @@ Codex 模型 Core 的挂载入口已存在；尚待补的是让目标宏通过�
 
 当前代码已经具备部分承载：`SkillRuntime` 注册了 `workflow.llm_call`，其 [workflow executor](../../../main/backend/app/services/workflow_graph/executors/llm_call.py) 经 skill handler 调用模型；[项目工具装配](../../../main/backend/app/services/agent_core/project_tools.py) 会把注册 skill 暴露为 `skill.<skill_id>`，并已有搜索、资料读写、写作及流程工具。该路径能够复用既有业务能力；通用 skill 投影采用开放 payload 包装，仍需逐项关联精确输入、成果、失败和真实权限来源，不能由工具目录存在推出完成总体化。
 
-[关键词生成](../../../main/backend/app/services/keyword_generation.py)、[分类与摘要](../../../main/backend/app/services/llm/chains.py)、[结构化提取](../../../main/backend/app/services/extraction/extract.py) 当前还有直接 `get_chat_model`／模型调用路径，可作为待接入的具体工作。这些环节不能只因底层 provider 可用而记作已进入 Agent 宏；迁移时须挂载对应 skill 正文、业务工具和原成果消费者。另一些名为 LLM 的入口实际采用规则或模板，例如 写作 action（原稿所引历史材料） 与 [报告生成](../../../main/backend/app/services/llm_report_generator.py) 明示 `real_model_path=False`；它们可作为现有消费／加工能力纳入关系，不能记作已经运行的模型环节。
+[关键词生成](../../../main/backend/app/services/keyword_generation.py)、[工作流模型节点](../../../main/backend/app/services/workflow_graph/executors/llm_call.py)、[结构化提取边界](../../../main/backend/app/services/ingest/postprocess_frontdoor.py) 不走独立的聊天模型通道；没有既有 Agent Cell invocation 时明确返回不可用，待接入现有 Cell 后才能执行。这些环节不能只因底层 provider 可用而记作已进入 Agent 宏；迁移时须挂载对应 skill 正文、业务工具和原成果消费者。另一些名为 LLM 的入口实际采用规则或模板，例如 写作 action（原稿所引历史材料） 与 [报告生成](../../../main/backend/app/services/llm_report_generator.py) 明示 `real_model_path=False`；它们可作为现有消费／加工能力纳入关系，不能记作已经运行的模型环节。
 
 迁移先选一个输入输出有界的真实环节，例如关键词生成：关联原任务输入、方法内容、Core 调用和原列表消费者，保持其语言、回退与失败语义。原调用者完成切换后，再复用这条接缝接入分类／结构化提取；这些环节的结果校验各自保留。需要自主调用设施的检索、资料消化等工作，则在原生工具挂载接通后使用相应环境。单次工作与多步循环共用胞腔关系模型，循环深度由具体工作与原 Core 决定。
 

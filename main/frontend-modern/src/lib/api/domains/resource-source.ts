@@ -275,7 +275,6 @@ export async function recommendSiteEntry(payload: ResourcePoolRecommendationPayl
     site_url: payload.site_url,
     entry_type: payload.entry_type ?? null,
     template: payload.template ?? null,
-    use_llm: payload.use_llm ?? false,
   })
 }
 
@@ -283,8 +282,6 @@ export async function recommendSiteEntriesBatch(payload: ResourcePoolBatchRecomm
   return post<ResourcePoolBatchRecommendationResponse>(endpoints.resourcePool.siteEntriesRecommendBatch, {
     project_key: payload.project_key || getProjectKey(),
     entries: payload.entries || [],
-    use_llm: payload.use_llm ?? true,
-    llm_batch_size: payload.llm_batch_size ?? 20,
   })
 }
 

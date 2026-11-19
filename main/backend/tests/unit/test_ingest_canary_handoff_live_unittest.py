@@ -50,7 +50,7 @@ class IngestCanaryHandoffLiveUnitTestCase(unittest.TestCase):
 
     def test_production_like_evidence_validates_api_db_and_guardrail_readbacks(self):
         evidence = build_production_like_handoff_evidence(
-            project_key="wave55_canary",
+            project_key="canary_smoke",
             accepted_url="https://example.com/article",
             rejected_url="https://example.com/search?q=search-shell",
             accepted_status_code=200,
@@ -80,7 +80,7 @@ class IngestCanaryHandoffLiveUnitTestCase(unittest.TestCase):
 
     def test_db_readback_classification_uses_current_material_shape(self):
         common = {
-            "project_key": "wave55_canary",
+            "project_key": "canary_smoke",
             "accepted_url": "https://example.com/article",
             "rejected_url": "https://example.com/search?q=search-shell",
             "accepted_status_code": 200,
@@ -109,7 +109,7 @@ class IngestCanaryHandoffLiveUnitTestCase(unittest.TestCase):
 
     def test_live_evidence_promotes_handoff_without_closure_claim(self):
         evidence = build_production_like_handoff_evidence(
-            project_key="wave55_canary",
+            project_key="canary_smoke",
             accepted_url="https://example.com/article",
             rejected_url="https://example.com/search?q=search-shell",
             accepted_status_code=200,
@@ -156,8 +156,8 @@ class IngestCanaryHandoffLiveUnitTestCase(unittest.TestCase):
                             "enable_strict_gate": True,
                             "strict_gate_source": "settings.ingest_guardrail_rollout_mode:canary",
                             "rollout_mode": "canary",
-                            "project_key": "wave55_canary",
-                            "canary_projects": ["wave55_canary"],
+                            "project_key": "canary_smoke",
+                            "canary_projects": ["canary_smoke"],
                             "canary_matched": True,
                             "global_default_enabled": False,
                             "live_canary_validated": False,
@@ -174,7 +174,7 @@ class IngestCanaryHandoffLiveUnitTestCase(unittest.TestCase):
                 "ingress_type": "source_library",
                 "entrypoint": "ingest.url.single",
                 "source_mode": "url_execution",
-                "project_key": "wave55_canary",
+                "project_key": "canary_smoke",
                 "source_ref": {"url": "https://example.com/article"},
             },
             postprocess_frontdoor=postprocess,

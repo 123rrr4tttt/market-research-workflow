@@ -217,6 +217,7 @@ class _FakeAdminSessionLocal:
 class _FakePreviewDeleteSession:
     def __init__(self, materials):
         self._materials = materials
+        self.dirty = materials
         self.deleted = []
         self.committed = False
 
@@ -314,9 +315,10 @@ class AdminDashboardProcessCoreContractTestCase(unittest.TestCase):
 
     def test_admin_raw_import_success_returns_envelope(self):
         mock_delay = Mock(return_value=SimpleNamespace(id="task-123"))
-        with patch(
-            "app.services.tasks.raw_material_import_task_binding",
-            SimpleNamespace(delay=mock_delay),
+        with (
+            patch("app.api.admin.SessionLocal"),
+            patch("app.api.admin.require_writable_project"),
+            patch("app.services.tasks.raw_material_import_task_binding", SimpleNamespace(delay=mock_delay)),
         ):
             resp = self.client.post(
                 "/api/v1/admin/materials/raw-import",
@@ -338,9 +340,10 @@ class AdminDashboardProcessCoreContractTestCase(unittest.TestCase):
 
     def test_admin_raw_import_http_exception_maps_to_rate_limited(self):
         mock_delay = Mock(side_effect=HTTPException(status_code=429, detail="too many requests"))
-        with patch(
-            "app.services.tasks.raw_material_import_task_binding",
-            SimpleNamespace(delay=mock_delay),
+        with (
+            patch("app.api.admin.SessionLocal"),
+            patch("app.api.admin.require_writable_project"),
+            patch("app.services.tasks.raw_material_import_task_binding", SimpleNamespace(delay=mock_delay)),
         ):
             resp = self.client.post(
                 "/api/v1/admin/materials/raw-import",
@@ -1280,7 +1283,10 @@ class AdminDashboardProcessCoreContractTestCase(unittest.TestCase):
 
     def test_admin_update_material_invalid_merge_returns_error_envelope(self):
         material = SimpleNamespace(id=1, extracted_data="raw")
-        with patch("app.services.document_admin.SessionLocal", return_value=_FakeAdminSessionLocal(material)):
+        with (
+            patch("app.services.document_admin.SessionLocal", return_value=_FakeAdminSessionLocal(material)),
+            patch("app.services.document_admin.require_writable_project"),
+        ):
             resp = self.client.post(
                 "/api/v1/admin/materials/1/extracted-data",
                 headers=self.headers,
@@ -1452,7 +1458,10 @@ class AdminDashboardProcessCoreContractTestCase(unittest.TestCase):
         ]
         fake_session = _FakePreviewDeleteSession(materials)
 
-        with patch("app.services.document_admin.SessionLocal", return_value=_FakePreviewDeleteSessionLocal(fake_session)):
+        with (
+            patch("app.services.document_admin.SessionLocal", return_value=_FakePreviewDeleteSessionLocal(fake_session)),
+            patch("app.services.document_admin.require_writable_project"),
+        ):
             resp = delete_materials(DeleteMaterialsRequest(material_ids=[1, 2, 99], preview=False))
 
         self.assertEqual(fake_session.deleted, materials)
@@ -1509,7 +1518,10 @@ class AdminDashboardProcessCoreContractTestCase(unittest.TestCase):
         ]
         fake_session = _FakePreviewDeleteSession(materials)
 
-        with patch("app.services.document_admin.SessionLocal", return_value=_FakePreviewDeleteSessionLocal(fake_session)):
+        with (
+            patch("app.services.document_admin.SessionLocal", return_value=_FakePreviewDeleteSessionLocal(fake_session)),
+            patch("app.services.document_admin.require_writable_project"),
+        ):
             resp = bulk_update_material_extracted_data(
                 BulkUpdateExtractedDataRequest(
                     material_ids=[1, 2, 99],
@@ -1643,6 +1655,7 @@ class AdminDashboardProcessCoreContractTestCase(unittest.TestCase):
 
         with (
             patch("app.services.document_admin.SessionLocal", return_value=_FakePreviewDeleteSessionLocal(fake_session)),
+            patch("app.services.document_admin.require_writable_project"),
             patch(
                 "app.api.admin.run_frontdoor_extraction",
                 return_value={

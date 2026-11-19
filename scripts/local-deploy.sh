@@ -7,7 +7,10 @@ ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 BACKEND_DIR="${ROOT_DIR}/main/backend"
 OPTIONAL_ENHANCEMENTS_SCRIPT="${ROOT_DIR}/scripts/optional-enhancements.sh"
 LOCAL_SERVICE_CONTROL_SCRIPT="${ROOT_DIR}/scripts/local-service-control.sh"
-WORKER_PID_FILE="/tmp/celery-local-worker.pid"
+BACKEND_PORT="${BACKEND_PORT:-8000}"
+FRONTEND_PORT="${FRONTEND_PORT:-5173}"
+MRW_LOCAL_STATE_DIR="${MRW_LOCAL_STATE_DIR:-$ROOT_DIR/.local-run}"
+WORKER_PID_FILE="${MRW_LOCAL_STATE_DIR}/celery-local-worker.pid"
 WORKER_LAUNCHD_LABEL="com.mrw.local-worker"
 
 usage() {
@@ -395,8 +398,8 @@ preflight() {
     fi
   }
 
-  check_local_port 8000 "backend"
-  check_local_port 5173 "frontend-modern"
+  check_local_port "$BACKEND_PORT" "backend"
+  check_local_port "$FRONTEND_PORT" "frontend-modern"
 
   if [[ $missing -ne 0 ]]; then
     write_preflight_manifest "failed" "1"
@@ -521,15 +524,15 @@ case "$cmd" in
     ;;
   status)
     echo "Local status:"
-    if is_listening 8000; then
-      echo "✅ backend listening on :8000"
+    if is_listening "$BACKEND_PORT"; then
+      echo "✅ backend listening on :${BACKEND_PORT}"
     else
-      echo "❌ backend not listening on :8000"
+      echo "❌ backend not listening on :${BACKEND_PORT}"
     fi
-    if is_listening 5173; then
-      echo "✅ frontend-modern listening on :5173"
+    if is_listening "$FRONTEND_PORT"; then
+      echo "✅ frontend-modern listening on :${FRONTEND_PORT}"
     else
-      echo "❌ frontend-modern not listening on :5173"
+      echo "❌ frontend-modern not listening on :${FRONTEND_PORT}"
     fi
     if [[ "${OSTYPE}" == darwin* && -f "$(worker_plist_path)" ]]; then
       worker_pid="$(worker_launchd_pid)"
@@ -553,9 +556,9 @@ case "$cmd" in
     "${OPTIONAL_ENHANCEMENTS_SCRIPT}" status || true
     ;;
   health)
-    curl -fsS http://localhost:8000/api/v1/health
+    curl -fsS http://127.0.0.1:${BACKEND_PORT}/api/v1/health
     echo
-    curl -fsS http://localhost:8000/api/v1/health/deep
+    curl -fsS http://127.0.0.1:${BACKEND_PORT}/api/v1/health/deep
     echo
     ;;
   release-cleanup)

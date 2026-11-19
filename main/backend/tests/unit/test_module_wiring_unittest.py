@@ -5,7 +5,6 @@ import unittest
 import pytest
 
 from app.composition.discovery import create_default_discovery_application
-from app.services.extraction.application import ExtractionApplicationService
 from app.services.indexer.application import IndexingApplicationService
 
 pytestmark = pytest.mark.unit
@@ -15,9 +14,6 @@ class ModuleWiringTestCase(unittest.TestCase):
     def test_application_services_construct(self):
         discovery = create_default_discovery_application()
         self.assertIsNotNone(discovery)
-
-        extraction = ExtractionApplicationService()
-        self.assertIsNotNone(extraction)
 
         indexing = IndexingApplicationService()
         self.assertIsNotNone(indexing)

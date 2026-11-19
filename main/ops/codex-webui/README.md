@@ -22,7 +22,7 @@ pnpm run build
 pnpm --dir web run build
 ```
 
-在后端私密 `.env` 设置 `CODEX_WEBUI_LOCAL_SINGLE_USER_ENABLED=true` 和 `CODEX_WEBUI_SERVER_API_KEY`，重启后端使配置生效。确认宿主已登录 Codex；在 WebUI 启动环境中私下设置 `MRW_BACKEND_API_KEY`（与后端 key 一致）和独立的 `WEBUI_API_KEY`，再执行 `./start.sh`。默认后端地址为 `http://127.0.0.1:8000`；非默认端口须显式设置 `MRW_BACKEND_URL`。WebUI 默认监听 `127.0.0.1:8172`，业务界面通过 `/codex/` 访问。
+在后端私密 `.env` 设置 `CODEX_WEBUI_LOCAL_SINGLE_USER_ENABLED=true`、`CODEX_WEBUI_SERVER_API_KEY`，并把 `CODEX_WEBUI_LOGIN_API_KEY` 设为 WebUI 的 `WEBUI_API_KEY`，重启后端使配置生效。确认宿主已登录 Codex；在 WebUI 启动环境中私下设置 `MRW_BACKEND_API_KEY`（与后端 service key 一致）和独立的 `WEBUI_API_KEY`，再执行 `./start.sh`。默认后端地址为 `http://127.0.0.1:8000`；非默认端口须显式设置 `MRW_BACKEND_URL`。WebUI 默认监听 `127.0.0.1:8172`。在默认 macOS 直装下，从业务界面的 **Agent** 页进入，页面直接嵌入 `http://localhost:8172/`；不要用单独打开 WebUI 来验证项目绑定。`/codex/` 是另一条经 MRW 会话认证的代理路径，不是这套直装的默认入口。
 
 `start.sh` 从 `launchd/com.mrw.codex-webui.plist.template` 生成本机 `.run/com.mrw.codex-webui.plist`，默认使用本目录的 `dist/main.js`、`.tmp/codex-webui.sqlite` 和仓库内 `@openai/codex@0.160.0`。它要求 `~/.codex-mrw-agent/auth.json` 是指向宿主 `~/.codex/auth.json` 的 symlink；不创建独立登录页，也不复制 token。`stop.sh` 只卸载同一 `com.mrw.codex-webui` LaunchAgent。
 
@@ -74,7 +74,7 @@ pnpm --dir web run build
 - 插件/MCP 服务器管理
 - 深色/浅色主题，中英文切换
 - 响应式布局，手机平板也能用
-- Docker 一键部署
+- 上游独立 Docker 部署（不包含 MRW / Cell 接线）
 
 ## 技术栈
 

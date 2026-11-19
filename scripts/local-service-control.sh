@@ -6,13 +6,15 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 BACKEND_DIR="${ROOT_DIR}/main/backend"
 FRONTEND_DIR="${ROOT_DIR}/main/frontend-modern"
+BACKEND_PORT="${BACKEND_PORT:-8000}"
+MRW_LOCAL_STATE_DIR="${MRW_LOCAL_STATE_DIR:-$ROOT_DIR/.local-run}"
 FRONTEND_PORT="${FRONTEND_PORT:-5173}"
 FRONTEND_HOST="${FRONTEND_HOST:-127.0.0.1}"
 FRONTEND_MODE="${FRONTEND_MODE:-preview}"
-FRONTEND_LOG_FILE="/tmp/frontend-modern-dev.log"
-FRONTEND_PID_FILE="/tmp/frontend-modern-dev.pid"
-WORKER_LOG_FILE="/tmp/celery-local-worker.log"
-WORKER_PID_FILE="/tmp/celery-local-worker.pid"
+FRONTEND_LOG_FILE="${MRW_LOCAL_STATE_DIR}/frontend-modern-dev.log"
+FRONTEND_PID_FILE="${MRW_LOCAL_STATE_DIR}/frontend-modern-dev.pid"
+WORKER_LOG_FILE="${MRW_LOCAL_STATE_DIR}/celery-local-worker.log"
+WORKER_PID_FILE="${MRW_LOCAL_STATE_DIR}/celery-local-worker.pid"
 CELERY_LOG_LEVEL="${CELERY_LOG_LEVEL:-info}"
 CELERY_CONCURRENCY="${CELERY_CONCURRENCY:-3}"
 CELERY_PREFETCH_MULTIPLIER="${CELERY_PREFETCH_MULTIPLIER:-2}"
@@ -177,6 +179,7 @@ start_frontend() {
     echo "❌ pnpm is required to start frontend"
     return 1
   fi
+  mkdir -p "$MRW_LOCAL_STATE_DIR"
   cd "$FRONTEND_DIR"
   if [[ ! -x node_modules/.bin/vite ]]; then
     echo "❌ frontend dependencies missing; run scripts/local-deploy.sh prepare"
@@ -186,7 +189,7 @@ start_frontend() {
     echo "❌ frontend dist/index.html missing; build it before preview mode"
     return 1
   fi
-  VITE_API_PROXY_TARGET="http://localhost:8000" nohup pnpm run "$FRONTEND_MODE" --host "$FRONTEND_HOST" --port "$FRONTEND_PORT" --strictPort >"$FRONTEND_LOG_FILE" 2>&1 &
+  VITE_API_PROXY_TARGET="http://127.0.0.1:${BACKEND_PORT}" nohup pnpm run "$FRONTEND_MODE" --host "$FRONTEND_HOST" --port "$FRONTEND_PORT" --strictPort >"$FRONTEND_LOG_FILE" 2>&1 &
   echo "$!" >"$FRONTEND_PID_FILE"
   echo "✅ local frontend starting on :$FRONTEND_PORT"
 }
@@ -210,7 +213,6 @@ stop_worker() {
     fi
     rm -f "$WORKER_PID_FILE"
   fi
-  pkill -f "${BACKEND_DIR}/.venv311/bin/celery.*-A app.celery_app worker" 2>/dev/null || true
   echo "✅ local worker stopped"
 }
 
@@ -219,6 +221,7 @@ start_worker() {
     start_launchd_service "$WORKER_LAUNCHD_LABEL" "worker"
     return
   fi
+  mkdir -p "$MRW_LOCAL_STATE_DIR"
   cd "$BACKEND_DIR"
   if [[ -f "$WORKER_PID_FILE" ]]; then
     pid="$(cat "$WORKER_PID_FILE" 2>/dev/null || true)"
@@ -252,19 +255,19 @@ stop_backend() {
     stop_launchd_service "$BACKEND_LAUNCHD_LABEL" "backend"
     return
   fi
-  pids="$(lsof -ti:8000 2>/dev/null || true)"
+  pids="$(lsof -nP -tiTCP:"$BACKEND_PORT" -sTCP:LISTEN 2>/dev/null || true)"
   if [[ -z "$pids" ]]; then
     echo "✅ local backend not listening"
     return 0
   fi
   killed=0
-  if stop_owned_port_listener 8000 "$BACKEND_DIR" "uvicorn app.main:app"; then
+  if stop_owned_port_listener "$BACKEND_PORT" "$BACKEND_DIR" "uvicorn app.main:app"; then
     killed=1
   fi
   if [[ "$killed" == "1" ]]; then
     echo "✅ local backend stopped"
   else
-    echo "ℹ️ :8000 is not owned by local uvicorn; skipped"
+    echo "ℹ️ :${BACKEND_PORT} is not owned by local uvicorn; skipped"
   fi
 }
 

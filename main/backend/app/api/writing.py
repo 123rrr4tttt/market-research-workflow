@@ -28,7 +28,7 @@ from ..contracts.schemas.writing import (
     WritingTemplateListData,
 )
 from ..services.projects import bind_project, current_project_key
-from ..services.projects.context import normalize_project_key
+from ..services.projects.context import ProjectNotWritableError, normalize_project_key
 from ..services.writing import (
     WritingVersionConflictError,
     aggregate_cards,
@@ -157,6 +157,15 @@ def _writing_project_context(project_key: str):
     try:
         with bind_project(project_key):
             yield
+    except ProjectNotWritableError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail=error_response(
+                ErrorCode.INVALID_INPUT,
+                str(exc),
+                details={"project_key": project_key, "reason_code": "project_not_writable"},
+            ),
+        ) from exc
     except ValueError as exc:
         raise HTTPException(
             status_code=400,

@@ -108,10 +108,10 @@ export class CodexProcessManager implements OnModuleInit, OnModuleDestroy {
     const codexBin = this.config.get<string>('CODEX_BIN', 'codex');
     const codexHome = this.config.get<string>('CODEX_HOME', '');
 
-    const env: Record<string, string> = { ...process.env } as Record<
-      string,
-      string
-    >;
+    const env = { ...process.env };
+    // These keys authenticate WebUI services, not the Codex process or its tools.
+    delete env.MRW_BACKEND_API_KEY;
+    delete env.WEBUI_API_KEY;
     if (codexHome) {
       env['CODEX_HOME'] = codexHome;
     }

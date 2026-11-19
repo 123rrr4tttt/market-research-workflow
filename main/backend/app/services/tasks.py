@@ -18,7 +18,8 @@ from ..composition.raw_material_import_task import (
 from ..models.base import SessionLocal
 from ..models.entities import EtlJobRun
 from .job_logger import complete_job, fail_job, start_job, update_job_tracking
-from .projects import bind_project
+from .projects import bind_project, current_project_key
+from .projects.context import check_project_write_admission
 
 if TYPE_CHECKING:
     from .collect_runtime.contracts import CollectJsonObject, CollectJsonValue
@@ -496,6 +497,7 @@ def task_ingest_market(
         fallback_worker_name="local.task_ingest_market",
         fallback_queue=queue or "local.search_discovery_index",
     )
+    check_project_write_admission(project_key if project_key is not None else current_project_key())
     ctx = bind_project(project_key) if project_key else nullcontext()
     with ctx:
         req = collect_request_from_market_api(
@@ -539,6 +541,7 @@ def task_collect_news_resource(
     """Dispatch to news resource handler. Effective = shared (总库) + project (子项目库), project overrides."""
     from ..project_customization import get_project_customization
 
+    check_project_write_admission(project_key if project_key is not None else current_project_key())
     ctx = bind_project(project_key) if project_key else nullcontext()
     with ctx:
         customization = get_project_customization(project_key)
@@ -708,6 +711,8 @@ def task_discover_site_entries_batched(
             params=params,
         )
         try:
+            if use_llm:
+                raise ValueError("Model-based site classification has no Cell execution binding.")
             domains = list_discovery_domains(
                 project_key=project_key,
                 url_scope=url_scope,
@@ -760,7 +765,6 @@ def task_discover_site_entries_batched(
                     allow_domains=batch_domains,
                     deny_domains=deny_domains,
                     run_auto_classify=run_auto_classify,
-                    use_llm=use_llm,
                 )
                 totals["domains_scanned"] += int(result.domains_scanned or 0)
                 totals["candidates_count"] += len(result.candidates or [])
@@ -810,6 +814,7 @@ def task_discover_site_entries_batched(
 def task_collect_reddit(subreddit: str = "news", limit: int = 20, project_key: str | None = None) -> TaskObject:
     from .ingest.news import collect_reddit_discussions
 
+    check_project_write_admission(project_key if project_key is not None else current_project_key())
     ctx = bind_project(project_key) if project_key else nullcontext()
     with ctx:
         return _task_object(collect_reddit_discussions(subreddit=subreddit, limit=limit))
@@ -819,6 +824,7 @@ def task_collect_reddit(subreddit: str = "news", limit: int = 20, project_key: s
 def task_collect_weekly_reports(limit: int = 10, project_key: str | None = None) -> TaskObject:
     from .ingest.reports.general import collect_weekly_market_reports
 
+    check_project_write_admission(project_key if project_key is not None else current_project_key())
     ctx = bind_project(project_key) if project_key else nullcontext()
     with ctx:
         return _task_object(collect_weekly_market_reports(limit=limit))
@@ -828,6 +834,7 @@ def task_collect_weekly_reports(limit: int = 10, project_key: str | None = None)
 def task_collect_monthly_reports(limit: int = 8, project_key: str | None = None) -> TaskObject:
     from .ingest.reports.general import collect_monthly_financial_reports
 
+    check_project_write_admission(project_key if project_key is not None else current_project_key())
     ctx = bind_project(project_key) if project_key else nullcontext()
     with ctx:
         return _task_object(collect_monthly_financial_reports(limit=limit))
@@ -843,6 +850,7 @@ def task_collect_data_api(
     base_subreddits: list[str] | None = None,
     project_key: str | None = None,
 ) -> TaskObject:
+    check_project_write_admission(project_key if project_key is not None else current_project_key())
     ctx = bind_project(project_key) if project_key else nullcontext()
     with ctx:
         return _task_object(_get_social_ingest_app().collect_data_api(
@@ -868,6 +876,7 @@ def task_collect_policy_regulation(
 ) -> TaskObject:
     from .collect_runtime import collect_request_from_policy_api, run_collect
 
+    check_project_write_admission(project_key if project_key is not None else current_project_key())
     ctx = bind_project(project_key) if project_key else nullcontext()
     with ctx:
         req = collect_request_from_policy_api(
@@ -892,6 +901,7 @@ def task_collect_policy_regulation(
 def task_ingest_commodity_metrics(limit: int = 30, project_key: str | None = None) -> TaskObject:
     from .ingest.commodity import ingest_commodity_metrics
 
+    check_project_write_admission(project_key if project_key is not None else current_project_key())
     ctx = bind_project(project_key) if project_key else nullcontext()
     with ctx:
         return _task_object(ingest_commodity_metrics(limit=limit))
@@ -901,6 +911,7 @@ def task_ingest_commodity_metrics(limit: int = 30, project_key: str | None = Non
 def task_collect_ecom_prices(limit: int = 100, project_key: str | None = None) -> TaskObject:
     from .ingest.ecom import collect_ecom_price_observations
 
+    check_project_write_admission(project_key if project_key is not None else current_project_key())
     ctx = bind_project(project_key) if project_key else nullcontext()
     with ctx:
         return _task_object(collect_ecom_price_observations(limit=limit))
@@ -1006,6 +1017,7 @@ def task_run_source_library_item(
         fallback_worker_name="local.task_run_source_library_item",
         fallback_queue=queue or "local.resource_source_library",
     )
+    check_project_write_admission(project_key if project_key is not None else current_project_key())
     ctx = bind_project(project_key) if project_key else nullcontext()
     with ctx:
         job_id = _start_resource_pool_job(

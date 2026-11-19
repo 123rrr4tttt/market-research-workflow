@@ -144,9 +144,9 @@ $$
 
 探索预算限定候选数、请求数、每次超时及总截止时间；底层重试、重定向和备用服务均计入实际预算。预算由当前调用解释，不能为每个分支重新获得一份无限额度。到期停止新请求并保留已经取得的局部结果。
 
-机械探测仍未解决时，受允许的 `execute_external_site_search` 可以独立获得该域候选，并明确标为外部搜索来源。未解决的接口同时产生 `exploration_request`，包含项目、item、来源、查询、尝试记录、具体 gap、剩余预算与建议动作。已注册的 `source.discovery.plan` 负责规划，`source.web.search` 允许运行中的项目 Agent 主动搜索接口线索、同站资料和不同查询表达。`auto_classify.use_llm` 目前仅分类 URL，不是该探索动作的实现。
+机械探测仍未解决时，受允许的 `execute_external_site_search` 可以独立获得该域候选，并明确标为外部搜索来源。未解决的接口同时产生 `exploration_request`，包含项目、item、来源、查询、尝试记录、具体 gap、剩余预算与建议动作。已注册的 `source.discovery.plan` 负责规划，`source.web.search` 允许运行中的项目 Agent 主动搜索接口线索、同站资料和不同查询表达。候选按字面匹配及可解释的排序规则筛选；规则类站点推荐与接口探索是不同动作。
 
-项目内所有 Agent 调用统一经过现有 Cell 中继：`exploration_request` 交给真实绑定项目的 Cell-bound Agent，对话、辅助推断、接口探索、委派、工具调用及结果回传均保持 Cell 的项目身份、授权与预算边界，原 Runtime 和事实 owner 不变。`auto_classify.use_llm` 与原 `search_capabilities` 语义扩展/候选选择的 `model.invoke` 直调尚未符合该约定，属于已确认的能力接入缺口，不是完整全仓审计清单。本次查询接口验证强制 `allow_candidate_semantic_llm=false`，不调用原直接模型推断；未匹配候选继续以探索请求交 Cell-bound Agent 判断。验证以外的旧语义匹配和分类路径仍需接入 Cell，不能声称已完成全量 LLM 迁移。Cell 不可用或绑定/工具缺失时保留具体 gap，禁止静默改走 direct provider、Agent SDK 或未绑定 Agent。
+项目内所有 Agent 调用统一经过现有 Cell 中继：`exploration_request` 交给真实绑定项目的 Cell-bound Agent，对话、辅助推断、接口探索、委派、工具调用及结果回传均保持 Cell 的项目身份、授权与预算边界，原 Runtime 和事实 owner 不变。自动分类及运行时筛选不执行模型调用；未匹配候选继续以探索请求交由绑定项目的 Cell Agent 判断。没有执行绑定时不接收模型分类请求，不把它降级成空结果或规则推荐成功。
 
 Agent 提案必须再次走相同检查与原查询消费者；不能把提案直接当作可执行接口或材料证据。需要浏览器交互、登录、验证码、站点脚本或未注册的探测工具时，显式说明能力/权限缺口。探索请求本身不等于已调度工作，不得报告 `enqueued=true`，除非有原工作流真实登记结果。托管对话、普通临时子 Agent 和临时脚本不能替代项目运行中的 Agent 产生探索完成证据。
 

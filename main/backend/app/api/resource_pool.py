@@ -117,6 +117,15 @@ def _json_from_exception(exc: Exception) -> JSONResponse:
     return _error_json(_error_status_code(code), code, message, details=details)
 
 
+def _model_classification_unavailable() -> JSONResponse:
+    return _error_json(
+        503,
+        ErrorCode.UPSTREAM_ERROR,
+        "Model-based site classification has no Cell execution binding. Request rule-based classification instead.",
+        details={"reason": "cell_executor_not_registered"},
+    )
+
+
 def _site_entry_lifecycle_state(item: dict[str, Any]) -> tuple[str, str]:
     raw = str(item.get("lifecycle_state") or "").strip().lower()
     if raw:
@@ -1241,7 +1250,7 @@ class DiscoverSiteEntriesPayload(BaseModel):
     dry_run: bool = Field(default=True, description="If true, do not write")
     write: bool = Field(default=False, description="If true, persist discovered candidates")
     run_auto_classify: bool = Field(default=False, description="If true, run classify on domain_root without sitemap/rss")
-    use_llm: bool = Field(default=False, description="If true and run_auto_classify, use LLM for classification")
+    use_llm: bool = False
     async_mode: bool = Field(default=False, description="Run discovery in background (Celery)")
     batch_size: int = Field(default=20, ge=1, le=100, description="Domains per batch when async_mode=true")
     simplify_pool_first: bool = Field(default=True, description="Simplify duplicate site entries before async batched discovery")
@@ -1327,6 +1336,8 @@ def discover_site_entries_api(payload: DiscoverSiteEntriesPayload, request: Requ
         return error
     if project_key is None:
         return _error_json(400, ErrorCode.PROJECT_KEY_REQUIRED, "project_key is required. Please select a project first.")
+    if payload.use_llm:
+        return _model_classification_unavailable()
     try:
         # Optional: merge ingest_config policy (payload wins)
         config = _object_dict(get_ingest_config(project_key, "site_entry_discovery_policy"))
@@ -1341,7 +1352,6 @@ def discover_site_entries_api(payload: DiscoverSiteEntriesPayload, request: Requ
         allow_domains = payload.allow_domains if payload.allow_domains is not None else _string_list(policy.get("allow_domains"))
         deny_domains = payload.deny_domains if payload.deny_domains is not None else _string_list(policy.get("deny_domains"))
         run_auto_classify = payload.run_auto_classify
-        use_llm = payload.use_llm
 
         if payload.async_mode:
             task = _get_tasks_module().task_discover_site_entries_batched.delay(
@@ -1357,7 +1367,6 @@ def discover_site_entries_api(payload: DiscoverSiteEntriesPayload, request: Requ
                 allow_domains=allow_domains,
                 deny_domains=deny_domains,
                 run_auto_classify=run_auto_classify,
-                use_llm=use_llm,
                 write=bool(payload.write) and not bool(payload.dry_run),
                 batch_size=payload.batch_size,
                 simplify_pool_first=bool(payload.simplify_pool_first),
@@ -1374,7 +1383,6 @@ def discover_site_entries_api(payload: DiscoverSiteEntriesPayload, request: Requ
                             "target_scope": target_scope,
                             "limit_domains": limit_domains,
                             "run_auto_classify": run_auto_classify,
-                            "use_llm": use_llm,
                             "batch_size": payload.batch_size,
                             "simplify_pool_first": bool(payload.simplify_pool_first),
                         },
@@ -1395,7 +1403,6 @@ def discover_site_entries_api(payload: DiscoverSiteEntriesPayload, request: Requ
             allow_domains=allow_domains,
             deny_domains=deny_domains,
             run_auto_classify=run_auto_classify,
-            use_llm=use_llm,
         )
         write_result = None
         do_write = bool(payload.write) and not bool(payload.dry_run)
@@ -1454,14 +1461,13 @@ class RecommendSiteEntryPayload(BaseModel):
     site_url: str = Field(..., min_length=1, description="Site entry URL to classify")
     entry_type: str | None = Field(default=None, description="Optional known entry_type")
     template: str | None = Field(default=None, description="Optional template for search_template")
-    use_llm: bool = Field(default=False, description="Whether to call LLM when rules cannot determine")
+    use_llm: bool = False
 
 
 class BatchRecommendSiteEntriesPayload(BaseModel):
     project_key: str | None = Field(default=None, description="Project identifier")
     entries: list[dict[str, Any]] = Field(default_factory=list, description="Rows: {site_url, entry_type?, template?}")
-    use_llm: bool = Field(default=True, description="Whether to use LLM for unresolved rows")
-    llm_batch_size: int = Field(default=20, ge=1, le=100, description="Batch size for one LLM request")
+    use_llm: bool = False
 
 
 @router.post(
@@ -1470,13 +1476,14 @@ class BatchRecommendSiteEntriesPayload(BaseModel):
     response_model=ResourcePoolAnyEnvelope,
 )
 def recommend_site_entry_api(payload: RecommendSiteEntryPayload):
-    """Recommend channel_key and entry_type for a site entry. Rule-first, LLM fallback when use_llm=True."""
+    """Recommend a channel and entry type from known fields and URL rules."""
+    if payload.use_llm:
+        return _model_classification_unavailable()
     try:
         rec = classify_site_entry(
             site_url=payload.site_url,
             entry_type=payload.entry_type,
             template=payload.template,
-            use_llm=payload.use_llm,
         )
         return JSONResponse(
             status_code=200,
@@ -1501,7 +1508,9 @@ def recommend_site_entry_api(payload: RecommendSiteEntryPayload):
     response_model=ResourcePoolAnyEnvelope,
 )
 def recommend_site_entries_batch_api(payload: BatchRecommendSiteEntriesPayload):
-    """Batch recommend channel/entry_type/template (+ capability/symbol-ready hints) for site entries."""
+    """Recommend channels, entry types, templates and capabilities in input order."""
+    if payload.use_llm:
+        return _model_classification_unavailable()
     try:
         rows: list[dict[str, object]] = []
         for i, row in enumerate(payload.entries or []):
@@ -1516,7 +1525,7 @@ def recommend_site_entries_batch_api(payload: BatchRecommendSiteEntriesPayload):
                     "template": row.get("template"),
                 }
             )
-        result = classify_site_entries_batch(rows, use_llm=payload.use_llm, llm_batch_size=payload.llm_batch_size)
+        result = classify_site_entries_batch(rows)
         normalized: list[dict[str, object]] = [
             {
                 "index": normalized_item.get("index"),
@@ -1527,7 +1536,6 @@ def recommend_site_entries_batch_api(payload: BatchRecommendSiteEntriesPayload):
                 "validated": normalized_item.get("validated"),
                 "source": normalized_item.get("source"),
                 "capabilities": normalized_item.get("capabilities") or {},
-                "symbol_suggestion": normalized_item.get("symbol_suggestion"),
             }
             for item in result
             for normalized_item in (_object_dict(item),)

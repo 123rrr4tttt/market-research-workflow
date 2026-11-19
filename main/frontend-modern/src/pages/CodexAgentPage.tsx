@@ -12,6 +12,7 @@ type CodexAgentPageProps = {
 const LOCAL_HOSTNAMES = new Set(['localhost', '127.0.0.1', '[::1]'])
 const WEBUI_ENTRY_QUERY = '?mrw=macro-host-v1'
 const HOST_WEBUI_URL = `http://localhost:8172/${WEBUI_ENTRY_QUERY}`
+const EMBEDDED_WEBUI_MODE = String(import.meta.env.VITE_MRW_WEBUI_MODE || '').trim()
 
 function isExplicitLocalHttpOrigin() {
   return window.location.protocol === 'http:' && LOCAL_HOSTNAMES.has(window.location.hostname)
@@ -48,11 +49,13 @@ export default function CodexAgentPage({ projectKey }: CodexAgentPageProps) {
   const browserAuthenticated = Boolean(codexAuthQuery.data?.authenticated)
   const hostConnected = Boolean(codexAuthQuery.data?.token_sink_authenticated)
   // Local WebUI owns authentication; status snapshots must not reload its iframe.
-  const codexUiUrl = isExplicitLocalHttpOrigin()
-    ? HOST_WEBUI_URL
-    : browserAuthenticated
-      ? `/codex/${WEBUI_ENTRY_QUERY}`
-      : null
+  const codexUiUrl = EMBEDDED_WEBUI_MODE === 'embedded'
+    ? `/codex/${WEBUI_ENTRY_QUERY}`
+    : isExplicitLocalHttpOrigin()
+      ? HOST_WEBUI_URL
+      : browserAuthenticated
+        ? `/codex/${WEBUI_ENTRY_QUERY}`
+        : null
   const frameRef = useRef<HTMLIFrameElement>(null)
   const sendProjectContext = useCallback(() => {
     if (!codexUiUrl) return

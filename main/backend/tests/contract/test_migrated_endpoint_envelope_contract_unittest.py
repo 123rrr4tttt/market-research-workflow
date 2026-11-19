@@ -134,6 +134,33 @@ class MigratedEndpointEnvelopeContractTestCase(unittest.TestCase):
         self.assertEqual(payload["data"]["template_project_key"], "demo_proj")
         self.assertEqual(payload["data"]["llm_configs_applied"], 0)
 
+    def test_projects_auto_create_requires_bound_cell_for_prompt_generation(self):
+        from fastapi.testclient import TestClient
+
+        client = TestClient(self._build_app())
+        with (
+            patch("app.api.projects._project_exists") as check_project,
+            patch("app.api.projects.create_project") as create_project,
+            patch("app.api.projects._apply_llm_configs_to_project") as apply_configs,
+        ):
+            response = client.post(
+                "/api/v1/projects/auto-create",
+                json={
+                    "project_name": "New Project",
+                    "project_key": "new_proj",
+                    "copy_initial_data": False,
+                    "llm_configs": [{"service_name": "prompt_factory", "user_prompt_template": "Research notes"}],
+                },
+            )
+
+        self.assertEqual(response.status_code, 503)
+        error = response.json()["detail"]["error"]
+        self.assertEqual(error["code"], "CONFIG_ERROR")
+        self.assertEqual(error["details"]["binding"], "agent_cell")
+        check_project.assert_not_called()
+        create_project.assert_not_called()
+        apply_configs.assert_not_called()
+
     def test_search_upstream_error_returns_structured_upstream_error(self):
         try:
             from fastapi.testclient import TestClient

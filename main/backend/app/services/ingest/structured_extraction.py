@@ -1,21 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import Annotated, Protocol, Iterable, runtime_checkable, TypeGuard
-
-
-class StructuredExtractor(Protocol):
-    def extract_structured_enriched(
-        self,
-        text: str,
-        *,
-        include_market: bool,
-        include_policy: bool,
-        include_sentiment: bool,
-        include_company: bool,
-        include_product: bool,
-        include_operation: bool,
-    ) -> object: ...
 
 
 def _is_string_key(value: object) -> bool:
@@ -41,14 +26,6 @@ def _is_object_dict(value: object) -> TypeGuard[dict[str, object]]:
 
 def _is_object_list(value: object) -> TypeGuard[list[object]]:
     return isinstance(value, list)
-
-
-@dataclass(frozen=True)
-class StructuredExtractionResult:
-    data: dict[str, object]
-    status: str
-    reason: str | None
-    error: str | None
 
 
 def build_structured_summary(
@@ -78,31 +55,3 @@ def build_structured_summary(
         "has_product": isinstance(extracted_data.get("product_structured"), dict),
         "has_operation": isinstance(extracted_data.get("operation_structured"), dict),
     }
-
-
-def extract_structured_enriched_safe(
-    *,
-    extraction_app: StructuredExtractor,
-    payload: str,
-    include_market: bool = True,
-    include_policy: bool = True,
-    include_sentiment: bool = True,
-    include_company: bool = True,
-    include_product: bool = True,
-    include_operation: bool = True,
-) -> StructuredExtractionResult:
-    try:
-        enriched = extraction_app.extract_structured_enriched(
-            payload,
-            include_market=include_market,
-            include_policy=include_policy,
-            include_sentiment=include_sentiment,
-            include_company=include_company,
-            include_product=include_product,
-            include_operation=include_operation,
-        )
-    except Exception as exc:  # noqa: BLE001
-        return StructuredExtractionResult(data={}, status="failed", reason="extractor_exception", error=str(exc))
-    if _is_object_dict(enriched) and enriched:
-        return StructuredExtractionResult(data=dict(enriched), status="ok", reason=None, error=None)
-    return StructuredExtractionResult(data={}, status="failed", reason="empty_structured_output", error=None)

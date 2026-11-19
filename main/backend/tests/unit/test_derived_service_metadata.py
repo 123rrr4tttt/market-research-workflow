@@ -29,10 +29,6 @@ EXPECTED_DERIVED_METADATA = {
         "build_workflow_graph_reporting_handoff": "view fact_source=api.workflow_graph",
         "build_workflow_graph_writing_handoff": "view fact_source=api.workflow_graph",
     },
-    "main/backend/app/services/llm/chains.py": {
-        "build_policy_classification_chain": "prepared-command effect_boundary=llm.chains",
-        "build_policy_summary_chain": "prepared-command effect_boundary=llm.chains",
-    },
     "main/backend/app/services/llm/platformization.py": {
         "build_trace_audit_record": (
             "generated_evidence fact_source=llm.runtime_trace"

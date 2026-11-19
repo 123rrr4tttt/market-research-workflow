@@ -552,6 +552,24 @@ def test_end_turn_rejects_dispatch_and_confirm() -> None:
     assert exc.value.code == "turn_ended"
 
 
+def test_new_service_restores_durable_bound_thread_from_agent_session() -> None:
+    service, sessions, owner = _make_service(_make_registry())
+    prepared = service.prepare(project_key="project-a")
+    service.bind(binding_id=prepared["bindingId"], thread_id="thread-restored")
+
+    restarted = AgentMacroHostService(
+        project_checker=lambda key: key == "project-a",
+        agent_session_service=sessions,
+        environment_owner=owner,
+    )
+
+    restored = restarted.environment(thread_id="thread-restored")
+    assert restored["threadId"] == "thread-restored"
+    assert restored["projectKey"] == "project-a"
+    assert restored["status"] == "bound"
+    assert restored["environmentStatus"] == "configured"
+
+
 def test_binding_memory_miss_raises_rebind_required() -> None:
     sessions = AgentSessionService(store=InMemoryAgentSessionStore())
     sessions.create_session(

@@ -38,7 +38,6 @@ services:
   redis:
     image: redis:7.4
   backend:
-    platform: ${MRW_DOCKER_PLATFORM:-linux/amd64}
     build:
       context: ../../
       dockerfile: ./main/backend/Dockerfile
@@ -90,7 +89,6 @@ services:
       retries: 3
       start_period: 40s
   celery-worker:
-    platform: ${MRW_DOCKER_PLATFORM:-linux/amd64}
     build:
       context: ../../
       dockerfile: ./main/backend/Dockerfile

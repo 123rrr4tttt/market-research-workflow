@@ -1,4 +1,4 @@
-"""Provider-backed proposal of domain claims from one persisted material body.
+"""Proposal validation for domain claims from one persisted material body.
 
 The result is deliberately below the topology write boundary.  It contains
 local keys and source provenance, while the retrieval executor remains the
@@ -589,10 +589,9 @@ def formalize_material(
 ) -> FormalizationResult:
     """Return one validated proposal/no-claim result without writing topology state.
 
-    ``model_invoke`` is a narrow injection seam for deterministic fixtures.  A
-    production caller omits it and therefore always resolves the configured
-    provider through ``get_chat_model``.  Provider failure is explicit; this
-    function never supplies synthetic or heuristic proposal text.
+    ``model_invoke`` is an injection seam for deterministic fixtures. Until
+    production supplies a bound Cell invocation, the request fails explicitly
+    instead of returning no_claim or creating a synthetic proposal.
     """
     if not isinstance(payload, Mapping):
         return _failed("FORMALIZATION_INPUT_INVALID", "payload must be an object", path="payload")
@@ -605,18 +604,15 @@ def formalize_material(
 def formalize_normalized(
     source: FormalizationInput, *, model_invoke: ModelInvoke | None = None,
 ) -> FormalizationResult:
-    """Run the provider-backed proposal against one already-normalized input."""
+    """Validate one proposal against an already-normalized source."""
+    if model_invoke is None:
+        return _failed(
+            "FORMALIZATION_CELL_BINDING_MISSING",
+            "Material formalization requires a bound Agent Cell; no model was called.",
+        )
     prompt = _prompt(source)
     try:
-        invoke = model_invoke
-        if invoke is None:
-            # Import at the actual effect boundary so pure proposal validation
-            # and injected fixtures do not initialize a provider stack.
-            from app.services.llm.provider import get_chat_model
-
-            model = get_chat_model(temperature=0.0, max_tokens=2400)
-            invoke = model.invoke
-        raw_response = invoke(prompt)
+        raw_response = model_invoke(prompt)
     except Exception as exc:
         return _failed("FORMALIZATION_PROVIDER_FAILED", str(exc))
 
@@ -628,7 +624,7 @@ def formalize_normalized(
     if not isinstance(initial_result, Failure):
         return cast(FormalizationResult, initial_result)
 
-    # A correction is a second provider judgment, never a parser or evidence
+    # A correction is a second model judgment, never a parser or evidence
     # shortcut. Its result passes the same strict validator exactly once.
     correction = (
         prompt
@@ -637,7 +633,7 @@ def formalize_normalized(
         "Use no_claim if the evidence requirements cannot be met."
     )
     try:
-        corrected_response = invoke(correction)
+        corrected_response = model_invoke(correction)
     except Exception as provider_exc:
         return _failed("FORMALIZATION_PROVIDER_FAILED", str(provider_exc))
     corrected_value = _response_value(corrected_response)

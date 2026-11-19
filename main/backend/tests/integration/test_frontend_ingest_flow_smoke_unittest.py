@@ -85,7 +85,8 @@ def client():
     return TestClient(_AuthenticatedActorStateApp(app, actor_id="frontend-actor-1"))
 
 
-def test_frontend_ingest_flow_contract_smoke(client: TestClient):
+def test_frontend_ingest_flow_contract_smoke(client: TestClient, monkeypatch):
+    monkeypatch.setattr(ingest_api, "check_project_write_admission", lambda _project_key: None)
     headers = {"X-Project-Key": "demo_proj", "X-Request-Id": "ingest-flow-smoke"}
     tasks_stub = _TasksStub()
 

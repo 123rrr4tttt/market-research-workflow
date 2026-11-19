@@ -12,6 +12,7 @@ from sqlalchemy import select
 from ...models.base import SessionLocal
 from ...models.entities import Material
 from ..job_logger import complete_job, fail_job, start_job
+from ..projects.context import require_writable_project
 from ..resource_pool.http_port import fetch_html, make_html_parser
 from .content_extraction import locate_main_text_from_html
 from .frontdoor_ingress import build_raw_import_ingress_envelope
@@ -345,6 +346,11 @@ def run_raw_import_materials(payload: RawObject, project_key: str) -> RawObject:
     url_to_market = bool(payload.get("url_to_market", True))
     raw_items: object = payload.get("items")
     items = raw_items if _is_object_list(raw_items) else []
+
+    # Do not start a job or fetch/extract input for an already archived project.
+    # Release this admission lock before preparation; each write transaction rechecks.
+    with SessionLocal() as session:
+        require_writable_project(session, project_key)
 
     job_id = start_job(
         "raw_import",
@@ -691,6 +697,10 @@ def run_raw_import_materials(payload: RawObject, project_key: str) -> RawObject:
                     logger.warning("raw_import failed idx=%s err=%s", idx, exc)
                     errors.append({"index": idx, "error": str(exc)})
 
+            if updated:
+                # Overwrites commit here; new inserts use the terminal writer's
+                # own transaction. Do not hold the lifecycle lock during extraction.
+                require_writable_project(session, project_key)
             session.commit()
             result: RawObject = {
                 "inserted": inserted,

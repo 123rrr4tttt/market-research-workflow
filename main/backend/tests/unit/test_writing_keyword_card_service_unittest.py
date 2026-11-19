@@ -322,7 +322,7 @@ class WritingKeywordCardServiceUnitTestCase(unittest.TestCase):
         self.assertEqual(detail.selection_matches["query"], "robotics investment")
         self.assertEqual(detail.selection_matches["request_id"], "typed-fetch-readback")
 
-    def test_wave19_persisted_card_request_from_typed_api_boundary_round_trips_response(self):
+    def test_persisted_card_request_from_typed_api_boundary_round_trips_response(self):
         readback = typed_knowledge_boundary.build_persisted_card_request_response_readback(project_key="demo_proj")
         expected_response = readback["keyword_card_response"]["body"]
         payload = KeywordCardRequest.model_validate(readback["keyword_card_request"]["body"])

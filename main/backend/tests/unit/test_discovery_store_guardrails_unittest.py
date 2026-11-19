@@ -24,6 +24,12 @@ class DiscoveryStoreGuardrailsUnitTestCase(unittest.TestCase):
         if _IMPORT_ERROR is not None:
             raise unittest.SkipTest(f"discovery store guardrails unit tests require backend dependencies: {_IMPORT_ERROR}")
 
+    def test_discovery_preserves_unclassified_material_without_a_model(self):
+        self.assertEqual(store_module._classify_kind("Annual meeting", "", None), "external")
+        self.assertEqual(store_module._classify_kind("Market regulation", "", None), "external")
+        self.assertEqual(store_module._classify_kind("Market revenue", "", None), "market")
+        self.assertEqual(store_module._classify_kind("Policy legislation", "", None), "policy")
+
     def test_discovery_gate_rejects_search_endpoint(self):
         ok, reason, _ = store_module._discovery_gate_check(
             url="https://www.google.com/search?q=robotics",

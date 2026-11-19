@@ -157,6 +157,9 @@ export class TerminalService implements OnModuleDestroy {
     const rows = this.clampDimension(params.rows, MIN_ROWS, MAX_ROWS, 24);
     const shell = this.resolveShell();
     const cwd = await this.resolveTerminalCwd(contextKey, params.cwd);
+    const env = { ...process.env };
+    delete env.MRW_BACKEND_API_KEY;
+    delete env.WEBUI_API_KEY;
 
     this.logger.log(`Spawning shell: ${shell}, cwd: ${cwd}`);
 
@@ -165,7 +168,7 @@ export class TerminalService implements OnModuleDestroy {
       cols,
       rows,
       cwd,
-      env: { ...process.env },
+      env,
     });
 
     const headless = new HeadlessTerminal({

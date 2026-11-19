@@ -29,7 +29,8 @@ from .extraction.topic_workflow import (
 from .graph.models import Graph, GraphEdge, GraphNode
 from .graph.mapping import normalize_graph_json_object
 from .graph.relation_ontology import relation_annotation
-from .projects import bind_project
+from .projects import bind_project, current_project_key
+from .projects.context import require_writable_project
 from .document_views import (
     get_market_data,
     get_policy_data,
@@ -557,6 +558,7 @@ def update_admin_material_extracted_data(
     command: AdminExtractedDataCommand,
 ) -> AdminExtractedDataResult:
     with SessionLocal() as session:
+        require_writable_project(session, current_project_key())
         row = session.execute(select(Material).where(Material.id == material_id)).scalar_one_or_none()
         if row is None:
             raise AdminMaterialNotFoundError(str(material_id))
@@ -582,6 +584,7 @@ def bulk_update_admin_material_extracted_data(
     skipped = 0
     errors: list[AdminMutationError] = []
     with SessionLocal() as session:
+        require_writable_project(session, current_project_key())
         rows = session.execute(select(Material).where(Material.id.in_(material_ids))).scalars().all()
         pre_mutation_docs = material_snapshots(rows)
         found_ids = {item["material_id"] for item in pre_mutation_docs}
@@ -623,6 +626,7 @@ def preview_admin_materials(material_ids: list[int]) -> list[AdminMaterialSnapsh
 
 def delete_admin_materials(material_ids: list[int]) -> AdminDeleteMaterialsResult:
     with SessionLocal() as session:
+        require_writable_project(session, current_project_key())
         rows = session.execute(select(Material).where(Material.id.in_(material_ids))).scalars().all()
         pre_mutation_docs = material_snapshots(rows)
         found_ids = {item["material_id"] for item in pre_mutation_docs}
@@ -695,6 +699,9 @@ def reextract_admin_materials(
     success_count = 0
     error_count = 0
     skipped_count = 0
+    project_key = current_project_key()
+    with SessionLocal() as admission:
+        require_writable_project(admission, project_key)
     with SessionLocal() as session:
         rows = _select_reextract_rows(session, command)
         pre_mutation_docs = material_snapshots(rows)
@@ -770,9 +777,12 @@ def reextract_admin_materials(
                 logger.warning("re_extract failed material_id=%s err=%s", record.id, exc)
                 error_count += 1
             if pending >= command.batch_size:
+                require_writable_project(session, project_key)
                 session.commit()
                 pending = 0
-        session.commit()
+        if session.dirty:
+            require_writable_project(session, project_key)
+            session.commit()
     requested = command.material_ids or list(selected_ids)
     missing = [material_id for material_id in requested if material_id not in selected_ids]
     return {
@@ -918,6 +928,9 @@ def topic_extract_admin_materials(
     topic_fallback_hits: dict[TopicName, int] = {topic: 0 for topic in command.topics}
     topic_coverages: dict[TopicName, list[float]] = {topic: [] for topic in command.topics}
     with bind_project(command.project_key):
+        project_key = current_project_key()
+        with SessionLocal() as admission:
+            require_writable_project(admission, project_key)
         with SessionLocal() as session:
             rows = _select_topic_rows(session, command)
             total = len(rows)
@@ -1013,9 +1026,12 @@ def topic_extract_admin_materials(
                     logger.warning("topic_extract failed material_id=%s err=%s", record.id, exc)
                     error_count += 1
                 if pending >= command.batch_size:
+                    require_writable_project(session, project_key)
                     session.commit()
                     pending = 0
-            session.commit()
+            if session.dirty:
+                require_writable_project(session, project_key)
+                session.commit()
     topic_avg_coverage: dict[TopicName, float] = {
         topic: round(sum(values) / len(values), 4) if values else 0.0
         for topic, values in topic_coverages.items()

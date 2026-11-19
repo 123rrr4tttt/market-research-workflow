@@ -35,6 +35,7 @@ from ..services.ingest.social_application import SocialCollectResult
 from ..services.job_logger import list_jobs
 from ..services.keyword_generation import generate_topic_keywords
 from ..services.projects import bind_project, current_project_key
+from ..services.projects.context import ProjectNotWritableError, check_project_write_admission
 from ..services.skill_runtime import invoke_skill
 from ..services.source_library.single_source_guard import (
     SourceLibrarySingleSourceGuardError,
@@ -941,7 +942,7 @@ def _skill_dispatch_ingest_market_collect(payload: IngestJsonObject) -> IngestJs
     )
     raw_max_items = payload.get("max_items")
     max_items = _normalize_max_items(raw_max_items if isinstance(raw_max_items, int) else None, None)
-    project_key = _require_project_key(str(payload.get("project_key") or "").strip() or None)
+    project_key = _require_ingest_project(str(payload.get("project_key") or "").strip() or None)
     lane = validate_lane(str(payload.get("lane") or "").strip() or None)
     override_params = _optional_json_object(payload.get("override_params"), path="skill.market.override_params") or {}
     enable_extraction = bool(override_params.get("enable_extraction", True))
@@ -976,7 +977,7 @@ def _skill_dispatch_ingest_source_library_item(payload: IngestJsonObject) -> Ing
     item_key = str(payload.get("item_key") or "").strip()
     if not item_key:
         raise ValueError("item_key is required")
-    project_key = _require_project_key(str(payload.get("project_key") or "").strip() or None)
+    project_key = _require_ingest_project(str(payload.get("project_key") or "").strip() or None)
     lane = validate_lane(str(payload.get("lane") or "").strip() or None)
     override_params = _optional_json_object(payload.get("override_params"), path="skill.source_library.override_params") or {}
     trace_id = str(payload.get("trace_id") or "").strip() or None
@@ -1024,6 +1025,25 @@ def _require_project_key(project_key: str | None) -> str:
             "project_key is required. Please select a project first.",
         ),
     )
+
+
+def _require_ingest_project(explicit_project_key: str | None) -> str:
+    project_key = _require_project_key(explicit_project_key)
+    _check_ingest_admission(project_key)
+    return project_key
+
+
+def _check_ingest_admission(project_key: str) -> None:
+    try:
+        check_project_write_admission(project_key)
+    except ProjectNotWritableError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail=error_response(
+                ErrorCode.INVALID_INPUT, str(exc),
+                details={"project_key": project_key, "reason_code": "project_not_writable"},
+            ),
+        ) from exc
 
 
 def _normalize_query_terms(
@@ -1201,6 +1221,7 @@ def ingest_market(payload: MarketIngestRequest) -> IngestJsonObject | JSONRespon
     """Generic market info (web search). Project-specific fixed sources use source library."""
     project_key = _require_project_key(payload.project_key)
     query_terms = _normalize_query_terms(payload.query_terms, payload.keywords, field_name="query_terms")
+    _check_ingest_admission(project_key)
     query_terms, topic_meta = _expand_query_terms_with_topic_focus(
         query_terms, topic_focus=payload.topic_focus, language=payload.language or "en"
     )
@@ -1316,6 +1337,7 @@ def ingest_url_single(
         from ..services.request_identity import require_trusted_actor_context
 
         actor_context = require_trusted_actor_context(request)
+        _check_ingest_admission(project_key)
         idempotency_key, registry_key = _derive_ingest_idempotency(
             trigger_type="ingest.url.single",
             project_key=project_key,
@@ -1405,6 +1427,12 @@ def ingest_url_single(
             )
             canonical_run_id = str(run.get("run_id") or run_id)
             run_ref = f"runtime-run:{canonical_run_id}"
+        except ProjectNotWritableError as exc:
+            _forget_ingest_submission(registry_key=registry_key)
+            return error_json_response(
+                409, ErrorCode.INVALID_INPUT, str(exc),
+                details={"project_key": project_key, "reason_code": "project_not_writable"},
+            )
         except Exception:
             _forget_ingest_submission(registry_key=registry_key)
             raise
@@ -1441,6 +1469,7 @@ def ingest_url_single(
         _complete_ingest_submission(registry_key=registry_key, response_payload=task_payload)
         return ok(task_payload)
 
+    _check_ingest_admission(project_key)
     try:
         idempotency_key, registry_key = _derive_ingest_idempotency(
             trigger_type="ingest.url.single",
@@ -1560,6 +1589,7 @@ def _dispatch_news_resource(resource_id: str, payload: NewsRequest) -> IngestJso
             f"Project '{project_key}' does not support news resource '{resource_id}'.",
             details={"project_key": project_key, "resource_id": resource_id},
         )
+    _check_ingest_admission(project_key)
     if payload.async_mode:
         task: object = _tasks_module().task_collect_news_resource.delay(resource_id, payload.limit, project_key)
         return _json_object(success_response(
@@ -1949,6 +1979,7 @@ def ingest_source_library_run(payload: SourceLibraryRunPayload) -> IngestJsonObj
             )
         ]
 
+    _check_ingest_admission(project_key)
     try:
         results: list[IngestJsonObject] = []
         for idx, entry in enumerate(entries):
@@ -2114,7 +2145,7 @@ def ingest_subproject_news_resource(
 
 @router.post("/social/reddit", response_model=IngestJsonEnvelope)
 def ingest_reddit(payload: RedditRequest) -> IngestJsonObject | JSONResponse:
-    project_key = _require_project_key(payload.project_key)
+    project_key = _require_ingest_project(payload.project_key)
     if payload.async_mode:
         task: object = _tasks_module().task_collect_reddit.delay(payload.subreddit, payload.limit, project_key)
         return success_response(
@@ -2140,7 +2171,7 @@ def ingest_reddit(payload: RedditRequest) -> IngestJsonObject | JSONResponse:
 
 @router.post("/reports/weekly", response_model=IngestJsonEnvelope)
 def ingest_weekly_reports(payload: NewsRequest) -> IngestJsonObject | JSONResponse:
-    project_key = _require_project_key(payload.project_key)
+    project_key = _require_ingest_project(payload.project_key)
     if payload.async_mode:
         task: object = _tasks_module().task_collect_weekly_reports.delay(payload.limit, project_key)
         return success_response(
@@ -2161,7 +2192,7 @@ def ingest_weekly_reports(payload: NewsRequest) -> IngestJsonObject | JSONRespon
 
 @router.post("/reports/monthly", response_model=IngestJsonEnvelope)
 def ingest_monthly_reports(payload: NewsRequest) -> IngestJsonObject | JSONResponse:
-    project_key = _require_project_key(payload.project_key)
+    project_key = _require_ingest_project(payload.project_key)
     if payload.async_mode:
         task: object = _tasks_module().task_collect_monthly_reports.delay(payload.limit, project_key)
         return success_response(
@@ -2718,7 +2749,7 @@ def _run_source_collect_batch(
 @router.post("/data-api", response_model=IngestJsonEnvelope)
 def ingest_data_api(payload: DataApiRequest) -> IngestJsonObject | JSONResponse:
     """Run data API collection by keywords."""
-    project_key = _require_project_key(payload.project_key)
+    project_key = _require_ingest_project(payload.project_key)
     query_terms = _normalize_query_terms(payload.query_terms, payload.keywords)
     query_terms, topic_meta = _expand_query_terms_with_topic_focus(
         query_terms, topic_focus=payload.topic_focus, language="en"
@@ -2787,6 +2818,7 @@ def ingest_graph_structured_search(payload: GraphStructuredSearchRequest) -> Ing
         selected_edge_count,
     )
 
+    _check_ingest_admission(project_key)
     grouped_intents: dict[tuple[str, str, str], _GroupedIntent] = {}
     for node in payload.selected_nodes:
         entry_id = _entry_id_of(node)
@@ -2996,7 +3028,7 @@ def ingest_graph_structured_search(payload: GraphStructuredSearchRequest) -> Ing
 @router.post("/policy/regulation", response_model=IngestJsonEnvelope)
 def ingest_policy_regulation(payload: PolicyRegulationRequest) -> IngestJsonObject | JSONResponse:
     """收集政策法规相关新闻"""
-    project_key = _require_project_key(payload.project_key)
+    project_key = _require_ingest_project(payload.project_key)
     query_terms = _normalize_query_terms(payload.query_terms, payload.keywords)
     query_terms, topic_meta = _expand_query_terms_with_topic_focus(
         query_terms, topic_focus=payload.topic_focus, language=payload.language or "en"
@@ -3051,7 +3083,7 @@ def ingest_policy_regulation(payload: PolicyRegulationRequest) -> IngestJsonObje
 
 @router.post("/commodity/metrics", response_model=IngestJsonEnvelope)
 def ingest_commodity(payload: CommodityRequest) -> IngestJsonObject | JSONResponse:
-    project_key = _require_project_key(payload.project_key)
+    project_key = _require_ingest_project(payload.project_key)
     if payload.async_mode:
         task: object = _tasks_module().task_ingest_commodity_metrics.delay(payload.limit, project_key)
         return _json_object(success_response(
@@ -3072,7 +3104,7 @@ def ingest_commodity(payload: CommodityRequest) -> IngestJsonObject | JSONRespon
 
 @router.post("/ecom/prices", response_model=IngestJsonEnvelope)
 def ingest_ecom_prices(payload: EcomPriceRequest) -> IngestJsonObject | JSONResponse:
-    project_key = _require_project_key(payload.project_key)
+    project_key = _require_ingest_project(payload.project_key)
     if payload.async_mode:
         task: object = _tasks_module().task_collect_ecom_prices.delay(payload.limit, project_key)
         return _json_object(success_response(

@@ -117,10 +117,10 @@ def _record_summary(record: ManifestRecord) -> str:
     return f"{record.family}:{record.gate_id}"
 
 
-def _normalize_record(raw: Any) -> tuple[ManifestRecord | None, list[Finding]]:
+def _normalize_record(raw: Any, *, issue_prefix: str) -> tuple[ManifestRecord | None, list[Finding]]:
     findings: list[Finding] = []
     if not isinstance(raw, dict):
-        _issue(findings, "record.shape", "record must be a JSON object")
+        _issue(findings, f"{issue_prefix}.shape", "record must be a JSON object")
         return None, findings
 
     gate_id = _as_text(raw.get("gate_id"))
@@ -132,7 +132,6 @@ def _normalize_record(raw: Any) -> tuple[ManifestRecord | None, list[Finding]]:
     observed_at = _as_text(raw.get("observed_at"))
     owner = _as_text(raw.get("owner"))
     notes = _as_text_list(raw.get("notes"))
-    issue_prefix = family or gate_id or "record"
 
     if gate_id is None:
         _issue(findings, f"{issue_prefix}.gate_id", "gate_id is required")
@@ -211,30 +210,22 @@ def _records_from_payload(payload: dict[str, Any], findings: list[Finding]) -> l
     gate_ids: set[str] = set()
     families: set[str] = set()
     for index, raw in enumerate(records):
-        record, record_findings = _normalize_record(raw)
+        issue_prefix = f"record.{index}"
+        record, record_findings = _normalize_record(raw, issue_prefix=issue_prefix)
         findings.extend(record_findings)
         if record is None:
             continue
 
-        findings.append(
-            Finding(
-                check_id=f"{record.family}.gate",
-                status=record.status,
-                summary=_record_summary(record),
-                evidence=record.evidence_refs + record.evidence_sha256,
-            )
-        )
-
         if record.gate_id in gate_ids:
-            _issue(findings, f"{record.family}.duplicate_gate_id", "gate_id values must be unique")
+            _issue(findings, f"{issue_prefix}.duplicate_gate_id", "gate_id values must be unique")
         else:
             gate_ids.add(record.gate_id)
 
         if record.family not in REQUIRED_FAMILIES:
-            _issue(findings, f"{record.family}.family_scope", "family must be one of the required release families")
+            _issue(findings, f"{issue_prefix}.family_scope", "family must be one of the required release families")
             continue
         if record.family in families:
-            _issue(findings, f"{record.family}.duplicate_family", "each required family must occur exactly once")
+            _issue(findings, f"{issue_prefix}.duplicate_family", "each required family must occur exactly once")
             continue
         families.add(record.family)
         normalized.append(record)
@@ -277,23 +268,17 @@ def validate_manifest(payload: Any) -> ValidationResult:
     if normalized_payload is not None:
         records = _records_from_payload(normalized_payload, findings)
 
+    manifest_valid = not findings
     record_by_family = {record.family: record for record in records}
     candidate = record_by_family.get("candidate_identity")
     promotion_authority = record_by_family.get("promotion_authority")
 
-    candidate_exact = bool(
-        candidate
-        and candidate.status == "PASS"
-        and len(candidate.evidence_refs) > 0
-        and len(candidate.evidence_refs) == len(candidate.evidence_sha256)
-        and all(_is_valid_digest(digest) for digest in candidate.evidence_sha256)
-    )
+    # PASS on a structurally valid manifest already implies evidence pairs of
+    # equal length with correctly formed digests. No readiness claim survives a
+    # failed validation, even when every record that was provided says PASS.
+    candidate_exact = bool(manifest_valid and candidate and candidate.status == "PASS")
     promotion_authority_exact = bool(
-        promotion_authority
-        and promotion_authority.status == "PASS"
-        and len(promotion_authority.evidence_refs) > 0
-        and len(promotion_authority.evidence_refs) == len(promotion_authority.evidence_sha256)
-        and all(_is_valid_digest(digest) for digest in promotion_authority.evidence_sha256)
+        manifest_valid and promotion_authority and promotion_authority.status == "PASS"
     )
 
     non_promotion_records = [record for record in records if record.family != "promotion_authority"]
@@ -307,6 +292,15 @@ def validate_manifest(payload: Any) -> ValidationResult:
         and all(record.status == "PASS" for record in records)
     )
 
+    findings.extend(
+        Finding(
+            check_id=f"{record.family}.gate",
+            status=record.status,
+            summary=_record_summary(record),
+            evidence=record.evidence_refs + record.evidence_sha256,
+        )
+        for record in records
+    )
     report = PreflightReport(checker=CHECKER_NAME, findings=tuple(findings))
     return ValidationResult(
         report=report,

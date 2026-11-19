@@ -213,7 +213,10 @@ export class MrwService {
     );
   }
 
-  async prepareTurn(threadId: string): Promise<MrwTurnAdmission> {
+  async prepareTurn(
+    threadId: string,
+    credentials?: MrwRequestCredentials,
+  ): Promise<MrwTurnAdmission> {
     const binding = this.boundThreads.get(threadId);
     if (!binding)
       throw new HttpException(
@@ -228,7 +231,7 @@ export class MrwService {
     }
     this.preparingTurns.set(threadId, binding);
     try {
-      const admission = await this.backend.prepareTurn(threadId);
+      const admission = await this.backend.prepareTurn(threadId, credentials);
       if (
         admission.threadId !== threadId ||
         admission.environmentStatus !== 'configured'
@@ -323,10 +326,17 @@ export class MrwService {
    */
   async probeEnvironment(
     threadId: string,
-  ): Promise<'ordinary' | 'rebind_required'> {
+  ): Promise<'ordinary' | 'restored' | 'rebind_required'> {
     try {
-      await this.backend.environment(threadId);
-      return 'rebind_required';
+      const environment = await this.backend.environment(threadId);
+      const systemInstructions = this.assertSystemInstructions(
+        environment.systemInstructions,
+      );
+      this.boundThreads.set(threadId, {
+        tools: canonical(environment.dynamicTools),
+        systemInstructions,
+      });
+      return 'restored';
     } catch (error) {
       if (error instanceof HttpException) {
         if (error.getStatus() === HttpStatus.NOT_FOUND) return 'ordinary';

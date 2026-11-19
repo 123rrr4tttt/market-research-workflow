@@ -231,18 +231,44 @@ def _cookie_request_is_same_origin(request: Request) -> bool:
 
 def _configured_webui_internal_login_url() -> tuple[str, str] | None:
     base_url = str(getattr(settings, "codex_webui_internal_url", "") or "").strip().rstrip("/")
-    raw_server_key = getattr(settings, "codex_webui_server_api_key", "")
-    if isinstance(raw_server_key, SecretStr):
-        server_key = raw_server_key.get_secret_value().strip()
-    else:
-        server_key = ""
-    if not base_url or not server_key:
+
+    def secret_text(value: object) -> str:
+        if isinstance(value, SecretStr):
+            return value.get_secret_value().strip()
+        return str(value or "").strip()
+
+    # WEBUI_API_KEY authenticates the WebUI login endpoint; the server key
+    # authenticates MRW macro-host calls. Older single-key deployments may
+    # reuse the server key, but new deployments should configure both.
+    login_key = secret_text(
+        getattr(settings, "codex_webui_login_api_key", "")
+    ) or secret_text(getattr(settings, "codex_webui_server_api_key", ""))
+    if not base_url or not login_key:
         return None
 
     parsed = urlsplit(base_url)
     if parsed.scheme not in {"http", "https"} or not parsed.hostname:
         return None
-    return f"{base_url}/api/auth/login", server_key
+    return f"{base_url}/api/auth/login", login_key
+
+
+def _docker_gateway_service_authenticated(request: Request) -> bool:
+    """Accept only the isolated local gateway's service-key bootstrap request."""
+
+    origin = settings.codex_webui_docker_origin
+    if (
+        not origin
+        or request.headers.get("Origin") != origin
+        or not _cookie_request_is_same_origin(request)
+    ):
+        return False
+    configured = settings.codex_webui_server_api_key
+    if isinstance(configured, SecretStr):
+        configured_key = configured.get_secret_value().strip()
+    else:
+        configured_key = str(configured or "").strip()
+    supplied = (request.headers.get("X-MRW-Server-API-Key") or "").strip()
+    return bool(configured_key and supplied and secrets.compare_digest(supplied, configured_key))
 
 
 @router.post("/webui/bootstrap", response_model=CodexAuthEnvelope)
@@ -250,33 +276,35 @@ async def codex_auth_webui_bootstrap(request: Request) -> JSONResponse:
     """Exchange an explicitly authenticated MRW actor for a WebUI JWT."""
 
     downstream: tuple[str, str] | None
-    static_token = _extract_static_codex_token(request)
-    if static_token is not None:
-        if not _static_codex_token_is_configured(static_token):
-            return _webui_exchange_error(401, "invalid_token", "codex auth required")
+    if _docker_gateway_service_authenticated(request):
         downstream = _configured_webui_internal_login_url()
     else:
-        session_id = (request.cookies.get(codex_cookie_name()) or "").strip()
-        session = get_session(session_id or None)
-        if session is None:
-            return _webui_exchange_error(401, "missing_oauth_session", "codex auth required")
-        if not _cookie_request_is_same_origin(request):
-            return _webui_exchange_error(403, "origin_mismatch", "same-origin request required")
-        downstream = _configured_webui_internal_login_url()
-
+        static_token = _extract_static_codex_token(request)
+        if static_token is None:
+            session_id = (request.cookies.get(codex_cookie_name()) or "").strip()
+            session = get_session(session_id or None)
+            if session is None:
+                return _webui_exchange_error(401, "missing_oauth_session", "codex auth required")
+            if not _cookie_request_is_same_origin(request):
+                return _webui_exchange_error(403, "origin_mismatch", "same-origin request required")
+            downstream = _configured_webui_internal_login_url()
+        elif not _static_codex_token_is_configured(static_token):
+            return _webui_exchange_error(401, "invalid_token", "codex auth required")
+        else:
+            downstream = _configured_webui_internal_login_url()
     if downstream is None:
         return _webui_exchange_error(
             503,
             "webui_exchange_not_configured",
             "codex webui exchange is not configured",
         )
-    login_url, server_key = downstream
+    login_url, login_key = downstream
 
     try:
         async with httpx.AsyncClient(timeout=httpx.Timeout(5.0)) as client:
             response = await client.post(
                 login_url,
-                json={"apiKey": server_key},
+                json={"apiKey": login_key},
                 headers={"Accept": "application/json"},
                 follow_redirects=False,
             )

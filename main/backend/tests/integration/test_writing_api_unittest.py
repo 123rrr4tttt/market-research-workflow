@@ -17,6 +17,7 @@ try:
 
     from app.contracts.errors import ErrorCode
     from app.main import app as backend_app
+    from app.services.projects.context import ProjectNotWritableError
     from app.services.writing.document_service import WritingVersionConflictError
 
     _IMPORT_ERROR = None
@@ -43,6 +44,17 @@ class WritingApiIntegrationTestCase(unittest.TestCase):
         body = response.json()
         self.assertEqual(body["status"], "ok")
         self.assertEqual(body["data"]["doc_id"], 101)
+
+    def test_archived_project_write_returns_conflict(self):
+        with patch(
+            "app.api.writing.create_document",
+            side_effect=ProjectNotWritableError("restore it before writing"),
+        ):
+            response = self.client.post("/api/v1/writing/documents", json={"title": "Draft"}, headers=self.headers)
+
+        self.assertEqual(response.status_code, 409)
+        details = response.json()["detail"]["error"]["details"]
+        self.assertEqual(details, {"project_key": "demo_proj", "reason_code": "project_not_writable"})
 
     def test_patch_document_conflict(self):
         conflict = WritingVersionConflictError(

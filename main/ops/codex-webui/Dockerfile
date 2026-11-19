@@ -1,5 +1,5 @@
-# ── Stage 1: Frontend build ──────────────────────────────────────────
-FROM node:22-bookworm-slim AS frontend-builder
+# Web client
+FROM node:22-bookworm-slim@sha256:e9f565d32859f0cbfb52125eafe8be39390f24dac302dc3cdf566e8ba3ab21ee AS frontend-builder
 RUN npm install -g pnpm@10.18.3
 WORKDIR /app/web
 COPY web/package.json web/pnpm-lock.yaml* web/pnpm-workspace.yaml ./
@@ -7,14 +7,14 @@ RUN pnpm install --frozen-lockfile
 COPY web/ ./
 RUN pnpm build
 
-# ── Stage 2: Backend build ───────────────────────────────────────────
-FROM node:22-bookworm-slim AS backend-builder
+# WebUI API and shared build assets
+FROM node:22-bookworm-slim@sha256:e9f565d32859f0cbfb52125eafe8be39390f24dac302dc3cdf566e8ba3ab21ee AS backend-builder
 RUN apt-get update \
   && apt-get install -y --no-install-recommends python3 make g++ \
   && rm -rf /var/lib/apt/lists/*
 RUN npm install -g pnpm@10.18.3
 WORKDIR /app
-COPY package.json pnpm-lock.yaml* ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN pnpm install --frozen-lockfile
 COPY src/ ./src/
 COPY tsconfig*.json nest-cli.json ./
@@ -25,8 +25,40 @@ COPY tsconfig*.json nest-cli.json ./
 COPY --from=frontend-builder /app/public ./public/
 RUN pnpm build
 
-# ── Stage 3: Shared runtime system ───────────────────────────────────
-FROM debian:trixie-slim AS runtime-base
+FROM backend-builder AS mrw-dependencies
+RUN pnpm prune --prod
+
+# MRW ships only the tools needed by the embedded WebUI. Keep host credentials,
+# services and software out of this image and the mounted state volume.
+FROM node:22-bookworm-slim@sha256:e9f565d32859f0cbfb52125eafe8be39390f24dac302dc3cdf566e8ba3ab21ee AS mrw-runtime
+ENV NODE_ENV=production \
+    HOST=0.0.0.0 \
+    HOME=/home/node \
+    CODEX_HOME=/home/node/.codex \
+    WORKSPACE_ROOTS=/home/node
+WORKDIR /app
+
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends bubblewrap ca-certificates git p7zip-full ripgrep \
+  && rm -rf /var/lib/apt/lists/* \
+  && install -d -m 0700 -o node -g node /app/logs /home/node/.codex
+COPY package.json ./
+RUN npm install -g "@openai/codex@$(node -p "require('./package.json').devDependencies['@openai/codex']")" \
+  && codex --version \
+  && npm cache clean --force
+
+COPY --from=mrw-dependencies /app/node_modules ./node_modules/
+COPY --from=backend-builder /app/dist ./dist/
+COPY --from=frontend-builder /app/public ./public/
+COPY drizzle/ ./drizzle/
+
+USER node
+RUN node -e 'const db = require("better-sqlite3")(); db.close(); require("node-pty")'
+EXPOSE 8172
+CMD ["node", "dist/main.js"]
+
+# Standalone upstream runtime
+FROM debian:trixie-slim@sha256:a72b4433de1cf7d6bae0c4cee74d0547f58601a643b3375f070c51600d63b6b2 AS runtime-base
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV HOME=/root
@@ -111,7 +143,7 @@ FROM toolchain-builder AS app-deps-builder
 WORKDIR /app
 
 # Install production dependencies and rebuild native addons
-COPY package.json pnpm-lock.yaml* ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN pnpm install --frozen-lockfile --prod
 RUN npx --yes node-gyp rebuild --directory=node_modules/node-pty || true \
   && npx --yes node-gyp rebuild --directory=node_modules/better-sqlite3 || true

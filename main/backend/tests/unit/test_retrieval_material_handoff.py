@@ -245,7 +245,9 @@ def test_raw_import_given_text_reaches_existing_frontdoor_without_fetch(monkeypa
         def __exit__(self, *_args):
             return False
 
-        def execute(self, _statement):
+        def execute(self, _statement, parameters=None):
+            if parameters is not None:
+                return SimpleNamespace(scalar_one_or_none=lambda: True)
             self.calls += 1
             return Scalar(None)
 
@@ -309,7 +311,9 @@ def _install_raw_import_observation(monkeypatch, *, fetch_html, writer_result):
         def __exit__(self, *_args):
             return False
 
-        def execute(self, _statement):
+        def execute(self, _statement, parameters=None):
+            if parameters is not None:
+                return SimpleNamespace(scalar_one_or_none=lambda: True)
             return Scalar(None)
 
         def commit(self):
@@ -503,7 +507,9 @@ def test_raw_import_overwrite_from_plain_to_html_clears_stale_material_witness(m
         def __exit__(self, *_args):
             return False
 
-        def execute(self, _statement):
+        def execute(self, _statement, parameters=None):
+            if parameters is not None:
+                return SimpleNamespace(scalar_one_or_none=lambda: True)
             return Scalar(existing)
 
         def commit(self):

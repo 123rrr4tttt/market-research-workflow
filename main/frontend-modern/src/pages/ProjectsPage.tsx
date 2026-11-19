@@ -27,7 +27,6 @@ export default function ProjectsPage({ projectKey, onProjectChange }: ProjectsPa
   const [editingProject, setEditingProject] = useState<{ key: string; name: string } | null>(null)
   const [readinessActionMessage, setReadinessActionMessage] = useState('')
   const llmServiceOptions = [
-    'prompt_factory',
     'policy_extraction',
     'market_info_extraction',
     'entities_relations_extraction',

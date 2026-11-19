@@ -1549,6 +1549,7 @@ def submit_installed_program(
     now: datetime, queue: str,
 ) -> tuple[dict[str, object], tuple[str, ...]]:
     """Submit exact declarations through the existing authority and runtime owners."""
+    from app.services.projects.context import require_writable_project
     from app.services.tasks import task_successor_runtime
     from app.successor_runtime.substrate.postgres.authority import AuthorityGrantRepository
     from app.successor_runtime.substrate.postgres.authority_provider import CurrentAuthorityGrantUnavailable
@@ -1560,6 +1561,7 @@ def submit_installed_program(
 
     with engine.begin() as connection:
         project = ServerProjectScopeResolver(connection=connection).resolve(project_key)
+        require_writable_project(connection, project_key)
         if (program.project_key, program.project_registry_revision, program.project_scope_digest) != (
             project.project_key, project.project_registry_revision, project.scope_digest,
         ):

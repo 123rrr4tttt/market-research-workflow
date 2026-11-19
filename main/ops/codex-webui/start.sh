@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # MRW service: run the vendored Codex WebUI backend on 127.0.0.1:8172 via launchd.
 # The backend (dist/main.js) spawns `codex app-server` over stdio itself.
-# MRW nginx proxies /codex/ to this port (see main/frontend-modern/nginx.conf).
+# MRW nginx proxies /codex/ to this port (see main/frontend-modern/nginx.conf.template).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

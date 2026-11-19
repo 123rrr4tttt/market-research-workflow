@@ -4,7 +4,6 @@ from copy import deepcopy
 from typing import TypedDict, TypeGuard
 from uuid import uuid4
 
-from ..extraction.application import ExtractionApplicationService
 from .canary_handoff import build_single_url_canary_handoff
 from .cleanup_executor import execute_frontdoor_cleanup
 from .content_cleaner import clean_frontdoor_material_candidate
@@ -15,14 +14,12 @@ from .guardrail_rollout import resolve_ingest_guardrail_rollout_decision
 from .light_filter import evaluate_light_filter, normalize_light_filter_options
 from .meaningful_gate import build_gateplus_snapshot, content_quality_check, url_policy_check
 from .retry_policy import build_retry_observability
-from .structured_extraction import build_structured_summary, extract_structured_enriched_safe
+from .structured_extraction import build_structured_summary
 from .terminal_compat import apply_terminal_compat
 from .terminal_normalizer import build_terminal_material_payload
 from .terminal_writer import persist_terminal_material
 from ...settings.config import settings
 
-
-_EXTRACTION_APP = ExtractionApplicationService()
 
 PostprocessObject = dict[str, object]
 
@@ -347,7 +344,15 @@ def run_postprocess_frontdoor(
     _stage(envelope, "normalized")
 
     if effective_run_writer:
-        writer_result = persist_terminal_material(normalized_payload)
+        # Envelope ownership must agree with the bound schema; material provenance cannot select it.
+        project_key = _optional_str(ingress.get("project_key"))
+        if ingress.get("ingress_type") == "raw_import" and project_key is None:
+            project_key = ""
+        writer_result = (
+            persist_terminal_material(normalized_payload, project_key=project_key)
+            if project_key is not None
+            else persist_terminal_material(normalized_payload)
+        )
         envelope["data"]["writer_result"] = writer_result
         _stage(envelope, "writer_completed")
     _attach_canary_handoff(envelope=envelope, ingress=ingress)
@@ -380,37 +385,22 @@ def run_unified_structured_extraction(
     include_product: bool = True,
     include_operation: bool = True,
 ) -> dict[str, object]:
-    payload = "\n\n".join([segment for segment in [str(title or "").strip(), str(content or "").strip()] if segment]).strip()
-    result = extract_structured_enriched_safe(
-        extraction_app=_EXTRACTION_APP,
-        payload=payload,
-        include_market=include_market,
-        include_policy=include_policy,
-        include_sentiment=include_sentiment,
-        include_company=include_company,
-        include_product=include_product,
-        include_operation=include_operation,
-    )
-    domains = dict(result.data or {})
-    summary = build_structured_summary(
-        domains,
-        extraction_enabled=str(result.status or "").strip().lower() == "ok",
-        chunks_used=1,
-        extraction_mode="frontdoor",
-    )
+    """Report an unavailable extractor without blocking material persistence."""
     return {
-        "status": str(result.status or "failed").strip().lower() or "failed",
-        "reason": result.reason,
-        "error": result.error,
+        "status": "failed",
+        "reason": "agent_cell_binding_required",
+        "error": "structured extraction requires an Agent Cell invocation",
         "extractor_version": "unified.structured.v1",
-        "model_profile": {
-            "provider": None,
-            "model": None,
-        },
+        "model_profile": {},
         "prompt_profile": {},
         "structured_output_mode": "unknown",
-        "domains": domains,
-        "summary": summary,
+        "domains": {},
+        "summary": build_structured_summary(
+            {},
+            extraction_enabled=False,
+            chunks_used=0,
+            extraction_mode="frontdoor",
+        ),
     }
 
 

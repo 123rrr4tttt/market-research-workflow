@@ -18,6 +18,7 @@ from ..contracts.schemas.workflow_graph import (
     WorkflowGraphHandoffListData,
     WorkflowGraphHandoffReplayData,
 )
+from ..services.projects.context import ProjectNotWritableError
 from ..services.skill_runtime import SkillInvocationContext, invoke_skill
 from ..services.request_identity import require_trusted_actor_context
 from ..services.workflow_graph.curated_service import WorkflowGraphObjectMissingError, WorkflowGraphSyncConflictError
@@ -25,6 +26,7 @@ from ..services.workflow_graph.contracts import WorkflowGraphCompileError, Workf
 from ..services.workflow_graph.edit_contract import WorkflowGraphEditContractError
 from ..services.workflow_graph.handoff_store import handoff_store
 from ..services.workflow_graph.observability import query_top_failure_reasons
+from ._error_responses import error_json_response
 
 
 router = APIRouter(prefix="/workflow-graph", tags=["workflow-graph"])
@@ -667,6 +669,11 @@ def run_workflow_graph(request: Request, payload: dict[str, Any]) -> Any:
     checked_payload["actor_id"] = require_trusted_actor_context(request).actor_id
     try:
         return _ok_workflow_graph(_normalize_run(_invoke_run(checked_payload), project_key=checked_payload["project_key"]))
+    except ProjectNotWritableError as exc:
+        return error_json_response(
+            409, ErrorCode.INVALID_INPUT, str(exc),
+            details={"project_key": checked_payload["project_key"], "reason_code": "project_not_writable"},
+        )
     except ValueError as exc:
         return _error_json(ErrorCode.INVALID_INPUT, str(exc) or "invalid input")
     except KeyError as exc:

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sys
+from contextlib import nullcontext
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
@@ -31,6 +32,12 @@ class _TrackedTasks:
 
 
 class CrawlerManagementApiContractTestCase(unittest.TestCase):
+    def setUp(self):
+        # These tests exercise HTTP contracts without a project registry database.
+        admission = patch("app.api.ingest.check_project_write_admission")
+        admission.start()
+        self.addCleanup(admission.stop)
+
     @classmethod
     def setUpClass(cls):
         if _IMPORT_ERROR is not None:
@@ -101,6 +108,39 @@ class CrawlerManagementApiContractTestCase(unittest.TestCase):
         self.assertEqual(body["error"]["code"], ErrorCode.INVALID_INPUT.value)
         self.assertEqual(body["detail"]["error"]["code"], ErrorCode.INVALID_INPUT.value)
         self.assertEqual(resp.headers.get("x-error-code"), ErrorCode.INVALID_INPUT.value)
+
+    def test_import_saves_metadata_without_claiming_a_deployment_plan(self):
+        session = Mock()
+        session.execute.return_value.scalar_one_or_none.return_value = None
+        session.refresh.side_effect = lambda row: setattr(row, "id", 7)
+        with (
+            patch("app.services.crawlers_mgmt.service.bind_schema", return_value=nullcontext()),
+            patch("app.services.crawlers_mgmt.service.SessionLocal", return_value=nullcontext(session)),
+        ):
+            resp = self.client.post(
+                "/api/v1/crawler/projects/import",
+                json={
+                    "name": "Archive reader",
+                    "source_type": "git",
+                    "source_uri": "https://example.test/reader.git",
+                    "manifest": {"spider": "reader"},
+                },
+                headers=self.headers,
+            )
+
+        self.assertEqual(resp.status_code, 200)
+        project = resp.json()["data"]
+        self.assertEqual(project["status"], "imported")
+        self.assertIsNone(project["deployed_version"])
+        plan = project["analysis_plan"]
+        self.assertEqual(plan["signals"], {
+            "source_type": "git",
+            "source_uri_present": True,
+            "has_manifest": True,
+        })
+        self.assertNotIn("tasks", plan)
+        self.assertEqual(session.add.call_args.args[0].analysis_plan, plan)
+        session.commit.assert_called_once()
 
     def test_crawler_project_missing_returns_standard_not_found_envelope(self):
         with patch("app.api.crawler.get_project", return_value=None):

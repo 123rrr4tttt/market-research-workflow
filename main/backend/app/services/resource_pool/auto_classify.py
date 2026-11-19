@@ -1,54 +1,10 @@
-"""Rule-first site entry classification. LLM fallback when rules cannot determine."""
+"""Deterministic site entry classification."""
 
 from __future__ import annotations
 
-import json
-import logging
 from dataclasses import dataclass
-from typing import Any, SupportsIndex, SupportsInt, TypedDict, TypeGuard
+from typing import Any, Literal
 from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
-
-from functorial_kit import Failure
-from typing_extensions import Buffer
-
-from ...settings.config import settings
-from ..extraction.json_utils import extract_json_payload
-from ..llm.config_loader import format_prompt_template, get_llm_config
-from ..llm.provider import get_chat_model
-from .llm_validator import validate_llm_recommendation
-from .site_entries import (
-    raise_resource_pool_contract_legacy,
-    resource_pool_contract_failure,
-)
-
-_log = logging.getLogger(__name__)
-
-_DEFAULT_LLM_PROMPT = """Given this site URL: {site_url}
-
-Classify it as one of: rss, sitemap, domain_root, search_template, official_api.
-
-If it looks like a search page (has q=, query=, search in path), return search_template and provide a template URL with {{q}} and optionally {{page}} placeholders. The template domain must match the site domain.
-
-Return JSON only:
-{{"entry_type": "...", "channel_key": "generic_web.rss|generic_web.sitemap|generic_web.search_template|official_access.api|url_pool", "template": "optional for search_template"}}
-"""
-
-_DEFAULT_BATCH_LLM_PROMPT = """Classify these site entry URLs for ingestion.
-
-For each item, return:
-- index (same integer as input)
-- entry_type: rss|sitemap|domain_root|search_template|official_api
-- channel_key: generic_web.rss|generic_web.sitemap|generic_web.search_template|official_access.api|url_pool
-- template: required when entry_type=search_template and must contain {{q}}
-- symbol_suggestion: optional short identifier for later symbolization
-
-Use rule-like reasoning first. If URL clearly contains search path/query (e.g. /search, ?q=), prefer search_template.
-Return JSON only in this shape:
-{{"items":[{{...}}]}}
-
-Inputs:
-{inputs_json}
-"""
 
 _ENTRY_TYPE_TO_CHANNEL: dict[str, str] = {
     "rss": "generic_web.rss",
@@ -57,53 +13,6 @@ _ENTRY_TYPE_TO_CHANNEL: dict[str, str] = {
     "search_template": "generic_web.search_template",
     "official_api": "official_access.api",
 }
-
-_ALLOWED_ENTRY_TYPES = frozenset(_ENTRY_TYPE_TO_CHANNEL)
-_ALLOWED_CHANNEL_KEYS = frozenset(_ENTRY_TYPE_TO_CHANNEL.values()) | {"url_pool"}
-
-
-class _BatchInput(TypedDict):
-    index: int
-    site_url: str
-    entry_type: str
-    template: str
-
-
-def _is_object_list(value: object) -> TypeGuard[list[object]]:
-    return isinstance(value, list)
-
-
-def _is_object_dict(value: object) -> TypeGuard[dict[object, object]]:
-    return isinstance(value, dict)
-
-
-def _is_string_object_dict(value: object) -> TypeGuard[dict[str, object]]:
-    return _is_object_dict(value) and all(isinstance(key, str) for key in value)
-
-
-def _integer(value: object) -> int | Failure:
-    if isinstance(value, (str, Buffer, SupportsInt, SupportsIndex)):
-        try:
-            return int(value)
-        except (TypeError, ValueError) as exc:
-            conversion_error = exc
-    else:
-        conversion_error = TypeError(
-            "int() argument must be a string, a bytes-like object or a real number, "
-            f"not '{type(value).__name__}'"
-        )
-    exception_type = ValueError if isinstance(conversion_error, ValueError) else TypeError
-    return resource_pool_contract_failure(
-        "record_field_type_invalid",
-        str(conversion_error),
-        operation="site_entry_classification",
-        site="resource_pool.auto_classify.batch_index",
-        public_exception=exception_type,
-        field="index",
-        expected="integer",
-        actual_type=type(value).__name__,
-        cause=conversion_error,
-    )
 
 
 @dataclass
@@ -114,7 +23,7 @@ class Recommendation:
     entry_type: str
     template: str | None
     validated: bool
-    source: str  # "rule" | "llm" | "fallback"
+    source: Literal["rule", "fallback"]
     capabilities: dict[str, Any] | None = None
 
 
@@ -247,7 +156,7 @@ def _rule_classify(
     known_entry = (entry_type or "").strip().lower()
 
     # Known entry_type -> direct channel mapping
-    if known_entry in _ALLOWED_ENTRY_TYPES:
+    if known_entry in _ENTRY_TYPE_TO_CHANNEL:
         ch = _ENTRY_TYPE_TO_CHANNEL[known_entry]
         if known_entry == "search_template" and not template:
             return None  # search_template needs template, cannot rule-classify
@@ -287,222 +196,23 @@ def _rule_classify(
     return None
 
 
-def _llm_available() -> bool:
-    """Check if LLM is configured and has API key."""
-    p = (settings.llm_provider or "").lower()
-    if p == "openai":
-        return bool(settings.openai_api_key)
-    if p == "azure":
-        return bool(settings.azure_api_key)
-    if p == "ollama":
-        return True
-    return False
-
-
-def _llm_classify(site_url: str, entry_type: str | None, template: str | None) -> Recommendation | None:
-    """
-    Call LLM to classify site entry. Returns None on failure or invalid output.
-    """
-    if not _llm_available():
-        _log.debug("_llm_classify: LLM not available, skip")
-        return None
-
-    config = get_llm_config("site_entry_classification")
-    prompt_template = config.get("user_prompt_template") if config else None
-    if config and prompt_template:
-        prompt = format_prompt_template(
-            prompt_template,
-            site_url=site_url,
-            entry_type=entry_type or "",
-            template=template or "",
-        )
-    else:
-        prompt = _DEFAULT_LLM_PROMPT.format(site_url=site_url)
-
-    try:
-        model = get_chat_model(
-            model=config.get("model") if config else None,
-            temperature=config.get("temperature", 0.2) if config else 0.2,
-            max_tokens=config.get("max_tokens", 500) if config else 500,
-        )
-        response = model.invoke(prompt)
-        content = response.content if hasattr(response, "content") else str(response)
-        raw = extract_json_payload(content)
-        if not raw:
-            _log.warning("_llm_classify: no valid JSON in response")
-            return None
-        return _recommendation_from_llm_row(raw, site_url=site_url)
-    except Exception as exc:
-        _log.warning("_llm_classify: %s", exc, exc_info=False)
-        return None
-
-
-def _recommendation_from_llm_row(row: dict[str, Any], *, site_url: str) -> Recommendation | None:
-    """Validate one LLM row and map it to the internal Recommendation schema."""
-    validated = validate_llm_recommendation(row, site_url)
-    if not validated:
-        _log.warning("_llm_classify: validation failed for raw=%s", row)
-        return None
-    return Recommendation(
-        channel_key=validated["channel_key"],
-        entry_type=validated["entry_type"],
-        template=validated.get("template"),
-        validated=True,
-        source="llm",
-        capabilities=infer_keyword_capabilities(validated.get("entry_type"), validated.get("channel_key")),
-    )
-
-
-def _llm_classify_batch(url_items: list[dict[str, Any]]) -> dict[int, Recommendation]:
-    """
-    Batch classify site entries with one LLM call.
-    Input items: [{"index": int, "site_url": str, "entry_type": str|None, "template": str|None}]
-    Returns map[index] -> Recommendation (validated only). Invalid rows are skipped.
-    """
-    if not url_items or not _llm_available():
-        return {}
-
-    config = get_llm_config("site_entry_classification")
-    inputs_payload: list[_BatchInput] = []
-    for i, item in enumerate(url_items):
-        index = _integer(item.get("index", i))
-        if isinstance(index, Failure):
-            cause = (index.context or {}).get("cause")
-            if isinstance(cause, ValueError):
-                raise_resource_pool_contract_legacy(
-                    index,
-                    exception_type=ValueError,
-                    cause=cause,
-                )
-            raise_resource_pool_contract_legacy(
-                index,
-                exception_type=TypeError,
-                cause=cause if isinstance(cause, TypeError) else None,
-            )
-        inputs_payload.append(
-            {
-                "index": index,
-                "site_url": str(item.get("site_url") or ""),
-                "entry_type": str(item.get("entry_type") or ""),
-                "template": str(item.get("template") or ""),
-            }
-        )
-    prompt = _DEFAULT_BATCH_LLM_PROMPT.format(
-        inputs_json=json.dumps(inputs_payload, ensure_ascii=False, indent=2)
-    )
-    try:
-        model = get_chat_model(
-            model=config.get("model") if config else None,
-            temperature=config.get("temperature", 0.1) if config else 0.1,
-            max_tokens=config.get("max_tokens", 2000) if config else 2000,
-        )
-        response = model.invoke(prompt)
-        content = response.content if hasattr(response, "content") else str(response)
-        raw = extract_json_payload(content)
-        if not raw:
-            return {}
-        items = raw.get("items")
-        if not _is_object_list(items):
-            return {}
-        by_index: dict[int, Recommendation] = {}
-        src_map = {int(x.get("index", -1)): x for x in inputs_payload}
-        for row in items:
-            if not _is_string_object_dict(row):
-                continue
-            idx = _integer(row.get("index"))
-            if isinstance(idx, Failure):
-                continue
-            src = src_map.get(idx)
-            if not src:
-                continue
-            rec = _recommendation_from_llm_row(row, site_url=src["site_url"])
-            if rec is None:
-                continue
-            by_index[idx] = rec
-        return by_index
-    except Exception as exc:
-        _log.warning("_llm_classify_batch: %s", exc, exc_info=False)
-        return {}
-
-
-def classify_site_entries_batch(
-    entries: list[dict[str, Any]],
-    *,
-    use_llm: bool = False,
-    llm_batch_size: int = 20,
-) -> list[dict[str, Any]]:
-    """
-    Batch classify site entries. Rule-first per row; unresolved rows can be sent to LLM in batches.
-    Returns rows with recommendation fields merged for downstream symbolization/ingestion.
-    """
+def classify_site_entries_batch(entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Return recommendations in input order, preserving caller row identities."""
     out: list[dict[str, Any]] = []
-    unresolved: list[tuple[int, dict[str, Any]]] = []
-    for i, row in enumerate(entries or []):
-        item = dict(row or {})
-        site_url = str(item.get("site_url") or "").strip()
-        entry_type = item.get("entry_type")
-        template = item.get("template")
-        rec = _rule_classify(site_url, entry_type, template)
-        if rec is None:
-            unresolved.append((i, item))
-            out.append(item)
-            continue
+    for row in entries:
+        item = dict(row)
+        recommendation = classify_site_entry(
+            str(item.get("site_url") or "").strip(), item.get("entry_type"), item.get("template")
+        )
         item.update(
-            {
-                "channel_key": rec.channel_key,
-                "entry_type": rec.entry_type,
-                "template": rec.template if rec.template is not None else item.get("template"),
-                "validated": rec.validated,
-                "source": rec.source,
-                "capabilities": rec.capabilities or infer_keyword_capabilities(rec.entry_type, rec.channel_key),
-            }
+            channel_key=recommendation.channel_key,
+            entry_type=recommendation.entry_type,
+            template=recommendation.template,
+            validated=recommendation.validated,
+            source=recommendation.source,
+            capabilities=recommendation.capabilities,
         )
         out.append(item)
-
-    if not use_llm or not unresolved:
-        # Fill unresolved with fallback
-        for idx, item in unresolved:
-            site_url = str(item.get("site_url") or "").strip()
-            rec = classify_site_entry(site_url, item.get("entry_type"), item.get("template"), use_llm=False)
-            out[idx].update(
-                {
-                    "channel_key": rec.channel_key,
-                    "entry_type": rec.entry_type,
-                    "template": rec.template if rec.template is not None else out[idx].get("template"),
-                    "validated": rec.validated,
-                    "source": rec.source,
-                    "capabilities": rec.capabilities or infer_keyword_capabilities(rec.entry_type, rec.channel_key),
-                }
-            )
-        return out
-
-    llm_batch_size = max(1, min(100, int(llm_batch_size or 20)))
-    for start in range(0, len(unresolved), llm_batch_size):
-        chunk = unresolved[start : start + llm_batch_size]
-        payload = [
-            {
-                "index": idx,
-                "site_url": item.get("site_url"),
-                "entry_type": item.get("entry_type"),
-                "template": item.get("template"),
-            }
-            for idx, item in chunk
-        ]
-        llm_recs = _llm_classify_batch(payload)
-        for idx, item in chunk:
-            rec = llm_recs.get(idx)
-            if rec is None:
-                rec = classify_site_entry(str(item.get("site_url") or ""), item.get("entry_type"), item.get("template"), use_llm=False)
-            out[idx].update(
-                {
-                    "channel_key": rec.channel_key,
-                    "entry_type": rec.entry_type,
-                    "template": rec.template if rec.template is not None else out[idx].get("template"),
-                    "validated": rec.validated,
-                    "source": rec.source,
-                    "capabilities": rec.capabilities or infer_keyword_capabilities(rec.entry_type, rec.channel_key),
-                }
-            )
     return out
 
 
@@ -510,24 +220,12 @@ def classify_site_entry(
     site_url: str,
     entry_type: str | None = None,
     template: str | None = None,
-    *,
-    use_llm: bool = False,
 ) -> Recommendation:
-    """
-    Classify site entry: rule-first, LLM fallback when rules cannot determine.
-
-    When use_llm=False or no LLM key available, falls back to url_pool/domain_root.
-    """
+    """Classify a site entry, or offer an unvalidated URL-pool default."""
     rec = _rule_classify(site_url, entry_type, template)
     if rec is not None:
         return rec
 
-    if use_llm:
-        rec = _llm_classify(site_url, entry_type, template)
-        if rec is not None:
-            return rec
-
-    # Fallback
     return Recommendation(
         channel_key="url_pool",
         entry_type="domain_root",

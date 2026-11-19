@@ -808,7 +808,7 @@ def formalize_candidate_work(
     plan_loader: RetrievalPlanLoader,
     work: CandidateWork,
 ) -> CandidateWork:
-    """Run the original bounded provider formalizer on the exact body."""
+    """Request a bounded formalization on the exact body and retain its result."""
 
     if work.stage != "body_read" or work.disposition != "approved":
         raise_retrieval_contract_error(ValueError, 'formalization requires a successful body read')

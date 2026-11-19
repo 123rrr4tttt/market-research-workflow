@@ -3,6 +3,8 @@ web/node_modules
 dist
 public
 /logs
+/.run
+/.tmp
 coverage
 .git
 .env

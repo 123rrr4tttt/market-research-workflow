@@ -12,7 +12,6 @@ from sqlalchemy.orm import Session
 
 from ...models.base import SessionLocal
 from ...models.entities import CrawlerDeployRun, CrawlerProject
-from ..llm.provider import get_chat_model
 from ..projects import bind_schema
 
 
@@ -20,36 +19,8 @@ class CrawlerProjectNotFoundError(ValueError):
     pass
 
 
-_CORE_TASKS: list[dict[str, str]] = [
-    {"id": "T00", "title": "Validate import payload"},
-    {"id": "T01", "title": "Resolve project identity"},
-    {"id": "T02", "title": "Normalize crawler manifest"},
-    {"id": "T03", "title": "Check provider compatibility"},
-    {"id": "T04", "title": "Prepare runtime defaults"},
-    {"id": "T05", "title": "Build source inventory"},
-    {"id": "T06", "title": "Map spider entrypoints"},
-    {"id": "T07", "title": "Estimate execution cost"},
-    {"id": "T08", "title": "Generate deployment diff"},
-    {"id": "T09", "title": "Generate rollback anchor"},
-    {"id": "T10", "title": "Validate credentials refs"},
-    {"id": "T11", "title": "Apply safety guardrails"},
-    {"id": "T12", "title": "Assemble deploy plan"},
-    {"id": "T13", "title": "Assemble rollback plan"},
-    {"id": "T14", "title": "Create runbook summary"},
-    {"id": "T15", "title": "Persist project snapshot"},
-    {"id": "T16", "title": "Persist analysis metadata"},
-    {"id": "T17", "title": "Prepare deploy run tracking"},
-    {"id": "T18", "title": "Prepare post-check hooks"},
-    {"id": "T19", "title": "Mark MVP-ready state"},
-]
-
-
 def _utcnow() -> datetime:
     return datetime.now(timezone.utc)
-
-
-def _is_object_list(value: object) -> TypeGuard[list[object]]:
-    return isinstance(value, list)
 
 
 def _is_string_object_dict(value: object) -> TypeGuard[dict[str, object]]:
@@ -81,136 +52,16 @@ def _version_from_payload(payload: dict[str, Any]) -> str:
     return f"v{digest}"
 
 
-def _extract_text_from_llm_output(raw: Any) -> str:
-    if raw is None:
-        return ""
-    if isinstance(raw, str):
-        return raw
-    content = getattr(raw, "content", None)
-    if isinstance(content, str):
-        return content
-    if _is_object_list(content):
-        parts: list[str] = []
-        for item in content:
-            if isinstance(item, str):
-                parts.append(item)
-                continue
-            if _is_string_object_dict(item):
-                txt = item.get("text")
-                if isinstance(txt, str):
-                    parts.append(txt)
-        return "\n".join(parts)
-    return str(raw)
-
-
-def _parse_json_object(raw: str) -> dict[str, Any] | None:
-    text = (raw or "").strip()
-    if not text:
-        return None
-    try:
-        obj: object = json.loads(text)
-        if _is_string_object_dict(obj):
-            return dict(obj)
-    except Exception:
-        pass
-
-    if "```" not in text:
-        return None
-
-    for part in text.split("```"):
-        candidate = part.strip()
-        if not candidate:
-            continue
-        if candidate.startswith("json"):
-            candidate = candidate[4:].strip()
-        try:
-            obj = json.loads(candidate)
-            if _is_string_object_dict(obj):
-                return dict(obj)
-        except Exception:
-            continue
-    return None
-
-
-def _heuristic_plan(import_payload: dict[str, Any]) -> dict[str, Any]:
-    source_type = str(import_payload.get("source_type") or "manual")
-    source_uri = str(import_payload.get("source_uri") or "")
-    tasks: list[dict[str, object]] = []
-    for item in _CORE_TASKS:
-        tasks.append(
-            {
-                "id": item["id"],
-                "title": item["title"],
-                "status": "planned",
-            }
-        )
-
+def _describe_import(source_type: str, source_uri: str | None, payload: dict[str, Any]) -> dict[str, Any]:
     return {
         "planner_mode": "heuristic",
-        "summary": f"Heuristic planner generated MVP steps for source_type={source_type}.",
+        "summary": "Import metadata only; deployment is a separate operation.",
         "signals": {
             "source_type": source_type,
             "source_uri_present": bool(source_uri),
-            "has_manifest": isinstance(import_payload.get("manifest"), dict),
+            "has_manifest": isinstance(payload.get("manifest"), dict),
         },
-        "tasks": tasks,
     }
-
-
-def _normalize_plan(candidate: dict[str, Any], fallback: dict[str, Any], *, mode: str) -> dict[str, Any]:
-    tasks_raw = candidate.get("tasks")
-    tasks: list[dict[str, Any]] = []
-    if _is_object_list(tasks_raw):
-        for i, task in enumerate(tasks_raw):
-            if not _is_string_object_dict(task):
-                continue
-            task_id = str(task.get("id") or f"T{i:02d}").strip() or f"T{i:02d}"
-            tasks.append(
-                {
-                    "id": task_id,
-                    "title": str(task.get("title") or "Unnamed task"),
-                    "status": str(task.get("status") or "planned"),
-                    "notes": task.get("notes"),
-                }
-            )
-    if not tasks:
-        return fallback
-
-    return {
-        "planner_mode": mode,
-        "summary": str(candidate.get("summary") or fallback.get("summary") or ""),
-        "signals": candidate.get("signals") or fallback.get("signals") or {},
-        "tasks": tasks,
-    }
-
-
-def analyze_import_plan(import_payload: dict[str, Any]) -> dict[str, Any]:
-    fallback = _heuristic_plan(import_payload)
-    try:
-        model = get_chat_model(temperature=0.1, max_tokens=1200)
-        retry_factory = getattr(model, "with_retry", None)
-        if not callable(retry_factory):
-            return fallback
-        runnable: object = retry_factory()
-        prompt = (
-            "Generate an MVP crawler management plan as JSON.\n"
-            "Constraints:\n"
-            "1) Return only JSON object with keys: summary, signals, tasks.\n"
-            "2) tasks must be array of objects with id/title/status/notes.\n"
-            "3) Prefer T00-T19 identifiers for atomic tasks.\n"
-            "Payload:\n"
-            f"{json.dumps(import_payload, ensure_ascii=False)}"
-        )
-        invoke = getattr(runnable, "invoke", None)
-        if not callable(invoke):
-            return fallback
-        raw: object = invoke(prompt)
-        parsed = _parse_json_object(_extract_text_from_llm_output(raw))
-        if not parsed:
-            return fallback
-        return _normalize_plan(parsed, fallback, mode="llm")
-    except Exception:
-        return fallback
 
 
 def _serialize_project(project: CrawlerProject) -> dict[str, Any]:
@@ -280,7 +131,7 @@ def import_project(payload: dict[str, Any]) -> dict[str, Any]:
 
     project_key = _slugify(str(payload.get("project_key") or name))
     description = payload.get("description")
-    analysis_plan = analyze_import_plan(payload)
+    analysis_plan = _describe_import(source_type, source_uri, payload)
     version = str(payload.get("version") or _version_from_payload(payload))
 
     with bind_schema("public"):

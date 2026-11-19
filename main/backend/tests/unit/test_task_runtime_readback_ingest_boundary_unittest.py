@@ -4,6 +4,7 @@ import sys
 import unittest
 from contextlib import nullcontext
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import pytest
@@ -22,14 +23,18 @@ from app.services.tasks import (
 
 
 class _EmptyRawImportSession:
-    def __init__(self) -> None:
+    def __init__(self, enabled=True) -> None:
         self.committed = False
+        self.enabled = enabled
 
     def __enter__(self):
         return self
 
     def __exit__(self, *_args):
         return False
+
+    def execute(self, _statement, _parameters):
+        return SimpleNamespace(scalar_one_or_none=lambda: self.enabled)
 
     def commit(self) -> None:
         self.committed = True
@@ -84,6 +89,25 @@ class TaskRuntimeReadbackIngestBoundaryUnitTestCase(unittest.TestCase):
         self.assertTrue(session.committed)
         self.assertEqual(completed, [(91, "completed", result)])
         mocked_fail.assert_not_called()
+
+    def test_queued_raw_import_rejects_project_archived_before_worker_starts(self) -> None:
+        from app.services.ingest import raw_import
+        from app.services.projects.context import ProjectNotWritableError
+
+        session = _EmptyRawImportSession(enabled=False)
+        with (
+            patch.object(raw_import, "SessionLocal", return_value=session),
+            patch.object(raw_import, "start_job") as start_job,
+            patch.object(raw_import, "fetch_html") as fetch_html,
+        ):
+            with pytest.raises(ProjectNotWritableError, match="archived/disabled"):
+                task_raw_import_materials.run(
+                    {"items": [{"uri": "https://example.test/archived"}]},
+                    "archived_project",
+                )
+        start_job.assert_not_called()
+        fetch_html.assert_not_called()
+        self.assertFalse(session.committed)
 
     def test_search_market_adapter_passes_runtime_readback_to_market_job(self) -> None:
         adapter = SearchMarketAdapter()

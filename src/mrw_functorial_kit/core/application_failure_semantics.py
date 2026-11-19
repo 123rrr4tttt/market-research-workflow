@@ -61,6 +61,7 @@ LlmReportRequestFailureCode = Literal[
 ProjectOperationFailureCode = Literal[
     "project_key_required",
     "project_binding_conflict",
+    "project_not_writable",
     "schema_binding_conflict",
     "workflow_not_found",
     "workflow_handler_not_found",

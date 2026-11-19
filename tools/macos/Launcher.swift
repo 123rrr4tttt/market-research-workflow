@@ -1417,8 +1417,8 @@ func monitorCommand() -> String {
       fi
     done
     lsof -nP -iTCP:5173 -sTCP:LISTEN >/dev/null 2>&1 && frontend=up
-    if [ -f /tmp/celery-local-worker.pid ]; then
-      worker_pid=$(cat /tmp/celery-local-worker.pid 2>/dev/null || true)
+    if [ -f "${MRW_LOCAL_STATE_DIR:-.local-run}/celery-local-worker.pid" ]; then
+      worker_pid=$(cat "${MRW_LOCAL_STATE_DIR:-.local-run}/celery-local-worker.pid" 2>/dev/null || true)
       if [ -n "$worker_pid" ] && kill -0 "$worker_pid" >/dev/null 2>&1; then
         worker=up:$worker_pid
       fi

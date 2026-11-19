@@ -9,7 +9,7 @@ from mrw_functorial_kit.core.source_and_capability_failure_semantics import firs
 
 
 def capability_failure(code: str, message: str, **context: object) -> Failure:
-    """Construct the closed W06 failure value shared by capability modules."""
+    """Construct the closed capability failure value shared by capability modules."""
 
     return first_specimen_capability_failures.fail(
         code,

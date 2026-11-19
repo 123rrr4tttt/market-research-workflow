@@ -665,7 +665,6 @@ def _execute_query_candidate(
             "search_service": "basic",
             "enable_search_service_fallback": False,
             "enable_external_search_fallback": False,
-            "allow_candidate_semantic_llm": False,
         }
     )
     object_execution_params: dict[object, object] = {

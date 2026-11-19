@@ -57,8 +57,11 @@ export class MrwBackendClient {
     return this.post<MrwBindResult>('/bind', { bindingId, threadId });
   }
 
-  async prepareTurn(threadId: string): Promise<MrwTurnAdmission> {
-    return this.post<MrwTurnAdmission>('/prepare-turn', { threadId });
+  async prepareTurn(
+    threadId: string,
+    credentials?: MrwRequestCredentials,
+  ): Promise<MrwTurnAdmission> {
+    return this.post<MrwTurnAdmission>('/prepare-turn', { threadId }, credentials);
   }
 
   async dispatch(

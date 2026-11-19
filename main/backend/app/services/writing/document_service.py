@@ -22,6 +22,7 @@ from ..document_views import (
     serialize_writing_document,
     serialize_writing_document_draft,
 )
+from ..projects.context import require_writable_project
 
 
 class WritingVersionConflictError(ValueError):
@@ -170,6 +171,7 @@ def create_document(
     metadata_json: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     def _op(session: Session) -> dict[str, Any]:
+        require_writable_project(session, project_key)
         row = WritingDocument(
             project_key=project_key,
             title=str(title or "").strip() or "Untitled",
@@ -216,6 +218,7 @@ def get_document(*, doc_id: int, project_key: str) -> dict[str, Any]:
 
 def try_delete_document(*, doc_id: int, project_key: str, updated_by_user_id: str | None = None) -> dict[str, Any] | Failure:
     def _op(session: Session) -> dict[str, Any] | Failure:
+        require_writable_project(session, project_key)
         row = fetch_active_document(session, doc_id=doc_id, project_key=project_key)
         if row is None:
             return _writing_failure(
@@ -255,6 +258,7 @@ def try_save_document_with_conflict(
     metadata_json: dict[str, Any] | None = None,
 ) -> dict[str, Any] | Failure:
     def _op(session: Session) -> dict[str, Any] | Failure:
+        require_writable_project(session, project_key)
         row = fetch_active_document(session, doc_id=doc_id, project_key=project_key)
         if row is None:
             return _writing_failure(
@@ -340,6 +344,7 @@ def try_save_draft_autosave(
     selection_snapshot: dict[str, Any] | None = None,
 ) -> dict[str, Any] | Failure:
     def _op(session: Session) -> dict[str, Any] | Failure:
+        require_writable_project(session, project_key)
         document = fetch_active_document(session, doc_id=doc_id, project_key=project_key)
         if document is None:
             return _writing_failure(

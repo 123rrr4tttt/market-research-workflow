@@ -104,8 +104,8 @@ class _RawImportSession:
     def __exit__(self, *_args):
         return False
 
-    def execute(self, _statement):
-        return _ScalarResult(self._existing)
+    def execute(self, _statement, parameters=None):
+        return _ScalarResult(True if parameters is not None else self._existing)
 
     def add(self, *_args, **_kwargs):
         return None
@@ -276,7 +276,7 @@ class TestRawImportMaterialBranch:
         assert failed == []
         assert session.committed
 
-    def _install_sqlite_runtime(self, monkeypatch):
+    def _install_sqlite_runtime(self, monkeypatch, *, project_enabled=lambda: True):
         from app.models.entities import Material, Source
         from app.services.ingest import raw_import, terminal_writer
 
@@ -294,7 +294,19 @@ class TestRawImportMaterialBranch:
         document_table.c.extracted_data.type = JSON()
         source_table.create(engine)
         document_table.create(engine)
+        # SQLite does not implement FOR SHARE; simulate only the lifecycle row.
+        # The Material/Source writes and rollback use actual SQLAlchemy sessions.
+        from sqlalchemy.orm import Session
+
+        class TestingSession(Session):
+            def execute(self, statement, params=None, *args, **kwargs):
+                if str(statement).startswith("SELECT enabled FROM public.projects WHERE project_key = :project_key"):
+                    assert params == {"project_key": "local-user"}
+                    return _ScalarResult(project_enabled())
+                return super().execute(statement, params, *args, **kwargs)
+
         TestingSessionLocal = sessionmaker(
+            class_=TestingSession,
             autocommit=False,
             autoflush=False,
             bind=engine,
@@ -432,3 +444,87 @@ class TestRawImportMaterialBranch:
 
 if __name__ == "__main__":
     unittest.main()
+
+
+    def test_archived_import_does_not_start_job_or_prepare_material(self, monkeypatch):
+        from app.models.entities import Material, Source
+        from app.services.projects.context import ProjectNotWritableError
+
+        raw_import, testing_session = self._install_sqlite_runtime(
+            monkeypatch, project_enabled=lambda: False
+        )
+
+        def unexpected(*_args, **_kwargs):
+            pytest.fail("archived import must not start a job or prepare an item")
+
+        monkeypatch.setattr(raw_import, "start_job", unexpected)
+        monkeypatch.setattr(raw_import, "fetch_html", unexpected)
+        monkeypatch.setattr(raw_import, "run_postprocess_frontdoor", unexpected)
+        with pytest.raises(ProjectNotWritableError, match="archived/disabled"):
+            raw_import.run_raw_import_materials(self._payload("new body"), "local-user")
+        with testing_session() as session:
+            assert session.query(Material).count() == 0
+            assert session.query(Source).count() == 0
+
+    @pytest.mark.parametrize("existing_status", [None, "active", "reference_only"])
+    def test_archive_during_preparation_does_not_commit_material_or_source(
+        self, monkeypatch, existing_status
+    ):
+        from app.models.entities import Material, Source
+        from app.services.projects.context import ProjectNotWritableError
+
+        enabled = True
+        raw_import, testing_session = self._install_sqlite_runtime(
+            monkeypatch, project_enabled=lambda: enabled
+        )
+        old_content = None if existing_status == "reference_only" else "old body"
+        uri = "https://example.test/archived"
+        jobs_failed = []
+        monkeypatch.setattr(raw_import, "fail_job", lambda _, error: jobs_failed.append(error))
+        if existing_status is not None:
+            with testing_session() as session:
+                source = Source(name="old source", kind="manual", base_url="")
+                session.add(source)
+                session.flush()
+                session.add(Material(
+                    source_id=source.id,
+                    material_type="raw_note",
+                    uri=uri,
+                    content=old_content,
+                    status=existing_status,
+                ))
+                session.commit()
+
+        frontdoor = raw_import.run_postprocess_frontdoor
+
+        def archive_between_admission_and_write(**kwargs):
+            nonlocal enabled
+            enabled = False
+            return frontdoor(**kwargs)
+
+        monkeypatch.setattr(raw_import, "run_postprocess_frontdoor", archive_between_admission_and_write)
+        payload = self._payload(
+            "new body",
+            items=[{"text": "new body", "uri": uri}],
+            overwrite_on_uri=existing_status == "active",
+            fetch_url_also_when_text_present=False,
+        )
+        if existing_status is None:
+            result = raw_import.run_raw_import_materials(payload, "local-user")
+            assert result["inserted"] == 0
+            assert result["error_count"] == 1
+            assert "archived/disabled" in result["errors"][0]["error"]
+        else:
+            with pytest.raises(ProjectNotWritableError, match="archived/disabled"):
+                raw_import.run_raw_import_materials(payload, "local-user")
+            assert len(jobs_failed) == 1
+            assert "archived/disabled" in jobs_failed[0]
+        with testing_session() as session:
+            if existing_status is None:
+                assert session.query(Material).count() == 0
+                assert session.query(Source).count() == 0
+            else:
+                existing = session.query(Material).one()
+                assert existing.content == old_content
+                assert existing.status == existing_status
+                assert session.query(Source).one().name == "old source"

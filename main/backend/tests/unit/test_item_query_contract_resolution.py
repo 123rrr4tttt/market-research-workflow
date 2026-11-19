@@ -433,7 +433,7 @@ def test_native_query_discovery_stops_after_policy_rejection(opensearch: bool) -
     assert all(url.startswith("https://example.com/") for url in session.urls)
 
 
-def test_interface_validation_never_calls_legacy_semantic_llm() -> None:
+def test_interface_validation_distinguishes_unmatched_results_from_verified_contract() -> None:
     candidate = search_contract_discovery.QueryContractCandidate(
         entry_type="search_template",
         template="https://example.com/search?q={{q}}",
@@ -457,19 +457,15 @@ def test_interface_validation_never_calls_legacy_semantic_llm() -> None:
             return_value=('<a href="/reports/unrelated">Unrelated report</a>', None),
         ),
         patch.object(search_capabilities, "score_search_template_candidates", return_value=[unmatched]) as score,
-        patch.object(search_capabilities, "_expand_semantic_query_terms_with_llm") as expand,
-        patch.object(search_capabilities, "_select_candidates_with_llm") as select_llm,
     ):
         execution = search_contract_discovery._execute_query_candidate(
             candidate,
             query_text="river",
-            params={"allow_candidate_semantic_llm": True},
+            params={},
             probe_timeout=1,
             entry_domain="example.com",
         )
 
     score.assert_called_once()
-    expand.assert_not_called()
-    select_llm.assert_not_called()
     assert execution.selected_candidates == []
     assert search_contract_discovery._execution_reason_codes(execution) == ["interaction_required"]

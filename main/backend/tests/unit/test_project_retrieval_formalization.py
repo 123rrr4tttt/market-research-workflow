@@ -145,6 +145,14 @@ def test_formalize_material_retries_invalid_claim_shape_without_accepting_it():
     assert result == {"status": "no_claim", "gaps": ["正文不能支持该关系"]}
 
 
+def test_formalize_material_reports_missing_cell_instead_of_no_claim():
+    result = formalize_material(payload())
+
+    assert result["status"] == "failed"
+    assert result["error"]["code"] == "FORMALIZATION_CELL_BINDING_MISSING"
+    assert "no model was called" in result["error"]["message"]
+
+
 def test_formalize_material_fails_explicitly_when_provider_is_unavailable():
     def unavailable(_: str):
         raise RuntimeError

@@ -139,7 +139,9 @@ class Settings(BaseSettings):
     codex_auth_tokens: str = Field(default="")
     codex_webui_internal_url: str = Field(default="http://127.0.0.1:8172")
     codex_webui_server_api_key: SecretStr = Field(default=SecretStr(""))
+    codex_webui_login_api_key: SecretStr = Field(default=SecretStr(""))
     codex_webui_local_single_user_enabled: bool = Field(default=False)
+    codex_webui_docker_origin: str = Field(default="")
     codex_auth_protected_prefixes: str = Field(
         default=(
             "/api/v1/agent-cell,/api/v1/agent-batch,/api/v1/agent-sessions,"

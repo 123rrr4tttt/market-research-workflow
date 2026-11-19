@@ -23,6 +23,8 @@ PyYAML>=6.0
 beautifulsoup4==4.12.3
 selectolax==0.3.17
 celery==5.4.0
+# Kombu 5.7 requires a newer redis-py than this Celery stack uses.
+kombu[redis]==5.6.2
 redis==5.1.0
 prometheus-client==0.20.0
 duckduckgo-search==8.1.1

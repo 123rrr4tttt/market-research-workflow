@@ -112,10 +112,7 @@ class SearchTemplateServiceUnitTestCase(unittest.TestCase):
         </body></html>
         """
 
-        with patch("app.services.resource_pool.search_template_service.fetch_html", return_value=(html, object())), patch(
-            "app.services.resource_pool.search_capabilities._expand_semantic_query_terms_with_llm",
-            return_value=[],
-        ):
+        with patch("app.services.resource_pool.search_template_service.fetch_html", return_value=(html, object())):
             result = execute_search_template(
                 template="https://example.com/search?q={{q}}",
                 query_terms=["robotics"],

@@ -532,8 +532,6 @@ def _source_library_run_handler_factory(
                 )
                 break
             item_params: JSONObject = {**override_params, **item_overrides.get(item_key, {})}
-            # Semantic exploration belongs to the calling Cell, not a worker-side model.
-            item_params["allow_candidate_semantic_llm"] = False
             invoked = invoke_skill(
                 skill_id="ingest.dispatch.source_library_item",
                 payload={

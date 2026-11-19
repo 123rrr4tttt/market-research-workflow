@@ -19,6 +19,7 @@ from ..composition.raw_material_import_task import (
 )
 from ..contracts import ApiEnvelope, ErrorCode, success_response, task_result_response
 from ..contracts.raw_material_import import RawImportRequest
+from ..models.base import SessionLocal
 from ..project_customization import get_project_customization
 from ..services import document_admin
 from ..services.document_admin import AdminMaterialSnapshot, JsonObject, optional_json_object, parse_json_object
@@ -31,7 +32,11 @@ from ..services.ingest.adapters.http_utils import fetch_html
 from ..services.ingest.postprocess_frontdoor import run_frontdoor_extraction
 from ..services.ingest.url_pool import _extract_text_from_html
 from ..services.projects import current_project_key
-from ..services.projects.context import resolve_request_project_context
+from ..services.projects.context import (
+    ProjectNotWritableError,
+    require_writable_project,
+    resolve_request_project_context,
+)
 from ._error_responses import error_json_response as _error_json
 
 if TYPE_CHECKING:
@@ -68,6 +73,15 @@ def _project_key_from_request(request: Request) -> str:
         use_resolved_fallback=True,
     )
     return project_key
+
+
+def _project_not_writable_response(project_key: str, exc: ProjectNotWritableError) -> JSONResponse:
+    return _error_json(
+        409,
+        ErrorCode.INVALID_INPUT,
+        str(exc),
+        details={"project_key": project_key, "reason_code": "project_not_writable"},
+    )
 
 
 def _empty_graph_response():
@@ -678,29 +692,36 @@ def _run_raw_material_import_sync(
 def raw_import_materials(request: Request, payload: RawImportRequest):
     """Raw data direct ingest: skip fetch stage and reuse project-consistent ingest flow."""
     project_key = _project_key_from_request(request)
-    if payload.async_mode:
-        from ..services.tasks import raw_material_import_task_binding
+    try:
+        if payload.async_mode:
+            from ..services.tasks import raw_material_import_task_binding
 
-        task = _dispatch_raw_material_import_async(
-            raw_material_import_task_binding,
+            # Check before publishing to Celery, but never hold the row lock
+            # across broker I/O. The worker rechecks before work and before writes.
+            with SessionLocal() as session:
+                require_writable_project(session, project_key)
+            task = _dispatch_raw_material_import_async(
+                raw_material_import_task_binding,
+                payload,
+                project_key,
+            )
+            task_result = parse_json_object(
+                task_result_response(
+                    task_id=task.id,
+                    async_mode=True,
+                    params={"source_name": payload.source_name, "items_total": len(payload.items)},
+                ),
+                field="raw_import_task_result",
+            )
+            return success_response(task_result)
+        result = _run_raw_material_import_sync(
+            RAW_MATERIAL_IMPORT_TASK_DEFINITION,
             payload,
             project_key,
         )
-        task_result = parse_json_object(
-            task_result_response(
-                task_id=task.id,
-                async_mode=True,
-                params={"source_name": payload.source_name, "items_total": len(payload.items)},
-            ),
-            field="raw_import_task_result",
-        )
-        return success_response(task_result)
-    result = _run_raw_material_import_sync(
-        RAW_MATERIAL_IMPORT_TASK_DEFINITION,
-        payload,
-        project_key,
-    )
-    return success_response(parse_json_object(result, field="raw_import_result"))
+        return success_response(parse_json_object(result, field="raw_import_result"))
+    except ProjectNotWritableError as exc:
+        return _project_not_writable_response(project_key, exc)
 
 
 @router.post("/materials/list", response_model=ApiEnvelope[document_admin.AdminMaterialPage])
@@ -750,7 +771,10 @@ def bulk_update_material_extracted_data(payload: BulkUpdateExtractedDataRequest)
         missing = [material_id for material_id in payload.material_ids if material_id not in found_ids]
         return success_response(_build_bulk_extracted_data_preview(readback_docs, payload=payload, missing=missing))
 
-    result = document_admin.bulk_update_admin_material_extracted_data(payload.material_ids, command)
+    try:
+        result = document_admin.bulk_update_admin_material_extracted_data(payload.material_ids, command)
+    except ProjectNotWritableError as exc:
+        return _project_not_writable_response(current_project_key(), exc)
     updated = result["updated"]
     skipped = result["skipped"]
     errors = result["errors"]
@@ -802,7 +826,10 @@ def delete_materials(payload: DeleteMaterialsRequest):
         readback_materials = document_admin.preview_admin_materials(payload.material_ids)
         return success_response(_build_material_delete_preview(readback_materials, payload.material_ids))
 
-    result = document_admin.delete_admin_materials(payload.material_ids)
+    try:
+        result = document_admin.delete_admin_materials(payload.material_ids)
+    except ProjectNotWritableError as exc:
+        return _project_not_writable_response(current_project_key(), exc)
     deleted = result["deleted"]
     missing = result["missing"]
     pre_mutation_docs = result["readback"]
@@ -855,12 +882,15 @@ def re_extract_materials(payload: ReExtractRequest):
             plan = {key: value for key, value in extraction_plan.items()}
         return run_frontdoor_extraction(title=title, content=content, extraction_plan=plan)
 
-    result = document_admin.reextract_admin_materials(
-        command,
-        extraction_runner=_run_extraction,
-        fetch_html=fetch_html,
-        extract_text_from_html=_extract_text_from_html,
-    )
+    try:
+        result = document_admin.reextract_admin_materials(
+            command,
+            extraction_runner=_run_extraction,
+            fetch_html=fetch_html,
+            extract_text_from_html=_extract_text_from_html,
+        )
+    except ProjectNotWritableError as exc:
+        return _project_not_writable_response(current_project_key(), exc)
     success_count = result["success"]
     error_count = result["error"]
     skipped_count = result["skipped"]
@@ -930,15 +960,18 @@ def topic_extract_materials(request: Request, payload: TopicExtractRequest):
         limit=payload.limit,
         candidate_mode=payload.candidate_mode,
     )
-    return success_response(
-        document_admin.topic_extract_admin_materials(
-            command,
-            dictionaries=_get_topic_dictionaries(project_key),
-            workflow_runner=run_topic_extraction_workflow,
-            fetch_html=fetch_html,
-            extract_text_from_html=_extract_text_from_html,
+    try:
+        return success_response(
+            document_admin.topic_extract_admin_materials(
+                command,
+                dictionaries=_get_topic_dictionaries(project_key),
+                workflow_runner=run_topic_extraction_workflow,
+                fetch_html=fetch_html,
+                extract_text_from_html=_extract_text_from_html,
+            )
         )
-    )
+    except ProjectNotWritableError as exc:
+        return _project_not_writable_response(current_project_key(), exc)
 
 
 @router.get("/materials/{material_id}", response_model=ApiEnvelope[AdminMaterialSnapshot])
@@ -959,6 +992,8 @@ def update_material_extracted_data(material_id: int, payload: UpdateExtractedDat
     )
     try:
         result = document_admin.update_admin_material_extracted_data(material_id, command)
+    except ProjectNotWritableError as exc:
+        return _project_not_writable_response(current_project_key(), exc)
     except document_admin.AdminMaterialNotFoundError:
         return _error_json(404, ErrorCode.NOT_FOUND, "文档不存在")
     except document_admin.AdminMaterialInputError as exc:

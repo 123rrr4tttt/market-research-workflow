@@ -41,6 +41,12 @@ class _FakeTasks:
 
 
 class IngestBaselineMatrixTestCase(unittest.TestCase):
+    def setUp(self):
+        # These tests exercise HTTP contracts without a project registry database.
+        admission = patch("app.api.ingest.check_project_write_admission")
+        admission.start()
+        self.addCleanup(admission.stop)
+
     @classmethod
     def setUpClass(cls):
         if _IMPORT_ERROR is not None:

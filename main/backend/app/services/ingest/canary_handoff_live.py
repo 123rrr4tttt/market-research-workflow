@@ -325,7 +325,7 @@ def validate_production_like_handoff_evidence(evidence: Mapping[str, object]) ->
 
 def run_repo_local_production_like_handoff_canary(*, project_key: str | None = None) -> dict[str, object]:
     run_id = uuid4().hex[:10]
-    resolved_project_key = str(project_key or f"wave55_ingest_canary_{run_id}").strip().lower()
+    resolved_project_key = str(project_key or f"ingest_canary_{run_id}").strip().lower()
     accepted_url = f"https://example.com/production-like-{run_id}"
     rejected_url = f"https://example.com/search?q=search-shell-{run_id}"
     schema_name = _prepare_project_schema(resolved_project_key)

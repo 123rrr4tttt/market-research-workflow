@@ -380,7 +380,7 @@ export class ThreadsService {
     credentials?: MrwRequestCredentials,
   ): Promise<v2.TurnStartResponse> {
     this.deletionRegistry.assertMutable(params.threadId);
-    const bound = this.mrw.isBound(params.threadId);
+    let bound = this.mrw.isBound(params.threadId);
     const originalText = describeUserInput(params.input);
     const attachments = bound
       ? await describeLocalAttachments(params.input)
@@ -392,7 +392,7 @@ export class ThreadsService {
           HttpStatus.BAD_REQUEST,
         );
       }
-      await this.mrw.prepareTurn(params.threadId);
+      await this.mrw.prepareTurn(params.threadId, credentials);
     } else {
       const probe = await this.mrw.probeEnvironment(params.threadId);
       if (probe === 'rebind_required') {
@@ -402,6 +402,10 @@ export class ThreadsService {
           'MRW thread requires rebind',
           { threadId: params.threadId },
         );
+      }
+      if (probe === 'restored') {
+        await this.mrw.prepareTurn(params.threadId, credentials);
+        bound = true;
       }
     }
     if (bound) {

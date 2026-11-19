@@ -154,6 +154,23 @@ def test_mixed_worker_rebuild_reads_actual_ack_and_business_result(live_database
         assert json.loads(bytes(values[0]["content_bytes"]))["output"] == {"document_id": 731, "nested": [True, 2]}
 
 
+@pytest.fixture
+def writable_project(live_database: LiveDatabase):
+    from app.models.entities import Project
+
+    table = Project.__table__
+    with live_database.engine.begin() as connection:
+        table.create(connection)
+        connection.execute(table.insert().values(
+            project_key=PROJECT_KEY, schema_name=PROJECT_SCHEMA, name="Workflow test",
+        ))
+    try:
+        yield
+    finally:
+        with live_database.engine.begin() as connection:
+            table.drop(connection)
+
+
 def _workflow_authority_installation(
     live_database: LiveDatabase, definition: workflow_native.WorkflowRuntimeDefinition, now: datetime,
 ) -> dict:
@@ -191,19 +208,19 @@ def _workflow_authority_installation(
     )
 
 
+@pytest.mark.usefixtures("writable_project")
 @pytest.mark.parametrize("alternate_kind", [False, True], ids=("default", "alternate"))
 def test_graph_facade_real_tasks_replay_exact_upstream_outputs(
     live_database: LiveDatabase, monkeypatch: pytest.MonkeyPatch, alternate_kind: bool,
 ) -> None:
     from app.models import base
     from app.services import tasks, workflow_graph
-    from app.services.workflow_graph.executors import llm_call
     from app.services.workflow_graph.store import InMemoryCompiledGraphStore
     from app.successor_runtime.substrate.postgres import session as runtime_session
 
     kinds = dict(workflow_native.WORKFLOW_RUNTIME_NODE_KINDS)
     if alternate_kind:
-        kinds["llm_call"] = "workflow.runtime.llm-call.nondefault.v1"
+        kinds["join"] = "workflow.runtime.join.nondefault.v1"
     definition = workflow_native.build_workflow_runtime_definition(kinds if alternate_kind else None)
     if alternate_kind:
         monkeypatch.setattr(workflow_native, "build_workflow_runtime_definition", lambda: definition)
@@ -227,33 +244,27 @@ def test_graph_facade_real_tasks_replay_exact_upstream_outputs(
         assert sorted(policy_classes) == ["CPU_LIGHT", "NETWORK_IO"]
 
     queued: deque[str] = deque()
-    prompts: list[str] = []
 
     def capture_next(args: tuple[object, ...] = (), **_kwargs: object) -> object:
         queued.append(str(args[0]))
         return object()
 
-    def provider(prompt: str, **_kwargs: object) -> str:
-        prompts.append(prompt)
-        return f"answer:{prompt}"
-
     monkeypatch.setattr(base, "engine", live_database.engine)
     monkeypatch.setattr(runtime_session, "create_runtime_engine", lambda *_args, **_kwargs: live_database.engine)
     monkeypatch.setattr(sa.engine.Engine, "dispose", lambda _engine: None)
     monkeypatch.setattr(tasks.task_successor_runtime, "apply_async", capture_next)
-    monkeypatch.setattr(llm_call, "_invoke_llm", provider)
     compiler = workflow_graph.WorkflowGraphCompilerService(store=InMemoryCompiledGraphStore())
     monkeypatch.setattr(workflow_graph, "compiler", compiler)
     compiler.compile({"graph_id": "graph-pg", "dsl": {
         "version": "1.0", "options": {},
         "nodes": [
-            {"node_id": "first", "node_type": "llm_call", "config": {"prompt": "first"}},
-            {"node_id": "second", "node_type": "llm_call", "config": {
-                "prompt_template": "continue {prior_text}",
-                "input_vars": [{"name": "prior_text", "source": "node_output", "from_node": "first",
-                                "from_key": "text", "required": True}],
+            {"node_id": "first", "node_type": "join", "config": {}},
+            {"node_id": "second", "node_type": "join", "config": {
+                "field": "sources",
+                "input_vars": [{"name": "prior_sources", "source": "node_output", "from_node": "first",
+                                "from_key": "sources", "required": True}],
             }},
-            {"node_id": "combine", "node_type": "join", "config": {"field": "text"}},
+            {"node_id": "combine", "node_type": "join", "config": {"field": "count"}},
         ],
         "edges": [{"from": "first", "to": "second"},
                   {"from": "first", "to": "combine"}, {"from": "second", "to": "combine"}],
@@ -272,7 +283,6 @@ def test_graph_facade_real_tasks_replay_exact_upstream_outputs(
         assert result["results"] and all(item["committed"] and item["executed"] for item in result["results"]), result
     assert len(work_ids) == len(set(work_ids)) == 3
     assert successor_ready_work_ids(live_database.engine, work_ids[0]) == ()
-    assert prompts == ["first", "continue answer:first"]
     detail = facade.get_run("graph-pg-run", project_key=PROJECT_KEY, actor_id=actor_id)
     assert detail["status"] == "succeeded"
     session = facade.get_run_agent_session("graph-pg-run", project_key=PROJECT_KEY, actor_id=actor_id)
@@ -282,25 +292,38 @@ def test_graph_facade_real_tasks_replay_exact_upstream_outputs(
     replay = facade.replay_run("graph-pg-run", "stateful", project_key=PROJECT_KEY, actor_id=actor_id)
     assert replay["node_statuses"] == {"first": "succeeded", "second": "succeeded", "combine": "succeeded"}
     assert replay["replay_consistency"]["consistent"] is True
-    assert replay["results"]["first"]["text"] == "answer:first"
-    assert replay["results"]["second"]["text"] == "answer:continue answer:first"
+    assert replay["results"]["first"]["joined"] == {}
+    assert replay["results"]["second"]["values"] == [[]]
+    assert replay["results"]["second"]["io_trace"]["prior_sources"]["resolved"] == []
     join_payload = {
-        "node_type": "join", "field": "text", "sources": ["first", "second"],
-        "values": ["answer:first", "answer:continue answer:first"], "count": 2,
+        "node_type": "join", "field": "count", "sources": ["first", "second"],
+        "values": [0, 1], "count": 2,
     }
     assert replay["results"]["combine"] == {
         **join_payload, "data": join_payload, "error": None,
         "meta": {"node_id": "combine", "node_type": "join"}, "io_trace": {},
     }
-    assert prompts == ["first", "continue answer:first"]
 
 
+@pytest.mark.usefixtures("writable_project")
+@pytest.mark.parametrize(
+    ("config", "code", "message_fragment"),
+    [
+        (
+            {"prompt_template": "Answer {required_for_live_failure}"},
+            "required_input_missing",
+            "required_for_live_failure",
+        ),
+        ({"prompt": "Valid input"}, "executor_not_registered", "requires an Agent Cell execution binding"),
+    ],
+    ids=("missing-input", "missing-cell-binding"),
+)
 def test_graph_bounded_failure_preserves_domain_details_in_persisted_readback(
     live_database: LiveDatabase, monkeypatch: pytest.MonkeyPatch,
+    config: dict[str, str], code: str, message_fragment: str,
 ) -> None:
     from app.models import base
     from app.services import tasks, workflow_graph
-    from app.services.workflow_graph.executors import llm_call
     from app.services.workflow_graph.store import InMemoryCompiledGraphStore
     from app.successor_runtime.substrate.postgres import session as runtime_session
 
@@ -310,32 +333,24 @@ def test_graph_bounded_failure_preserves_domain_details_in_persisted_readback(
             live_database, workflow_native.build_workflow_runtime_definition(), datetime.now(UTC),
         ))
     queued: deque[str] = deque()
-    provider_calls: list[str] = []
 
     def capture_next(args: tuple[object, ...] = (), **_kwargs: object) -> object:
         queued.append(str(args[0]))
         return object()
 
-    def forbidden_provider(prompt: str, **_kwargs: object) -> str:
-        provider_calls.append(prompt)
-        raise AssertionError("missing input must fail before provider invocation")
-
     monkeypatch.setattr(base, "engine", live_database.engine)
     monkeypatch.setattr(runtime_session, "create_runtime_engine", lambda *_args, **_kwargs: live_database.engine)
     monkeypatch.setattr(sa.engine.Engine, "dispose", lambda _engine: None)
     monkeypatch.setattr(tasks.task_successor_runtime, "apply_async", capture_next)
-    monkeypatch.setattr(llm_call, "_invoke_llm", forbidden_provider)
     compiler = workflow_graph.WorkflowGraphCompilerService(store=InMemoryCompiledGraphStore())
     monkeypatch.setattr(workflow_graph, "compiler", compiler)
     compiler.compile({"graph_id": "graph-failure", "dsl": {
         "version": "1.0", "options": {},
         "nodes": [
-            {"node_id": "missing_prompt", "node_type": "llm_call", "config": {
-                "prompt_template": "Answer this required variable: {required_for_live_failure}",
-            }},
+            {"node_id": "model_call", "node_type": "llm_call", "config": config},
             {"node_id": "not_started_join", "node_type": "join", "config": {"field": "text"}},
         ],
-        "edges": [{"from": "missing_prompt", "to": "not_started_join"}],
+        "edges": [{"from": "model_call", "to": "not_started_join"}],
     }})
     facade = workflow_graph.WorkflowGraphRuntimeService()
     actor = live_database.runtime_scope.actor_id
@@ -344,21 +359,21 @@ def test_graph_bounded_failure_preserves_domain_details_in_persisted_readback(
     assert submitted["status"] == "queued" and len(queued) == 1
     result = tasks.task_successor_runtime.run(queued.popleft())
     assert result["results"][0]["committed"] and result["results"][0]["executed"], result
-    assert not queued and not provider_calls
+    assert not queued
     detail = facade.get_run("graph-failure-run", project_key=PROJECT_KEY, actor_id=actor)
     assert detail["status"] == "failed"
-    assert detail["node_statuses"] == {"missing_prompt": "failed", "not_started_join": "queued"}
+    assert detail["node_statuses"] == {"model_call": "failed", "not_started_join": "queued"}
     events = facade.get_run_events("graph-failure-run", project_key=PROJECT_KEY, actor_id=actor)["items"]
     assert [event["type"] for event in events] == [
         "ProgramAccepted", "CompileSucceeded", "PlanCompiled", "QualificationActivated",
         "StepActivated", "StepClaimed", "EffectStarted", "EffectFailed", "RequiredStepFailed",
     ]
     failed = next(event for event in events if event["type"] == "EffectFailed")
-    assert failed["node_id"] == "missing_prompt"
+    assert failed["node_id"] == "model_call"
     payload = failed["payload"]
     assert payload["failure_family"] == "workflow_graph.failure"
-    assert payload["failure_code"] == "required_input_missing"
-    assert "required_for_live_failure" in payload["error"]
+    assert payload["failure_code"] == code
+    assert message_fragment in payload["error"]
     with live_database.engine.connect() as connection:
         attempt = connection.execute(sa.select(PUBLIC_TABLES["runtime_effect_attempts"]).where(
             PUBLIC_TABLES["runtime_effect_attempts"].c.run_id == "graph-failure-run",
@@ -375,7 +390,7 @@ def test_graph_bounded_failure_preserves_domain_details_in_persisted_readback(
         body = json.loads(exact)
         assert value["object_type"] == "RuntimeFailure.v2"
         assert body["schema_version"] == "mrw.runtime.failure.v2"
-        assert body["failure_code"] == "required_input_missing"
+        assert body["failure_code"] == code
         assert body["domain_failure"] == {
             "family": payload["failure_family"], "code": payload["failure_code"],
             "message": payload["error"], "context": payload["context"],
@@ -384,7 +399,7 @@ def test_graph_bounded_failure_preserves_domain_details_in_persisted_readback(
         assert body["run_id"] == "graph-failure-run"
     replay = facade.replay_run("graph-failure-run", "stateful", project_key=PROJECT_KEY, actor_id=actor)
     assert replay["replay_consistency"]["consistent"] is True and replay["results"] == {}
-    assert not queued and not provider_calls
+    assert not queued
 
 
 @pytest.mark.parametrize("invalid", (

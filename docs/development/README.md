@@ -13,21 +13,21 @@
 
 ## 贡献检查
 
-从仓库根目录执行。默认使用 `main/backend/.venv311`，可用 `MRW_DEV_PYTHON` 指定等价环境。kit 的依赖来源固定在 [pyproject.toml](../../pyproject.toml)；已有环境先运行 `check`，需要安装时才显式运行 `setup`。
+从仓库根目录用 Python 3.11 运行开发入口。入口默认在 `main/backend/.venv311` 中执行项目检查，可用 `MRW_DEV_PYTHON` 指定等价环境。kit 的依赖来源固定在 [pyproject.toml](../../pyproject.toml)；已有环境先运行 `check`，需要安装时才显式运行 `setup`。
 
 ```bash
-python3 scripts/dev.py check
-python3 scripts/dev.py sync
-python3 scripts/dev.py test
-python3 scripts/dev.py gates
+python3.11 scripts/dev.py check
+python3.11 scripts/dev.py sync
+python3.11 scripts/dev.py test
+python3.11 scripts/dev.py gates
 ```
 
 `check` 核验依赖来源和贡献状态；`sync` 更新派生投影；`test` 执行贡献相关测试；`gates` 执行架构门禁。`validate` 是既有组合检查，`inspect` 提供词法导航和显式依赖信息。
 
 ```bash
-python3 scripts/dev.py setup
-python3 scripts/dev.py validate
-python3 scripts/dev.py inspect
+python3.11 scripts/dev.py setup
+python3.11 scripts/dev.py validate
+python3.11 scripts/dev.py inspect
 ```
 
 使用本地 kit 时，各命令追加 `--local-kit <checkout>/python`；该路径须为真实 Git checkout 的 Python 包目录，并先通过 `setup --local-kit` 显式安装。

@@ -13,7 +13,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 pytestmark = pytest.mark.unit
 
 try:
-    from app.services.writing import citation_service
+    from app.services.projects.context import ProjectNotWritableError
+    from app.services.writing import citation_service, document_service
     from app.services.writing import document_edit
     from app.services.writing.document_service import (
         WritingVersionConflictError,
@@ -74,6 +75,7 @@ class WritingDocumentServiceUnitTestCase(unittest.TestCase):
         from unittest.mock import MagicMock, patch
 
         session = MagicMock()
+        session.execute.return_value.scalar_one_or_none.return_value = True
 
         def _run(operation, **_kwargs):
             return operation(session)
@@ -95,6 +97,43 @@ class WritingDocumentServiceUnitTestCase(unittest.TestCase):
         row = session.add.call_args.args[0]
         self.assertEqual(row.source_material_id, 42)
         self.assertEqual(saved, [{"source_material_id": 42}])
+
+    def test_archived_project_rejects_each_writing_mutation_before_effect(self):
+        from unittest.mock import MagicMock, patch
+
+        session = MagicMock()
+        session.execute.return_value.scalar_one_or_none.return_value = False
+        project = {"project_key": "demo_proj"}
+        document = {**project, "doc_id": 11}
+        operations = (
+            (document_service.create_document, {**project, "title": "Draft"}),
+            (document_service.delete_document, document),
+            (document_service.save_document_with_conflict, {**document, "body_md": "Edit"}),
+            (document_service.save_draft_autosave, {
+                **document, "draft_body_md": "Draft", "autosave_token": "token",
+            }),
+            (citation_service.upsert_citations, {**document, "citations": []}),
+        )
+
+        def run(operation, **_kwargs):
+            return operation(session)
+
+        with (
+            patch.object(document_service, "run_with_session_retry", side_effect=run),
+            patch.object(citation_service, "run_with_session_retry", side_effect=run),
+        ):
+            for mutate, arguments in operations:
+                with self.subTest(mutate=mutate.__name__):
+                    session.reset_mock()
+                    with self.assertRaisesRegex(ProjectNotWritableError, "restore it before writing"):
+                        mutate(**arguments)
+                    session.execute.assert_called_once()
+                    query, bindings = session.execute.call_args.args
+                    self.assertIn("public.projects", str(query))
+                    self.assertIn("FOR SHARE", str(query))
+                    self.assertEqual(bindings, project)
+                    session.add.assert_not_called()
+                    session.flush.assert_not_called()
 
     def test_native_writing_operation_definitions_drive_schema_and_dispatch(self):
         self.assertEqual(

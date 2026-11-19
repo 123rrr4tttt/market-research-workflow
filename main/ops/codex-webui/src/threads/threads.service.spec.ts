@@ -517,6 +517,19 @@ describe('ThreadsService', () => {
     expect(mockMrw.recordInput).not.toHaveBeenCalled();
   });
 
+  it('restores a durable MRW binding before starting the next turn', async () => {
+    mockMrw.probeEnvironment.mockResolvedValue('restored');
+    mockCodex.request.mockResolvedValue({ turn: { id: 'turn1' } });
+
+    await service.startTurn({
+      threadId: 't1',
+      input: [{ type: 'text', text: 'hello' }] as never,
+    });
+
+    expect(mockMrw.prepareTurn).toHaveBeenCalledWith('t1', undefined);
+    expect(mockMrw.recordInput).toHaveBeenCalled();
+  });
+
   it('rejects a turn when the environment probe reports a lost binding', async () => {
     mockMrw.probeEnvironment.mockResolvedValue('rebind_required');
 

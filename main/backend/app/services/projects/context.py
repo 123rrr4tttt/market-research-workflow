@@ -8,6 +8,9 @@ from contextvars import ContextVar
 from typing import Any, NoReturn
 
 from functorial_kit import Failure
+from sqlalchemy import text
+from sqlalchemy.engine import Connection
+from sqlalchemy.orm import Session
 from starlette.requests import Request
 
 from mrw_functorial_kit.core.application_failure_semantics import project_operation_failures
@@ -124,6 +127,50 @@ def normalize_project_key(project_key: str) -> str:
     key = re.sub(r"[^a-z0-9_]+", "_", key)
     key = re.sub(r"_+", "_", key).strip("_")
     return key or settings.active_project_key or "default"
+
+
+class ProjectNotWritableError(ValueError):
+    """A project must be registered and enabled to accept a write."""
+
+
+def require_writable_project(
+    transaction: Session | Connection, project_key: str, *, match_schema: bool = False
+) -> None:
+    """Acquire the project lifecycle lock before writing in this transaction."""
+    # FOR SHARE lets writers run concurrently but conflicts with archive's UPDATE.
+    # Use the exact key, with no normalization or fallback to a different project.
+    query = "SELECT enabled FROM public.projects WHERE project_key = :project_key"
+    if match_schema:
+        query += " AND schema_name = current_schema()"
+    enabled = transaction.execute(
+        text(query + " FOR SHARE"), {"project_key": project_key}
+    ).scalar_one_or_none()
+    if enabled is not True:
+        if enabled is False:
+            message = "project is archived/disabled; restore it before writing"
+        elif match_schema:
+            message = "project is not registered for the bound database schema"
+        else:
+            message = "project is not registered"
+        raise_project_failure(
+            project_failure(
+                "project_not_writable",
+                message,
+                operation="require_writable_project",
+                site="app.services.projects.context.require_writable_project",
+                public_exception="ProjectNotWritableError",
+                project_key=project_key,
+            ),
+            ProjectNotWritableError,
+        )
+
+
+def check_project_write_admission(project_key: str) -> None:
+    """Check admission and release the lifecycle lock before external work."""
+    from ...models.base import SessionLocal
+
+    with bind_project(project_key), SessionLocal() as session:
+        require_writable_project(session, project_key, match_schema=True)
 
 
 PG_IDENTIFIER_RE = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]{0,62}$")

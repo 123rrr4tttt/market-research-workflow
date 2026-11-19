@@ -6,7 +6,9 @@ ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0
 RUN corepack enable && corepack prepare pnpm@11.22.0 --activate
 
 ARG VITE_API_BASE_URL
+ARG VITE_MRW_WEBUI_MODE
 ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
+ENV VITE_MRW_WEBUI_MODE=${VITE_MRW_WEBUI_MODE}
 
 COPY package.json pnpm-lock.yaml ./
 COPY pnpm-workspace.yaml ./
@@ -17,8 +19,11 @@ RUN pnpm run build
 
 FROM nginx:1.30.4-alpine3.24@sha256:dc5069ad14f19660b141b21236140b91656bf89bbc3e2417c70ae650cd66104c AS frontend-runtime
 RUN apk add --no-cache libuuid=2.42.3-r1 && rm -f /var/log/apk.log
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY nginx.conf.template /etc/nginx/mrw-nginx.conf.template
+COPY docker-entrypoint.sh /usr/local/bin/mrw-nginx-entrypoint.sh
+RUN chmod +x /usr/local/bin/mrw-nginx-entrypoint.sh
 COPY --from=builder /app/dist /usr/share/nginx/html
 
 EXPOSE 80
+ENTRYPOINT ["/usr/local/bin/mrw-nginx-entrypoint.sh"]
 CMD ["nginx", "-g", "daemon off;"]

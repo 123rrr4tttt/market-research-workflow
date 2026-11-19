@@ -38,7 +38,6 @@ def test_query_tool_forwards_item_proposals_to_original_dispatch() -> None:
                     "override_params": {
                         "query_discovery_max_requests": 1,
                         "agent_search_templates": [proposal],
-                        "allow_candidate_semantic_llm": True,
                     },
                 },
                 "source.other",
@@ -72,16 +71,14 @@ def test_query_tool_forwards_item_proposals_to_original_dispatch() -> None:
         "query_discovery_timeout_seconds": 3,
         "write_to_pool": False,
         "agent_search_templates": [proposal],
-        "allow_candidate_semantic_llm": False,
     }
     assert second["payload"]["override_params"]["query_discovery_max_requests"] == 2
     assert "agent_search_templates" not in second["payload"]["override_params"]
-    assert second["payload"]["override_params"]["allow_candidate_semantic_llm"] is False
     assert result.structured_content["next_read_arguments"] == [{"task_id": "task"}, {"task_id": "task"}]
     assert result.structured_content["items"][0]["override_params"] == first["payload"]["override_params"]
 
 
-def test_external_search_respects_cell_owned_semantic_inference() -> None:
+def test_external_search_does_not_promote_unmatched_candidates() -> None:
     from app.services.resource_pool.search_template_service import execute_external_site_search
 
     with (
@@ -90,16 +87,14 @@ def test_external_search_respects_cell_owned_semantic_inference() -> None:
             "title": "Unrelated coverage",
             "snippet": "An unrelated article",
         }]),
-        patch("app.services.resource_pool.search_capabilities._expand_semantic_query_terms_with_llm") as expand,
-        patch("app.services.resource_pool.search_capabilities._select_candidates_with_llm") as choose,
     ):
         result = execute_external_site_search(
             entry_domain="example.org",
             query_terms=["river training"],
             probe_timeout=2,
             allow_term_fallback=False,
-            params={"allow_candidate_semantic_llm": False},
+            params={},
         )
-    expand.assert_not_called()
-    choose.assert_not_called()
+    assert len(result.raw_candidates) == 1
     assert result.selected_candidates == []
+    assert result.diagnostics["candidate_filter_state"] == "term_filter_empty_no_fallback"

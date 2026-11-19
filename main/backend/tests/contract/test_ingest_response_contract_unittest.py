@@ -52,6 +52,9 @@ class IngestResponseContractTestCase(unittest.TestCase):
         )
 
     def setUp(self):
+        admission = patch.object(ingest_api, "check_project_write_admission")
+        admission.start()
+        self.addCleanup(admission.stop)
         with ingest_api._INGEST_SUBMISSION_LOCK:
             ingest_api._INGEST_SUBMISSIONS.clear()
 

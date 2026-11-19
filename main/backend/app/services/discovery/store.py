@@ -21,7 +21,6 @@ from ..ingest.content_cleaner import normalize_content_for_ingest
 from ..ingest.frontdoor_ingress import build_discovery_ingress_envelope
 from ..ingest.meaningful_gate import content_quality_check, url_policy_check
 from ..ingest.postprocess_frontdoor import run_postprocess_frontdoor
-from ..llm.provider import get_chat_model
 from ..search.web import SearchResult
 from .ports import DiscoveryStoreResult
 
@@ -672,48 +671,10 @@ def _classify_kind(title: str, snippet: str, content: str | None) -> str:
     if m_hits >= p_hits + 1:
         return "market"
 
-    # Fallback to LLM when ambiguous
-    try:
-        # 尝试从数据库读取配置
-        from ..llm.config_loader import format_prompt_template, get_llm_config
-        
-        config = get_llm_config("document_classification")
-        
-        prompt_template = config.get("user_prompt_template") if config else None
-        if config and prompt_template:
-            # 使用配置的提示词
-            prompt = format_prompt_template(
-                prompt_template,
-                title=title,
-                snippet=snippet,
-                content=(content or '')[:800]
-            )
-            model = get_chat_model(
-                model=config.get("model"),
-                temperature=config.get("temperature"),
-                max_tokens=config.get("max_tokens"),
-                top_p=config.get("top_p"),
-                presence_penalty=config.get("presence_penalty"),
-                frequency_penalty=config.get("frequency_penalty"),
-            )
-        else:
-            # 使用默认提示词（向后兼容）
-            prompt = (
-                "请将以下内容粗分类为'policy'或'market'之一，仅返回这两个词之一。\n"
-                f"标题: {title}\n摘要: {snippet}\n正文片段: {(content or '')[:800]}\n分类:"
-            )
-            model = get_chat_model()
-        
-        resp = model.invoke(prompt)
-        txt = getattr(resp, "content", str(resp)).strip().lower()
-        if "policy" in txt and "market" not in txt:
-            return "policy"
-        if "market" in txt and "policy" not in txt:
-            return "market"
-    except Exception:
-        pass
-    # Default heuristic
-    return "policy" if p_hits >= m_hits else "market"
+    # No class is established on a tie. Keep the original material searchable
+    # without assigning it to the policy or market extraction path.
+    return "external"
+
 
 
 _DOMAIN_STATE = {
@@ -842,8 +803,10 @@ def store_results(
                     # 补充 material_type（若之前为 external）
                     if doc.material_type in (None, "external"):
                         content_peek = (doc.content or "")[:800]
-                        doc.material_type = _classify_kind(title, snippet, content_peek)
-                        changed = True
+                        kind = _classify_kind(title, snippet, content_peek)
+                        if kind != doc.material_type:
+                            doc.material_type = kind
+                            changed = True
                     # 补充 state
                     if not doc.state:
                         inferred = _infer_state(domain, title, snippet)

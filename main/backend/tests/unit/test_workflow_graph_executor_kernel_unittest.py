@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-from types import SimpleNamespace
-from app.services.search.hybrid import SearchInvocationObservation
 from unittest.mock import patch
 
 import pytest
 
-from app.services.llm.ports import ChatModelOptions
+from app.services.search.hybrid import SearchInvocationObservation
+from app.services.skill_runtime import invoke_skill
 from app.services.workflow_graph.executors.join import run_join_kernel
 from app.services.workflow_graph.executors.kernel import (
     NodeExecutionContext,
@@ -14,10 +13,7 @@ from app.services.workflow_graph.executors.kernel import (
     execute_node,
     to_workflow_graph_failure,
 )
-from app.services.workflow_graph.executors.llm_call import (
-    invoke_workflow_llm_call_skill,
-    run_llm_call_kernel,
-)
+from app.services.workflow_graph.executors.llm_call import run_llm_call_kernel
 from app.services.workflow_graph.executors.vector_search import run_vector_search_kernel
 from app.services.workflow_graph.contracts import (
     WorkflowGraphCompileError,
@@ -102,79 +98,42 @@ def test_vector_search_kernel_returns_typed_degraded_result() -> None:
     assert result.payload["degraded"] is True
 
 
-def test_llm_kernel_success_and_failure_are_directly_interpretable() -> None:
-    context = _context("llm_call", params={"prompt": "hello"}, inputs={"trace_id": "trace-1"})
+def test_llm_kernel_missing_cell_binding_is_a_failure_not_an_output() -> None:
+    result = execute_node(_context("llm_call", params={"prompt": "hello"}))
 
+    assert result.status == "FAILED"
+    assert result.payload == {}
+    failure = to_workflow_graph_failure(result)
+    assert failure is not None
+    assert failure.code == "executor_not_registered"
+    assert failure.context is not None
+    assert failure.context["capability"] == "workflow.llm_call"
+    assert failure.context["binding"] == "agent_cell"
+
+
+@pytest.mark.parametrize(
+    ("payload", "code"),
+    [
+        ({"prompt": "hello", "model": "requested-model"}, "executor_not_registered"),
+        ({"prompt": "  "}, "contract_invalid"),
+        ([], "contract_invalid"),
+    ],
+)
+def test_registered_llm_skill_preserves_contract_errors_and_fails_without_a_cell(
+    payload: object,
+    code: str,
+) -> None:
     with (
-        patch(
-            "app.services.workflow_graph.executors.llm_call.get_llm_config",
-            return_value={"model": "cfg-model", "temperature": 0.3},
-        ),
-        patch(
-            "app.services.workflow_graph.executors.llm_call._invoke_llm_via_skill",
-            return_value="ok",
-        ) as invoke,
+        patch("app.services.llm.ports.resolve_llm_provider") as provider,
+        pytest.raises(WorkflowGraphCompileError) as caught,
     ):
-        result = run_llm_call_kernel(context)
-
-    assert result.status == "SUCCEEDED"
-    assert result.payload["text"] == "ok"
-    assert result.payload["model"] == "cfg-model"
-    assert result.payload["trace_id"] == "trace-1"
-    assert invoke.call_count == 1
-
-    missing = _context(
-        "llm_call",
-        params={"prompt_template": "Answer {query}"},
-        inputs={},
-    )
-    with patch(
-        "app.services.workflow_graph.executors.llm_call._invoke_llm_via_skill",
-    ) as invoke:
-        failed = run_llm_call_kernel(missing)
-
-    assert failed.status == "FAILED"
-    assert failed.failure is not None
-    assert failed.failure.code == "required_input_missing"
-    assert failed.failure.details["missing"] == ["query"]
-    projected = to_workflow_graph_failure(failed)
-    assert projected is not None
-    assert projected.code == "required_input_missing"
-    assert projected.context is not None
-    assert projected.context["owner"] == "workflow_graph.kernel.llm_call"
-    assert invoke.call_count == 0
-
-
-def test_llm_skill_passes_validated_options_to_registered_provider() -> None:
-    captured: list[ChatModelOptions] = []
-
-    class _Chat:
-        def invoke(self, prompt: str) -> SimpleNamespace:
-            return SimpleNamespace(content=f"provider:{prompt}")
-
-    class _Provider:
-        def get_chat_model(self, options: ChatModelOptions) -> _Chat:
-            captured.append(options)
-            return _Chat()
-
-    with patch(
-        "app.services.llm.ports.resolve_llm_provider",
-        return_value=_Provider(),
-    ):
-        result = invoke_workflow_llm_call_skill(
-            {
-                "prompt": "hello",
-                "model": "typed-model",
-                "temperature": 0.25,
-                "extra": {"seed": 7},
-            }
+        invoke_skill(
+            skill_id="workflow.llm_call",
+            payload=payload,
+            context={"actor_role": "orchestration_runtime", "permissions": ["workflow.llm_call"]},
         )
-
-    assert result == {"text": "provider:hello"}
-    assert len(captured) == 1
-    assert captured[0].model == "typed-model"
-    assert captured[0].temperature == 0.25
-    assert captured[0].extra == {"seed": 7}
+    provider.assert_not_called()
+    assert caught.value.workflow_failure.code == code
 
 
 def test_execute_node_dispatches_without_workflow_or_store() -> None:
@@ -203,3 +162,6 @@ def test_typed_llm_failure_projects_to_current_workflow_failure_abi() -> None:
         raise_workflow_graph_legacy(failure)
 
     assert str(caught.value) == "prompt_template_missing_inputs:query"
+    context = caught.value.workflow_failure.context
+    assert context["owner"] == "workflow_graph.kernel.llm_call"
+    assert context["missing"] == ["query"]

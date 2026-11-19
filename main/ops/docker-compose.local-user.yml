@@ -1,16 +1,29 @@
-# Build and run the current checkout in an isolated local Compose project.
-# Use together with docker-compose.yml, project mrw-local-user, and explicit services.
+# Complete single-user Docker deployment. Use with docker-compose.yml and
+# scripts/local-docker-deploy.sh; do not combine it with the host service setup.
 services:
   db:
+    image: ankane/pgvector@sha256:956744bd14e9cbdf639c61c2a2a7c7c2c48a9c8cdd42f7de4ac034f4e96b90f8
+    restart: unless-stopped
     ports: !reset []
+    volumes:
+      - local_user_db:/var/lib/postgresql/data
   es:
+    image: docker.elastic.co/elasticsearch/elasticsearch@sha256:01c1732062b4a846c5ca687b0094b89bad0bfed00c6d71626db32fb8f3131a78
+    restart: unless-stopped
     ports: !reset []
+    environment:
+      ES_JAVA_OPTS: ${MRW_ES_JAVA_OPTS:--Xms256m -Xmx256m}
+    volumes:
+      - local_user_es:/usr/share/elasticsearch/data
   redis:
+    image: redis@sha256:2e3eb11462c4e3759e6972678dd051d150ff54b1e60714b3c33b701260172a90
     ports: !reset []
     volumes:
       - local_user_redis:/data
     command: [redis-server, --appendonly, "yes"]
   backend:
+    # local-user mode is loopback-only and has no external identity provider.
+    # The Docker host is one user, so use the existing single-user input path.
     env_file: !reset []
     environment:
       ENV: dev
@@ -19,12 +32,20 @@ services:
       REDIS_URL: redis://redis:6379/0
       RUN_MIGRATIONS: "true"
       OPENAI_API_KEY: ""
-      PYTHONPATH: /opt/mrw/src
       CODEX_CLI_LLM_FALLBACK_ENABLED: "false"
       CODEX_CLI_LLM_PREFERRED: "false"
-      MODERN_FRONTEND_URL: http://127.0.0.1:15132
+      HTTP_PROXY: ${MRW_HTTP_PROXY:-}
+      HTTPS_PROXY: ${MRW_HTTPS_PROXY:-}
+      NO_PROXY: localhost,127.0.0.1,::1,db,es,redis,backend,codex-webui
+      CODEX_WEBUI_INTERNAL_URL: http://127.0.0.1:8172
+      CODEX_WEBUI_SERVER_API_KEY: ${MRW_SERVER_API_KEY:?set MRW_SERVER_API_KEY in main/ops/.env.local-user}
+      CODEX_WEBUI_LOGIN_API_KEY: ${MRW_WEBUI_API_KEY:?set MRW_WEBUI_API_KEY in main/ops/.env.local-user}
+      CODEX_WEBUI_LOCAL_SINGLE_USER_ENABLED: "true"
+      CODEX_WEBUI_DOCKER_ORIGIN: http://127.0.0.1:${MRW_DOCKER_PORT:-15132}
+      CODEX_OAUTH_ENABLED: "false"
+      MODERN_FRONTEND_URL: http://127.0.0.1:${MRW_DOCKER_PORT:-15132}
     ports: !override
-      - 127.0.0.1:18132:8000
+      - 127.0.0.1:${MRW_DOCKER_API_PORT:-18132}:8000
     volumes: !override
       - local_user_logs:/var/log/celery:ro
   celery-worker:
@@ -36,16 +57,73 @@ services:
       REDIS_URL: redis://redis:6379/0
       RUN_MIGRATIONS: "false"
       OPENAI_API_KEY: ""
-      PYTHONPATH: /opt/mrw/src
       CODEX_CLI_LLM_FALLBACK_ENABLED: "false"
       CODEX_CLI_LLM_PREFERRED: "false"
+      HTTP_PROXY: ${MRW_HTTP_PROXY:-}
+      HTTPS_PROXY: ${MRW_HTTPS_PROXY:-}
+      NO_PROXY: localhost,127.0.0.1,::1,db,es,redis,backend,codex-webui
       CELERY_LOG_FILE: /var/log/celery/worker.log
     volumes: !override
       - local_user_logs:/var/log/celery
     command: [celery, -A, app.celery_app, worker, --loglevel=info, --concurrency=1, --prefetch-multiplier=1, --max-tasks-per-child=50, --max-memory-per-child=300000, --logfile=/var/log/celery/worker.log]
+  codex-webui:
+    build:
+      context: ./codex-webui
+      dockerfile: Dockerfile
+      target: mrw-runtime
+    init: true
+    # Share the API network namespace so the existing direct-loopback MRW
+    # actor contract remains unchanged; do not trust bridge CIDRs.
+    network_mode: service:backend
+    environment:
+      HOST: 0.0.0.0
+      HOME: /home/node
+      CODEX_HOME: /home/node/.codex
+      WEBUI_DB_PATH: /home/node/.codex/codex-webui.sqlite
+      WORKSPACE_ROOTS: /home/node
+      MRW_BACKEND_URL: http://127.0.0.1:8000
+      MRW_BACKEND_API_KEY: ${MRW_SERVER_API_KEY:?set MRW_SERVER_API_KEY in main/ops/.env.local-user}
+      MRW_SKILL_SOURCE_ROOT: /opt/mrw/skills
+      WEBUI_API_KEY: ${MRW_WEBUI_API_KEY:?set MRW_WEBUI_API_KEY in main/ops/.env.local-user}
+      NODE_ENV: production
+      HTTP_PROXY: ${MRW_HTTP_PROXY:-}
+      HTTPS_PROXY: ${MRW_HTTPS_PROXY:-}
+      NO_PROXY: localhost,127.0.0.1,::1,db,es,redis,backend,codex-webui
+    depends_on:
+      backend:
+        condition: service_healthy
+        restart: true
+    volumes:
+      - local_user_codex_home:/home/node
+      - ../backend/skills:/opt/mrw/skills:ro
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - node -e "fetch('http://127.0.0.1:8172/api/status',{headers:{authorization:'Bearer '+process.env.WEBUI_API_KEY}}).then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    restart: unless-stopped
   frontend-modern:
+    profiles: !reset []
+    build:
+      context: ../frontend-modern
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: ""
+        VITE_MRW_WEBUI_MODE: embedded
+    depends_on:
+      codex-webui:
+        condition: service_healthy
+    environment:
+      MRW_WEBUI_UPSTREAM: backend:8172
+      MRW_SERVER_API_KEY: ${MRW_SERVER_API_KEY:?set MRW_SERVER_API_KEY in main/ops/.env.local-user}
     ports: !override
-      - 127.0.0.1:15132:80
+      - 127.0.0.1:${MRW_DOCKER_PORT:-15132}:80
 volumes:
+  local_user_db:
+  local_user_es:
   local_user_redis:
   local_user_logs:
+  local_user_codex_home:

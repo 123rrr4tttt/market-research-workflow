@@ -33,6 +33,7 @@ from ..services.agent_sessions import get_agent_session_service
 from ..services.task_readback_metadata import build_runtime_readback_payload
 from ..services import tasks as tasks_module
 from ..services.projects import current_project_key
+from ..services.projects.context import ProjectNotWritableError
 from ..services.workflow_graph.handoff_store import handoff_store
 from app.successor_runtime.capabilities import batch_task
 from app.successor_runtime.substrate.postgres.session import ServerProjectScopeResolver
@@ -775,6 +776,14 @@ def submit_agent_batch_for_actor(
             idempotency_key=logical_request_id,
             now=datetime.now(timezone.utc),
         )
+    except ProjectNotWritableError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail=error_response(
+                ErrorCode.INVALID_INPUT, str(exc),
+                details={"project_key": project_key, "reason_code": "project_not_writable"},
+            ),
+        ) from exc
     except CurrentAuthorityGrantUnavailable as exc:
         raise HTTPException(
             status_code=403,

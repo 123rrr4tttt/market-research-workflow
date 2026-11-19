@@ -603,7 +603,6 @@ export function ResourcePage({ projectKey, variant = 'resource' }: ResourcePageP
 
   const [recommendSiteUrl, setRecommendSiteUrl] = useState('')
   const [recommendEntryType, setRecommendEntryType] = useState('domain_root')
-  const [recommendUseLlm, setRecommendUseLlm] = useState(true)
   const [singleRecommendation, setSingleRecommendation] = useState<ResourcePoolRecommendationResponse | null>(null)
   const [batchRecommendations, setBatchRecommendations] = useState<ResourcePoolRecommendationItem[]>([])
   const [bindingPending, setBindingPending] = useState(false)
@@ -1676,13 +1675,6 @@ export function ResourcePage({ projectKey, variant = 'resource' }: ResourcePageP
               <option value="official_api">official_api</option>
             </select>
           </label>
-          <label>
-            <span>{t('resourcePage.field.useLlm')}</span>
-            <select value={recommendUseLlm ? 'true' : 'false'} onChange={(e) => setRecommendUseLlm(e.target.value === 'true')}>
-              <option value="true">true</option>
-              <option value="false">false</option>
-            </select>
-          </label>
           <div className="inline-actions">
             <button
               disabled={actionPending || !recommendSiteUrl.trim()}
@@ -1691,7 +1683,6 @@ export function ResourcePage({ projectKey, variant = 'resource' }: ResourcePageP
                   const response = await recommendSiteEntry({
                     site_url: recommendSiteUrl.trim(),
                     entry_type: recommendEntryType,
-                    use_llm: recommendUseLlm,
                   })
                   setSingleRecommendation(response)
                   return response
@@ -1712,7 +1703,6 @@ export function ResourcePage({ projectKey, variant = 'resource' }: ResourcePageP
                         entry_type: item.entry_type || null,
                         template: null,
                       })),
-                    use_llm: recommendUseLlm,
                   })
                   setBatchRecommendations(response.items || [])
                   return { ...response, written: response.count ?? response.items?.length ?? 0 }

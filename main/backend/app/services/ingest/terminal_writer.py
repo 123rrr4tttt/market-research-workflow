@@ -7,11 +7,17 @@ from sqlalchemy.orm import Session
 from ...models.base import SessionLocal
 from ...models.entities import Material
 from ...models.entities import Source
+from ..projects.context import current_project_key, require_writable_project
 from .material_type_mapper import normalize_material_type
 
 
-def persist_terminal_material(payload: dict[str, Any]) -> dict[str, Any]:
+def persist_terminal_material(
+    payload: dict[str, Any], *, project_key: str | None = None
+) -> dict[str, Any]:
     with SessionLocal() as session:
+        require_writable_project(
+            session, project_key if project_key is not None else current_project_key(), match_schema=True
+        )
         result = persist_terminal_material_in_session(session, payload)
         session.commit()
         return result

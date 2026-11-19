@@ -462,7 +462,6 @@ def execute_search_template(
         allow_fallback=allow_term_fallback,
         fallback_limit=int(cast(Any, params.get("fallback_limit") or 30)),
         scoring_config=_resolve_candidate_scoring_config(params),
-        allow_llm=bool(params.get("allow_candidate_semantic_llm", True)),
     )
     used_term_fallback = bool(legacy_filter_flag and allow_term_fallback and selected_candidates)
 
@@ -605,7 +604,6 @@ def execute_external_site_search(
         allow_fallback=allow_term_fallback,
         fallback_limit=int(params.get("fallback_limit") or 20),
         scoring_config=_resolve_candidate_scoring_config(params),
-        allow_llm=bool(params.get("allow_candidate_semantic_llm", True)),
     )
     used_term_fallback = bool(legacy_filter_flag and allow_term_fallback and selected_candidates)
     return SearchTemplateExecutionResult(

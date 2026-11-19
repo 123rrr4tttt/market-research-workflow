@@ -47,10 +47,10 @@ def test_resource_pool_failure_preserves_public_errors() -> None:
 
     type_failure = site_entries.resource_pool_contract_failure(
         "record_field_type_invalid",
-        "batch index is not numeric",
+        "site entry field has an invalid type",
         operation="test",
-        site="resource_pool.auto_classify.batch_index",
+        site="resource_pool.site_entries",
         public_exception=TypeError,
     )
-    with pytest.raises(TypeError, match="^batch index is not numeric$"):
+    with pytest.raises(TypeError, match="^site entry field has an invalid type$"):
         site_entries.raise_resource_pool_contract_legacy(type_failure, exception_type=TypeError)

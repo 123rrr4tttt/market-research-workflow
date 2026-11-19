@@ -593,7 +593,7 @@ def build_ingest_canary_metrics_readiness(
     remaining_live_gaps = [gap for stage in stages if not stage.validated for gap in stage.gaps]
     return IngestCanaryMetricsReadinessReport(
         contract_version=CONTRACT_VERSION,
-        mode="wave14_ingest_canary_metrics_readiness",
+        mode="ingest_canary_metrics_readiness",
         status="ok" if required_passed else "failed",
         project_key=normalized_project,
         closure_claim=False,

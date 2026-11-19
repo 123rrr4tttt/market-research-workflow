@@ -399,7 +399,7 @@ def test_relation_and_runtime_event_share_one_real_postgres_transaction(
                 },
             ),
         )
-        raise RuntimeError("CW07 injected after relation/event before commit")
+        raise RuntimeError("failure injected after relation/event before commit")
     except RuntimeError:
         transaction.rollback()
     finally:

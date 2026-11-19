@@ -670,6 +670,7 @@ def test_source_item_worker_persists_original_terminal_status_and_transport_iden
     )
     try:
         with (
+            patch("app.services.tasks.check_project_write_admission"),
             patch("app.services.tasks.bind_project", return_value=contextlib.nullcontext()),
             patch("app.services.tasks.start_job", return_value=950) as start,
             patch("app.services.tasks.complete_job") as complete,
@@ -737,6 +738,7 @@ def test_source_item_worker_records_exception_and_reraises_original() -> None:
     task_run_source_library_item.push_request(id="source-task-failed")
     try:
         with (
+            patch("app.services.tasks.check_project_write_admission"),
             patch("app.services.tasks.bind_project", return_value=contextlib.nullcontext()),
             patch("app.services.tasks.start_job", return_value=951),
             patch("app.services.tasks.complete_job") as complete,
@@ -771,6 +773,7 @@ def test_market_worker_reuses_inner_job_and_process_reads_same_transport_identit
     )
     try:
         with (
+            patch("app.services.tasks.check_project_write_admission"),
             patch("app.services.tasks.bind_project", return_value=contextlib.nullcontext()),
             patch("app.services.tasks.start_job") as outer_start,
             patch("app.services.collect_runtime.run_collect", side_effect=SearchMarketAdapter().run),

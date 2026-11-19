@@ -413,7 +413,6 @@ def discover_site_entries_from_urls(
     allow_domains: list[str] | None = None,
     deny_domains: list[str] | None = None,
     run_auto_classify: bool = False,
-    use_llm: bool = False,
     domain_probe_concurrency: int = 6,
 ) -> DiscoveryResult:
     """
@@ -506,7 +505,7 @@ def discover_site_entries_from_urls(
             candidate_indexes.append(i)
         if batch_rows:
             try:
-                recs = classify_site_entries_batch(batch_rows, use_llm=use_llm, llm_batch_size=20)
+                recs = classify_site_entries_batch(batch_rows)
                 for rec_row, idx in zip(recs, candidate_indexes):
                     c = candidates[idx]
                     raw_extra = c.get("extra")

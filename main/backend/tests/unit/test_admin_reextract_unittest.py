@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import sys
 import unittest
+from contextlib import nullcontext
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -44,6 +45,7 @@ class _FakeSession:
     def __init__(self, rows):
         self._rows = rows
         self.commit_count = 0
+        self.dirty = rows
 
     def execute(self, _stmt):
         return _FakeExecuteResult(self._rows)
@@ -98,6 +100,7 @@ class AdminReextractUnitTest(unittest.TestCase):
 
         with (
             patch.object(admin_module.document_admin, "SessionLocal", session_factory),
+            patch.object(admin_module.document_admin, "require_writable_project"),
             patch.object(
                 admin_module,
                 "run_frontdoor_extraction",
@@ -127,6 +130,43 @@ class AdminReextractUnitTest(unittest.TestCase):
         self.assertTrue(bool(plan.get("include_policy")))
         self.assertFalse(bool(plan.get("include_market")))
         self.assertFalse(bool(plan.get("include_sentiment")))
+
+    def test_archived_project_refuses_material_mutations_before_work_starts(self):
+        def query_archived_project(statement, parameters):
+            self.assertIn("FOR SHARE", str(statement))
+            self.assertEqual(parameters, {"project_key": "archived_project"})
+            return SimpleNamespace(scalar_one_or_none=lambda: False)
+
+        session = SimpleNamespace(execute=query_archived_project)
+        with (
+            patch.object(admin_module.document_admin, "SessionLocal", return_value=nullcontext(session)),
+            patch.object(admin_module, "_get_topic_dictionaries", return_value={}),
+            patch.object(admin_module, "run_frontdoor_extraction") as reextract,
+            patch.object(admin_module, "run_topic_extraction_workflow") as topic_extract,
+            patch.object(admin_module, "fetch_html") as fetch,
+        ):
+            client = TestClient(main_module.app)
+            for suffix, payload in (
+                ("7/extracted-data", {"extracted_data": {"new": True}}),
+                ("bulk/extracted-data", {"material_ids": [7], "extracted_data": {"new": True}}),
+                ("delete", {"material_ids": [7]}),
+                ("re-extract", {"material_ids": [7], "fetch_missing_content": True}),
+                ("topic-extract", {"material_ids": [7], "topics": ["company"], "fetch_missing_content": True}),
+            ):
+                with self.subTest(route=suffix):
+                    response = client.post(
+                        f"/api/v1/admin/materials/{suffix}",
+                        headers={"X-Project-Key": "archived_project"},
+                        json=payload,
+                    )
+                    self.assertEqual(response.status_code, 409, response.text)
+                    self.assertEqual(response.json()["error"]["details"], {
+                        "project_key": "archived_project",
+                        "reason_code": "project_not_writable",
+                    })
+        reextract.assert_not_called()
+        topic_extract.assert_not_called()
+        fetch.assert_not_called()
 
     def test_bulk_mutation_uses_header_project_for_service_audit_and_trace(self):
         pre_mutation_snapshot = {

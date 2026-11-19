@@ -9,6 +9,7 @@ from ...models.base import SessionLocal, run_with_session_retry
 from ...models.writing_entities import WritingDocumentCitation
 from ..document_queries import list_citations_for_document, require_active_document
 from ..document_views import serialize_writing_citation
+from ..projects.context import require_writable_project
 
 
 def list_citations(*, doc_id: int, project_key: str) -> list[dict[str, Any]]:
@@ -20,6 +21,7 @@ def list_citations(*, doc_id: int, project_key: str) -> list[dict[str, Any]]:
 
 def upsert_citations(*, doc_id: int, project_key: str, citations: list[dict[str, Any]]) -> list[dict[str, Any]]:
     def _op(session: Session) -> list[dict[str, Any]]:
+        require_writable_project(session, project_key)
         require_active_document(session, doc_id=doc_id, project_key=project_key)
         session.execute(
             delete(WritingDocumentCitation).where(

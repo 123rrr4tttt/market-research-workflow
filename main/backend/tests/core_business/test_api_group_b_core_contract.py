@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import sys
 import unittest
+from contextlib import nullcontext
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
@@ -133,6 +134,12 @@ class _TrackedIngestTasks:
 
 
 class ApiGroupBCoreContractTestCase(unittest.TestCase):
+    def setUp(self):
+        # These tests exercise HTTP contracts without a project registry database.
+        admission = patch("app.api.ingest.check_project_write_admission")
+        admission.start()
+        self.addCleanup(admission.stop)
+
     @classmethod
     def setUpClass(cls):
         if _IMPORT_ERROR is not None:
@@ -151,6 +158,11 @@ class ApiGroupBCoreContractTestCase(unittest.TestCase):
         with patch(
             "app.services.tasks.raw_material_import_task_binding",
             SimpleNamespace(delay=mock_delay),
+        ), patch(
+            "app.api.admin.SessionLocal",
+            return_value=nullcontext(SimpleNamespace(
+                execute=lambda *_args: SimpleNamespace(scalar_one_or_none=lambda: True),
+            )),
         ):
             resp = self.client.post(
                 "/api/v1/admin/materials/raw-import",
@@ -175,6 +187,11 @@ class ApiGroupBCoreContractTestCase(unittest.TestCase):
         with patch(
             "app.services.tasks.raw_material_import_task_binding",
             SimpleNamespace(delay=mock_delay),
+        ), patch(
+            "app.api.admin.SessionLocal",
+            return_value=nullcontext(SimpleNamespace(
+                execute=lambda *_args: SimpleNamespace(scalar_one_or_none=lambda: True),
+            )),
         ):
             resp = self.client.post(
                 "/api/v1/admin/materials/raw-import",
@@ -192,6 +209,31 @@ class ApiGroupBCoreContractTestCase(unittest.TestCase):
         self.assertEqual(body["status"], "error")
         self.assertEqual(body["error"]["code"], ErrorCode.RATE_LIMITED.value)
         self.assertEqual(resp.headers.get("x-error-code"), ErrorCode.RATE_LIMITED.value)
+
+    def test_admin_raw_import_for_archived_project_returns_conflict_before_dispatch(self):
+        disabled_session = nullcontext(SimpleNamespace(
+            execute=lambda *_args: SimpleNamespace(scalar_one_or_none=lambda: False),
+        ))
+        with (
+            patch("app.api.admin.SessionLocal", return_value=disabled_session),
+            patch("app.services.ingest.raw_import.SessionLocal", return_value=disabled_session),
+            patch("app.services.ingest.raw_import.start_job") as start_job,
+            patch("app.api.admin._dispatch_raw_material_import_async") as dispatch,
+        ):
+            for async_mode in (False, True):
+                with self.subTest(async_mode=async_mode):
+                    resp = self.client.post(
+                        "/api/v1/admin/materials/raw-import",
+                        headers=self.headers,
+                        json={"items": [{"text": "input"}], "async_mode": async_mode},
+                    )
+                    self.assertEqual(resp.status_code, 409)
+                    self.assertEqual(resp.json()["error"]["details"], {
+                        "project_key": "demo_proj",
+                        "reason_code": "project_not_writable",
+                    })
+        dispatch.assert_not_called()
+        start_job.assert_not_called()
 
     def test_dashboard_stats_success_contract(self):
         with patch("app.api.dashboard.SessionLocal", return_value=_FakeSessionLocalOk()):

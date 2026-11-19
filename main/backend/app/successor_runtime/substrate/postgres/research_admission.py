@@ -749,7 +749,7 @@ class JournalCommand(Protocol):
 
 @dataclass(frozen=True, slots=True)
 class AtomicResearchAdmissionCommand:
-    """CW07 same-database command: canonical mutation and event share a UoW."""
+    """same-database command: canonical mutation and event share a UoW."""
 
     registration: AdmissionRegistration
     assignment: RuntimeAssignment

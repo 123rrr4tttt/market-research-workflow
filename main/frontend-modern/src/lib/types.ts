@@ -1945,7 +1945,6 @@ export type ResourcePoolRecommendationPayload = {
   site_url: string
   entry_type?: string | null
   template?: string | null
-  use_llm?: boolean
 }
 
 export type ResourcePoolRecommendationItem = {
@@ -1957,7 +1956,6 @@ export type ResourcePoolRecommendationItem = {
   validated?: boolean
   source?: string
   capabilities?: Record<string, unknown>
-  symbol_suggestion?: Record<string, unknown> | null
 }
 
 export type ResourcePoolRecommendationResponse = {
@@ -1976,8 +1974,6 @@ export type ResourcePoolBatchRecommendationPayload = {
     entry_type?: string | null
     template?: string | null
   }>
-  use_llm?: boolean
-  llm_batch_size?: number
 }
 
 export type ResourcePoolBatchRecommendationResponse = {

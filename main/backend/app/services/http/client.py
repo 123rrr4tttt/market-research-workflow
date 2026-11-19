@@ -37,9 +37,9 @@ class HttpClient:
         https_proxy = os.getenv("HTTPS_PROXY") or os.getenv("https_proxy")
         proxies: dict[httpx.URL | str, str | httpx.URL | httpx.Proxy | None] = {}
         if http_proxy:
-            proxies["http"] = http_proxy
+            proxies["http://"] = http_proxy
         if https_proxy:
-            proxies["https"] = https_proxy
+            proxies["https://"] = https_proxy
         return proxies or None
 
     def head(

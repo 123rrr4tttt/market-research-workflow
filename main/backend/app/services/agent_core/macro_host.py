@@ -953,17 +953,68 @@ class AgentMacroHostService:
                 binding = self._state.bindings.get(owner or "")
             else:
                 raise MacroHostError("invalid_input", "bindingId or threadId is required")
+        if binding is None and normalized_thread:
+            found = self.agent_session_service.store.find_session_by_native_thread_id(normalized_thread)
+            if isinstance(found, Failure):
+                raise MacroHostError(
+                    "thread_binding_ambiguous",
+                    found.message,
+                    status_code=409,
+                )
+            if found is not None:
+                binding = self._restore_persisted_binding(found)
         if binding is None:
-            if normalized_thread:
-                found = self.agent_session_service.store.find_session_by_native_thread_id(normalized_thread)
-                if isinstance(found, Failure) or found is not None:
-                    raise MacroHostError(
-                        "rebind_required",
-                        "macro host binding was lost; rebind required",
-                        status_code=409,
-                    )
             raise MacroHostError("binding_not_found", "macro host binding not found", status_code=404)
         return binding
+
+    def _restore_persisted_binding(self, session: Mapping[str, Any]) -> MacroHostBinding:
+        metadata = session.get("metadata")
+        metadata = dict(metadata) if _is_string_mapping(metadata) else {}
+        binding_id = str(metadata.get("binding_id") or "").strip()
+        expected_digest = str(metadata.get("environment_digest") or "").strip()
+        project_key = str(session.get("project_key") or "").strip()
+        thread_id = str(metadata.get("native_thread_id") or "").strip()
+        session_id = str(session.get("session_id") or "").strip()
+        if not binding_id or not expected_digest or not project_key or not thread_id or not session_id:
+            raise MacroHostError(
+                "rebind_required",
+                "legacy macro host binding lacks durable identity; rebind required",
+                status_code=409,
+            )
+        environment = self._resolve_environment(
+            project_key=project_key,
+            binding_id=binding_id,
+            phase="restore",
+            package_id=str(metadata.get("package_id") or "") or None,
+            package_version=str(metadata.get("package_version") or "") or None,
+        )
+        self._validate_environment(environment)
+        if environment.environment_digest != expected_digest:
+            raise MacroHostError(
+                "rebind_required",
+                "macro environment changed across restart; rebind required",
+                status_code=409,
+            )
+        now = self.clock()
+        restored = MacroHostBinding(
+            binding_id=binding_id,
+            project_key=project_key,
+            environment=environment,
+            package_id=str(metadata.get("package_id") or "") or None,
+            package_version=str(metadata.get("package_version") or "") or None,
+            prepared_at=now,
+            expires_at=now + timedelta(days=1),
+        )
+        restored.thread_id = thread_id
+        restored.session_id = session_id
+        restored.status = "bound"
+        with self._lock:
+            existing = self._state.threads.get(thread_id)
+            if existing and existing != binding_id:
+                raise MacroHostError("thread_already_bound", "native thread is already bound", status_code=409)
+            self._state.bindings[binding_id] = restored
+            self._state.threads[thread_id] = binding_id
+        return restored
 
     def _binding_projection(self, binding: MacroHostBinding) -> dict[str, Any]:
         return {

@@ -17,6 +17,7 @@ describe('MrwService', () => {
     prepare: vi.fn(),
     prepareTurn: vi.fn(),
     bind: vi.fn(),
+    environment: vi.fn(),
     dispatch: vi.fn(),
     confirm: vi.fn(),
     recordInput: vi.fn(),
@@ -90,6 +91,37 @@ describe('MrwService', () => {
     await bindPrepared();
     await service.prepareTurn('t1');
   }
+
+  it('rehydrates a bound thread from the durable backend environment', async () => {
+    mockBackend.environment.mockResolvedValue({
+      bindingId: 'restored-binding',
+      projectKey: 'project-a',
+      threadId: 't1',
+      status: 'bound',
+      environmentStatus: 'configured',
+      dynamicTools: [],
+      skills: [],
+      skillRoots: [],
+      systemInstructions,
+      expiresAt: '2999-01-01T00:00:00Z',
+    });
+
+    await expect(service.probeEnvironment('t1')).resolves.toBe('restored');
+
+    expect(service.isBound('t1')).toBe(true);
+  });
+
+  it('forwards browser credentials when preparing a turn admission', async () => {
+    await bindPrepared();
+    const credentials = {
+      sessionCookie: 'codex_session=session-1',
+      codexAuth: 'bearer-token',
+    };
+
+    await service.prepareTurn('t1', credentials);
+
+    expect(mockBackend.prepareTurn).toHaveBeenCalledWith('t1', credentials);
+  });
 
   it('rejects concurrent and active same-thread admissions until the turn ends', async () => {
     await bindPrepared();

@@ -10,6 +10,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 from pathlib import Path
 import sys
+import json
 import threading
 from typing import Any
 
@@ -70,8 +71,6 @@ def _real_webui_login_server(
                 "accessToken": "webui-session",
                 "expiresIn": 86400,
             }:
-                import json
-
                 response = json.dumps(payload, separators=(",", ":")).encode()
             self.send_response(status_code)
             self.send_header("Content-Type", "application/json")
@@ -98,11 +97,13 @@ def _configure(
     *,
     internal_url: str = "",
     server_key: str = "server-key-for-test",
+    login_key: str = "",
 ) -> None:
     from app.settings.config import settings
 
     monkeypatch.setattr(settings, "codex_webui_internal_url", internal_url, raising=False)
     monkeypatch.setattr(settings, "codex_webui_server_api_key", SecretStr(server_key), raising=False)
+    monkeypatch.setattr(settings, "codex_webui_login_api_key", SecretStr(login_key), raising=False)
 
 
 def test_webui_exchange_is_not_anonymous_bootstrap_surface() -> None:
@@ -313,3 +314,41 @@ def test_downstream_failures_are_sanitized(
     assert "must-not-be-returned" not in body
     details = response.json()["error"]["details"]
     assert details["reason_code"] == "webui_exchange_failed"
+
+
+def test_docker_gateway_bootstrap_requires_the_configured_origin_and_server_key(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.settings.config import settings
+
+    origin = "http://127.0.0.1:15132"
+    path = "/api/v1/codex-auth/webui/bootstrap"
+    headers = {"X-MRW-Server-API-Key": "gateway-key", "Origin": origin}
+    with _real_webui_login_server(
+        payload={"accessToken": "webui-session", "expiresIn": 86400}
+    ) as (internal_url, observations):
+        _configure(monkeypatch, internal_url=internal_url, server_key="gateway-key", login_key="webui-login-key")
+        monkeypatch.setattr(settings, "codex_webui_docker_origin", origin)
+        client = TestClient(backend_app, base_url=origin)
+
+        accepted = client.post(path, headers=headers)
+        assert accepted.status_code == 200, accepted.text
+        assert accepted.json()["data"]["accessToken"] == "webui-session"
+        assert accepted.headers["cache-control"] == "no-store"
+        assert len(observations) == 1
+        assert json.loads(observations[0]["body"]) == {"apiKey": "webui-login-key"}
+        assert "gateway-key" not in accepted.text and "webui-login-key" not in accepted.text
+
+        for overrides in (
+            {"X-MRW-Server-API-Key": "wrong-key"},
+            {"Origin": ""},
+            {"Origin": "http://elsewhere.test"},
+            {"Sec-Fetch-Site": "cross-site"},
+            {"Host": "elsewhere.test"},
+            {"Host": "elsewhere.test", "Origin": "http://elsewhere.test"},
+        ):
+            assert client.post(path, headers=headers | overrides).status_code == 401
+
+        monkeypatch.setattr(settings, "codex_webui_docker_origin", "")
+        assert client.post(path, headers=headers).status_code == 401
+        assert len(observations) == 1

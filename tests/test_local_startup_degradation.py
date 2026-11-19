@@ -21,9 +21,6 @@ def test_local_startup_separates_required_database_from_worker(
     (tmp_path / "main/frontend-modern").mkdir()
 
     source = LAUNCHER.read_text(encoding="utf-8")
-    # Redirect only the worker's PID and log files; execute the entire launcher.
-    for name in ("celery-local-worker.pid", "celery-local-worker.log"):
-        source = source.replace(f"/tmp/{name}", str(tmp_path / name))
     launcher = backend / LAUNCHER.name
     launcher.write_text(source, encoding="utf-8")
     (backend / ".env").write_text(
@@ -78,6 +75,6 @@ exit 1
         assert "Redis 连接未通过；跳过本机 Celery worker" in output
     elif fault == "worker":
         assert "本机 Celery worker 启动失败" in output
-        assert not (tmp_path / "celery-local-worker.pid").exists()
+        assert not (tmp_path / ".local-run/celery-local-worker.pid").exists()
     else:
         assert "未验证任务消费" in output

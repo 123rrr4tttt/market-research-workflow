@@ -5,9 +5,9 @@ set -e
 
 # Ensure Homebrew tools (node, psql, etc.) are in PATH when available
 if [[ -x /opt/homebrew/bin/brew ]]; then
-    eval "$(/opt/homebrew/bin/brew shellenv 2>/dev/null)" || true
+    PATH="$PATH:/opt/homebrew/bin:/opt/homebrew/sbin"
 elif [[ -x /usr/local/bin/brew ]]; then
-    eval "$(/usr/local/bin/brew shellenv 2>/dev/null)" || true
+    PATH="$PATH:/usr/local/bin:/usr/local/sbin"
 fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -18,13 +18,15 @@ FRONTEND_DIR="$ROOT_DIR/frontend-modern"
 OPS_DIR="$(cd "$SCRIPT_DIR/../ops" && pwd)"
 WEBUI_DIR="$OPS_DIR/codex-webui"
 ES_LOCAL_SCRIPT="$REPO_DIR/scripts/start-es-local.sh"
+BACKEND_PORT="${BACKEND_PORT:-8000}"
+MRW_LOCAL_STATE_DIR="${MRW_LOCAL_STATE_DIR:-$REPO_DIR/.local-run}"
 FRONTEND_PORT="${FRONTEND_PORT:-5173}"
 FRONTEND_HOST="${FRONTEND_HOST:-127.0.0.1}"
-FRONTEND_LOG_FILE="/tmp/frontend-modern-dev.log"
-FRONTEND_PID_FILE="/tmp/frontend-modern-dev.pid"
+FRONTEND_LOG_FILE="${MRW_LOCAL_STATE_DIR}/frontend-modern-dev.log"
+FRONTEND_PID_FILE="${MRW_LOCAL_STATE_DIR}/frontend-modern-dev.pid"
 FRONTEND_MODE="${FRONTEND_MODE:-}"
-WORKER_LOG_FILE="/tmp/celery-local-worker.log"
-WORKER_PID_FILE="/tmp/celery-local-worker.pid"
+WORKER_LOG_FILE="${MRW_LOCAL_STATE_DIR}/celery-local-worker.log"
+WORKER_PID_FILE="${MRW_LOCAL_STATE_DIR}/celery-local-worker.pid"
 CELERY_LOG_LEVEL="${CELERY_LOG_LEVEL:-info}"
 CELERY_CONCURRENCY="${CELERY_CONCURRENCY:-3}"
 CELERY_PREFETCH_MULTIPLIER="${CELERY_PREFETCH_MULTIPLIER:-2}"
@@ -218,7 +220,7 @@ ensure_modern_frontend_running() {
         return 1
     fi
 
-    VITE_API_PROXY_TARGET="http://localhost:8000" nohup pnpm run "$FRONTEND_MODE" --host "$FRONTEND_HOST" --port "$FRONTEND_PORT" --strictPort >"$FRONTEND_LOG_FILE" 2>&1 &
+    VITE_API_PROXY_TARGET="http://127.0.0.1:${BACKEND_PORT}" nohup pnpm run "$FRONTEND_MODE" --host "$FRONTEND_HOST" --port "$FRONTEND_PORT" --strictPort >"$FRONTEND_LOG_FILE" 2>&1 &
     FRONTEND_PID=$!
     echo "$FRONTEND_PID" >"$FRONTEND_PID_FILE"
 
@@ -287,9 +289,9 @@ ensure_homebrew_available() {
     NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" || return 1
 
     if [[ -x /opt/homebrew/bin/brew ]]; then
-        eval "$(/opt/homebrew/bin/brew shellenv 2>/dev/null)" || true
+        PATH="$PATH:/opt/homebrew/bin:/opt/homebrew/sbin"
     elif [[ -x /usr/local/bin/brew ]]; then
-        eval "$(/usr/local/bin/brew shellenv 2>/dev/null)" || true
+        PATH="$PATH:/usr/local/bin:/usr/local/sbin"
     fi
 
     if command -v brew >/dev/null 2>&1; then
@@ -1099,19 +1101,19 @@ if [ "$PROVISION" = "1" ]; then
     ensure_db_migrated_and_seeded
 fi
 
-if lsof -Pi :8000 -sTCP:LISTEN -t >/dev/null; then
+if lsof -nP -iTCP:"$BACKEND_PORT" -sTCP:LISTEN -t >/dev/null; then
     echo ""
-    echo "⚠️  端口8000已被占用"
+    echo "⚠️  端口${BACKEND_PORT}已被占用"
 
     DOCKER_CONTAINER=""
     if command -v docker >/dev/null 2>&1; then
         set +e
-        DOCKER_CONTAINER=$(docker ps --format "{{.ID}}\t{{.Ports}}" 2>/dev/null | grep ":8000->" | awk '{print $1}' | head -1)
+        DOCKER_CONTAINER=$(docker ps --format "{{.ID}}\t{{.Ports}}" 2>/dev/null | grep ":${BACKEND_PORT}->" | awk '{print $1}' | head -1)
         set -e
     fi
 
     if [ -n "$DOCKER_CONTAINER" ]; then
-        echo "检测到Docker容器正在使用8000端口（容器ID: ${DOCKER_CONTAINER}）"
+        echo "检测到Docker容器正在使用${BACKEND_PORT}端口（容器ID: ${DOCKER_CONTAINER}）"
         echo "💡 提示：如果要在本地运行，请先停止Docker容器："
         echo "   cd $OPS_DIR && docker compose stop backend"
         if [ "$FORCE" = "1" ]; then
@@ -1138,16 +1140,16 @@ if lsof -Pi :8000 -sTCP:LISTEN -t >/dev/null; then
         fi
     else
         if [ "$FORCE" = "1" ]; then
-            echo "🚨 --force 已启用，自动停止占用8000端口的进程"
-            stop_owned_port_listener 8000 "$SCRIPT_DIR" "uvicorn app.main:app" || exit 1
+            echo "🚨 --force 已启用，自动停止占用${BACKEND_PORT}端口的进程"
+            stop_owned_port_listener "$BACKEND_PORT" "$SCRIPT_DIR" "uvicorn app.main:app" || exit 1
         elif [ "$NON_INTERACTIVE" = "1" ]; then
             echo "❌ --non-interactive 模式遇到端口冲突，退出"
             exit 1
         else
-            read -p "是否要停止占用8000端口的进程？(y/n) " -n 1 -r
+            read -p "是否要停止占用${BACKEND_PORT}端口的进程？(y/n) " -n 1 -r
             echo
             if [[ $REPLY =~ ^[Yy]$ ]]; then
-                stop_owned_port_listener 8000 "$SCRIPT_DIR" "uvicorn app.main:app" || exit 1
+                stop_owned_port_listener "$BACKEND_PORT" "$SCRIPT_DIR" "uvicorn app.main:app" || exit 1
             else
                 echo "请手动停止占用端口的进程或使用其他端口"
                 exit 1
@@ -1157,6 +1159,7 @@ if lsof -Pi :8000 -sTCP:LISTEN -t >/dev/null; then
 fi
 
 if [ "$BACKEND_ONLY" != "1" ]; then
+    mkdir -p "$MRW_LOCAL_STATE_DIR"
     ensure_modern_frontend_running || echo "⚠️  业务界面未就绪；API 继续启动"
     ensure_local_worker_running || echo "⚠️  本机任务 worker 未启动；API 继续启动"
 fi
@@ -1168,12 +1171,10 @@ else
     RELOAD_DESC="低内存模式（无重载）"
 fi
 
-echo "✅ 启动后端服务（端口8000，${RELOAD_DESC}）..."
+echo "✅ 启动后端服务（端口${BACKEND_PORT}，${RELOAD_DESC}）..."
 echo "🔒 环境隔离：已清除DOCKER_ENV，使用localhost连接数据库服务"
-echo "📝 日志文件：/tmp/uvicorn.log"
-echo "🌐 API文档：http://localhost:8000/docs（本机）"
-echo "🌐 局域网访问：http://$(ipconfig getifaddr en0 2>/dev/null || ifconfig | grep 'inet ' | grep -v 127.0.0.1 | awk '{print $2}' | head -1):8000/docs"
-echo "📊 健康检查：http://localhost:8000/api/v1/health"
+echo "🌐 API文档：http://127.0.0.1:${BACKEND_PORT}/docs（本机）"
+echo "📊 健康检查：http://127.0.0.1:${BACKEND_PORT}/api/v1/health"
 echo "🎨 modern 前端：http://$FRONTEND_HOST:$FRONTEND_PORT"
 echo ""
 echo "按 Ctrl+C 停止服务"
@@ -1181,7 +1182,7 @@ echo ""
 
 BACKEND_HOST="${BACKEND_HOST:-127.0.0.1}"
 if [ "$DEV_RELOAD" = "1" ]; then
-    DOCKER_ENV="" uvicorn app.main:app --reload --host "$BACKEND_HOST" --port 8000
+    DOCKER_ENV="" uvicorn app.main:app --reload --host "$BACKEND_HOST" --port "$BACKEND_PORT"
 else
-    DOCKER_ENV="" uvicorn app.main:app --host "$BACKEND_HOST" --port 8000
+    DOCKER_ENV="" uvicorn app.main:app --host "$BACKEND_HOST" --port "$BACKEND_PORT"
 fi

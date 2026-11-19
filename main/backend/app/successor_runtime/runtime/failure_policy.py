@@ -876,7 +876,7 @@ def derive_failure_policy_result(
     qualified_plan: _QualifiedPlanLike,
     step_id: str,
 ) -> FailurePolicyDecision | Failure:
-    """Return a policy decision or a closed W07 runtime failure value."""
+    """Return a policy decision or a closed runtime failure value."""
 
     try:
         result = _derive_failure_policy_impl(plan, qualified_plan, step_id)

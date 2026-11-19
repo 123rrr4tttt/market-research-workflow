@@ -11,6 +11,7 @@ main/backend/.venv311/
 .env.*
 !main/backend/.env.example
 !main/backend/.env.production.example
+!main/ops/.env.local-user.example
 *.credentials.json
 *-credentials.json
 
@@ -55,6 +56,7 @@ celerybeat-schedule
 celerybeat.pid
 
 # Caches and test output
+/.local-run/
 .cache/
 .coverage
 .coverage.*
@@ -78,3 +80,6 @@ dist/
 /main/backend/.artifacts/
 **/image.oci.tar
 **/artifacts/layouts/**/blobs/
+
+# Private Docker deployment values
+main/ops/.env.local-user

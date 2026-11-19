@@ -1511,7 +1511,6 @@ def test_recommend_site_entries_batch_returns_standard_ok_envelope(
                 "validated": True,
                 "source": "rule",
                 "capabilities": {},
-                "symbol_suggestion": None,
             }
         ],
     )
@@ -1551,3 +1550,48 @@ def test_recommend_site_entries_batch_error_paths_return_standard_error_contract
     assert runtime_resp.status_code == 500
     assert runtime_resp.headers.get("x-error-code") == "INTERNAL_ERROR"
     assert runtime_resp.json()["error"]["code"] == "INTERNAL_ERROR"
+
+
+@pytest.mark.parametrize(
+    ("route", "payload"),
+    [
+        ("site_entries/recommend", {"site_url": "https://example.test/about"}),
+        ("site_entries/recommend-batch", {"entries": [{"site_url": "https://example.test/about"}]}),
+        ("discover/site-entries", {"project_key": "demo_proj", "run_auto_classify": True, "async_mode": True}),
+    ],
+)
+def test_model_classification_requires_cell_before_execution(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, route: str, payload: dict[str, Any]
+) -> None:
+    def _unexpected(*_args, **_kwargs):
+        raise AssertionError("model request must not run rules, inspect config, or dispatch discovery")
+
+    for name in ("classify_site_entry", "classify_site_entries_batch", "get_ingest_config"):
+        monkeypatch.setattr(resource_pool_api, name, _unexpected)
+
+    response = client.post(f"/api/v1/resource_pool/{route}", json={**payload, "use_llm": True})
+
+    assert response.status_code == 503
+    assert response.json()["error"]["details"]["reason"] == "cell_executor_not_registered"
+
+
+def test_worker_rejects_queued_model_classification_before_probes_or_writes() -> None:
+    task_discover_site_entries_batched.push_request(id="celery-discovery-unbound")
+    try:
+        with (
+            patch("app.services.tasks.bind_project", return_value=contextlib.nullcontext()),
+            patch("app.services.tasks.start_job", return_value=907),
+            patch("app.services.tasks.fail_job") as fail_job,
+            patch("app.services.tasks.complete_job") as complete_job,
+            patch("app.services.resource_pool.list_discovery_domains") as probe,
+            patch("app.services.resource_pool.simplify_site_entries") as simplify,
+        ):
+            with pytest.raises(ValueError, match="no Cell execution binding"):
+                task_discover_site_entries_batched.run("demo_proj", use_llm=True, write=True)
+    finally:
+        task_discover_site_entries_batched.pop_request()
+
+    assert fail_job.call_args.kwargs["external_job_id"] == "celery-discovery-unbound"
+    complete_job.assert_not_called()
+    probe.assert_not_called()
+    simplify.assert_not_called()

@@ -19,9 +19,7 @@ loopback 且不含转发头的浏览器请求 bootstrap 自身 JWT。后端显�
 胞腔宿主通过 `MRW_BACKEND_URL` 调用同一业务环境的 `/api/v1/agent-macro-host`，
 `MRW_BACKEND_API_KEY` 须与该后端的 `CODEX_WEBUI_SERVER_API_KEY` 一致；两者仅在
 服务端使用，不传浏览器或模型。`start.sh` 复用原私密 LaunchAgent 配置，默认使用
-宿主 API。当前 Docker 页面 `http://127.0.0.1:5174` 与宿主 `127.0.0.1:8000`
-可能连接不同数据库；该页面的 WebUI 接线应显式设置
-`MRW_BACKEND_URL=http://127.0.0.1:5174`，不凭相同 project key 混用资料。
+宿主 API。Docker 与宿主是不同实例，不能凭相同 `project_key` 混用资料；不要把 Docker 业务页能打开宿主 WebUI 当作接线成功。
 
 前端向 iframe 传递用户选定项目；WebUI 创建新线程前 prepare 工具环境，线程创建后
 绑定独立 MRW session。切换项目只影响新线程。权限确认留在同一聊天窗口，精确绑定
@@ -69,46 +67,28 @@ WebUI 的构建、协议版本、线程数据和认证配置见[服务说明](./
 ./scripts/local-service-control.sh backend-start
 ```
 
-## Compose 隔离验证
+## 完整本机 Docker 部署
 
-此模式用于容器边界下的本机验证，不是本机工作台的首跑路径。它从当前源码构建后端、worker 与前端镜像，需要 Docker and Compose。Compose project 为 `mrw-local-user`，使用隔离的命名卷，不使用宿主 PostgreSQL 或 Redis。
-
-在仓库根目录执行：
+完整单用户工作台的 Docker 入口是仓库根目录的：
 
 ```bash
-docker compose -p mrw-local-user \
-  -f main/ops/docker-compose.yml -f main/ops/docker-compose.local-user.yml \
-  --profile modern-ui up -d --build --pull never \
-  db es redis backend celery-worker frontend-modern
+./scripts/local-docker-deploy.sh up
 ```
 
-界面为 <http://127.0.0.1:15132/>，API 为 <http://127.0.0.1:18132/docs>，仅绑定 loopback。
-只有列出的六个服务被启动，不包含 launcher、scrapyd 或搜索增强服务。
-镜像直接由当前源码构建，不依赖预载的历史镜像或兄弟 checkout。修改源码后重新执行同一 `up --build` 命令；只重启现有容器不会包含源码修改：
+它读取私密文件 `main/ops/.env.local-user`，使用 Compose project `mrw-local-user`，构建业务界面、API、worker 和 Codex WebUI，启动独立 PostgreSQL、Redis、Elasticsearch，并等待业务与 WebUI 健康。默认业务界面为 <http://127.0.0.1:15132>，API 为 <http://127.0.0.1:18132/docs>。配置模板见 [`.env.local-user.example`](.env.local-user.example)，使用说明见[本机 Docker 部署](../../docs/usage.md#本机-docker-部署)。
 
 ```bash
-docker compose -p mrw-local-user \
-  -f main/ops/docker-compose.yml -f main/ops/docker-compose.local-user.yml \
-  restart backend celery-worker
+./scripts/local-docker-deploy.sh status
+./scripts/local-docker-deploy.sh health
+./scripts/local-docker-deploy.sh logs
+./scripts/local-docker-deploy.sh down
 ```
 
-此配置不读取宿主 `.env`，不注入 provider key 或 Codex 登录文件。默认 dev 模式没有普通账号登录要求；
-Codex OAuth、模型、外部检索与网页采集未验证。不要把页面显示的 `missing/login` 当成已配置。
-
-停止并保留所有本地数据：
-
-```bash
-docker compose -p mrw-local-user \
-  -f main/ops/docker-compose.yml -f main/ops/docker-compose.local-user.yml \
-  --profile modern-ui stop db es redis backend celery-worker frontend-modern
-```
-
-重新执行上述 `up` 恢复。不要使用 `down -v` 或全局 prune。日志可从
-`docker compose` 同样参数的 `logs backend celery-worker` 读取，worker 文件日志也由任务详情页读取。
+`down` 保留命名卷；`reset` 才会删除业务数据库、搜索索引、Redis 数据、worker 日志以及包含 WebUI SQLite、线程文件和 Codex 登录状态的卷。Compose project 和卷必须与另一个 checkout 隔离。不要用宿主 `.env`、宿主 PostgreSQL、宿主 Redis、宿主 Elasticsearch 或宿主 Codex 登录替代容器内的实例。
 
 ## Docker 应用栈
 
-完整容器应用栈与上述隔离环境是不同运行模式。仓库根入口直接转发到现有 Compose 控制脚本：
+下面是一般开发与运维入口，不是完整单用户 Docker 安装的验收路径。仓库根入口转发到现有 Compose 控制脚本：
 
 ```bash
 ./scripts/docker-deploy.sh preflight
@@ -119,11 +99,66 @@ docker compose -p mrw-local-user \
 ./scripts/docker-deploy.sh stop --profile modern-ui
 ```
 
-macOS 桌面入口 `./scripts/platform-macos.sh docker-app-start` 启动同一完整应用栈；
+macOS 桌面入口 `./scripts/platform-macos.sh docker-app-start` 启动这套应用栈；
 `docker-start` 只打开 Docker 控制台。外部服务配置使用
 `python3 scripts/launch.py` 或 `./scripts/platform-macos.sh configure`。
 检查点、回滚和 fixture-only dry-run 的当前参数以
 `./scripts/docker-deploy.sh --help` 与 `./main/ops/rollback.sh --help` 为准。
+
+## 服务器部署参考（非本机安装）
+
+这是服务器配置的维护参考，不是单用户工作台的安装方式，也不属于本次交付验收。生产容器配置使用独立的 [生产 Compose](docker-compose.production.yml)，不与本机或开发 Compose 叠加。先运行与 CI 同源的两项检查：
+
+```bash
+python3 scripts/formal_release/check_static_production_contract.py
+python3 scripts/formal_release/check_production_compose_config.py
+```
+
+前者需要 Python 环境中已安装 `packaging`，检查发布版本、配置结构和仓库门禁声明；后者用合成输入只渲染，既不拉取镜像也不启动服务。两项通过不代表镜像、迁移、认证或业务链路已验收。
+
+有获准的目标环境后，从 [生产环境模板](../backend/.env.production.example) 在仓库外准备私密 env 文件；凭据不进 Git、不进镜像。使用真实镜像摘要、构建标识和运行策略，只返回检查状态，不输出渲染后的配置：
+
+```bash
+docker compose -f main/ops/docker-compose.production.yml \
+  --env-file "$MRW_PRODUCTION_ENV_FILE" config --quiet
+```
+
+执行前确保当前 shell 没有同名变量覆盖该文件。真实上线还需在目标环境独立验证镜像、迁移和回滚、API/worker，以及经 Cell 的实际调用与持久读回；不要用本机或历史记录替代。
+
+## PostgreSQL 备份与恢复演练
+
+在已确认的 MRW 源数据库备份完整数据库，不只导出 `public`：项目数据和工作流记录还在各项目的 schema 中。
+用隔离的恢复环境和**新建空库**演练，不覆盖现用数据库。目标 PostgreSQL 需备好与源库相容的版本、
+`vector` 扩展及恢复所需的数据库角色；连接和凭据使用运维已有的私密配置，不写入仓库或日志。
+
+```bash
+# PGHOST / PGPORT / PGUSER 指向源 PostgreSQL；SOURCE_DB 指定 MRW 源数据库。
+# BACKUP_DIR 是已创建的私有目录；每次演练用新的目录和目标数据库名。
+(
+  set -eu
+  umask 077
+  cd "${BACKUP_DIR:?}"
+  pg_dump --format=custom --file=mrw.dump "${SOURCE_DB:?}"
+  shasum -a 256 mrw.dump > mrw.dump.sha256
+  shasum -a 256 -c mrw.dump.sha256
+  pg_restore --list mrw.dump > mrw.dump.list
+
+  # RESTORE_PGHOST / RESTORE_PGPORT / RESTORE_PGUSER 指向隔离目标。
+  export PGHOST="${RESTORE_PGHOST:?}" PGPORT="${RESTORE_PGPORT:?}" PGUSER="${RESTORE_PGUSER:?}"
+  createdb --template=template0 "${RESTORE_DB:?}"
+  pg_restore --single-transaction --exit-on-error --dbname="$RESTORE_DB" mrw.dump
+  psql -X -v ON_ERROR_STOP=1 -d "$RESTORE_DB" -c 'TABLE public.alembic_version;'
+)
+```
+
+命令成功只表示数据库已恢复。用与备份版本相符的独立 API 实例连接恢复库，比较恢复前后同一项目下
+的材料正文及来源、写作文档与引用、类型化知识，以及已完成的工作流及其事件；用另一已安装 Runtime
+的项目检查读不到原项目的样本，并检查工作流在未认证时被拒绝。普通业务项目创建不是 Runtime 授权；
+若演练需要先在新项目里执行工作流，运维通过 `main/backend/scripts/provision_project_runtime.py` 显式安装
+项目 Runtime，按实际批准配置目标 actor、唯一 incarnation、允许的操作与资源上限及有限期 grant。
+
+此流程不恢复外部文件、Codex WebUI 独立数据卷、搜索索引或 Redis 在途任务。演练的 API 和 worker
+不得连到生产队列或外部执行入口；恢复演练通过也不表示可以接管生产流量。
 
 ## Concept Workbench overlay
 
