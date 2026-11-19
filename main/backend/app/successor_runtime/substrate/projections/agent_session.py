@@ -3,17 +3,16 @@
 The successor runtime journal is the only authority: session/task status is
 folded from ordered runtime events, never from the mutable ``runtime_runs`` /
 ``runtime_steps`` snapshots.  A terminal-looking control snapshot without the
-corresponding terminal event therefore projects as ``UNKNOWN`` instead of
-manufacturing a terminal sequence.
+corresponding terminal event never produces a terminal session status.
 """
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from enum import StrEnum
 from typing import Literal
 
 from pydantic import Field, model_validator
-from sqlalchemy import select
 from sqlalchemy.engine import Connection
 
 from app.successor_runtime.runtime.assignments import (
@@ -35,22 +34,30 @@ from app.successor_runtime.runtime.transitions import (
 )
 from app.successor_runtime.substrate.postgres.runtime_journal import (
     ExactBindingConflict,
-    RecordNotFound,
+    RuntimeJournalRepository,
 )
-from app.successor_runtime.substrate.postgres.models import PUBLIC_TABLES
-
-from .runtime_run import RuntimeJournalSource
 
 
 class AgentSessionProjectionError(ExactBindingConflict):
     """The journal cannot produce a trustworthy session/task read model."""
 
 
-AGENT_SESSION_PROJECTOR_ID = "mrw.task.session-observation.projector.v1"
-AGENT_SESSION_PROJECTOR_VERSION = "1.0.0"
 AGENT_SESSION_SNAPSHOT_SCHEMA_V1 = "mrw.task.session-observation.v1"
 AGENT_TASK_SNAPSHOT_SCHEMA_V1 = "mrw.task.observation.v1"
 
+
+@dataclass(frozen=True, slots=True)
+class RuntimeJournalSource:
+    run_id: str
+    run_incarnation: str
+    source_ref: str
+    source_kind: str = "runtime_journal"
+
+    def __post_init__(self) -> None:
+        if not self.run_id or not self.run_incarnation:
+            raise ValueError("runtime journal source identity is incomplete")
+        if self.source_ref != f"runtime-run:{self.run_id}":
+            raise ValueError("runtime journal source_ref does not bind run_id")
 
 
 class SessionStatus(StrEnum):
@@ -312,86 +319,41 @@ def _session_status(
 class PostgresAgentSessionReadAdapter:
     """Read-only adapter that folds journal events without any write."""
 
-    projector_id = AGENT_SESSION_PROJECTOR_ID
-    projector_version = AGENT_SESSION_PROJECTOR_VERSION
-    source_kind = "runtime_journal"
-
     def __init__(self, connection: Connection, scope: RuntimeScope) -> None:
-        self.connection = connection
-        self.scope = scope
+        self._journal = RuntimeJournalRepository(connection, scope)
 
     def load(self, source: RuntimeJournalSource) -> AgentSessionSnapshot:
-        if source.source_kind != self.source_kind:
+        if source.source_kind != "runtime_journal":
             raise AgentSessionProjectionError("agent session source kind mismatch")
         if source.source_ref != f"runtime-run:{source.run_id}":
             raise AgentSessionProjectionError(
                 "agent session source_ref is not canonical"
             )
-        self._require_source_identity(source)
-        events = self._load_events(source)
+        run = self._journal.load_run(source.run_id)
+        if run["incarnation"] != source.run_incarnation:
+            raise AgentSessionProjectionError(
+                "agent session projection source incarnation is stale"
+            )
         try:
-            projection = replay_runtime_events(events)
+            projection = replay_runtime_events(
+                ReplayEvent.from_public_row(row, run_incarnation=source.run_incarnation)
+                for row in self._journal.load_events(source.run_id)
+            )
         except RuntimeReplayError as exc:
             raise AgentSessionProjectionError(
                 "agent session journal replay failed closed"
             ) from exc
         return fold_agent_session(projection)
 
-    def _require_source_identity(self, source: RuntimeJournalSource) -> None:
-        runs = PUBLIC_TABLES["runtime_runs"]
-        row = (
-            self.connection.execute(
-                select(
-                    runs.c.project_key,
-                    runs.c.run_id,
-                    runs.c.incarnation,
-                ).where(
-                    runs.c.project_key == self.scope.project_scope.project_key,
-                    runs.c.run_id == source.run_id,
-                )
-            )
-            .mappings()
-            .one_or_none()
-        )
-        if row is None:
-            raise RecordNotFound(
-                f"agent session projection source not found: {source.run_id}"
-            )
-        if row["incarnation"] != source.run_incarnation:
-            raise AgentSessionProjectionError(
-                "agent session projection source incarnation is stale"
-            )
-
-    def _load_events(self, source: RuntimeJournalSource) -> tuple[ReplayEvent, ...]:
-        table = PUBLIC_TABLES["runtime_events"]
-        rows = (
-            self.connection.execute(
-                select(table)
-                .where(
-                    table.c.project_key == self.scope.project_scope.project_key,
-                    table.c.run_id == source.run_id,
-                    table.c.seq >= 1,
-                )
-                .order_by(table.c.seq)
-            )
-            .mappings()
-            .all()
-        )
-        return tuple(
-            ReplayEvent.from_public_row(row, run_incarnation=source.run_incarnation)
-            for row in rows
-        )
-
 
 __all__ = [
-    "AGENT_SESSION_PROJECTOR_ID",
-    "AGENT_SESSION_PROJECTOR_VERSION",
     "AGENT_SESSION_SNAPSHOT_SCHEMA_V1",
     "AGENT_TASK_SNAPSHOT_SCHEMA_V1",
     "AgentSessionProjectionError",
     "AgentSessionSnapshot",
     "AgentTaskSnapshot",
     "PostgresAgentSessionReadAdapter",
+    "RuntimeJournalSource",
     "SessionStatus",
     "TaskStatus",
     "fold_agent_session",

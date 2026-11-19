@@ -26,7 +26,6 @@ from app.production_contract import (
     EffectAdmission,
     EffectClass,
     EndpointEffectContract,
-    ProviderClass,
     RouteEffectContractError,
 )
 
@@ -284,7 +283,6 @@ def test_registry_shape_and_route_effect_invariants() -> None:
     bindings = load_production_route_bindings()
     contracts = [binding.effect_contract for binding in bindings]
     conditional = [contract for contract in contracts if contract.effect_class is EffectClass.CONDITIONAL]
-    provider_calls = [contract for contract in contracts if contract.effect_class is EffectClass.PROVIDER_CALL]
 
     # Completeness against the installed router is checked independently by
     # test_checked_in_route_registry_exactly_covers_installed_routes.  Preserve
@@ -300,7 +298,6 @@ def test_registry_shape_and_route_effect_invariants() -> None:
     ]
     assert canonical_writes == []
     assert conditional
-    assert len(provider_calls) == 2
     assert all(
         contract.admission is EffectAdmission.BLOCKED_UNTIL_EFFECT_BINDING
         for contract in conditional
@@ -314,6 +311,8 @@ def test_registry_shape_and_route_effect_invariants() -> None:
     for operation in (
         "agent-batch.reject_agent_batch_nl_command",
         "agent-batch.reject_agent_batch_nl_command_direct",
+        "discovery.generate_keywords_api",
+        "discovery.generate_subreddit_keywords_api",
     ):
         contract = next(binding.effect_contract for binding in bindings if binding.operation == operation)
         assert contract.effect_class is EffectClass.PURE_COMPUTE
@@ -362,14 +361,6 @@ def test_registry_shape_and_route_effect_invariants() -> None:
         and contract.external_auth_port is None
         and contract.filesystem_port is None
         for contract in conditional
-    )
-    # The checked-in provider shape is blocked and portless; the provider class
-    # remains explicit until its provider port is bound.
-    assert all(
-        contract.admission is EffectAdmission.BLOCKED_UNTIL_EFFECT_BINDING
-        and contract.provider_port is None
-        and contract.provider_class is ProviderClass.LLM
-        for contract in provider_calls
     )
 
 

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from collections.abc import Mapping
-from importlib import import_module
 from typing import List, Optional, Protocol, Set, TypeGuard
 from datetime import datetime
 import os
@@ -16,9 +15,8 @@ from ..http.client import default_http_client
 from urllib.parse import urljoin, urlparse, parse_qsl, urlencode, urlunparse
 from sqlalchemy import select
 
+from ..keyword_generation import dedup_keywords, generate_keywords
 from ..ingest.retry_policy import RateGate, RequestScope
-from ..llm.provider import get_chat_model
-from ..llm.config_loader import get_llm_config
 from ...settings.config import settings
 from ...models.base import SessionLocal
 from ...models.entities import Material
@@ -81,8 +79,6 @@ _TRUSTED_DOMAINS = {
 }
 
 
-_BILINGUAL_LANG_MODES = {"bi", "bilingual", "zh-en", "zh_en", "both", "multi", "multilingual"}
-
 class SearchRequestPort(Protocol):
     def request_json(
         self,
@@ -141,22 +137,6 @@ def _base_language(language: str) -> str:
     if lang.startswith("en"):
         return "en"
     return "en"
-
-
-def _is_bilingual_mode(language: str) -> bool:
-    return (language or "").strip().lower() in _BILINGUAL_LANG_MODES
-
-
-def _dedup_keywords(items: List[str]) -> List[str]:
-    out: List[str] = []
-    seen: set[str] = set()
-    for raw in items:
-        kw = str(raw or "").strip()
-        if not kw or kw in seen:
-            continue
-        seen.add(kw)
-        out.append(kw)
-    return out
 
 
 def _canonicalize_url(url: str) -> str:
@@ -279,203 +259,11 @@ def _score_search_result(item: SearchResult, *, topic: str, keywords: List[str])
     return round(score, 3)
 
 
-def _llm_content(response: object) -> object:
-    sentinel: object = object()
-    content = getattr(response, "content", sentinel)
-    return str(response) if content is sentinel else content
-
-
-def _required_llm_text(content: object) -> str:
-    if isinstance(content, str):
-        return content
-    # kit:boundary owner=search.provider_payload class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=search.failure witness=test:test_search_web_dynamic_boundaries_preserve_failure_paths
-    raise TypeError("LLM response content must be text")
-
-
-def _format_keyword_prompt(template: str, *, language: str, topic: str) -> str:
-    config_loader: object = import_module("app.services.llm.config_loader")
-    formatter: Callable[..., str] = getattr(config_loader, "format_prompt_template")
-    return formatter(template, language=language, topic=topic)
-
-
-def _object_list(value: object) -> list[object]:
-    return _json_list(value) or []
-
-
 def _extract_domain(url: str) -> str:
     try:
         return urlparse(url).netloc
     except Exception:
         return ""
-
-
-def generate_keywords(topic: str, language: str = "zh") -> List[str]:
-    if _is_bilingual_mode(language):
-        # Keep bilingual support in prompt-generation layer only (no search execution routing).
-        if settings.llm_provider == "openai" and not settings.openai_api_key:
-            return _dedup_keywords(generate_keywords(topic, "zh") + generate_keywords(topic, "en"))
-        try:
-            prompt = (
-                "你是一名搜索关键词生成助手。请基于用户主题输出 6~10 个中英文混合的搜索关键词。"
-                "要求同时包含中文和英文关键词，每行一个关键词，不要解释，尽量覆盖政策、市场、产业链、技术与销售/财报相关角度。\n"
-                "主题：" + topic
-            )
-            model = get_chat_model()
-            response = model.invoke(prompt)
-            text = _required_llm_text(_llm_content(response))
-            keywords = _dedup_keywords(
-                [line.strip("- ") for line in text.splitlines() if line.strip("- ").strip()]
-            )
-            if keywords:
-                logger.info("generate_keywords: llm bilingual keywords=%s", keywords)
-                return keywords
-        except Exception:
-            logger.warning("generate_keywords: llm bilingual failed, fallback to zh+en", exc_info=True)
-        return _dedup_keywords(generate_keywords(topic, "zh") + generate_keywords(topic, "en"))
-
-    # If no valid provider/key configured, skip LLM and use fallback keywords
-    if settings.llm_provider == "openai" and not settings.openai_api_key:
-        logger.info("generate_keywords: using fallback (no OPENAI key), topic=%s lang=%s", topic, language)
-        return [
-            topic,
-            *( [
-                f"{topic} regulation",
-                f"{topic} market",
-                f"{topic} sales report",
-                f"{topic} supply chain",
-            ] if language.lower().startswith("en") else [
-                f"{topic} 政策",
-                f"{topic} 市场",
-                f"{topic} 销售 报告",
-                f"{topic} 产业链",
-            ])
-        ]
-    try:
-        # 尝试从数据库读取配置
-        config = get_llm_config("keyword_generation")
-
-        template_value = config.get("user_prompt_template") if config else None
-        prompt: str
-        if config is not None and isinstance(template_value, str):
-            # 使用配置的提示词
-            language_str = "英文" if language.lower().startswith("en") else "中文"
-            config_values = config
-            prompt = _format_keyword_prompt(template_value, language=language_str, topic=topic)
-            model_name = config_values.get("model")
-            temperature = config_values.get("temperature")
-            max_tokens = config_values.get("max_tokens")
-            top_p = config_values.get("top_p")
-            presence_penalty = config_values.get("presence_penalty")
-            frequency_penalty = config_values.get("frequency_penalty")
-            model = get_chat_model(
-                model=model_name if isinstance(model_name, str) else None,
-                temperature=temperature if isinstance(temperature, float) else None,
-                max_tokens=max_tokens if isinstance(max_tokens, int) else None,
-                top_p=top_p if isinstance(top_p, float) else None,
-                presence_penalty=presence_penalty if isinstance(presence_penalty, float) else None,
-                frequency_penalty=frequency_penalty if isinstance(frequency_penalty, float) else None,
-            )
-        else:
-            # 使用默认提示词（向后兼容）
-            prompt = (
-                "你是一名搜索关键词生成助手。请基于用户主题，输出 3~5 个多样化的" +
-                ("英文" if language.lower().startswith("en") else "中文") +
-                "搜索关键词。每行一个关键词，尽量包含与政策、市场或行情相关的词。\n主题：" + topic
-            )
-            model = get_chat_model()
-        
-        response = model.invoke(prompt)
-        text = _required_llm_text(_llm_content(response))
-        keywords: List[str] = []
-        for line in text.splitlines():
-            line = line.strip("- ")
-            if line:
-                keywords.append(line)
-        if keywords:
-            logger.info("generate_keywords: llm keywords=%s", keywords)
-            return keywords
-    except Exception:
-        # Fallback without LLM (no key / provider error)
-        logger.warning("generate_keywords: llm failed, fallback to static keywords", exc_info=True)
-
-    if language.lower().startswith("en"):
-        return [
-            topic,
-            f"{topic} regulation",
-            f"{topic} market",
-            f"{topic} sales report",
-            f"{topic} supply chain",
-        ]
-    else:
-        return [
-            topic,
-            f"{topic} 政策",
-            f"{topic} 市场",
-            f"{topic} 销售 报告",
-            f"{topic} 产业链",
-        ]
-
-
-def generate_topic_keywords(
-    topic: str,
-    *,
-    topic_focus: str,
-    language: str = "zh",
-    base_keywords: Optional[List[str]] = None,
-) -> dict[str, list[str]]:
-    """Generate topic-focused search keywords (company/product/operation) for collection.
-
-    This is collection-layer keyword expansion, separate from structured extraction prompts.
-    """
-    focus = str(topic_focus or "").strip().lower()
-    if focus not in {"company", "product", "operation"}:
-        return {"search_keywords": [], "topic_hints": []}
-
-    base = [str(x).strip() for x in (base_keywords or []) if str(x).strip()]
-    if not base:
-        base = [topic]
-
-    # Cheap deterministic fallback extensions
-    zh_suffix = {
-        "company": ["公司", "企业", "品牌", "合作", "供应链", "渠道"],
-        "product": ["产品", "型号", "品类", "参数", "发布", "应用场景"],
-        "operation": ["经营", "商业模式", "运营模式", "电商", "平台", "渠道策略"],
-    }
-    en_suffix = {
-        "company": ["company", "brand", "partnership", "supply chain", "channel"],
-        "product": ["product", "model", "category", "specs", "launch", "use case"],
-        "operation": ["operation", "business model", "ecommerce", "platform", "channel strategy"],
-    }
-    hints = (zh_suffix if _base_language(language) == "zh" else en_suffix).get(focus, [])
-    fallback = _dedup_keywords([f"{kw} {s}" for kw in base[:4] for s in hints[:4]])
-
-    try:
-        if settings.llm_provider == "openai" and not settings.openai_api_key:
-            return {"search_keywords": fallback[:12], "topic_hints": hints[:8]}
-        prompt = (
-            "你是一名专题搜索关键词生成助手。请基于主题和专题方向生成 6~12 个用于检索的关键词。"
-            "只返回 JSON，格式为 {\"search_keywords\":[],\"topic_hints\":[]}。\n"
-            f"主题: {topic}\n专题: {focus}\n语言: {language}\n已有基础关键词: {base[:10]}\n"
-            "要求：关键词偏检索用途，不要输出结构化字段；topic_hints 是主题提示词，可更抽象。"
-        )
-        model = get_chat_model()
-        response = model.invoke(prompt)
-        content = _required_llm_text(_llm_content(response))
-        data = None
-        try:
-            from ..extraction.json_utils import extract_json_payload as _extract_json
-            data = _extract_json(content)
-        except Exception:
-            data = None
-        parsed: dict[str, object] | None = data if isinstance(data, dict) else None
-        if parsed is not None:
-            search_kw = _dedup_keywords([str(x).strip() for x in _object_list(parsed.get("search_keywords")) if str(x).strip()])
-            topic_hints = _dedup_keywords([str(x).strip() for x in _object_list(parsed.get("topic_hints")) if str(x).strip()])
-            if search_kw:
-                return {"search_keywords": search_kw[:12], "topic_hints": topic_hints[:12]}
-    except Exception:
-        logger.warning("generate_topic_keywords: llm failed, fallback", exc_info=True)
-    return {"search_keywords": fallback[:12], "topic_hints": hints[:8]}
 
 
 def filter_existing(results: List[SearchResult]) -> List[SearchResult]:
@@ -542,7 +330,7 @@ def search_sources(
             topic = f"{topic} {year} 最新 最近"
         logger.info("search_sources: added time keywords days_back=%d topic=%s", days_back, topic)
     
-    keywords = _dedup_keywords(keywords_override) if keywords_override is not None else generate_keywords(topic, language)
+    keywords = dedup_keywords(keywords_override) if keywords_override is not None else generate_keywords(topic, language)
     # 如果关键词生成失败，使用topic本身作为关键词
     if not keywords:
         keywords = [topic]

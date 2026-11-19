@@ -345,7 +345,7 @@ def test_local_fallback_wraps_registered_chat(
     assert result.content == "fallback"
 
 
-def test_config_loader_reads_and_updates_typed_orm_fields(
+def test_config_loader_reads_typed_orm_fields(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     row = LlmServiceConfig(
@@ -366,10 +366,6 @@ def test_config_loader_reads_and_updates_typed_orm_fields(
             return row
 
     class FakeSession:
-        def __init__(self) -> None:
-            self.added: list[object] = []
-            self.commit_count = 0
-
         def __enter__(self) -> Self:
             return self
 
@@ -383,12 +379,6 @@ def test_config_loader_reads_and_updates_typed_orm_fields(
 
         def execute(self, statement: object) -> ScalarResult:
             return ScalarResult()
-
-        def add(self, value: object) -> None:
-            self.added.append(value)
-
-        def commit(self) -> None:
-            self.commit_count += 1
 
     session = FakeSession()
     monkeypatch.setattr(config_loader, "SessionLocal", lambda: session)
@@ -405,16 +395,6 @@ def test_config_loader_reads_and_updates_typed_orm_fields(
         "presence_penalty": None,
         "frequency_penalty": -0.25,
     }
-
-    updated = config_loader.ensure_prompt_has_guidelines(
-        "policy_summary",
-        row.user_prompt_template,
-        "guideline",
-    )
-    assert updated == "base prompt\n\nguideline"
-    assert row.user_prompt_template == updated
-    assert session.added == [row]
-    assert session.commit_count == 1
 
 
 @pytest.mark.skipif(

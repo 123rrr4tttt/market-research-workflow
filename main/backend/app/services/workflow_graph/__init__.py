@@ -397,8 +397,6 @@ class WorkflowGraphRuntimeService:
         from app.successor_runtime.substrate.postgres.session import ServerProjectScopeResolver
         from app.successor_runtime.substrate.projections.agent_session import (
             PostgresAgentSessionReadAdapter,
-        )
-        from app.successor_runtime.substrate.projections.runtime_run import (
             RuntimeJournalSource,
         )
 

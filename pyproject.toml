@@ -122,7 +122,6 @@ include = [
     "main/backend/app/successor_runtime/runtime/observations.py",
     "main/backend/app/successor_runtime/runtime/process_observation.py",
     "main/backend/app/successor_runtime/substrate/projections/agent_session.py",
-    "main/backend/app/successor_runtime/substrate/projections/runtime_run.py",
     "main/backend/app/services/crawlers/base.py",
     "main/backend/app/services/crawlers/durable_effect_bridge.py",
     "main/backend/app/services/crawlers/registry.py",

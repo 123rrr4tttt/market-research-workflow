@@ -19,8 +19,9 @@ import pytest
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 
-from app.models.entities import Material, Source
+from app.models.entities import Material, Source, WorkflowGraphEvent, WorkflowGraphRun
 from app.models.information_topology_entities import InformationTopologyState
+from app.models.typed_knowledge_entities import TypedKnowledgeObject
 from app.services.information_topology.io.retrieval import (
     _digest,
     _source_ref_wire,
@@ -35,6 +36,7 @@ from app.services.projects.bootstrap import (
     ProjectSchemaIncompatibleError,
     TENANT_TABLES,
     ensure_project_schema_ready,
+    validate_project_schema,
 )
 from app.services.projects.schema_initialization import (
     DatabaseRevisionIncompatibleError,
@@ -46,6 +48,7 @@ BACKEND_DIR = Path(__file__).resolve().parents[2]
 OLD_HEAD = "20260926_000001"
 NEW_HEAD = "20261009_000001"
 FOLLOWUP_HEAD = "20261009_000002"
+CURRENT_HEAD = "20261119_000002"
 DSN = "postgresql+psycopg2://postgres@127.0.0.1:50931/material_migration_test"
 DSN_ENV = "MATERIAL_MIGRATION_TEST_DATABASE_URL"
 
@@ -60,7 +63,8 @@ def _quote(identifier: str) -> str:
 
 
 def _config(dsn: str, *, x: tuple[str, ...] = ()) -> Config:
-    config = Config(str(BACKEND_DIR / "alembic.ini"))
+    # Programmatic migrations use the test runner's logging configuration.
+    config = Config()
     config.set_main_option("script_location", str(BACKEND_DIR / "migrations"))
     config.set_main_option("sqlalchemy.url", dsn)
     config.cmd_opts = Namespace(x=list(x))
@@ -576,7 +580,7 @@ def test_current_head_existing_project_is_validation_only_and_new_project_initia
     from app.services.projects import bootstrap as bootstrap_module
 
     def scenario(dsn: str) -> None:
-        command.upgrade(_config(dsn), FOLLOWUP_HEAD)
+        command.upgrade(_config(dsn), "head")
         monkeypatch.setattr(bootstrap_module, "engine", exclusive_engine)
 
         created = ensure_project_schema_ready("new_owner", name="New Owner")
@@ -585,6 +589,7 @@ def test_current_head_existing_project_is_validation_only_and_new_project_initia
             "schema_name": "project_new_owner",
         }
         assert _has_table(exclusive_engine, "project_new_owner", "materials")
+        assert _has_table(exclusive_engine, "project_new_owner", "typed_knowledge_objects")
         assert not _has_table(exclusive_engine, "project_new_owner", "documents")
 
         statements: list[str] = []
@@ -621,7 +626,7 @@ def test_current_head_missing_material_is_reported_without_repair(
     from app.services.projects import bootstrap as bootstrap_module
 
     def scenario(dsn: str) -> None:
-        command.upgrade(_config(dsn), FOLLOWUP_HEAD)
+        command.upgrade(_config(dsn), "head")
         monkeypatch.setattr(bootstrap_module, "engine", exclusive_engine)
         ensure_project_schema_ready("broken_owner")
         with exclusive_engine.begin() as conn:
@@ -641,6 +646,130 @@ def test_current_head_missing_material_is_reported_without_repair(
                 ).scalar_one()
                 == "project_broken_owner"
             )
+
+    _with_test_dsn(scenario)
+
+
+def test_fresh_migration_creates_public_workflow_history(exclusive_engine) -> None:
+    def scenario(dsn: str) -> None:
+        command.upgrade(_config(dsn), "head")
+        assert _head(exclusive_engine) == CURRENT_HEAD
+        with exclusive_engine.begin() as conn:
+            validate_project_schema(
+                conn,
+                schema_name="public",
+                tables=[WorkflowGraphRun.__table__, WorkflowGraphEvent.__table__],
+            )
+        for model in (WorkflowGraphRun, WorkflowGraphEvent):
+            assert _has_table(exclusive_engine, "public", model.__tablename__)
+
+    _with_test_dsn(scenario)
+
+
+def test_workflow_history_migration_keeps_preexisting_rows(exclusive_engine, monkeypatch) -> None:
+    from app.services.workflow_graph import store
+
+    def scenario(dsn: str) -> None:
+        command.upgrade(_config(dsn), FOLLOWUP_HEAD)
+        with exclusive_engine.begin() as conn:
+            # Older application startup created both tables from ORM metadata.
+            WorkflowGraphRun.__table__.create(conn)
+            WorkflowGraphEvent.__table__.create(conn)
+            conn.execute(WorkflowGraphRun.__table__.insert().values(run_id="saved-run", status="succeeded"))
+            conn.execute(
+                WorkflowGraphEvent.__table__.insert(),
+                [
+                    {"run_id": "saved-run", "seq": 2, "event_type": "run_completed"},
+                    {"run_id": "saved-run", "seq": 1, "event_type": "run_started"},
+                ],
+            )
+            before = tuple(
+                _relation_fingerprint(conn, "public", table.__tablename__)
+                for table in (WorkflowGraphRun, WorkflowGraphEvent)
+            )
+
+        command.upgrade(_config(dsn), "head")
+        assert _head(exclusive_engine) == CURRENT_HEAD
+        with exclusive_engine.begin() as conn:
+            assert before == tuple(
+                _relation_fingerprint(conn, "public", table.__tablename__)
+                for table in (WorkflowGraphRun, WorkflowGraphEvent)
+            )
+        monkeypatch.setattr(store, "engine", exclusive_engine)
+        snapshot = store.SqlHistoricalWorkflowRunReader().snapshot("saved-run")
+        assert snapshot["run"]["status"] == "succeeded"
+        assert [event["seq"] for event in snapshot["events"]] == [1, 2]
+
+    _with_test_dsn(scenario)
+
+
+def test_workflow_history_migration_rejects_relation_conflict_without_partial_creation(exclusive_engine) -> None:
+    def scenario(dsn: str) -> None:
+        command.upgrade(_config(dsn), FOLLOWUP_HEAD)
+        with exclusive_engine.begin() as conn:
+            conn.execute(text("CREATE VIEW public.workflow_graph_events AS SELECT 1"))
+
+        with pytest.raises(RuntimeError, match="WORKFLOW_HISTORY_RELATION_CONFLICT"):
+            command.upgrade(_config(dsn), "head")
+
+        assert _head(exclusive_engine) == FOLLOWUP_HEAD
+        assert not _has_table(exclusive_engine, "public", "workflow_graph_runs")
+
+    _with_test_dsn(scenario)
+
+
+def test_typed_knowledge_repair_preserves_existing_and_limits_target_schemas(exclusive_engine) -> None:
+    def scenario(dsn: str) -> None:
+        # Replaying the prior required-table repair must not treat a gap that
+        # belongs to this new revision as a failure in the earlier revision.
+        command.upgrade(_config(dsn), NEW_HEAD)
+        for key, schema, enabled in (
+            ("existing", "project_kept", True),
+            ("missing", "project_missing", True),
+            ("archived", "project_archived", False),
+        ):
+            _install_current_tenant_schema(exclusive_engine, schema)
+            _register_project(exclusive_engine, key, schema, enabled=enabled)
+        table = TypedKnowledgeObject.__tablename__
+        with exclusive_engine.begin() as conn:
+            conn.execute(text("CREATE SCHEMA project_unregistered"))
+            for schema in ("project_missing", "project_archived"):
+                conn.execute(text(f"DROP TABLE {schema}.{table}"))
+            conn.execute(
+                text(
+                    f"INSERT INTO project_kept.{table} "
+                    "(project_key, object_type, object_key, identity_ref, visibility_scope, lifecycle_state, review_state) "
+                    "VALUES ('existing', 'concept', 'sample', 'knowledge:existing:sample', 'project', 'active', 'pending')"
+                )
+            )
+            before = _relation_fingerprint(conn, "project_kept", table)
+
+        command.upgrade(_config(dsn), "head")
+        assert _head(exclusive_engine) == CURRENT_HEAD
+        for schema in ("project_missing", "project_archived"):
+            assert _has_table(exclusive_engine, schema, table)
+        assert not _has_table(exclusive_engine, "project_unregistered", table)
+        with exclusive_engine.begin() as conn:
+            assert _relation_fingerprint(conn, "project_kept", table) == before
+
+    _with_test_dsn(scenario)
+
+
+def test_typed_knowledge_repair_rejects_relation_conflict_without_partial_creation(exclusive_engine) -> None:
+    def scenario(dsn: str) -> None:
+        command.upgrade(_config(dsn), "20261119_000001")
+        for schema in ("project_gap", "project_view"):
+            _install_current_tenant_schema(exclusive_engine, schema)
+            _register_project(exclusive_engine, schema, schema)
+        with exclusive_engine.begin() as conn:
+            conn.execute(text("DROP TABLE project_gap.typed_knowledge_objects, project_view.typed_knowledge_objects"))
+            conn.execute(text("CREATE VIEW project_view.typed_knowledge_objects AS SELECT 1"))
+
+        with pytest.raises(RuntimeError, match="TYPED_KNOWLEDGE_REPAIR_RELATION_CONFLICT"):
+            command.upgrade(_config(dsn), "head")
+
+        assert _head(exclusive_engine) == "20261119_000001"
+        assert not _has_table(exclusive_engine, "project_gap", "typed_knowledge_objects")
 
     _with_test_dsn(scenario)
 

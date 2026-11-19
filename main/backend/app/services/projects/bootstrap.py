@@ -34,6 +34,7 @@ from ...models.entities import (
     SourceLibraryItem,
     Topic,
 )
+from ...models.typed_knowledge_entities import TypedKnowledgeObject
 from ...models.writing_entities import WritingDocument, WritingDocumentCitation, WritingDocumentDraft
 from .context import normalize_project_key, project_schema_name
 from .schema_initialization import (
@@ -68,6 +69,7 @@ _TENANT_TABLE_CANDIDATES = [
     PriceObservation.__table__,
     ResourcePoolUrl.__table__,
     ResourcePoolSiteEntry.__table__,
+    TypedKnowledgeObject.__table__,
     WritingDocument.__table__,
     WritingDocumentDraft.__table__,
     WritingDocumentCitation.__table__,

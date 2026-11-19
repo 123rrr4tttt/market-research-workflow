@@ -2,10 +2,13 @@ from fastapi import APIRouter, Query
 from pydantic import BaseModel, Field
 from typing import Any, Optional, TypedDict
 
-from ..project_customization.service import get_project_customization
 from ..composition.discovery import create_default_discovery_application
-from ..services.search.web import generate_keywords, generate_topic_keywords
-from ..services.keyword_generation import generate_social_keywords, generate_subreddit_keywords
+from ..services.keyword_generation import (
+    generate_keywords,
+    generate_social_keywords,
+    generate_subreddit_keywords,
+    generate_topic_keywords,
+)
 from ..services.job_logger import start_job, complete_job, fail_job
 from fastapi.responses import JSONResponse
 from ..contracts import ApiEnvelope, ErrorCode, error_response, map_exception_to_error, success_response
@@ -240,95 +243,34 @@ class KeywordGenerationRequest(BaseModel):
 
 @router.post("/generate-keywords", response_model=DiscoveryDictEnvelope, responses=DISCOVERY_ERROR_RESPONSES)
 def generate_keywords_api(payload: KeywordGenerationRequest):
-    """Keyword suggestion for collection workflow.
-
-    Uses project customization suggest_keywords when available; otherwise falls back
-    to trunk LLM-based generation (social or general).
-    """
-    import logging
-    from ..services.projects.context import current_project_key
-
-    logger = logging.getLogger(__name__)
-    project_key = current_project_key()
-    logger.info(
-        "Keyword suggestion request: project_key=%s, topic=%s, language=%s, platform=%s, base_keywords=%s",
-        project_key, payload.topic, payload.language, payload.platform, payload.base_keywords,
+    """Preview editable search terms; this does not start or change collection."""
+    base = payload.base_keywords or []
+    focus_terms = (
+        generate_topic_keywords(
+            payload.topic,
+            topic_focus=payload.topic_focus,
+            language=payload.language,
+            base_keywords=base,
+        )["search_keywords"]
+        if payload.topic_focus else []
     )
-
-    try:
-        customization = get_project_customization()
-        logger.info(
-            "Keyword suggestion: trunk-owned generation (project_key=%s). "
-            "Project customization only contributes prompt/guidelines, not generation routing.",
-            customization.project_key,
-        )
-        if payload.platform and payload.platform.strip():
-            logger.info("Keyword suggestion: trunk path=social, calling generate_social_keywords")
-            keyword_result = generate_social_keywords(
-                payload.topic,
-                payload.language,
-                payload.platform,
-                base_keywords=payload.base_keywords,
-                return_combined=True,
-            )
-            if isinstance(keyword_result, dict):
-                sw = list(keyword_result.get("search_keywords", []) or [])
-                sr = keyword_result.get("subreddit_keywords", [])
-                if payload.topic_focus:
-                    try:
-                        tkw = generate_topic_keywords(
-                            payload.topic,
-                            topic_focus=payload.topic_focus,
-                            language=payload.language,
-                            base_keywords=payload.base_keywords or [],
-                        ) or {}
-                        extra = [str(x).strip() for x in (tkw.get("search_keywords") or []) if str(x).strip()]
-                        sw = list(dict.fromkeys([*sw, *extra]))
-                    except Exception as topic_exc:  # noqa: BLE001
-                        logger.warning("Keyword suggestion topic_focus augment (social) failed: %s", topic_exc)
-                logger.info("Keyword suggestion: trunk social result search_keywords=%s subreddit_keywords=%s", sw, sr)
-                return success_response({
-                    "topic": payload.topic,
-                    "language": payload.language,
-                    "platform": payload.platform,
-                    "topic_focus": payload.topic_focus,
-                    "search_keywords": sw,
-                    "subreddit_keywords": sr,
-                })
-            logger.info("Keyword suggestion: trunk social result (list) keywords=%s", keyword_result)
-            return success_response({
-                "topic": payload.topic,
-                "language": payload.language,
-                "platform": payload.platform,
-                "keywords": keyword_result,
-            })
-
-        logger.info("Keyword suggestion: trunk path=general, calling generate_keywords")
-        keywords = list(generate_keywords(payload.topic, payload.language) or [])
-        if payload.topic_focus:
-            try:
-                tkw = generate_topic_keywords(
-                    payload.topic,
-                    topic_focus=payload.topic_focus,
-                    language=payload.language,
-                    base_keywords=payload.base_keywords or [],
-                ) or {}
-                extra = [str(x).strip() for x in (tkw.get("search_keywords") or []) if str(x).strip()]
-                keywords = list(dict.fromkeys([*keywords, *extra]))
-            except Exception as topic_exc:  # noqa: BLE001
-                logger.warning("Keyword suggestion topic_focus augment (general) failed: %s", topic_exc)
-        logger.info("Keyword suggestion: trunk general result keywords=%s", keywords)
+    data = {
+        "topic": payload.topic,
+        "language": payload.language,
+        "platform": payload.platform,
+        "topic_focus": payload.topic_focus,
+    }
+    if payload.platform and payload.platform.strip():
+        terms = generate_social_keywords(payload.topic, payload.language, payload.platform, base)
         return success_response({
-            "topic": payload.topic,
-            "language": payload.language,
-            "platform": payload.platform,
-            "topic_focus": payload.topic_focus,
-            "keywords": keywords,
+            **data,
+            "search_keywords": list(dict.fromkeys([*terms["search_keywords"], *focus_terms])),
+            "subreddit_keywords": terms["subreddit_keywords"],
         })
-    except Exception as exc:  # noqa: BLE001
-        logger.error("Keyword suggestion failed: %s", exc, exc_info=True)
-        code, message, details = map_exception_to_error(exc)
-        return _error_json(code, message, details, meta={"topic": payload.topic, "keywords": []})
+    return success_response({
+        **data,
+        "keywords": list(dict.fromkeys([*generate_keywords(payload.topic, payload.language), *focus_terms])),
+    })
 
 
 class SubredditKeywordGenerationRequest(BaseModel):
@@ -339,29 +281,10 @@ class SubredditKeywordGenerationRequest(BaseModel):
 
 @router.post("/generate-subreddit-keywords", response_model=DiscoveryDictEnvelope, responses=DISCOVERY_ERROR_RESPONSES)
 def generate_subreddit_keywords_api(payload: SubredditKeywordGenerationRequest):
-    """生成Reddit子论坛关键词：基于主题使用LLM生成专门用于发现Reddit子论坛的关键词
-    
-    这些关键词专门针对Reddit子论坛命名规则优化，适合用于子论坛发现功能。
-    """
-    import logging
-    logger = logging.getLogger(__name__)
-    
-    logger.info(f"Subreddit keyword generation request: topic={payload.topic}, language={payload.language}, base_keywords={payload.base_keywords}")
-    
-    try:
-        keywords = generate_subreddit_keywords(
-            topic=payload.topic,
-            language=payload.language,
-            base_keywords=payload.base_keywords,
-        )
-        logger.info(f"Subreddit keyword generation result: {len(keywords)} keywords")
-        return success_response({
-            "topic": payload.topic,
-            "language": payload.language,
-            "base_keywords": payload.base_keywords,
-            "keywords": keywords,
-        })
-    except Exception as exc:  # noqa: BLE001
-        logger.error(f"Subreddit keyword generation failed: {exc}", exc_info=True)
-        code, message, details = map_exception_to_error(exc)
-        return _error_json(code, message, details, meta={"topic": payload.topic, "keywords": []})
+    """Preview normalized terms for Reddit community discovery."""
+    return success_response({
+        "topic": payload.topic,
+        "language": payload.language,
+        "base_keywords": payload.base_keywords,
+        "keywords": generate_subreddit_keywords(payload.topic, base_keywords=payload.base_keywords),
+    })

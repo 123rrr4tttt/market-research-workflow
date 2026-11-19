@@ -139,6 +139,12 @@ def _selected_relation_kinds(
     return {str(row[0]): str(row[1]) for row in rows}
 
 
+def _required_tables_at_this_revision() -> list[Table]:
+    # Typed knowledge was not required by this revision; its tenant repair
+    # runs later (20261119_000002) and validates the newly required table.
+    return [table for table in TENANT_TABLES if table.name != "typed_knowledge_objects"]
+
+
 def _preflight_schema(
     conn: sa.Connection,
     *,
@@ -156,7 +162,7 @@ def _preflight_schema(
         )
 
     try:
-        validate_project_schema(conn, schema_name=schema_name, tables=TENANT_TABLES)
+        validate_project_schema(conn, schema_name=schema_name, tables=_required_tables_at_this_revision())
     except ProjectSchemaIncompatibleError as exc:
         missing = frozenset(exc.missing_tables)
         if exc.missing_columns:
@@ -239,7 +245,7 @@ def upgrade() -> None:
         validate_project_schema(
             conn,
             schema_name=schema_name,
-            tables=TENANT_TABLES,
+            tables=_required_tables_at_this_revision(),
         )
 
 

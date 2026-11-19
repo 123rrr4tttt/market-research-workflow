@@ -241,7 +241,7 @@ def build_system_projection(
         ),
         owner_ref=SYSTEM_ID,
         source_refs=(
-            "main/backend/docs/AGENT_MACRO_ARCHITECTURE.md#6-系统投影",
+            "main/backend/docs/agent-cell-current.md",
             "main/backend/app/services/agent_runtime/system_projection.py#build_system_projection",
         ),
         purpose_terms=("mrw", "system", "系统", "整体结构", "系统导航"),
@@ -412,7 +412,7 @@ def _coverage_collection_item(projection: SystemProjection) -> JSONObject:
         "summary": f"{len(projection.unmapped_tool_names())} registered tools have no responsibility declaration.",
         "owner_ref": "main/backend/app/services/agent_core/project_tools.py#build_project_core_tool_registry",
         "source_refs": (
-            "main/backend/docs/AGENT_MACRO_ARCHITECTURE.md#6-系统投影",
+            "main/backend/docs/agent-cell-current.md",
             "main/backend/app/services/agent_core/project_tools.py#build_project_core_tool_registry",
         ),
         "coverage": "mapped",

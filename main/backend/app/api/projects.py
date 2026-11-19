@@ -607,8 +607,6 @@ def _bootstrap_demo_seed_if_needed(source_key: str) -> None:
 
 PROMPT_FACTORY_SERVICE_NAME = "prompt_factory"
 PROMPT_FACTORY_TARGET_SERVICES = [
-    "keyword_generation",
-    "social_keyword_generation",
     "policy_extraction",
     "market_info_extraction",
     "entities_relations_extraction",

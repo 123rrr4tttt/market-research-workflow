@@ -22,14 +22,12 @@ export default function ProjectsPage({ projectKey, onProjectChange }: ProjectsPa
   const [newProjectKey, setNewProjectKey] = useState('')
   const [newProjectName, setNewProjectName] = useState('')
   const [templateProjectKey, setTemplateProjectKey] = useState('demo_proj')
-  const [llmServiceName, setLlmServiceName] = useState('keyword_generation')
+  const [llmServiceName, setLlmServiceName] = useState('policy_extraction')
   const [llmPromptTemplate, setLlmPromptTemplate] = useState('')
   const [editingProject, setEditingProject] = useState<{ key: string; name: string } | null>(null)
   const [readinessActionMessage, setReadinessActionMessage] = useState('')
   const llmServiceOptions = [
     'prompt_factory',
-    'keyword_generation',
-    'social_keyword_generation',
     'policy_extraction',
     'market_info_extraction',
     'entities_relations_extraction',
@@ -123,7 +121,7 @@ export default function ProjectsPage({ projectKey, onProjectChange }: ProjectsPa
         llm_configs: llmPromptTemplate.trim()
           ? [
               {
-                service_name: llmServiceName.trim() || 'keyword_generation',
+                service_name: llmServiceName.trim() || 'policy_extraction',
                 user_prompt_template: llmPromptTemplate.trim(),
                 enabled: true,
               },

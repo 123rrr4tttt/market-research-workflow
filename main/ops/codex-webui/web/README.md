@@ -39,5 +39,5 @@ React plugin as the build rather than a second, drifting copy.
 
 ## Docs
 
-Architecture and per-subsystem docs live in [`../docs/`](../docs/); start with
-[`frontend-ui.md`](../docs/frontend-ui.md) and [`frontend-state.md`](../docs/frontend-state.md).
+See the [WebUI host documentation](../README.md) for MRW integration and the
+[Cell integration notes](../../../backend/docs/agent-cell-current.md) for the host-to-backend boundary.

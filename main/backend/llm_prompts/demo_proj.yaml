@@ -139,54 +139,6 @@
   frequency_penalty: null
   enabled: true
 
-- service_name: keyword_generation
-  description: "关键词生成（具身智能）：基于主题生成具身智能相关搜索关键词"
-  system_prompt: null
-  user_prompt_template: "你是一名搜索关键词生成助手。请基于用户主题，输出 3~5 个多样化的{language}搜索关键词，聚焦具身智能、机器人、人形机器人、自主系统等领域。每行一个关键词。\n主题：{topic}"
-  model: null
-  temperature: 0.2
-  max_tokens: null
-  top_p: null
-  presence_penalty: null
-  frequency_penalty: null
-  enabled: true
-
-- service_name: social_keyword_generation
-  description: "社交关键词生成（具身智能）：生成具身智能/机器人社区搜索与子论坛关键词"
-  system_prompt: null
-  user_prompt_template: |
-    你是一名社交媒体关键词生成助手。请基于用户主题，生成两类具身智能/机器人相关关键词{platform}。
-
-    重要：所有关键词必须使用{language}生成。
-
-    第一类：搜索关键词（用于搜索帖子内容）
-    - 生成 3~5 个多样化的{language}搜索关键词
-    - 聚焦 embodied AI, humanoid robot, robotics, AGI, automation 等
-    - 包含社区常用表达
-
-    第二类：子论坛关键词（用于发现Reddit子论坛）
-    - 生成 5~10 个适合作为Reddit子论坛名称的{language}关键词
-    - 全小写、下划线分隔，如 robotics, humanoid_robots, embodied_ai
-    - 包含主题核心词汇、同义词、变体
-
-    请严格按照以下格式返回（每行一个关键词，不要编号）：
-    搜索关键词：
-    关键词1
-    关键词2
-
-    子论坛关键词：
-    关键词1
-    关键词2
-
-    主题：{topic}{base_keywords}
-  model: null
-  temperature: 0.5
-  max_tokens: 500
-  top_p: null
-  presence_penalty: null
-  frequency_penalty: null
-  enabled: true
-
 - service_name: document_classification
   description: "文档分类（具身智能）：将内容粗分类为 policy 或 market"
   system_prompt: null

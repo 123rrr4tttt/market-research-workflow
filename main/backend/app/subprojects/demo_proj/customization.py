@@ -31,14 +31,6 @@ class DemoProjCustomization(ProjectCustomization):
     def get_channel_handlers(self) -> dict[tuple[str, str], ChannelHandler]:
         return {}
 
-    def get_social_keyword_guidelines(self) -> str | None:
-        return (
-            "生成要求：\n"
-            "1. 所有搜索关键词需紧扣具身智能、机器人、自主系统主题；\n"
-            "2. 结合提供的基础关键词提炼同义词、动名词、复合短语；\n"
-            "3. 每条关键词独立成行，不附加额外说明。"
-        )
-
     def get_domain_tokens(self) -> list[str] | None:
         return ["embodied", "robot", "robotics", "ai", "humanoid", "autonomous"]
 

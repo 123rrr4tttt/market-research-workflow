@@ -1,6 +1,6 @@
 # 图谱生成系统标准文档
 
-> 最后更新：2026-02 | 文档索引：`docs/README.md`
+> **设计原稿。** 保留节点、关系、权重和视图的原始设计。原文的接口示例、旧响应与 `export_content_graph.py` 不作当前使用说明；现行实现见[图谱服务](../../../main/backend/app/services/graph)及[管理 API](../../../main/backend/app/api/admin.py)。
 
 ## 1. 概述
 

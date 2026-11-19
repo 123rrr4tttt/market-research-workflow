@@ -33,6 +33,7 @@ from ..services.ingest.adapters import submission_registry as ingest_submission_
 from ..services.ingest.reports.general import ReportIngestResult
 from ..services.ingest.social_application import SocialCollectResult
 from ..services.job_logger import list_jobs
+from ..services.keyword_generation import generate_topic_keywords
 from ..services.projects import bind_project, current_project_key
 from ..services.skill_runtime import invoke_skill
 from ..services.source_library.single_source_guard import (
@@ -1066,22 +1067,15 @@ def _expand_query_terms_with_topic_focus(
     focus = str(topic_focus or "").strip().lower()
     if focus not in {"company", "product", "operation"}:
         return query_terms, {}
-    try:
-        from ..services.search.web import generate_topic_keywords
-        topic = " ".join(query_terms[:4]).strip() or (query_terms[0] if query_terms else "")
-        kw = _json_object(generate_topic_keywords(
-            topic,
-            topic_focus=focus,
-            language=language or "zh",
-            base_keywords=query_terms,
-        ), path="search.generate_topic_keywords")
-        raw_extra = kw.get("search_keywords")
-        extra = _json_string_list(raw_extra, path="search.generate_topic_keywords.search_keywords") if raw_extra else []
-        merged = list(dict.fromkeys([*query_terms, *extra]))
-        return merged, {"topic_focus": focus, "topic_hints": kw.get("topic_hints") or [], "topic_search_keywords": extra}
-    except Exception as exc:  # noqa: BLE001
-        logger.warning("topic keyword expansion failed focus=%s err=%s", focus, exc)
-        return query_terms, {}
+    expanded = generate_topic_keywords(
+        "",
+        topic_focus=focus,
+        language=language or "zh",
+        base_keywords=query_terms,
+    )
+    extra = expanded["search_keywords"]
+    merged = list(dict.fromkeys([*query_terms, *extra]))
+    return merged, {"topic_focus": focus, "topic_hints": expanded["topic_hints"], "topic_search_keywords": extra}
 
 
 router = APIRouter(prefix="/ingest", tags=["ingest"])

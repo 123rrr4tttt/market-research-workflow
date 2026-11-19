@@ -275,6 +275,10 @@ def test_graph_facade_real_tasks_replay_exact_upstream_outputs(
     assert prompts == ["first", "continue answer:first"]
     detail = facade.get_run("graph-pg-run", project_key=PROJECT_KEY, actor_id=actor_id)
     assert detail["status"] == "succeeded"
+    session = facade.get_run_agent_session("graph-pg-run", project_key=PROJECT_KEY, actor_id=actor_id)
+    assert session["session"]["status"] == "completed"
+    assert session["session"]["source_revision"] == len(session["events"])
+    assert session["events"][-1]["event_type"] == "RunCompletionDerived"
     replay = facade.replay_run("graph-pg-run", "stateful", project_key=PROJECT_KEY, actor_id=actor_id)
     assert replay["node_statuses"] == {"first": "succeeded", "second": "succeeded", "combine": "succeeded"}
     assert replay["replay_consistency"]["consistent"] is True

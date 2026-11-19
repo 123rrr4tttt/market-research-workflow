@@ -33,7 +33,7 @@ python scripts/export_llm_prompts.py demo_proj
 
 | Field | Type | Description |
 |-------|------|-------------|
-| service_name | str | Unique key (e.g. `policy_classification`, `social_keyword_generation`) |
+| service_name | str | Unique key (e.g. `policy_classification`, `policy_extraction`) |
 | description | str | Human-readable description |
 | system_prompt | str | System message (optional) |
 | user_prompt_template | str | User message template with `{variable}` placeholders |

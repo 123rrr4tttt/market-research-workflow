@@ -11,7 +11,7 @@ MRW 是本机单用户研究工作台：按项目整理来源和资料，开展�
 | 要做的事 | 阅读入口 |
 | --- | --- |
 | 安装、启动与日常使用 | [使用说明](docs/usage.md) |
-| 理解对象、职责与设计取舍 | [总体设计](docs/architecture/README.md) |
+| 理解对象、职责与设计取舍 | [设计分册](docs/architecture/README.md) |
 | 修改代码与验证 | [开发指南](docs/development/README.md) |
 | 定位接口与各领域专题 | [后端接口与专题](main/backend/docs/README.md) |
 

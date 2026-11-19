@@ -1000,8 +1000,6 @@ class AgentSessionService:
         from app.successor_runtime.substrate.projections.agent_session import (
             PostgresAgentSessionReadAdapter,
             SessionStatus,
-        )
-        from app.successor_runtime.substrate.projections.runtime_run import (
             RuntimeJournalSource,
         )
 

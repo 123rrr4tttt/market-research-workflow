@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import NotRequired, Protocol, TypeAlias, TypedDict, runtime_checkable
+from typing import Protocol, TypeAlias, runtime_checkable
 
 
 CustomizationJsonAtom: TypeAlias = None | bool | int | float | str
@@ -20,11 +20,6 @@ ChannelHandler = Callable[
 
 # News resource handler: (limit: int) -> dict
 NewsResourceHandler = Callable[[int], CustomizationJsonObject]
-
-
-class KeywordSuggestion(TypedDict):
-    search_keywords: list[str]
-    subreddit_keywords: NotRequired[list[str]]
 
 
 @dataclass(slots=True)
@@ -57,29 +52,6 @@ class ProjectCustomization(Protocol):
         ...
 
     def get_channel_handlers(self) -> dict[tuple[str, str], ChannelHandler]:
-        ...
-
-    def suggest_keywords(
-        self,
-        topic: str,
-        base_keywords: list[str] | None = None,
-        platform: str | None = None,
-        language: str = "zh",
-    ) -> CustomizationJsonObject | None:
-        """Keyword suggestion for collection workflow.
-
-        Subprojects override to provide domain-specific suggestions.
-        Return None to use trunk default (LLM-based generation).
-        Return dict with keys: search_keywords (list), optionally subreddit_keywords (list).
-        """
-        ...
-
-    def get_social_keyword_guidelines(self) -> str | None:
-        """Optional guidelines appended to social_keyword_generation prompt.
-
-        Return None to skip appending (use template as-is).
-        Return str to append to template (e.g. domain-specific constraints).
-        """
         ...
 
     def get_domain_tokens(self) -> list[str] | None:

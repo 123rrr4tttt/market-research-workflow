@@ -1369,12 +1369,10 @@
       ],
       "required_scope": "api:invoke",
       "required_approval_ids": [],
-      "capability_id": "discovery.generate_keywords_api",
+      "capability_id": null,
       "effect_contract": {
-        "effect_class": "provider_call",
-        "admission": "blocked_until_effect_binding",
-        "provider_port": null,
-        "provider_class": "llm"
+        "effect_class": "pure_compute",
+        "admission": "admitted"
       }
     },
     {
@@ -1386,12 +1384,10 @@
       ],
       "required_scope": "api:invoke",
       "required_approval_ids": [],
-      "capability_id": "discovery.generate_subreddit_keywords_api",
+      "capability_id": null,
       "effect_contract": {
-        "effect_class": "provider_call",
-        "admission": "blocked_until_effect_binding",
-        "provider_port": null,
-        "provider_class": "llm"
+        "effect_class": "pure_compute",
+        "admission": "admitted"
       }
     },
     {

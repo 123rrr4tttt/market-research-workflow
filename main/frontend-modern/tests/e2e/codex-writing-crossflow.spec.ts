@@ -1,5 +1,11 @@
 import { expect, test } from '@playwright/test'
 import type { Page } from '@playwright/test'
+import type {
+  TypedKnowledgeWritingContextResponse,
+  WritingKeywordCardDetail,
+  WritingKeywordCardListResponse,
+  WritingKeywordCardRequest,
+} from '../../src/lib/api/domains/writing'
 import {
   buildE2eProjectKey,
   createE2eProject,
@@ -131,4 +137,76 @@ test.describe('Codex agent to writing workbench crossflow', () => {
       expect(readBody.data.body_md).toContain(marker)
     })
   })
+})
+
+test('@live writing reads a source card from persisted knowledge on text selection', async ({ page, request }) => {
+  const projectKey = buildE2eProjectKey('e2e_writing_knowledge')
+  const projectQuery = `?project_key=${encodeURIComponent(projectKey)}`
+  const query = 'robotics investment'
+  const itemKey = 'ki:robotics-policy'
+  const statement = 'Humanoid robotics investment is shifting toward industrial pilots.'
+  const evidenceRefs = ['doc:robotics:42']
+  const sourceUri = `typed-knowledge://${itemKey}`
+
+  await createE2eProject(request, projectKey)
+  try {
+    const seed = await request.post(`/api/v1/typed-knowledge/live-sample${projectQuery}`)
+    expect(seed.ok(), await seed.text()).toBeTruthy()
+
+    await setProjectKeyForPage(page, projectKey)
+    const contextResponse = page.waitForResponse((response) =>
+      new URL(response.url()).pathname === '/api/v1/typed-knowledge/writing-context',
+    )
+    await page.goto('/#/workbench/writing')
+    const context = await contextResponse
+    expect(context.ok(), await context.text()).toBeTruthy()
+    const contextBody = (await context.json()) as ApiEnvelope<TypedKnowledgeWritingContextResponse>
+    expect(contextBody.data).toMatchObject({ project_key: projectKey, live_db_backed: true })
+    const handoff = {
+      contract_version: 'typed_knowledge.writing_handoff.v1',
+      knowledge_item_key: itemKey,
+      project_key: projectKey,
+      canonical_statement: statement,
+      evidence_refs: evidenceRefs,
+    }
+    expect(contextBody.data.typed_knowledge_context.handoffs).toContainEqual(expect.objectContaining(handoff))
+    await expect(page.getByTestId('writing-typed-knowledge-context')).toBeVisible()
+
+    const editor = page.getByTestId('writing-markdown-editor')
+    await editor.fill(query)
+    const cardsResponse = page.waitForResponse((response) =>
+      new URL(response.url()).pathname === '/api/v1/writing/keyword-cards' &&
+      response.request().method() === 'POST',
+    )
+    await editor.press('ControlOrMeta+a')
+    const cards = await cardsResponse
+    expect(cards.ok(), await cards.text()).toBeTruthy()
+    const lookup = cards.request().postDataJSON() as WritingKeywordCardRequest
+    expect(lookup).toMatchObject({ project_key: projectKey, query })
+    expect(lookup.sources).toContain('resource')
+    expect(lookup.context?.typed_knowledge_context?.handoffs).toContainEqual(expect.objectContaining(handoff))
+    const cardsBody = (await cards.json()) as ApiEnvelope<WritingKeywordCardListResponse>
+    const card = cardsBody.data.cards.find((item) => item.url === sourceUri)
+    expect(card).toMatchObject({ title: statement, publisher: 'typed_knowledge', source_type: 'resource' })
+    if (!card) throw new Error('Expected a source card for the persisted knowledge item')
+
+    const detailResponse = page.waitForResponse((response) =>
+      decodeURIComponent(new URL(response.url()).pathname) === `/api/v1/writing/cards/${card.card_id}`,
+    )
+    await page.getByRole('button', { name: new RegExp(statement, 'i') }).click()
+    const detail = await detailResponse
+    expect(detail.ok(), await detail.text()).toBeTruthy()
+    const detailBody = (await detail.json()) as ApiEnvelope<WritingKeywordCardDetail>
+    expect(detailBody.data).toMatchObject({
+      card_id: card.card_id,
+      title: statement,
+      url: sourceUri,
+      publisher: 'typed_knowledge',
+      source_type: 'resource',
+      provenance: { project_key: projectKey, raw_keys: ['typed_knowledge_context'] },
+    })
+    await expect(page.getByRole('link', { name: '源' })).toHaveAttribute('href', sourceUri)
+  } finally {
+    await deleteE2eProject(request, projectKey)
+  }
 })

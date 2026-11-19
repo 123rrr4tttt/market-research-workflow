@@ -59,7 +59,7 @@ SUCCESSOR_FORBIDDEN = (
     "app.models",
 )
 
-# Effect facilities that runtime may reach only through runtime.ports.
+# Concrete effect facilities belong outside the runtime layer.
 EFFECT_FACILITY_PREFIXES = (
     "app.successor_runtime.substrate",
     "app.successor_runtime.adapters",
@@ -281,7 +281,6 @@ def check(root: Path) -> dict[str, object]:
 
             if (
                 source_layer == "runtime"
-                and importer != "runtime.ports"
                 and _matches(normalized, EFFECT_FACILITY_PREFIXES)
             ):
                 violations.append(
@@ -291,18 +290,10 @@ def check(root: Path) -> dict[str, object]:
                         "code": "RUNTIME_ONLY_PORTS",
                         "import": imported,
                         "message": (
-                            "runtime must reach substrate/adapters only through "
-                            "runtime.ports"
+                            "runtime must not import concrete substrate or adapters"
                         ),
                     }
                 )
-                continue
-
-            if (
-                source_layer == "runtime"
-                and importer == "runtime.ports"
-                and normalized.startswith("substrate.projections")
-            ):
                 continue
 
             forbidden = SUCCESSOR_FORBIDDEN

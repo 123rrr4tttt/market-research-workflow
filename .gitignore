@@ -74,6 +74,7 @@ node_modules/
 main/frontend-modern/storybook-static/
 dist/
 
-# Local container/build payloads
+# Local test and build outputs
+/main/backend/.artifacts/
 **/image.oci.tar
 **/artifacts/layouts/**/blobs/

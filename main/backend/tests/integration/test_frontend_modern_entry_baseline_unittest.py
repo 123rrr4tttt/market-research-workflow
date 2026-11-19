@@ -142,7 +142,6 @@ class FrontendModernEntryBaselineTestCase(unittest.TestCase):
 
         with (
             patch("app.api.ingest._tasks_module", return_value=_FakeTasks()),
-            patch("app.api.discovery.generate_keywords", return_value=["k1", "k2"]),
             patch("app.services.source_library.sync_shared_library_from_files", return_value={"synced": 1}),
         ):
             for path, payload in cases:
@@ -155,6 +154,35 @@ class FrontendModernEntryBaselineTestCase(unittest.TestCase):
                 self.assertIsInstance(data, dict, msg=f"path={path} body={body}")
                 self.assertEqual(resp.headers.get("x-project-key-source"), "header")
                 self.assertEqual(resp.headers.get("x-project-key-resolved"), "demo_proj")
+
+    def test_keyword_preview_keeps_language_focus_and_platform_without_running_collection(self):
+        endpoint = "/api/v1/discovery/generate-keywords"
+        payload = {"topic": "robot", "language": "bilingual", "base_keywords": ["mobile robot"]}
+        focused = self.client.post(
+            endpoint, json={**payload, "topic_focus": "product"}, headers=self.headers,
+        )
+        self.assertEqual(focused.status_code, 200)
+        keywords = _response_payload(focused.json())["keywords"]
+        self.assertIn("robot 市场", keywords)
+        self.assertIn("robot market", keywords)
+        self.assertIn("mobile robot 产品", keywords)
+        self.assertIn("mobile robot product", keywords)
+        self.assertEqual(len(keywords), len(set(keywords)))
+
+        with patch("app.services.ingest.keyword_library._get_redis_client", side_effect=AssertionError("preview opened keyword store")):
+            social = self.client.post(endpoint, json={**payload, "platform": "reddit"}, headers=self.headers)
+        self.assertEqual(social.status_code, 200)
+        data = _response_payload(social.json())
+        self.assertIn("robot 讨论", data["search_keywords"])
+        self.assertIn("robot discussion", data["search_keywords"])
+        self.assertIn("robot reddit", data["search_keywords"])
+        self.assertIn("mobile_robot", data["subreddit_keywords"])
+
+        subreddit = self.client.post(
+            "/api/v1/discovery/generate-subreddit-keywords", json=payload, headers=self.headers,
+        )
+        self.assertEqual(subreddit.status_code, 200)
+        self.assertEqual(_response_payload(subreddit.json())["keywords"], data["subreddit_keywords"])
 
     def test_frontend_modern_ingest_entries_reject_missing_project_key_in_require_mode(self):
         ingest_only_cases = [

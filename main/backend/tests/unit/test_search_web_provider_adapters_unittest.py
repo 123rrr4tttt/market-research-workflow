@@ -74,8 +74,6 @@ class SearchWebProviderAdaptersTest(unittest.TestCase):
             web._json_rows({"row": "value"})
         with self.assertRaisesRegex(TypeError, "row must be a JSON object"):
             web._required_json_dict([])
-        with self.assertRaisesRegex(TypeError, "content must be text"):
-            web._required_llm_text(42)
 
     def test_searxng_adapter_normalizes_results_and_keeps_provider_source(self) -> None:
         payload = {

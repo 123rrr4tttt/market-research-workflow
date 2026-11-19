@@ -25,19 +25,6 @@ class DefaultProjectCustomization(ProjectCustomization):
     def get_channel_handlers(self) -> Dict[tuple[str, str], ChannelHandler]:
         return {}
 
-    def suggest_keywords(
-        self,
-        topic: str,
-        base_keywords: Optional[list[str]] = None,
-        platform: Optional[str] = None,
-        language: str = "zh",
-    ) -> Optional[Dict[str, Any]]:
-        """Default: no project-specific suggestion; trunk uses built-in LLM service."""
-        return None
-
-    def get_social_keyword_guidelines(self) -> Optional[str]:
-        return None
-
     def get_domain_tokens(self) -> Optional[list[str]]:
         return None
 

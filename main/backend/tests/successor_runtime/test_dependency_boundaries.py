@@ -123,19 +123,14 @@ def test_lint_rejects_runtime_importing_effect_facility_directly(
     assert any(item["code"] == "RUNTIME_ONLY_PORTS" for item in report["violations"])
 
 
-def test_lint_allows_only_runtime_ports_projection_bridge(tmp_path: Path) -> None:
+def test_lint_rejects_even_runtime_ports_importing_a_projection(tmp_path: Path) -> None:
     _write(
         tmp_path,
         "runtime/ports.py",
         "from app.successor_runtime.substrate.projections.agent_session import Adapter\n",
     )
-    _write(
-        tmp_path,
-        "runtime/consumer.py",
-        "from app.successor_runtime.runtime.ports import Adapter\n",
-    )
     report = check(tmp_path)
-    assert report["ok"], report["violations"]
+    assert any(item["code"] == "RUNTIME_ONLY_PORTS" for item in report["violations"])
 
 
 def test_lint_rejects_module_import_cycle(tmp_path: Path) -> None:

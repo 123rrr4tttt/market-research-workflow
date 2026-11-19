@@ -15,7 +15,8 @@ from ..search.vector_contracts import (
     raise_search_contract_legacy,
     search_contract_failure,
 )
-from ..search.web import SearchResult, generate_keywords
+from ..keyword_generation import generate_keywords
+from ..search.web import SearchResult
 from .ports import DiscoveryDeepResult
 
 logger = logging.getLogger(__name__)

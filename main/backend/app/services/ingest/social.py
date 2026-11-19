@@ -203,55 +203,19 @@ def collect_user_social_sentiment(
                 if enable_subreddit_discovery and keywords and len(keywords) > 0:
                     logger.info(f"Discovering subreddits for keywords: {keywords}")
                     try:
-                        # 步骤1: 使用LLM生成搜索关键词和子论坛关键词（一次调用）
-                        # 从关键词中提取主题（使用第一个关键词或合并）
-                        topic = " ".join(keywords[:3])  # 使用前3个关键词作为主题
-                        logger.info(f"Generating combined keywords for topic: {topic}")
-                        
-                        try:
-                            # 调用合并的关键词生成函数，一次生成两种关键词
-                            keyword_result = generate_social_keywords(
-                                topic=topic,
-                                language="en",  # Reddit子论坛通常使用英文
-                                platform="reddit",
-                                base_keywords=keywords,  # 使用原始关键词作为基础
-                                return_combined=True,  # 返回合并格式
-                            )
-                            
-                            # 从返回结果中提取两种关键词
-                            if isinstance(keyword_result, dict):
-                                search_keywords = keyword_result.get("search_keywords", keywords)
-                                subreddit_keywords = keyword_result.get("subreddit_keywords", [])
-                                logger.info(f"Generated {len(search_keywords)} search keywords and {len(subreddit_keywords)} subreddit keywords")
-                            else:
-                                # 向后兼容：如果返回的是列表，使用原始逻辑
-                                logger.warning("Keyword generation returned list instead of dict, using original keywords")
-                                search_keywords = keywords
-                                subreddit_keywords = []
-                            
-                            # 如果没有生成子论坛关键词，使用原始关键词
-                            if not subreddit_keywords:
-                                logger.warning("No subreddit keywords generated, using original keywords for discovery")
-                                subreddit_keywords = keywords
-                            
-                            # 更新搜索关键词（用于后续搜索帖子）
-                            if search_keywords:
-                                search_keywords = list(search_keywords) + [kw for kw in keywords if kw not in search_keywords]
-                        except Exception as e:
-                            logger.warning(f"Failed to generate combined keywords, using original keywords: {e}")
-                            search_keywords = keywords
-                            subreddit_keywords = keywords
-                        
-                        # 步骤2: 使用子论坛关键词发现子论坛
-                        discovered_subreddits = adapter.discover_subreddits(
-                            keywords=subreddit_keywords,
-                            max_results=15,  # 最多发现15个新子论坛
-                            min_subscribers=100,  # 最小订阅者数量
+                        terms = generate_social_keywords(
+                            topic=" ".join(keywords[:3]),
+                            language="en",
+                            platform="reddit",
+                            base_keywords=keywords,
                         )
-                        
-                        # 步骤3: 更新搜索关键词（用于后续搜索帖子）
-                        keywords = search_keywords
-                        
+                        discovered_subreddits = adapter.discover_subreddits(
+                            keywords=terms["subreddit_keywords"] or keywords,
+                            max_results=15,
+                            min_subscribers=100,
+                        )
+                        keywords = list(dict.fromkeys([*terms["search_keywords"], *keywords]))
+
                         if discovered_subreddits:
                             # 合并发现的子论坛（去重）
                             for subreddit in discovered_subreddits:
