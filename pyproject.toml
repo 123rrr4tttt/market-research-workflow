@@ -1,6 +1,6 @@
 [project]
 name = "mrw-functorial-kit"
-version = "1.0.1"
+version = "1.1.0"
 requires-python = ">=3.11"
 dependencies = ["functorial-kit @ git+https://github.com/123rrr4tttt/functorial-kit.git@6dbae536a72ab235998b21c9647b8b00d15a71e6#subdirectory=python"]
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ast
+import hashlib
 from pathlib import Path
 
 import pytest
@@ -11,9 +12,8 @@ from .research_runtime_postgres_fixture import (
     DATABASE_ENV,
     SEED_CONTENT_BYTES,
     SEED_CONTENT_SHA256,
-    SEED_STATEMENT_SHA256,
     _require_dedicated_database_url,
-    frozen_document_seed_statements,
+    frozen_document_rows,
 )
 
 pytestmark = pytest.mark.contract
@@ -66,20 +66,13 @@ def test_database_url_guard_rejects_default_and_non_test_databases(
             _require_dedicated_database_url()
 
 
-def test_frozen_seed_101_102_statements_and_known_content_contract_are_pinned() -> None:
-    statements = frozen_document_seed_statements()
-    assert set(statements) == {101, 102}
-    assert SEED_STATEMENT_SHA256 == {
-        101: "2d784235fbd94613e46782e2016eb7ddebf42e14f1779885ebbaf4576699bb93",
-        102: "80ae76aac30d1670b3838079534f550bc01c39f3747428f9b533f99093c812ab",
-    }
-    assert SEED_CONTENT_BYTES == {101: 1153, 102: 50009}
-    assert SEED_CONTENT_SHA256 == {
-        101: "409789283ff6ee8aabcd5924866199cc6f9bb26f957a99f854708bd4aabb3c40",
-        102: "0494ea262e1577dc00cb3241341c4ab8bfe155b5601d61be7bee70407cc4ea6b",
-    }
-
-
+def test_frozen_capture_inputs_preserve_exact_document_contents() -> None:
+    rows = frozen_document_rows()
+    assert [row["id"] for row in rows] == [101, 102]
+    for row in rows:
+        content = row["content"].encode("utf-8")
+        assert len(content) == SEED_CONTENT_BYTES[row["id"]]
+        assert hashlib.sha256(content).hexdigest() == SEED_CONTENT_SHA256[row["id"]]
 
 
 def test_runtime_harness_never_reopens_legacy_documents_after_capture() -> None:

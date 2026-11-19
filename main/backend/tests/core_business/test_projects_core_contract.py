@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import gzip
 import sys
 import unittest
 from contextlib import nullcontext
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
@@ -14,6 +16,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 pytestmark = pytest.mark.contract
 
 try:
+    from fastapi import HTTPException
     from fastapi.testclient import TestClient
 
     from app.contracts.errors import ErrorCode
@@ -22,9 +25,9 @@ try:
         InjectInitialProjectPayload,
         _bootstrap_demo_seed_if_needed,
         _build_initial_project_copy_insert_sql,
-        _adapt_legacy_demo_seed_to_materials,
+        _DEMO_SEED_TABLES,
+        INITIAL_PROJECT_TABLES,
         _execute_seed_sql,
-        _filter_seed_sql_text,
         _resolve_inject_target_key,
         inject_initial_project,
     )
@@ -39,7 +42,8 @@ class ProjectsCoreContractTestCase(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         if _IMPORT_ERROR is not None:
-            raise unittest.SkipTest(f"projects core contract tests require backend dependencies: {_IMPORT_ERROR}")
+            reason = f"projects core contract tests require backend dependencies: {_IMPORT_ERROR}"
+            raise unittest.SkipTest(reason)
         cls.client = TestClient(backend_app)
         cls.headers = {"X-Project-Key": "demo_proj", "X-Request-Id": "projects-core-contract"}
 
@@ -258,33 +262,95 @@ class ProjectsCoreContractTestCase(unittest.TestCase):
             copy_table.assert_called()
             self.assertFalse(source.enabled)
 
-    def test_lazy_demo_seed_requires_enabled_source_at_the_write_boundary(self):
-        source_key = "demo_proj"
-        connection = Mock()
-        database_engine = Mock()
-        database_engine.begin.side_effect = lambda: nullcontext(connection)
-        seed_file = Mock()
-        seed_file.read_text.return_value = "INSERT INTO project_demo_proj.sources DEFAULT VALUES;"
-
+    def test_populated_registered_demo_does_not_require_newer_seed_tables(self):
+        conn, database_engine = Mock(), Mock()
+        database_engine.begin.return_value = nullcontext(conn)
+        conn.execute.return_value.scalar_one.return_value = True
         with (
             patch("app.api.projects.engine", database_engine),
-            patch("app.api.projects._demo_schema_has_seed_data", return_value=False),
-            patch("app.api.projects._locate_demo_seed_file", return_value=seed_file),
-            patch("app.api.projects.ensure_project_schema_ready"),
-            patch("app.api.projects._execute_seed_sql") as execute_seed,
+            patch("app.api.projects.project_schema_name", return_value="tenant_demo_proj"),
+            patch("app.api.projects.ensure_database_revision_compatible") as revision,
+            patch("app.api.projects.tenant_table_exists", return_value=True) as exists,
+            patch("app.api.projects.ensure_project_schema_ready") as bootstrap,
         ):
-            connection.execute.return_value.scalar_one_or_none.return_value = False
-            _bootstrap_demo_seed_if_needed(source_key)
-            connection.execute.assert_called_once()
-            query, args = connection.execute.call_args.args
-            self.assertIn("FROM public.projects", str(query))
-            self.assertIn("FOR UPDATE", str(query))
-            self.assertEqual(args, {"project_key": source_key})
-            execute_seed.assert_not_called()
+            _bootstrap_demo_seed_if_needed("demo_proj")
+        revision.assert_called_once_with(conn)
+        exists.assert_called_once_with(conn, schema_name="tenant_demo_proj", table_name="materials")
+        query, params = conn.execute.call_args.args
+        self.assertIn("project_key=:key AND schema_name=:schema", str(query))
+        self.assertIn('EXISTS (SELECT 1 FROM "tenant_demo_proj".materials)', str(query))
+        self.assertEqual(params, {"key": "demo_proj", "schema": "tenant_demo_proj"})
+        bootstrap.assert_not_called()
 
-            connection.execute.return_value.scalar_one_or_none.return_value = True
-            _bootstrap_demo_seed_if_needed(source_key)
-            execute_seed.assert_called_once_with(connection, seed_file.read_text.return_value)
+    def test_lazy_demo_seed_admission_and_idempotence_under_lock(self):
+        conn, database_engine = Mock(), Mock()
+        database_engine.begin.side_effect = lambda: nullcontext(conn)
+        schema = "tenant_demo_proj"
+        body = "INSERT INTO materials (content) VALUES ('project_demo_proj.documents 97%\n pg_catalog.setval');"
+        directory = TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        seed = Path(directory.name) / "seed.sql.gz"
+        seed.write_bytes(b"not a gzip file")
+        with (
+            patch("app.api.projects.engine", database_engine),
+            patch("app.api.projects.project_schema_name", return_value=schema),
+            patch("app.api.projects.ensure_database_revision_compatible"),
+            patch("app.api.projects.ensure_project_schema_ready"),
+            patch("app.api.projects.tenant_table_exists", return_value=False),
+            patch("app.api.projects._DEMO_SEED_FILE", seed),
+            patch("app.api.projects._execute_seed_sql") as execute_seed,
+            patch("app.api.projects._align_copied_id_sequence") as align,
+        ):
+            for registration in (None, ("public", True), (schema, False)):
+                with self.subTest(registration=registration):
+                    conn.reset_mock()
+                    conn.execute.return_value.one_or_none.return_value = registration
+                    if registration == (schema, False):
+                        _bootstrap_demo_seed_if_needed("demo_proj")
+                    else:
+                        with self.assertRaises(HTTPException) as error:
+                            _bootstrap_demo_seed_if_needed("demo_proj")
+                        self.assertEqual(error.exception.status_code, 409)
+                    query, args = conn.execute.call_args.args
+                    self.assertIn("FOR UPDATE", str(query))
+                    self.assertEqual(args, {"project_key": "demo_proj"})
+                    conn.execute.assert_called_once()
+                    execute_seed.assert_not_called()
+
+            conn.execute.return_value.one_or_none.return_value = (schema, True)
+            for present in ({"materials"}, {"sources"}):
+                conn.execute.return_value.one.return_value = tuple(name in present for name in _DEMO_SEED_TABLES)
+                if "materials" in present:
+                    _bootstrap_demo_seed_if_needed("demo_proj")
+                else:
+                    with self.assertRaises(HTTPException) as error:
+                        _bootstrap_demo_seed_if_needed("demo_proj")
+                    self.assertEqual(error.exception.status_code, 409)
+                execute_seed.assert_not_called()
+                align.assert_not_called()
+
+            conn.reset_mock()
+            conn.execute.return_value.one.return_value = (False,) * len(_DEMO_SEED_TABLES)
+            with self.assertRaises(gzip.BadGzipFile):
+                _bootstrap_demo_seed_if_needed("demo_proj")
+            execute_seed.assert_not_called()
+            align.assert_not_called()
+
+            seed.write_bytes(gzip.compress(body.encode("utf-8")))
+            conn.reset_mock()
+            _bootstrap_demo_seed_if_needed("demo_proj")
+            queries = [str(call.args[0]) for call in conn.execute.call_args_list]
+            self.assertIn("FOR UPDATE", queries[0])
+            self.assertIn("LOCK TABLE", queries[1])
+            for name in _DEMO_SEED_TABLES:
+                self.assertIn(f'"{schema}"."{name}"', queries[1])
+                self.assertIn(f'EXISTS (SELECT 1 FROM "{schema}"."{name}")', queries[2])
+            self.assertEqual(queries[3], f'SET LOCAL search_path TO "{schema}", pg_catalog')
+            self.assertEqual(queries[4], "SET LOCAL standard_conforming_strings = on")
+            execute_seed.assert_called_once_with(conn, body)
+            self.assertEqual(
+                [call.args for call in align.call_args_list], [(conn, schema, n) for n in _DEMO_SEED_TABLES]
+            )
 
     def test_inject_initial_copy_sql_uses_common_columns_and_jsonb_conversion(self):
         sql = _build_initial_project_copy_insert_sql(
@@ -353,37 +419,62 @@ class ProjectsCoreContractTestCase(unittest.TestCase):
         cursor.execute.assert_called_once_with(seed_sql)
         cursor.close.assert_called_once()
 
-    def test_seed_sql_filter_removes_psql_meta_and_version_specific_lines(self):
-        filtered = _filter_seed_sql_text(
-            "\n".join(
-                [
-                    r"\restrict abc",
-                    "SET transaction_timeout = 0;",
-                    "SELECT pg_catalog.setval('project_demo_proj.materials_id_seq', 146, true);",
-                    "INSERT INTO project_demo_proj.materials (id, material_type) VALUES (1, 'market_info');",
-                    r"\&gt; quoted html entity inside a seed string should stay",
-                    r"\unrestrict abc",
-                ]
+    def test_clone_rebinds_resource_pool_ownership_but_retains_provenance(self):
+        columns = [
+            {"column_name": "project_key", "udt_name": "varchar"}, {"column_name": "source_ref", "udt_name": "jsonb"}
+        ]
+        for name in ("resource_pool_urls", "resource_pool_site_entries"):
+            sql = _build_initial_project_copy_insert_sql(
+                source_schema="project_demo_proj", target_schema="project_copy", table_name=name,
+                source_columns=columns, target_columns=columns,
             )
-        )
+            self.assertIn('SELECT :target_project_key, "source_ref" FROM', sql)
+            self.assertNotIn(":source_project_key", sql)
 
-        self.assertEqual(
-            filtered,
-            "INSERT INTO project_demo_proj.materials (id, material_type) VALUES (1, 'market_info');\n"
-            r"\&gt; quoted html entity inside a seed string should stay",
-        )
+    def test_template_graph_ownership_and_child_references(self):
+        for table, columns, parent, fks in (
+            ("graph_nodes", ("id", "canonical_id"), "", ()),
+            ("graph_node_aliases", ("id", "node_id"), "graph_nodes", ("node_id",)),
+            ("graph_edges", ("id", "from_node_id", "to_node_id"), "graph_nodes", ("from_node_id", "to_node_id")),
+            ("writing_document_drafts", ("id", "doc_id", "project_key"), "writing_documents", ("doc_id",)),
+        ):
+            target = [{"column_name": c} for c in columns]
+            source = target if "project_key" in columns else [*target, {"column_name": "project_key"}]
+            sql = _build_initial_project_copy_insert_sql(
+                source_schema="src", target_schema="dst", table_name=table,
+                source_columns=source, target_columns=target,
+            )
+            if table == "writing_document_drafts":
+                self.assertIn('WHERE "project_key" = :source_project_key', sql)
+            else:
+                self.assertNotIn(":source_project_key", sql)
+            for fk in fks:
+                self.assertIn(f'"{fk}" IN (SELECT id FROM "dst"."{parent}")', sql)
 
-    def test_legacy_demo_seed_is_adapted_to_canonical_materials(self):
-        adapted = _adapt_legacy_demo_seed_to_materials(
-            "INSERT INTO project_demo_proj.documents (id, source_id, doc_type, title) "
-            "VALUES (1, 2, 'policy', 'Policy');"
+    def test_template_rebinds_writing_metadata_not_prose_or_export_tokens(self):
+        columns = [{"column_name": c} for c in ("project_key", "metadata_json", "body_md")]
+        sql = _build_initial_project_copy_insert_sql(
+            source_schema="src", target_schema="dst", table_name="writing_documents",
+            source_columns=columns, target_columns=columns,
         )
+        self.assertIn(":target_project_key", sql)
+        self.assertIn("- 'export_artifact'", sql)
+        self.assertIn("jsonb_set(", sql)
+        self.assertIn('"body_md" FROM', sql)
 
-        self.assertEqual(
-            adapted,
-            "INSERT INTO project_demo_proj.materials (id, source_id, material_type, title) "
-            "VALUES (1, 2, 'policy', 'Policy');",
-        )
+    def test_seed_tables_can_be_cloned_in_dependency_order(self):
+        order = [table.name for table in INITIAL_PROJECT_TABLES]
+        self.assertTrue(set(_DEMO_SEED_TABLES) <= set(order))
+        self.assertNotIn("typed_knowledge_objects", order)
+        for child, parent in (
+            ("materials", "sources"), ("graph_nodes", "materials"), ("graph_edges", "graph_nodes"),
+            ("graph_node_aliases", "graph_nodes"), ("writing_document_drafts", "writing_documents"),
+            ("writing_document_citations", "writing_documents"), ("source_library_items", "ingest_channels"),
+        ):
+            self.assertLess(order.index(parent), order.index(child))
+        with self.assertRaises(HTTPException) as error:
+            _resolve_inject_target_key("demo_proj", source_key="demo_proj", overwrite=True)
+        self.assertEqual(error.exception.status_code, 409)
 
     def test_create_project_duplicate_key_maps_to_invalid_input_error_code(self):
         result = Mock()

@@ -38,6 +38,28 @@
 | 后端 API | <http://127.0.0.1:8000/docs> |
 | Codex WebUI（macOS 直装） | 从业务界面进入「Codex 工作台」；本机页面嵌入 <http://localhost:8172/> |
 
+### 加载随附演示项目
+
+`demo_proj` 是可以直接浏览和复制的研究项目。[随附数据包](../main/backend/seed_data/project_demo_proj.sql.gz)包含来源与材料、资源池、可用的内置来源库条目、持久化图谱，以及一篇带材料引用的写作文档。它不是数据库备份，不携带原实例的凭据、外部采集服务、定时任务、运行记录或审核状态；加载也不会开始采集或切换当前项目。
+
+宿主安装完成数据库迁移后，使用后端的 `DATABASE_URL` 或 `main/backend/.env`，从仓库根目录运行：
+
+```bash
+bash main/backend/scripts/load_demo_proj_seed.sh
+```
+
+Docker 安装可在已启动的后端容器中加载同一数据包。macOS / Linux：
+
+```bash
+HOST_PROJECT_ROOT="$PWD" docker compose --project-name "${MRW_DOCKER_PROJECT:-mrw-local-user}" \
+  --env-file main/ops/.env.local-user -f main/ops/docker-compose.yml \
+  -f main/ops/docker-compose.local-user.yml exec backend bash /app/scripts/load_demo_proj_seed.sh
+```
+
+Windows PowerShell 沿用下文 Docker 部署配置的 `$compose`，运行 `docker compose @compose exec backend bash /app/scripts/load_demo_proj_seed.sh`。
+
+加载后在项目列表选择 `demo_proj`。已有材料的演示项目保持原样，不会被重复导入或自动升级；已归档的项目、只有部分模板数据但没有材料的项目会被拒绝写入。要对照新版又保留已有工作，请在使用独立数据库的新实例中加载，不必清空原项目。
+
 ## 查看状态与启停
 
 ```bash

@@ -1,28 +1,144 @@
 # 市场研究工作流（MRW）
 
-MRW 是一个运行在个人电脑上的**单用户市场研究工作台**。它以项目为边界，把来源采集、材料处理、检索与专题调查、信息结构、证据组织和写作放在同一套数据上；Codex 通过项目绑定的 Cell 调用工作台能力，执行结果仍由原业务服务和项目保存。
+MRW 是一个在个人电脑上运行的**单用户市场研究工作台**。它把分散的来源、调查线索和写作放进同一个项目，让报告能追溯到形成判断时实际使用的材料。你可以从已有资料开始分析，也可以从一个问题开始采集；写到证据不足的地方，还可以沿着缺口回到检索，而不必重新做一遍调查。
 
-MRW 不要求自备服务器。[本机 Docker 部署](docs/usage.md#本机-docker-部署)与 [macOS 直装](docs/usage.md#首次运行)面向同一个工作台。两条安装路线都把 Codex WebUI 与 Cell 接到当前实例，而不是另开一套研究环境。
+[本机部署](#本机部署) · [在项目里做研究](#在项目里做研究) · [系统架构与关键设计](#系统架构与关键设计) · [界面与文档导航](#界面与文档导航)
 
-## 业务条线
+## 在项目里做研究
 
-下列界面链接使用 Docker 的默认本机端口；macOS 直装或自定义端口时，沿用相同的 `#/…` 路由并替换地址。
+研究从一个[项目](http://127.0.0.1:15132/#/admin/projects)开始。项目确定资料、任务、会话和报告归属；切换工作台窗口不会改变已绑定线程或在途任务的项目。共享原文可以被多个项目引用，各项目对它作出的判断仍分别保存。归档会阻止新的业务写入，但不会删除资料，也不等于取消已经接纳的任务。
 
-| 条线 | 业务范围 | 主要界面与实现入口 |
-| --- | --- | --- |
-| **项目与隔离** | 项目是资料、检索、文档、引用、Agent 会话和执行结果的范围；工作台窗口、在途任务和 Agent 线程固定各自项目。归档是业务写入的准入边界，不删除既有资料；恢复后可重新发起操作。跨项目复用的共享原文与项目内的研究结果分别归属。 | [项目与模板](http://127.0.0.1:15132/#/admin/projects)；[项目 API](main/backend/app/api/projects.py)、[项目上下文](main/backend/app/services/projects/context.py) |
-| **来源、采集与材料** | 来源项说明采集对象，采集通道负责访问方式，运行时参数约束本次采集。文件、文本、URL 和外部来源进入后台解析、去重与入库；适用材料再进入索引；材料保存、处理完成、可检索是不同状态。普通批量导入逐条提交，单条失败不吞掉其他成功项。 | [资源库](http://127.0.0.1:15132/#/admin/resources)、[采集](http://127.0.0.1:15132/#/workbench/ingest)、[特化采集](http://127.0.0.1:15132/#/workbench/ingest/specialized)、[原始数据处理](http://127.0.0.1:15132/#/workbench/raw-data)；[来源库定义](main/backend/docs/RESOURCE_LIBRARY_DEFINITION.md)、[数据摄取架构](main/backend/docs/INGEST_ARCHITECTURE.md)、[统一采集](main/backend/docs/UNIFIED_COLLECT_ARCHITECTURE.md)、[采集 API](main/backend/app/api/ingest.py) |
-| **检索、专题与信息结构** | 材料列表直接从项目库查标题、摘要、正文和来源；索引检索按已配置通道召回并标出命中版本与通道；专题检索是有可回看口径的研究运行，先预览检索方法，再由正式执行单元采集、抽取和判断证据。通道缺失不等于无命中，专题要求缺失通道时不能假装完整完成。信息拓扑保留材料在分析结构中的位置和关系，而不是另造一份正文。 | [资料与质量](http://127.0.0.1:15132/#/admin/ops) →「资料列表」与「检索与历史」；[搜索 API](main/backend/app/api/search.py)、[专题检索 API](main/backend/app/api/project_retrieval.py)、[检索设计](docs/architecture/information/retrieval.md)、[信息拓扑设计](docs/architecture/information/topology.md) |
-| **知识与证据** | 提取候选不因被提取就成为正式知识；按项目规则命中明确条件才可自动采纳，并保留来源、依据和撤回方式。模型提取必须由既有 Cell invocation 承载；没有该 invocation 时明确不可用，不直连 provider 冒充成功。引用固定使用时看到的材料版本，新版可以提示更新，不能静默改写已有引用卡和报告证据。 | [资源提取](http://127.0.0.1:15132/#/admin/resources/extract)、写作工作台的引用区；[类型化知识](main/backend/app/services/typed_knowledge)、[引用服务](main/backend/app/services/writing/citation_service.py) |
-| **可视化与图谱** | 数据仪表盘汇总市场、社媒和政策资料；图谱把材料中的节点、关系和证据组织为可浏览结构。候选关系、搜索命中和图上的连线是不同的证据层级，图谱用于定位线索，不能替代原文和证据判断。 | [数据仪表盘](http://127.0.0.1:15132/#/visual/dashboard)、[市场](http://127.0.0.1:15132/#/visual/dashboard/market)、[舆情](http://127.0.0.1:15132/#/visual/dashboard/social)、[政策](http://127.0.0.1:15132/#/visual/policy)、[行业公司/商品/经营](http://127.0.0.1:15132/#/visual/catalog)；图谱入口见下表 |
-| **分析与看板** | 从项目材料和图谱中查看分析视图、专题看板及状态汇总；这些视图是项目数据的投影，不等同于新增事实，也不替代底层材料与证据。 | [分析](http://127.0.0.1:15132/#/visual/analysis)、[看板](http://127.0.0.1:15132/#/visual/board)；[前端内核](main/frontend-modern/src/app/kernel)、[后端统计与报告接口](main/backend/app/api) |
-| **写作与报告** | 写作工作台支持文档编辑、模板、引用卡、信息卡和 Markdown 导出；证据不足可以形成草稿，但正式报告须满足模板的证据要求。引用回到原文版本，资料缺失和取源失败分别说明。 | [写作工作台](http://127.0.0.1:15132/#/workbench/writing)；[写作 API](main/backend/app/api/writing.py)、[报告 API](main/backend/app/api/llm_report.py)、[写作界面](main/frontend-modern/src/pages/WritingWorkbenchPage.tsx) |
-| **Agent、Cell 与工作流** | 从项目打开 Codex WebUI 后，新线程绑定该项目；Cell 把项目、线程、工具与审批带到具体调用。要求批准的操作在批准前不会由领域服务执行；批准后的效果由原领域服务写入，并从同一项目读回。工作流使用已定义图、运行参数和结果读回，可由 Agent 或获准入口发起。 | [Codex 工作台](http://127.0.0.1:15132/#/workbench/agent)、[胞腔视图](http://127.0.0.1:15132/#/workbench/cell)、[LLM 节点设计](http://127.0.0.1:15132/#/workbench/designer/llm)；[Agent 与 Cell](docs/architecture/agent/cell.md)、[当前接线](main/backend/docs/agent-cell-current.md)、[工作流服务](main/backend/app/services/workflow_graph) |
-| **任务、管理与运行状态** | 后台任务的提交、执行、完成、失败和取消分别可读；任务回执不等于材料或报告已经完成。管理界面集中项目、来源、采集器、连接、模型模板和系统状态。采集器仅注册来源时不记为部署；外部执行器确认后才更新已部署版本。 | [运行记录](http://127.0.0.1:15132/#/admin/process)、[进行中任务](http://127.0.0.1:15132/#/admin/process/processing)、[系统运行](http://127.0.0.1:15132/#/admin/backend)、[采集器](http://127.0.0.1:15132/#/admin/crawlers)、[连接设置](http://127.0.0.1:15132/#/admin/settings)、[模型与模板](http://127.0.0.1:15132/#/admin/settings/llm)、[业务指南](http://127.0.0.1:15132/#/admin/guide)；[任务接口](main/backend/app/api/process.py)、[业务链说明](main/frontend-modern/src/app/kernel/businessChainGuideData.ts) |
+已有文件、文本和网址可直接导入；需要补充材料时，可从[资源库](http://127.0.0.1:15132/#/admin/resources)选择来源，按相应通道[发起采集](http://127.0.0.1:15132/#/workbench/ingest)。后台负责解析、去重、入库，并为适用材料更新索引。材料入库和进入搜索索引是两件事：在[资料与质量](http://127.0.0.1:15132/#/admin/ops)可以分别查看项目库和索引检索结果。专题检索还可以先预览方法，再查看实际使用了哪些通道、得到了哪些材料；通道不可用，不等于查过之后没有命中。
 
-### 重要图谱
+找到材料后，可以在[仪表盘](http://127.0.0.1:15132/#/visual/dashboard)、[业务图谱](#业务图谱导航)和[专题看板](http://127.0.0.1:15132/#/visual/board)中比较数据、顺着关系找线索。搜索命中和提取候选只是判断的输入；采纳为正式知识要满足项目规则，并保留依据。进入[写作工作台](http://127.0.0.1:15132/#/workbench/writing)后，引用卡指向当时使用的材料版本。可以先用信息卡和大纲整理草稿，正式报告则按模板检查证据，并支持 Markdown 导出。资料本身缺失和取源失败会分别记录，方便决定下一步是补证还是重试。
 
-图谱页面使用同一套浏览、筛选、选择与详情交互，领域差异来自各投影的节点类型和关系。当前投影如下：
+```mermaid
+flowchart TB
+    subgraph project["项目：资料、任务、规则与产物的归属边界"]
+        direction TB
+        sources["来源库 · 文件、文本与 URL"] --> capture["采集与解析"]
+        capture -->|"保存来源和版本"| material["项目材料库"]
+        material -->|"按已配置通道查询"| search["资料检索与专题调查"]
+        search -->|"需要补充来源时"| capture
+        search -->|"命中与提取结果"| candidates["线索与候选"]
+        candidates -->|"按项目规则判断"| evidence["证据资格 · 支持、反驳、语境或不足"]
+        material -->|"组织材料与关系"| structure["信息拓扑与业务图谱"]
+        material -->|"聚合可展示的数据"| views["仪表盘 · 分析 · 看板"]
+        structure -->|"提供可回看的线索"| search
+        material -->|"引用绑定材料版本"| writing["写作 · 报告"]
+        evidence -->|"支撑报告论证"| writing
+    end
+```
+
+这张图画的是能力之间的关系，不是规定每次研究都要经过的步骤。需要 Agent 参与时，可以从同一项目打开[Agent 工作台](http://127.0.0.1:15132/#/workbench/agent)：它可以协助读材料、组织线索或发起已定义的工作流；后台任务的进度、失败和结果仍到[运行记录](http://127.0.0.1:15132/#/admin/process)查看。
+
+## 系统架构与关键设计
+
+在 MRW 中，用户和 Agent 用来讨论研究的概念，也是开发者用来构造程序的概念。函子化架构关注的是，研究中有意义的操作怎样成为可以组合的软件能力。项目持续维护一份信息拓扑，让这些操作在不同环节仍能接着处理同一个问题、同一项判断；Cell 是 Agent 与系统之间的中介：它让这份拓扑在对话中可读，让相应的领域操作成为 Agent 在项目内可用的工具。
+
+### 函子化架构：研究活动与软件构造
+
+**概念、建模和程序是同一项设计的三种表达。** 用户与 Agent 用工作语言辨明「什么算作证据」；在模型里，证据不再只是材料的一个标签，而是材料对特定判断所起的作用，有对象、方向和适用条件；在程序里，检索可以交出候选，报告可以引用特定版本的判断或证据，但一次命中本身不能让候选取得证据资格。这不是从需求文档逐级翻译到代码的单行道。如果从报告引用找不回当时的判断，缺的可能不是一个页面链接，而是模型尚未区分「同一个判断」和「这个判断的某个版本」。实际使用也参与修订概念。
+
+**函数式编程提供了组织工作的方式，范畴论说明这种组织在实现中要保持什么。** 从函数式编程看，一个研究操作可以写成有明确输入和输出的程序值；输入输出相接的小程序可以组成较大的程序，而描述一次采集并不等于已经访问了来源。从范畴论看，可交接的对象及其间的操作构成建模的起点：对象在实现中由类型和数据承载，操作由程序承载。称这样的解释为「函子」，要求它保持恒等与复合：原样交接仍是原样交接；先在领域中组合两个操作再解释，应当与先分别解释、再按原序组合有相同的交接含义。仅仅让两个接口的数据格式对得上，并不足以满足这个要求。
+
+```mermaid
+flowchart TB
+    domain["共同构造 · 对象、关系、操作与组合条件"]
+    work["研究实践 · 目的、材料、判断与成果"]
+    native["软件实现 · 类型、程序与装配"]
+    use["实际使用 · 执行、交接与读回"]
+    work -->|"用户与 Agent 从实践提出、修订规定"| domain
+    domain -->|"规定什么算对象、证据和有效接续"| work
+    domain -->|"在受支持的范围内建立实现解释"| native
+    native -->|"由原业务模块承载"| use
+    use -->|"读回检验哪些规定得到了保持"| domain
+```
+
+[运行时设计](docs/architecture/runtime/contract.md)给出了一个具体的保持要求：`Compile` 将类型化研究程序解释为执行计划，既要保留 `Then` 的组合次序，也要保留下游依赖的结果、失败与权限条件。真正的读取、采集或写入仍由相应的业务执行者完成。在开发侧，[原生贡献目录](contributions/project_catalog.py)汇集领域定义，[运行操作装配](main/backend/app/composition/installed_operation.py)从同一操作定义派生目录视图和执行绑定。这样，能够机械确定的接线不用再写一套，什么构成证据之类的领域判断也不会被交给编译器猜测。
+
+程序可以组合，研究却不需要按预定顺序展开。要让一次补查能够接上已经写到一半的论证，项目必须记得它们围绕的是哪个问题、哪项判断，以及两者之间还缺什么依据。这正是信息拓扑在函子化架构中的用途。
+
+### 信息拓扑：用同一份结构贯穿研究工作
+
+MRW 以项目为单位维护一份**信息拓扑**。它记录研究对象之间有哪些关系、材料在哪个问题下起作用，以及报告中的论证引用了哪一版判断或证据。这里的「一份」不是把总纲、材料正文和报告塞进一张表，而是让检索、分析、写作和 Agent 都在同一套可追溯的结构中工作：检索关系网和报告大纲各有自己的结构规则（Profile），通过带身份和版本的引用相连。原文仍由材料库保存，报告正文仍由写作模块管理。
+
+```mermaid
+flowchart TB
+    topology["项目共享的信息拓扑<br/>分析规定 · 检索关系与观察 · 报告大纲<br/>局部状态有版本，跨结构引用有明确端点"]
+    retrieval["检索与采集<br/>按问题位置、来源路线和词表工作"]
+    graphView["分析与图谱<br/>按视角组织对象、线索和关系"]
+    writing["写作与报告<br/>把判断和证据组织到章节中"]
+    agent["Cell 环境中的 Agent<br/>在项目上下文中读取所需结构"]
+    topology -->|"项目绑定冻结分析规定，随检索计划传入"| retrieval
+    retrieval -->|"按检索 Profile 写入实际尝试及符合条件的关系"| topology
+    topology -->|"从检索拓扑派生图谱视图"| graphView
+    topology -->|"读回大纲，按身份与版本引用判断或证据"| writing
+    writing -->|"按大纲版本保存章节与论证引用"| topology
+    topology -->|"information_topology.read 读取指定局部状态"| agent
+    classDef shared fill:#edf5ff,stroke:#3973a8,color:#142e46,stroke-width:2px
+    class topology shared
+```
+
+**拓扑的运输发生在每一次这样的使用中。** 检索把项目分析规定固化到本轮计划的 `topology_seed`，执行所得的尝试按检索 Profile 写回；报告不搬运整张证据网，只用 `BoundRef` 把某一版本的判断或证据接到自己的大纲中；图谱从局部状态派生视图，不另存一份可编辑的事实。这些操作没有固定先后：可以先列大纲，再围绕缺少依据的章节补查，也可以从图谱中的线索回到材料。各环节可以用自己的表示，新的成果也可以增加关系，但不能悄悄换掉原来所指的对象或版本，更不能把检索命中当成已成立的证据。
+
+因此，**同一份拓扑规定的是各环节怎样理解和接续彼此的成果，而不是先做哪一步。** 检索视图和报告大纲不必长得一样；对报告引用而言，关键是换了表示之后，仍能沿引用找回当时那一版判断，并核对它的依据。具体规则见[信息拓扑设计](docs/architecture/information/topology.md)、[拓扑读取与版本化写入](main/backend/app/services/information_topology/service.py)和[项目检索实现](main/backend/app/services/project_retrieval/execution.py)。
+
+### Cell：Agent 与系统之间的中介
+
+在 MRW 中，Agent 通过 [Cell（胞腔）](docs/architecture/agent/cell.md) 与复杂的研究系统交互：函子环境把系统能力组织为有研究含义、可以接续的操作，Cell 则把这些操作连同它们适用的语境带入 AgentCore 的工作环境。Agent 面对的不再是彼此孤立的接口：它可以从项目的信息拓扑中辨认当前讨论的是哪一项判断，依据已挂载的 Skill 选择研究方法，再用已绑定的工具作用于同一个对象。用户不必预先指定流程；AgentCore 决定怎样回应，具体的读取、执行和写入仍由相应业务模块负责。
+
+**同一份信息拓扑，在这里成为对话可以使用的研究结构。** 讨论报告里的某项判断时，Agent 可以沿大纲引用找到当时使用的判断版本，再查看哪些材料支持它、哪些问题仍待查证。它接续的是研究者在检索和写作中维护的关系，而不是靠聊天记录重新拼出一张证据网。拓扑给出了追问的依据，却不替 Agent 决定下一步一定要补查还是修订论证。
+
+从函子化架构看，Cell 让已经建模的领域操作成为 Agent 可以组合使用的能力。Skill 说明一种方法适用于什么问题、交付的成果应保留哪些依据；已绑定的工具则让 Agent 能按项目中的原有定义读取材料、发起检索或提交写入。改变研究方法时，可以修订 Skill 对取材和交付的要求，而不必为每一种问法新增接口；如果改变的是证据资格或写入权限，就要修改负责这项判断或操作的业务规则，仅改提示词并不会生效。
+
+```mermaid
+flowchart TB
+    subgraph cell["Cell · 项目研究环境"]
+        method["项目上下文与研究方法（Skills）"] -->|"供决策采用"| core["AgentCore · 对话与决策"]
+        core -->|"调用"| tool["已绑定的项目工具"]
+        tool -->|"返回结果"| core
+    end
+    style cell stroke-dasharray:6 4
+    tool -->|"按项目权限请求操作"| owner["业务模块 · 查询、执行与写入"]
+    owner -->|"数据、任务回执或失败"| tool
+```
+
+> 当前 AgentCore 适配：[Codex](main/backend/docs/agent-cell-current.md)。
+
+一次对话可以止于解释，也可以留下供后续工作使用的成果。两者的分界在实际执行处：收到采集任务的回执，只能说明任务已被接收；材料是否已经入库，要到采集记录和材料库中核对。这样，后续研究可以直接使用项目里已经形成的成果，也能辨认哪些仍只是对话中提出的建议。
+
+## 本机部署
+
+**用 Docker 启动整套工作台，不需要服务器。** 安装会把业务界面、后台任务、检索和 Agent 工作台接到同一个实例。macOS、Linux 和使用 Linux 容器模式的 Windows 共用 Compose 配置，目标容器架构为 `linux/amd64` 和 `linux/arm64`；实际支持以各平台的构建和验收为准。按系统选择 [macOS / Linux 安装](docs/usage.md#macos--linux)或 [Windows PowerShell 安装](docs/usage.md#windows-powershell)，并按[本机 Docker 部署说明](docs/usage.md#本机-docker-部署)完成容器内的 Agent 登录授权。默认打开[业务界面](http://127.0.0.1:15132/)或 [API 文档](http://127.0.0.1:18132/docs)。
+
+也可在已有依赖的 macOS 环境[直接安装](docs/usage.md#首次运行)，另按[宿主说明](main/ops/codex-webui/README.md#mrw-本机构建与启动)连接 Agent 工作台；默认[业务界面](http://127.0.0.1:5173/)，[API 文档](http://127.0.0.1:8000/docs)。
+
+Cell 随 API 接入，不需要单独部署。在 Docker 中，业务记录、索引、队列和 Agent 宿主状态各自持久化；恢复数据库不等于恢复线程和在途任务。安装后按[验收说明](docs/usage.md#安装验收)确认材料可搜索、项目绑定的 Agent 回合可以经 Cell 调用工具、需审批的写入在批准后才能执行并读回，以及重启后资料和线程仍可访问。[Compose 配置](main/ops/docker-compose.local-user.yml)和[运行与恢复说明](main/ops/README.md)提供接线及运维细节。
+
+## 界面与文档导航
+
+界面链接使用 Docker 默认端口。macOS 直装或自定义端口时，替换地址并沿用相同的 `#/…` 路由。
+
+<details>
+<summary>按业务查找界面入口</summary>
+
+| 要做什么 | 从哪里进入 |
+| --- | --- |
+| 管理项目与来源 | [项目与模板](http://127.0.0.1:15132/#/admin/projects)、[资源库](http://127.0.0.1:15132/#/admin/resources)、[采集器](http://127.0.0.1:15132/#/admin/crawlers) |
+| 获取与整理材料 | [采集](http://127.0.0.1:15132/#/workbench/ingest)、[特化采集](http://127.0.0.1:15132/#/workbench/ingest/specialized)、[原始数据处理](http://127.0.0.1:15132/#/workbench/raw-data)、[资料与质量](http://127.0.0.1:15132/#/admin/ops)、[资源提取](http://127.0.0.1:15132/#/admin/resources/extract) |
+| 浏览和分析 | [数据仪表盘](http://127.0.0.1:15132/#/visual/dashboard)、[市场](http://127.0.0.1:15132/#/visual/dashboard/market)、[舆情](http://127.0.0.1:15132/#/visual/dashboard/social)、[政策](http://127.0.0.1:15132/#/visual/policy)、[行业公司／商品／经营](http://127.0.0.1:15132/#/visual/catalog)、[分析](http://127.0.0.1:15132/#/visual/analysis)、[专题看板](http://127.0.0.1:15132/#/visual/board) |
+| 写作和 Agent 协作 | [写作工作台](http://127.0.0.1:15132/#/workbench/writing)、[Agent 工作台](http://127.0.0.1:15132/#/workbench/agent)、[胞腔视图](http://127.0.0.1:15132/#/workbench/cell)、[LLM 节点设计](http://127.0.0.1:15132/#/workbench/designer/llm) |
+| 查看运行和维护设置 | [运行记录](http://127.0.0.1:15132/#/admin/process)、[进行中任务](http://127.0.0.1:15132/#/admin/process/processing)、[系统运行](http://127.0.0.1:15132/#/admin/backend)、[连接设置](http://127.0.0.1:15132/#/admin/settings)、[模型与模板](http://127.0.0.1:15132/#/admin/settings/llm)、[业务指南](http://127.0.0.1:15132/#/admin/guide) |
+
+</details>
+
+### 业务图谱导航
+
+<details>
+<summary>展开市场、公司、商品、经营、政策和社媒图谱入口</summary>
+
+图谱页面共用浏览和筛选交互；每个投影有自己的节点类型和关系。
 
 | 图谱 | 它回答什么问题 | 节点范围（实现定义） |
 | --- | --- | --- |
@@ -35,31 +151,12 @@ MRW 不要求自备服务器。[本机 Docker 部署](docs/usage.md#本机-docke
 | [**社媒图谱**](http://127.0.0.1:15132/#/visual/graph/social) | 帖子、关键词、人物、子版块、主题和情绪标签之间有什么联系？ | `Post`、`Keyword`、`Entity`、`Topic`、`SentimentTag`、`User`、`Subreddit` |
 | [**新建图谱**](http://127.0.0.1:15132/#/visual/graph/builder) | 为尚未纳入固定投影的关系组织节点和连线模板。 | 模板构建入口；模板与可执行流程不是同一件事 |
 
-实现入口：[图谱投影定义](main/frontend-modern/src/pages/graph/realizer/definitions.ts)、[图谱界面](main/frontend-modern/src/pages/GraphPage.tsx)、[后端图谱服务](main/backend/app/services/graph)。领域结构见[社交平台图谱设计](docs/architecture/information/social-graph.md)和[政策数据结构](main/backend/docs/政策数据结构说明.md)。信息拓扑与可视化图谱有不同用途，前者保留研究材料在分析结构中的出现和关系。
+实现入口：[图谱投影定义](main/frontend-modern/src/pages/graph/realizer/definitions.ts)、[图谱界面](main/frontend-modern/src/pages/GraphPage.tsx)、[后端图谱服务](main/backend/app/services/graph)。领域结构见[社交平台图谱设计](docs/architecture/information/social-graph.md)和[政策数据结构](main/backend/docs/政策数据结构说明.md)。
 
-### 设计上的关键约束
+</details>
 
-- **项目不是标签。** 项目范围沿 API、后台任务、写作、Agent 会话和读回传播；Agent 线程绑定后不因窗口切换而改项目。
-- **保存和可用不是一回事。** 材料入库、索引可查、引用可追溯、报告可导出分别验证。服务降级时保留成功通道结果并标明不完整。
-- **候选与事实不是一回事。** 搜索命中、提取候选、图谱关系和正式证据各自有边界；模型建议不会自动变成已采纳知识。
-- **代理不等于执行。** WebUI、Cell、API、worker 和领域 owner 各有职责；Cell 负责项目绑定和工具调用中继，不替代原领域服务的写入与判断。模型调用需要显式的 Cell invocation，后台临时脚本不是第二条中继。
-- **失败和未知要可恢复。** 幂等只读操作可重试；副作用结果未知时先读回，仍无法确认就停止，不自动重放。归档停止新写入，但不伪造已接纳任务的取消。
-- **状态面分别恢复。** 业务数据库、WebUI 线程存储、上传文件、搜索索引和在途任务不是一份状态；数据库恢复通过不等于完整恢复。
+### 文档导航
 
-## 本机部署
-
-完整安装包括业务界面、API、数据库、队列与检索，并能从业务界面进入**同一实例**的 Codex WebUI 和 Cell。默认只在本机使用，不需要部署到服务器。
-
-| 安装方式 | 前置条件 | 默认入口 |
-| --- | --- | --- |
-| **Docker** | 能运行 Linux 容器的 Docker Engine、Compose 和可用的镜像及依赖下载网络；部署目标为 `linux/amd64`、`linux/arm64`。macOS、Linux 和使用 Linux 容器模式的 Windows 可按同一份 Compose 配置安装；平台支持以实际构建和验收为准。 | [安装、登录和验证](docs/usage.md#本机-docker-部署) · [业务界面](http://127.0.0.1:15132/) · [API 文档](http://127.0.0.1:18132/docs) |
-| **macOS 直装** | 宿主 Python、Node.js、PostgreSQL（含 pgvector）、Redis、Elasticsearch 和 Codex。 | [首次运行](docs/usage.md#首次运行) · [WebUI 构建与启动](main/ops/codex-webui/README.md#mrw-本机构建与启动) · [业务界面](http://127.0.0.1:5173/) · [API 文档](http://127.0.0.1:8000/docs) |
-
-Docker 方式从源码构建并启动服务；业务数据库、搜索索引、队列存储和 WebUI 各有独立的持久卷。Docker 中的 Codex 需在容器内授权，不借用宿主的登录状态。Windows 可直接用 [PowerShell 启动](docs/usage.md#windows-powershell)，无需额外安装 Bash。
-
-安装验收不仅要看到页面和健康检查通过，还要确认材料经过后台处理后可搜索、项目绑定的 Codex 回合能经 Cell 读写本实例、需批准的写入在批准后才提交并可在业务界面读回，以及重启后资料和线程仍可访问。具体步骤见[安装验收](docs/usage.md#安装验收)。
-
-## 文档导航
-
-- **设计原稿：**[设计分册](docs/architecture/README.md)、[运行时合同](docs/architecture/runtime/contract.md)、[总体架构图集](docs/architecture/runtime/atlas.md)、[后端接口与领域文档](main/backend/docs/README.md)。分册保留原稿的定义、推导和图，不用 README 替代。
-- **运行与开发：**[使用说明](docs/usage.md)、[运行、容器与恢复](main/ops/README.md)、[开发指南](docs/development/README.md)、[协作约定](AGENTS.md)、[Git 工作流](GIT_WORKFLOW.md)。
+- **使用与运维：**[使用说明](docs/usage.md)、[运行、容器与恢复](main/ops/README.md)。
+- **完整设计：**[设计分册](docs/architecture/README.md)、[总体架构图集](docs/architecture/runtime/atlas.md)、[检索设计](docs/architecture/information/retrieval.md)。
+- **实现与开发：**[后端接口和领域文档](main/backend/docs/README.md)、[开发指南](docs/development/README.md)、[协作约定](AGENTS.md)、[Git 工作流](GIT_WORKFLOW.md)。

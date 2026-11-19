@@ -6,7 +6,7 @@ import os
 from collections.abc import Mapping
 from dataclasses import dataclass
 
-RELEASE_VERSION = "1.0.1"
+RELEASE_VERSION = "1.1.0"
 
 RELEASE_BUILD_COMMIT_ENV = "RELEASE_BUILD_COMMIT"
 RELEASE_BUILD_TREE_ENV = "RELEASE_BUILD_TREE"

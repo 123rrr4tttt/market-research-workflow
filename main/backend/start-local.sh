@@ -1072,29 +1072,9 @@ ensure_db_migrated_and_seeded() {
         echo "💡 若数据库状态不一致，可新建空库: createdb market_intel_dev 并修改 .env 中 DATABASE_URL 的数据库名"
         return 1
     fi
-    # Check if demo_proj exists; if not, load seed
-    if python -c "
-from sqlalchemy import create_engine, text
-from app.settings.config import settings
-e = create_engine(settings.database_url)
-with e.connect() as c:
-    r = c.execute(text(\"SELECT 1 FROM public.projects WHERE project_key='demo_proj' LIMIT 1\")).fetchone()
-    exit(0 if r else 1)
-" 2>/dev/null; then
-        echo "✅ 演示项目 demo_proj 已存在"
-        return 0
-    fi
-    echo "📥 未检测到演示数据，导入 demo_proj 种子..."
-    SEED_SCRIPT="$SCRIPT_DIR/scripts/load_demo_proj_seed.sh"
-    if [ -f "$SEED_SCRIPT" ]; then
-        if USE_LOCAL=1 bash "$SEED_SCRIPT" 2>/dev/null; then
-            echo "✅ 演示数据导入完成"
-        else
-            echo "⚠️  演示数据导入失败，可稍后手动执行: USE_LOCAL=1 $SEED_SCRIPT"
-        fi
-    else
-        echo "⚠️  未找到导入脚本: $SEED_SCRIPT"
-    fi
+    # Use the same database and project-seed contract as the template API.
+    echo "📥 检查演示项目 demo_proj（不覆盖已有数据）..."
+    bash "$SCRIPT_DIR/scripts/load_demo_proj_seed.sh"
 }
 
 if [ "$PROVISION" = "1" ]; then

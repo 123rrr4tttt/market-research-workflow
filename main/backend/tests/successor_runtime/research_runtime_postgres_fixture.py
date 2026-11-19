@@ -2,14 +2,15 @@
 
 The fixture is intentionally opt-in.  It refuses a default/production-looking
 database and refuses to adopt pre-existing successor tables or its project
-schema.  The two legacy rows are not synthetic: their complete INSERT
-statements are extracted from the frozen repository seed SQL and checked
-against known statement and UTF-8 content digests before every specimen.
+schema. The two legacy documents are frozen as complete rows, independently
+of the deployable demo dataset. Their exact UTF-8 content is checked after
+insertion, before the specimen consumes it.
 """
 
 from __future__ import annotations
 
 import hashlib
+import json
 import os
 import re
 from collections.abc import Callable
@@ -78,16 +79,6 @@ PROJECT_SCOPE_DIGEST = compute_scope_digest(
 )
 NOW = datetime(2030, 8, 31, 8, 0, tzinfo=UTC)
 
-SEED_SQL = (
-    Path(__file__).resolve().parents[2]
-    / "seed_data"
-    / "project_demo_proj_v0.9-rc2.0.sql"
-)
-
-SEED_STATEMENT_SHA256 = {
-    101: "2d784235fbd94613e46782e2016eb7ddebf42e14f1779885ebbaf4576699bb93",
-    102: "80ae76aac30d1670b3838079534f550bc01c39f3747428f9b533f99093c812ab",
-}
 SEED_CONTENT_BYTES = {101: 1153, 102: 50009}
 SEED_CONTENT_SHA256 = {
     101: "409789283ff6ee8aabcd5924866199cc6f9bb26f957a99f854708bd4aabb3c40",
@@ -120,54 +111,13 @@ def _require_dedicated_database_url() -> str:
     return database_url
 
 
-def _sql_statements(text: str) -> tuple[str, ...]:
-    """Split PostgreSQL seed text without corrupting doubled string quotes."""
-
-    statements: list[str] = []
-    start = 0
-    quoted = False
-    index = 0
-    while index < len(text):
-        character = text[index]
-        if character == "'":
-            if quoted and index + 1 < len(text) and text[index + 1] == "'":
-                index += 2
-                continue
-            quoted = not quoted
-        elif character == ";" and not quoted:
-            statements.append(text[start : index + 1])
-            start = index + 1
-        index += 1
-    if quoted:
-        raise AssertionError("seed SQL contains an unterminated string literal")
-    return tuple(statements)
-
-
-def frozen_document_seed_statements() -> dict[int, str]:
-    source = SEED_SQL.read_text(encoding="utf-8")
-    statements = _sql_statements(source)
-    selected: dict[int, str] = {}
-    prefix = "INSERT INTO project_demo_proj.documents "
-    for document_id in (101, 102):
-        matches = [
-            statement
-            for statement in statements
-            if statement.lstrip().startswith(prefix)
-            and f"VALUES ({document_id}," in statement
-        ]
-        if len(matches) != 1:
-            raise AssertionError(
-                f"expected one exact seed statement for Document {document_id}, "
-                f"found {len(matches)}"
-            )
-        statement = matches[0]
-        observed = hashlib.sha256(statement.encode("utf-8")).hexdigest()
-        if observed != SEED_STATEMENT_SHA256[document_id]:
-            raise AssertionError(
-                f"Document {document_id} seed statement drift: {observed}"
-            )
-        selected[document_id] = statement
-    return selected
+def frozen_document_rows() -> list[dict]:
+    path = Path(__file__).resolve().parents[1] / "fixtures/successor_runtime/capture_documents.json"
+    rows = json.loads(path.read_text(encoding="utf-8"))
+    for row in rows:
+        for timestamp in ("created_at", "updated_at"):
+            row[timestamp] = datetime.fromisoformat(row[timestamp])
+    return rows
 
 
 LEGACY_METADATA = sa.MetaData(schema=PROJECT_SCHEMA)
@@ -187,7 +137,7 @@ LEGACY_DOCUMENTS = sa.Table(
     sa.Column("uri", sa.Text),
     sa.Column("created_at", sa.DateTime(timezone=True)),
     sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
-    sa.Column("extracted_data", sa.dialects.postgresql.JSONB),
+    sa.Column("extracted_data", sa.dialects.postgresql.JSONB(none_as_null=True)),
 )
 
 
@@ -588,15 +538,7 @@ def _reset_database(database: LiveResearchRuntimeDatabase) -> None:
                 expected_base_incarnation=PROJECT_INCARNATION,
             )
 
-        cursor = connection.connection.driver_connection.cursor()
-        for document_id, statement in frozen_document_seed_statements().items():
-            cursor.execute(
-                statement.replace(
-                    "project_demo_proj.documents",
-                    f'"{PROJECT_SCHEMA}"."documents"',
-                    1,
-                )
-            )
+        connection.execute(sa.insert(LEGACY_DOCUMENTS), frozen_document_rows())
         rows = connection.execute(
             sa.select(LEGACY_DOCUMENTS.c.id, LEGACY_DOCUMENTS.c.content).order_by(
                 LEGACY_DOCUMENTS.c.id
@@ -686,9 +628,8 @@ __all__ = [
     "RESOURCE_POLICY_DIGEST",
     "SEED_CONTENT_BYTES",
     "SEED_CONTENT_SHA256",
-    "SEED_STATEMENT_SHA256",
     "SUBMISSION_AUTHORITY_DIGEST",
-    "frozen_document_seed_statements",
+    "frozen_document_rows",
     "live_research_runtime_database",
     "research_runtime_database",
     "source_ref",

@@ -22,7 +22,7 @@ REPOSITORY_ROOT = BACKEND_ROOT.parent.parent
 
 
 def test_canonical_release_version_is_stable() -> None:
-    assert RELEASE_VERSION == "1.0.1"
+    assert RELEASE_VERSION == "1.1.0"
 
 
 def test_reader_preserves_explicit_build_coordinates() -> None:

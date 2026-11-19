@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import gzip
 import logging
 import re
 import time
@@ -19,6 +20,9 @@ from ..models.base import SessionLocal, engine
 from ..models.information_topology_entities import InformationTopologyLink, InformationTopologyState
 from ..models.entities import (
     ConfigState,
+    GraphEdgeRecord,
+    GraphNodeAliasRecord,
+    GraphNodeRecord,
     IngestChannel,
     KeywordHistory,
     KeywordPrior,
@@ -38,7 +42,7 @@ from ..models.entities import (
 from ..models.writing_entities import WritingDocument, WritingDocumentCitation, WritingDocumentDraft
 from ..services.llm.config_service import LlmConfigService
 from ..services.projects import bind_project, bind_schema, normalize_project_key, project_schema_name
-from ..services.projects.bootstrap import ensure_project_schema_ready
+from ..services.projects.bootstrap import ensure_project_schema_ready, tenant_table_exists
 from ..services.projects.schema_initialization import ensure_database_revision_compatible
 
 
@@ -309,6 +313,8 @@ def _resolve_inject_target_key(raw_project_key: str, *, source_key: str, overwri
     if not str(raw_project_key or "").strip():
         _raise_invalid_input("project_key is required for inject-initial")
     target_key = normalize_project_key(raw_project_key)
+    if target_key == source_key:
+        _raise_invalid_input("source and target projects must be different", status_code=409)
     if target_key == "public":
         _raise_invalid_input("project_key is reserved", status_code=409)
     if target_key == "default" and not overwrite:
@@ -328,6 +334,9 @@ INITIAL_PROJECT_TABLES = [
     for table in (
         Source.__table__,
         Material.__table__,
+        GraphNodeRecord.__table__,
+        GraphNodeAliasRecord.__table__,
+        GraphEdgeRecord.__table__,
         MarketStat.__table__,
         ConfigState.__table__,
         SearchHistory.__table__,
@@ -387,10 +396,21 @@ def _initial_project_column_metadata(
 
 
 def _initial_project_copy_expression(
+    table_name: str,
     source_column: dict[str, object],
     target_column: dict[str, object],
 ) -> str:
     source_expr = _quote_ident(str(source_column["column_name"]))
+    column = str(target_column["column_name"])
+    if column == "project_key":
+        return ":target_project_key"
+    if table_name == "writing_documents" and column == "metadata_json":
+        metadata = f"({source_expr}::jsonb - 'export_artifact')"
+        return (
+            f"CASE WHEN {metadata} ? 'project_key' THEN "
+            f"jsonb_set({metadata}, '{{project_key}}', to_jsonb(CAST(:target_project_key AS text))) "
+            f"ELSE {metadata} END"
+        )
     target_udt = _column_udt_name(target_column)
     if target_udt not in _JSON_UDT_NAMES:
         return source_expr
@@ -425,11 +445,29 @@ def _build_initial_project_copy_insert_sql(
 
     target_column_sql = ", ".join(_quote_ident(str(target["column_name"])) for target, _source in copy_pairs)
     source_expr_sql = ", ".join(
-        _initial_project_copy_expression(source, target) for target, source in copy_pairs
+        _initial_project_copy_expression(table_name, source, target) for target, source in copy_pairs
     )
+    filters: list[str] = []
+    if table_name in {"writing_documents", "writing_document_drafts", "writing_document_citations"} and (
+        "project_key" in source_by_name
+    ):
+        filters.append('"project_key" = :source_project_key')
+    # Graph and resource-pool readers scope by physical schema, not legacy labels.
+    # Copy relations only when the referenced parent is present in the target.
+    parent_fks = {
+        "graph_node_aliases": ("graph_nodes", ("node_id",)),
+        "graph_edges": ("graph_nodes", ("from_node_id", "to_node_id")),
+        "writing_document_drafts": ("writing_documents", ("doc_id",)),
+        "writing_document_citations": ("writing_documents", ("doc_id",)),
+    }
+    if table_name in parent_fks:
+        parent, columns = parent_fks[table_name]
+        parent_ids = f'SELECT id FROM {_quote_ident(target_schema)}.{_quote_ident(parent)}'
+        filters.extend(f'{_quote_ident(column)} IN ({parent_ids})' for column in columns)
+    where = " WHERE " + " AND ".join(filters) if filters else ""
     return (
         f"INSERT INTO {_quote_ident(target_schema)}.{_quote_ident(table_name)} ({target_column_sql}) "
-        f"SELECT {source_expr_sql} FROM {_quote_ident(source_schema)}.{_quote_ident(table_name)}"
+        f"SELECT {source_expr_sql} FROM {_quote_ident(source_schema)}.{_quote_ident(table_name)}{where}"
     )
 
 
@@ -438,11 +476,10 @@ def _copy_initial_project_table(
     *,
     source_schema: str,
     target_schema: str,
+    source_project_key: str,
+    target_project_key: str,
     table_name: str,
 ) -> int:
-    conn.execute(
-        text(f"TRUNCATE TABLE {_quote_ident(target_schema)}.{_quote_ident(table_name)} RESTART IDENTITY CASCADE")
-    )
     source_columns = _initial_project_column_metadata(conn, schema_name=source_schema, table_name=table_name)
     target_columns = _initial_project_column_metadata(conn, schema_name=target_schema, table_name=table_name)
     copy_sql = _build_initial_project_copy_insert_sql(
@@ -461,44 +498,30 @@ def _copy_initial_project_table(
         )
         return 0
 
-    inserted = conn.execute(text(copy_sql))
+    inserted = conn.execute(
+        text(copy_sql), {"target_project_key": target_project_key, "source_project_key": source_project_key}
+    )
     return int(inserted.rowcount or 0)
 
 
 llm_config_service = LlmConfigService()
 
 
-def _backend_root_dir() -> Path:
-    return Path(__file__).resolve().parents[2]
+_DEMO_SEED_FILE = Path(__file__).resolve().parents[2] / "seed_data" / "project_demo_proj.sql.gz"
+_DEMO_SEED_TABLES = (
+    "sources", "materials", "ingest_channels", "source_library_items",
+    "resource_pool_site_entries", "resource_pool_urls",
+    "graph_nodes", "graph_node_aliases", "graph_edges",
+    "writing_documents", "writing_document_drafts", "writing_document_citations",
+)
 
 
-def _locate_demo_seed_file() -> Path | None:
-    seed_dir = _backend_root_dir() / "seed_data"
-    candidates = list(seed_dir.glob("project_demo_proj*.sql"))
-    if not candidates:
-        return None
-
-    def _version_key(path: Path) -> tuple[int, ...]:
-        # e.g. project_demo_proj_v0.9-rc2.0.sql -> (0, 9, 2, 0)
-        nums = re.findall(r"\d+", path.name)
-        return tuple(int(n) for n in nums) if nums else (0,)
-
-    return sorted(candidates, key=_version_key)[-1]
-
-
-def _demo_schema_has_seed_data(schema_name: str) -> bool:
-    with engine.begin() as conn:
-        table_exists = conn.execute(
-            text(
-                "SELECT EXISTS (SELECT 1 FROM information_schema.tables "
-                "WHERE table_schema=:schema AND table_name='materials'"
-            ),
-            {"schema": schema_name},
-        ).scalar()
-        if not table_exists:
-            return False
-        count = conn.execute(text(f'SELECT COUNT(*) FROM "{schema_name}"."materials"')).scalar()
-        return int(count or 0) > 0
+def _align_copied_id_sequence(conn: Connection, schema_name: str, table_name: str) -> None:
+    table = f"{_quote_ident(schema_name)}.{_quote_ident(table_name)}"
+    conn.execute(
+        text(f"SELECT setval(pg_get_serial_sequence(:table, 'id'), COALESCE(MAX(id), 0) + 1, false) FROM {table}"),
+        {"table": table},
+    )
 
 
 def _execute_seed_sql(conn: Connection, sql: str) -> None:
@@ -521,56 +544,58 @@ def _execute_seed_sql(conn: Connection, sql: str) -> None:
         cursor.close()
 
 
-def _filter_seed_sql_text(sql_text: str) -> str:
-    filtered_lines: list[str] = []
-    for line in sql_text.splitlines():
-        stripped = line.strip()
-        if re.search(r"pg_catalog\.setval", line, re.IGNORECASE):
-            continue
-        if re.match(r"\\(?:un)?restrict\b", stripped):
-            continue
-        if re.match(r"SET\s+transaction_timeout\b", stripped, re.IGNORECASE):
-            continue
-        filtered_lines.append(line)
-    return "\n".join(filtered_lines)
-
-
-def _adapt_legacy_demo_seed_to_materials(sql_text: str) -> str:
-    """Load the immutable demo snapshot through the current material schema."""
-    return (
-        sql_text
-        .replace("project_demo_proj.documents", "project_demo_proj.materials")
-        .replace(" doc_type,", " material_type,")
-    )
-
-
 def _bootstrap_demo_seed_if_needed(source_key: str) -> None:
     if source_key != "demo_proj":
         return
-    source_schema = project_schema_name(source_key)
-    if _demo_schema_has_seed_data(source_schema):
-        return
+    schema = project_schema_name(source_key)
 
-    seed_file = _locate_demo_seed_file()
-    if not seed_file:
-        _raise_internal_error("demo seed file not found under backend/seed_data")
-
-    sql_text = seed_file.read_text(encoding="utf-8")
-    filtered_sql = _filter_seed_sql_text(_adapt_legacy_demo_seed_to_materials(sql_text))
-
-    ensure_project_schema_ready(source_key, name="Demo Project")
-
+    # A populated, registered template is not a migration target, even if it
+    # predates some of the tables required by today's seed. This path never writes.
     with engine.begin() as conn:
-        # A template can be read after archive, but lazy seeding would write
-        # to it. Hold the registry row through the seed transaction.
-        enabled = conn.execute(
-            text("SELECT enabled FROM public.projects WHERE project_key = :project_key FOR UPDATE"),
-            {"project_key": source_key},
-        ).scalar_one_or_none()
-        if enabled is not True:
+        ensure_database_revision_compatible(conn)
+        if tenant_table_exists(conn, schema_name=schema, table_name="materials") and conn.execute(
+            text(
+                "SELECT EXISTS (SELECT 1 FROM public.projects WHERE project_key=:key AND schema_name=:schema) "
+                f"AND EXISTS (SELECT 1 FROM {_quote_ident(schema)}.materials)"
+            ),
+            {"key": source_key, "schema": schema},
+        ).scalar_one():
             return
-        conn.execute(text(f'CREATE SCHEMA IF NOT EXISTS "{source_schema}"'))
-        _execute_seed_sql(conn, filtered_sql)
+
+    # Native bootstrap validates the database revision and creates only a new,
+    # unowned-empty schema. A failed seed leaves a registered project retryable.
+    ensure_project_schema_ready(source_key, name="Demo Project")
+    with engine.begin() as conn:
+        ensure_database_revision_compatible(conn)
+        registered = conn.execute(
+            text("SELECT schema_name, enabled FROM public.projects WHERE project_key = :project_key FOR UPDATE"),
+            {"project_key": source_key},
+        ).one_or_none()
+        if registered is None or registered[0] != schema:
+            _raise_invalid_input(f"demo_proj is not registered for schema {schema}", status_code=409)
+        if not registered[1]:
+            return  # Archived templates may be read, but never seeded.
+
+        tables = [f'"{schema}"."{name}"' for name in _DEMO_SEED_TABLES]
+        conn.execute(text(f"LOCK TABLE {', '.join(tables)} IN SHARE ROW EXCLUSIVE MODE"))
+        occupied = conn.execute(text("SELECT " + ", ".join(f"EXISTS (SELECT 1 FROM {t})" for t in tables))).one()
+        present = {name for name, has_data in zip(_DEMO_SEED_TABLES, occupied, strict=True) if has_data}
+        if "materials" in present:
+            return  # An existing, possibly user-edited demo is not an upgrade target.
+        if present:
+            _raise_invalid_input(
+                "demo_proj has no materials but already contains data in " + ", ".join(sorted(present))
+                + "; refusing to merge the bundled seed", status_code=409,
+            )
+        if not _DEMO_SEED_FILE.is_file():
+            _raise_internal_error(f"bundled demo seed not found: {_DEMO_SEED_FILE.name}")
+        conn.execute(text(f"SET LOCAL search_path TO {_quote_ident(schema)}, pg_catalog"))
+        conn.execute(text("SET LOCAL standard_conforming_strings = on"))
+        with gzip.open(_DEMO_SEED_FILE, "rt", encoding="utf-8", newline="") as seed:
+            _execute_seed_sql(conn, seed.read())
+        for name in _DEMO_SEED_TABLES:
+            _align_copied_id_sequence(conn, schema, name)
+
 
 def _build_auto_project_key(project_name: str, project_key: str | None) -> str:
     explicit = normalize_project_key(project_key or "")
@@ -761,7 +786,7 @@ def inject_initial_project(payload: InjectInitialProjectPayload) -> ProjectJsonO
     ensure_project_schema_ready(target_key, name=target_name)
 
     with engine.begin() as conn:
-        conn.execute(text(f'SET search_path TO "{target_schema}"'))
+        conn.execute(text(f'SET LOCAL search_path TO "{target_schema}"'))
         copied_counts: dict[str, int] = {}
         # Copy only tables that exist in source schema.
         for table in INITIAL_PROJECT_TABLES:
@@ -780,31 +805,12 @@ def inject_initial_project(payload: InjectInitialProjectPayload) -> ProjectJsonO
                 conn,
                 source_schema=source_schema,
                 target_schema=target_schema,
+                source_project_key=source_key,
+                target_project_key=target_key,
                 table_name=tname,
             )
-            # best-effort sequence alignment for id-based tables
-            try:
-                conn.execute(
-                    text(
-                        """
-                        DO $$
-                        DECLARE seq_name text;
-                        BEGIN
-                          SELECT pg_get_serial_sequence(format('%I.%I', :schema_name, :table_name), 'id') INTO seq_name;
-                          IF seq_name IS NOT NULL THEN
-                            EXECUTE format(
-                              'SELECT setval(%L, COALESCE((SELECT MAX(id) FROM %I.%I), 0) + 1, false)',
-                              seq_name, :schema_name, :table_name
-                            );
-                          END IF;
-                        END$$;
-                        """
-                    ),
-                    {"schema_name": target_schema, "table_name": tname},
-                )
-            except SQLAlchemyError:
-                # not all copied tables have id sequences; ignore
-                pass
+            if "id" in table.c:
+                _align_copied_id_sequence(conn, target_schema, tname)
 
     if payload.activate:
         with bind_schema("public"):

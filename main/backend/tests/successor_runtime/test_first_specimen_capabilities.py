@@ -409,11 +409,6 @@ def test_real_first_specimen_program_compiles_complete_frozen_path(first_specime
             for identifier in (101, 102)
         ),
     )
-    seed_sql = (
-        Path(_BACKEND_ROOT) / "seed_data/project_demo_proj_v0.9-rc2.0.sql"
-    ).read_text(encoding="utf-8")
-    assert "VALUES (101," in seed_sql
-    assert "VALUES (102," in seed_sql
     plan = compile_program(
         program,
         catalog,

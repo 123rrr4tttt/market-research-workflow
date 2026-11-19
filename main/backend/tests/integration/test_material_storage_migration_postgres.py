@@ -1408,3 +1408,36 @@ def test_downgrade_reverses_storage_only_and_retains_material_history(
             assert current.profile_version.startswith("3+")
 
     _with_test_dsn(scenario)
+
+
+def test_bundled_demo_loads_a_connected_research_project(exclusive_engine, monkeypatch) -> None:
+    from app.api import projects
+    from app.services.projects import bootstrap
+
+    monkeypatch.setattr(settings, "database_url", DSN)
+    monkeypatch.setattr(settings, "project_schema_prefix", "project_")
+    monkeypatch.setattr(bootstrap, "engine", exclusive_engine)
+    monkeypatch.setattr(projects, "engine", exclusive_engine)
+    command.upgrade(_config(DSN), "head")
+    projects._bootstrap_demo_seed_if_needed("demo_proj")
+
+    with exclusive_engine.begin() as conn:
+        conn.execute(text("SET LOCAL search_path TO project_demo_proj, pg_catalog"))
+        # Optional references may be NULL; every supplied reference must resolve.
+        for child, column, parent in (
+            ("materials", "source_id", "sources"),
+            ("graph_nodes", "source_material_id", "materials"),
+            ("graph_node_aliases", "node_id", "graph_nodes"),
+            ("graph_edges", "from_node_id", "graph_nodes"),
+            ("graph_edges", "to_node_id", "graph_nodes"),
+            ("writing_document_citations", "doc_id", "writing_documents"),
+            ("writing_document_citations", "source_material_id", "materials"),
+        ):
+            linked, dangling = conn.execute(
+                text(
+                    f"SELECT count(p.id), count(*) FILTER (WHERE p.id IS NULL) "
+                    f"FROM {child} c LEFT JOIN {parent} p ON p.id = c.{column} "
+                    f"WHERE c.{column} IS NOT NULL"
+                )
+            ).one()
+            assert linked > 0 and dangling == 0, (child, column, parent, linked, dangling)
