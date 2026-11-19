@@ -8,6 +8,7 @@ from app.composition.installed_operation import installed_operation_contribution
 from app.composition.raw_material_import_task import (
     raw_material_import_task_contribution_catalog,
 )
+from app.contracts.ingest_config_failures import ingest_config_failures
 from app.successor_runtime.capabilities.workflow_common import (
     WORKFLOW_DEFINITION_FAILURES,
 )
@@ -28,8 +29,9 @@ from mrw_functorial_kit.core.application_failure_semantics import (
 )
 from mrw_functorial_kit.core.provider_port_failures import (
     ingest_operation_failures,
+    resource_pool_http_fetch_failures,
 )
-from mrw_functorial_kit.core.w04_service_semantics import material_query_failures
+from mrw_functorial_kit.core.service_failure_semantics import material_query_failures
 
 # Family modules remain the authored semantic sources.  This tuple is the
 # only project-level composition used by the CLI and architecture check.
@@ -43,7 +45,9 @@ project_contribution_catalog: tuple[Contribution[Any, Any], ...] = (
                 contribution_failures,
                 source_library_contract_failures,
                 ingest_operation_failures,
+                resource_pool_http_fetch_failures,
                 material_query_failures,
+                ingest_config_failures,
             ),
         )
     ),

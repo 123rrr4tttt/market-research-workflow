@@ -83,7 +83,7 @@ def build_frontdoor_envelope(
     extra: Mapping[str, Any] | None = None,
 ) -> Annotated[
     dict[str, Any],
-    "kit:non-authoritative derived_as=view fact_source=ingress_inputs+collection_payload+trace_contract witness=test:test_w03_ingest_ports_authority_metadata",
+    "kit:non-authoritative derived_as=view fact_source=ingress_inputs+collection_payload+trace_contract witness=test:test_ingest_ports_declare_sources_and_effect_authority",
 ]:
     normalized_reason = normalize_reason_code(reason_code, default="ok")
     envelope = {

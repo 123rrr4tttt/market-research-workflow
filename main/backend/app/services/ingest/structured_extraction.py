@@ -59,7 +59,7 @@ def build_structured_summary(
     extraction_mode: str,
 ) -> Annotated[
     dict[str, object],
-    "kit:non-authoritative derived_as=view fact_source=extracted_data+extraction_outcome_inputs witness=test:test_w03_ingest_ports_authority_metadata",
+    "kit:non-authoritative derived_as=view fact_source=extracted_data+extraction_outcome_inputs witness=test:test_ingest_ports_declare_sources_and_effect_authority",
 ]:
     er = extracted_data.get("entities_relations")
     typed_er = er if _is_object_dict(er) else {}

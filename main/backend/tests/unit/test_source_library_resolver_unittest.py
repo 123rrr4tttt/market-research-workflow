@@ -31,18 +31,18 @@ class SourceLibraryResolverUnitTestCase(unittest.TestCase):
 
     def test_invalid_runner_payload_uses_typed_routing_failure_lift(self):
         with self.assertRaisesRegex(TypeError, "source-library routing value is not a runner object"):
-            resolver._as_runner_object({"result": object()})
+            resolver.as_runner_object({"result": object()})
 
     def test_valid_runner_payload_preserves_recursive_runner_abi(self):
         payload = {"result": {"records": [{"url": "https://example.com"}], "errors": []}}
 
-        normalized = resolver._as_runner_object(payload)
+        normalized = resolver.as_runner_object(payload)
 
         self.assertEqual(normalized, payload)
 
     def test_invalid_nested_runner_payload_uses_typed_routing_failure_lift(self):
         with self.assertRaisesRegex(TypeError, "source-library routing value is not a runner object"):
-            resolver._as_runner_object({"result": {7: "non-string runner key"}})
+            resolver.as_runner_object({"result": {7: "non-string runner key"}})
 
     def test_url_pool_item_routes_urls_back_to_url_pool_channel_by_default(self):
         item = {"item_key": "url_pool.default", "channel_key": "url_pool"}
@@ -933,7 +933,7 @@ class SourceLibraryResolverUnitTestCase(unittest.TestCase):
         sentinel = object()
 
         with patch(
-            "app.services.resource_pool.unified_search_by_item_payload",
+            "app.services.resource_pool.unified_search.unified_search_by_item_payload",
             return_value=sentinel,
         ) as unified_search:
             outcome = resolver._run_single_handler_search_batch(
@@ -977,12 +977,13 @@ class SourceLibraryResolverUnitTestCase(unittest.TestCase):
         fake_result = {"inserted": 1, "updated": 0, "skipped": 0, "by_url": [], "errors": []}
 
         with (
-            patch("app.services.source_library.resolver.run_item_with_url_routing", return_value=fake_result) as run_routed,
+            patch("app.services.source_library.orchestrators.url_execution.fetch_routed_targets", return_value=fake_result) as run_routed,
             patch("app.services.source_library.resolver.run_channel") as run_single,
         ):
             result = resolver.run_item_payload(item=item, channels=channels, project_key=None, override_params=None)
 
         run_routed.assert_called_once()
+        self.assertEqual(run_routed.call_args.kwargs["protocol"].item_key, "url_pool.default")
         run_single.assert_not_called()
         self.assertEqual(result.get("result"), fake_result)
         self.assertEqual(result.get("params", {}).get("urls"), ["https://example.com/a"])
@@ -1148,12 +1149,13 @@ class SourceLibraryResolverUnitTestCase(unittest.TestCase):
         fake_result = {"inserted": 1, "updated": 0, "skipped": 0, "by_url": [], "errors": []}
 
         with (
-            patch("app.services.source_library.resolver.run_item_with_url_routing", return_value=fake_result) as routed_run,
+            patch("app.services.source_library.orchestrators.url_execution.fetch_routed_targets", return_value=fake_result) as routed_run,
             patch("app.services.source_library.resolver._run_handler_cluster_item") as site_search_run,
         ):
             result = resolver.run_item_payload(item=item, channels=channels, project_key=None, override_params=None)
 
         routed_run.assert_called_once()
+        self.assertEqual(routed_run.call_args.kwargs["protocol"].candidate_urls, ["https://example.com/a"])
         site_search_run.assert_not_called()
         self.assertEqual(result["result"]["execution_request"]["source_mode"], "url_execution")
         self.assertEqual(

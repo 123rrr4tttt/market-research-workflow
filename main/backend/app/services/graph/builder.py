@@ -150,7 +150,7 @@ def build_graph(
     Graph,
     "kit:non-authoritative derived_as=view "
     "fact_source=normalized_social_posts+graph_parameters "
-    "witness=test:test_w04_authority_metadata",
+    "witness=test:test_service_results_declare_sources_and_effect_authority",
 ]:
     """
     构建内容图谱
@@ -445,7 +445,7 @@ def build_topic_subgraph(
     Graph,
     "kit:non-authoritative derived_as=view "
     "fact_source=source_graph+topic_label+time_window "
-    "witness=test:test_w04_authority_metadata",
+    "witness=test:test_service_results_declare_sources_and_effect_authority",
 ]:
     """
     构建主题子图
@@ -539,7 +539,7 @@ def build_market_graph(
     Graph,
     "kit:non-authoritative derived_as=view "
     "fact_source=normalized_market_data "
-    "witness=test:test_w04_authority_metadata",
+    "witness=test:test_service_results_declare_sources_and_effect_authority",
 ]:
     """
     构建市场数据图谱
@@ -677,7 +677,7 @@ def build_policy_graph(
     Graph,
     "kit:non-authoritative derived_as=view "
     "fact_source=normalized_policy_data "
-    "witness=test:test_w04_authority_metadata",
+    "witness=test:test_service_results_declare_sources_and_effect_authority",
 ]:
     """
     构建政策数据图谱

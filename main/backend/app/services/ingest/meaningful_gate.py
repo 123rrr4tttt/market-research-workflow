@@ -458,7 +458,7 @@ def build_gateplus_snapshot(
     provenance_gate: dict[str, object] | None = None,
 ) -> Annotated[
     dict[str, object],
-    "kit:non-authoritative derived_as=view fact_source=url_gate+content_gate+provenance_gate witness=test:test_w03_ingest_ports_authority_metadata",
+    "kit:non-authoritative derived_as=view fact_source=url_gate+content_gate+provenance_gate witness=test:test_ingest_ports_declare_sources_and_effect_authority",
 ]:
     checks: list[dict[str, object]] = []
 

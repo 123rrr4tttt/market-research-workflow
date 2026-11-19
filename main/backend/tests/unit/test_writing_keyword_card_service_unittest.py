@@ -4,6 +4,8 @@ import sys
 import unittest
 from pathlib import Path
 from unittest.mock import patch
+from app.services.search.hybrid import SearchInvocationObservation
+from app.services.llm_report_source_enrichment import ReportSourceFailure, ReportSourceResolution
 
 import pytest
 
@@ -24,7 +26,6 @@ try:
     from app.services.typed_knowledge import persistence_boundary as typed_knowledge_boundary
     from app.services.writing.keyword_card_service import (
         _CARD_CACHE,
-        _SELECTION_CACHE,
         aggregate_cards,
         get_card_detail,
         get_card_preview,
@@ -40,7 +41,6 @@ class WritingKeywordCardServiceUnitTestCase(unittest.TestCase):
         if _IMPORT_ERROR is not None:
             raise unittest.SkipTest(f"writing keyword card service tests require backend dependencies: {_IMPORT_ERROR}")
         _CARD_CACHE.clear()
-        _SELECTION_CACHE.clear()
 
     def test_graph_context_is_consumed_as_optional_adapter(self):
         payload = KeywordCardRequest(
@@ -64,8 +64,8 @@ class WritingKeywordCardServiceUnitTestCase(unittest.TestCase):
             ),
         )
         with (
-            patch("app.services.writing.keyword_card_service._cards_from_hybrid", return_value=[]),
-            patch("app.services.writing.keyword_card_service._cards_from_sources", return_value=[]),
+            patch("app.services.writing.keyword_card_service._cards_from_hybrid", return_value=([], SearchInvocationObservation([], (), ()))),
+            patch("app.services.writing.keyword_card_service._cards_from_sources", return_value=([], [])),
             patch("app.services.writing.keyword_card_service._cards_from_source_library", return_value=[]),
         ):
             response = aggregate_cards(payload)
@@ -104,8 +104,8 @@ class WritingKeywordCardServiceUnitTestCase(unittest.TestCase):
         ]
         with (
             patch("app.services.writing.keyword_card_service._cards_from_graph_context", return_value=graph_card),
-            patch("app.services.writing.keyword_card_service._cards_from_hybrid", return_value=[]),
-            patch("app.services.writing.keyword_card_service._cards_from_sources", return_value=resource_card),
+            patch("app.services.writing.keyword_card_service._cards_from_hybrid", return_value=([], SearchInvocationObservation([], (), ()))),
+            patch("app.services.writing.keyword_card_service._cards_from_sources", return_value=(resource_card, [])),
             patch("app.services.writing.keyword_card_service._cards_from_source_library", return_value=[]),
         ):
             response = aggregate_cards(payload)
@@ -115,7 +115,7 @@ class WritingKeywordCardServiceUnitTestCase(unittest.TestCase):
     def test_material_filter_uses_only_the_canonical_material_source(self):
         card = KeywordCardItem(card_id="m1", source_type="material", title="Material")
         with (
-            patch("app.services.writing.keyword_card_service._cards_from_hybrid", return_value=[(card, {})]) as hybrid,
+            patch("app.services.writing.keyword_card_service._cards_from_hybrid", return_value=([(card, {})], SearchInvocationObservation([], (), ()))) as hybrid,
             patch("app.services.writing.keyword_card_service._cards_from_sources") as sources,
             patch("app.services.writing.keyword_card_service._cards_from_source_library") as library,
         ):
@@ -132,14 +132,32 @@ class WritingKeywordCardServiceUnitTestCase(unittest.TestCase):
         material = KeywordCardItem(card_id="m1", source_type="material", title="Material")
         resource = KeywordCardItem(card_id="r1", source_type="resource", title="Resource")
         with (
-            patch("app.services.writing.keyword_card_service._cards_from_hybrid", return_value=[(material, {})]),
-            patch("app.services.writing.keyword_card_service._cards_from_sources", return_value=[(resource, {})]),
+            patch("app.services.writing.keyword_card_service._cards_from_hybrid", return_value=([(material, {})], SearchInvocationObservation([], (), ()))),
+            patch("app.services.writing.keyword_card_service._cards_from_sources", return_value=([(resource, {})], [])),
             patch("app.services.writing.keyword_card_service._cards_from_source_library", return_value=[]),
         ):
             material_response = aggregate_cards(KeywordCardRequest(project_key="demo", query="robotics", sources=["material"]))
             resource_response = aggregate_cards(KeywordCardRequest(project_key="demo", query="robotics", sources=["resource"]))
         self.assertEqual([item.source_type for item in material_response.cards], ["material"])
         self.assertEqual([item.source_type for item in resource_response.cards], ["resource"])
+
+    def test_same_query_returns_fresh_cards_and_diagnostics(self):
+        from app.services.search.hybrid import _qdrant_failure
+        failure = _qdrant_failure("backend_unavailable", "q unavailable", RuntimeError())
+        first = KeywordCardItem(card_id="m1", source_type="material", title="Old")
+        second = KeywordCardItem(card_id="m2", source_type="material", title="Fresh")
+        payload = KeywordCardRequest(project_key="demo", query="robotics", sources=["material"])
+        with patch("app.services.writing.keyword_card_service._cards_from_hybrid", side_effect=[
+            ([(first, {})], SearchInvocationObservation([], ("qdrant",), ())),
+            ([(second, {})], SearchInvocationObservation([], ("pgvector",), (failure,))),
+        ]):
+            before = aggregate_cards(payload)
+            after = aggregate_cards(payload)
+        self.assertEqual(before.cards[0].title, "Old")
+        self.assertEqual(after.cards[0].title, "Fresh")
+        self.assertFalse(after.cache_hit)
+        self.assertEqual(after.cache_ttl_ms, 0)
+        self.assertEqual(after.search_failures[0]["provider"], "qdrant")
 
     def test_source_library_query_layer_is_used_for_resource_cards(self):
         payload = KeywordCardRequest(
@@ -148,8 +166,12 @@ class WritingKeywordCardServiceUnitTestCase(unittest.TestCase):
             sources=["resource"],
         )
         with (
-            patch("app.services.writing.keyword_card_service.query_hybrid_material_rows", return_value=[]),
-            patch("app.services.writing.keyword_card_service.query_report_source_rows", return_value=[]),
+            patch(
+                "app.services.document_queries.writing_material_queries.resolve_report_sources",
+                return_value=ReportSourceResolution([], (
+                    ReportSourceFailure("report_sources.web", "timeout", "Web search did not complete", "ddg"),
+                )),
+            ),
             patch(
                 "app.services.writing.keyword_card_service.query_source_library_material_rows",
                 return_value=[
@@ -162,6 +184,8 @@ class WritingKeywordCardServiceUnitTestCase(unittest.TestCase):
         self.assertEqual(len(response.cards), 1)
         self.assertEqual(response.cards[0].source_type, "resource")
         self.assertEqual(response.cards[0].extra["item_key"], "robotics_feed")
+        self.assertEqual(response.search_failures[0]["owner"], "report_sources.web")
+        self.assertEqual(response.search_failures[0]["code"], "timeout")
 
     def test_typed_knowledge_handoff_builds_stable_writing_card_selection_contract(self):
         item = typed_knowledge_contracts.KnowledgeItem(
@@ -228,7 +252,7 @@ class WritingKeywordCardServiceUnitTestCase(unittest.TestCase):
         )
 
         with (
-            patch("app.services.writing.keyword_card_service._cards_from_sources", return_value=[]),
+            patch("app.services.writing.keyword_card_service._cards_from_sources", return_value=([], [])),
             patch("app.services.writing.keyword_card_service._cards_from_source_library", return_value=[]),
         ):
             response = aggregate_cards(payload)
@@ -270,7 +294,7 @@ class WritingKeywordCardServiceUnitTestCase(unittest.TestCase):
         )
 
         with (
-            patch("app.services.writing.keyword_card_service._cards_from_sources", return_value=[]),
+            patch("app.services.writing.keyword_card_service._cards_from_sources", return_value=([], [])),
             patch("app.services.writing.keyword_card_service._cards_from_source_library", return_value=[]),
         ):
             response = aggregate_cards(payload)
@@ -282,7 +306,7 @@ class WritingKeywordCardServiceUnitTestCase(unittest.TestCase):
         detail = get_card_detail(
             KeywordCardDetailRequest(
                 project_key="demo_proj",
-                request_id="wave16-worker5-readback",
+                request_id="typed-fetch-readback",
                 card_id=card_id,
                 include_provenance=True,
                 max_provenance_items=12,
@@ -296,7 +320,7 @@ class WritingKeywordCardServiceUnitTestCase(unittest.TestCase):
         self.assertEqual(detail.normalized_query, "robotics investment")
         self.assertEqual(detail.provenance["raw_keys"], ["typed_knowledge_context"])
         self.assertEqual(detail.selection_matches["query"], "robotics investment")
-        self.assertEqual(detail.selection_matches["request_id"], "wave16-worker5-readback")
+        self.assertEqual(detail.selection_matches["request_id"], "typed-fetch-readback")
 
     def test_wave19_persisted_card_request_from_typed_api_boundary_round_trips_response(self):
         readback = typed_knowledge_boundary.build_persisted_card_request_response_readback(project_key="demo_proj")
@@ -304,8 +328,8 @@ class WritingKeywordCardServiceUnitTestCase(unittest.TestCase):
         payload = KeywordCardRequest.model_validate(readback["keyword_card_request"]["body"])
 
         with (
-            patch("app.services.writing.keyword_card_service._cards_from_hybrid", return_value=[]),
-            patch("app.services.writing.keyword_card_service._cards_from_sources", return_value=[]),
+            patch("app.services.writing.keyword_card_service._cards_from_hybrid", return_value=([], SearchInvocationObservation([], (), ()))),
+            patch("app.services.writing.keyword_card_service._cards_from_sources", return_value=([], [])),
             patch("app.services.writing.keyword_card_service._cards_from_source_library", return_value=[]),
         ):
             response = aggregate_cards(payload)
@@ -331,7 +355,7 @@ class WritingKeywordCardServiceUnitTestCase(unittest.TestCase):
         detail = get_card_detail(
             KeywordCardDetailRequest(
                 project_key="demo_proj",
-                request_id="wave19-worker10-readback",
+                request_id="typed-persisted-readback",
                 card_id=response.cards[0].card_id,
                 include_provenance=True,
             )
@@ -340,7 +364,7 @@ class WritingKeywordCardServiceUnitTestCase(unittest.TestCase):
         self.assertEqual(preview.publisher, "typed_knowledge")
         self.assertEqual(detail.publisher, "typed_knowledge")
         self.assertEqual(detail.provenance["raw_keys"], ["typed_knowledge_context"])
-        self.assertEqual(detail.selection_matches["request_id"], "wave19-worker10-readback")
+        self.assertEqual(detail.selection_matches["request_id"], "typed-persisted-readback")
         self.assertFalse(readback["meta"]["readiness"]["live_db_persistence"])
         self.assertFalse(readback["meta"]["readiness"]["live_api_closure"])
         self.assertFalse(readback["meta"]["readiness"]["live_ui_closure"])

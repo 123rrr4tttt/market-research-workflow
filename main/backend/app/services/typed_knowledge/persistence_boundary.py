@@ -425,7 +425,7 @@ def build_writing_handoff_ref(
     WritingHandoffRef,
     "kit:non-authoritative derived_as=view "
     "fact_source=validated_writing_knowledge_handoff "
-    "witness=test:test_w04_authority_metadata",
+    "witness=test:test_service_results_declare_sources_and_effect_authority",
 ]:
     contracts.validate_writing_knowledge_handoff(handoff)
     consumer_boundary = _string_object_mapping(handoff.facets.get("consumer_boundary"))
@@ -493,7 +493,7 @@ def build_identity_ref(
     str,
     "kit:non-authoritative derived_as=view "
     "fact_source=project_key+object_type+object_key "
-    "witness=test:test_w04_authority_metadata",
+    "witness=test:test_service_results_declare_sources_and_effect_authority",
 ]:
     normalized_project = str(project_key or "").strip()
     normalized_type = str(object_type or "").strip()
@@ -811,7 +811,7 @@ def build_sample_boundary_envelope(
     dict[str, Any],
     "kit:non-authoritative derived_as=generated_evidence "
     "fact_source=typed_knowledge_fixture_inputs "
-    "witness=test:test_w04_authority_metadata",
+    "witness=test:test_service_results_declare_sources_and_effect_authority",
 ]:
     normalized_project_key = str(project_key or "").strip() or "demo_proj"
     type_node = contracts.TypeNode(
@@ -874,7 +874,7 @@ def build_live_db_boundary_envelope(
 ) -> Annotated[
     dict[str, Any],
     "kit:authoritative-write canonical_writer=SqlAlchemyTypedKnowledgeRepository "
-    "witness=test:test_w04_authority_metadata",
+    "witness=test:test_service_results_declare_sources_and_effect_authority",
 ]:
     repository = SqlAlchemyTypedKnowledgeRepository(session=session)
     writes: tuple[PersistenceWriteResult, ...] = ()
@@ -901,7 +901,7 @@ def build_live_writing_context_from_repository(
 ) -> Annotated[
     dict[str, Any],
     "kit:canonical-read canonical_owner=SqlAlchemyTypedKnowledgeRepository "
-    "witness=test:test_w04_authority_metadata",
+    "witness=test:test_service_results_declare_sources_and_effect_authority",
 ]:
     # Keep this repository projection read-only.  seed_sample remains accepted
     # for callers using the old keyword, but cannot trigger a write here.
@@ -1014,7 +1014,7 @@ def build_public_api_route_contract_envelope(
     dict[str, Any],
     "kit:non-authoritative derived_as=generated_evidence "
     "fact_source=boundary_envelope+live_db_flag "
-    "witness=test:test_w04_authority_metadata",
+    "witness=test:test_service_results_declare_sources_and_effect_authority",
 ]:
     boundary_envelope = boundary_envelope or build_sample_boundary_envelope(project_key=project_key)
     boundary_repo = boundary_envelope["data"]["repository"]
@@ -1083,7 +1083,7 @@ def build_persisted_card_request_response_readback(
     dict[str, Any],
     "kit:non-authoritative derived_as=generated_evidence "
     "fact_source=boundary_envelope+live_db_flag "
-    "witness=test:test_w04_authority_metadata",
+    "witness=test:test_service_results_declare_sources_and_effect_authority",
 ]:
     """Build a repo-local persisted-card request/response readback contract.
 
@@ -1107,7 +1107,7 @@ def build_persisted_card_request_response_readback(
         normalized_query=normalized_query,
     )
     persisted_document = {
-        "document_ref": f"repo-local://writing-workbench/{normalized_project_key}/wave19-typed-card",
+        "document_ref": f"repo-local://writing-workbench/{normalized_project_key}/typed-card",
         "project_key": normalized_project_key,
         "metadata_json": {
             "typed_knowledge_context": typed_context,

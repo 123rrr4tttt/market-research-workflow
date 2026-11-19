@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import time
+from pathlib import Path
 from dataclasses import dataclass, field
 from typing import Any
 from urllib.error import HTTPError
@@ -17,6 +18,7 @@ pytestmark = pytest.mark.integration
 
 
 _TERMINAL_TURN_STATES = {"completed", "failed", "interrupted"}
+_REPO_ROOT = Path(__file__).resolve().parents[3]
 
 
 @dataclass(frozen=True)
@@ -401,7 +403,7 @@ def test_codex_oauth_model_registered_tool_persists_and_reads_back_material() ->
         "/api/threads",
         body={
             "model": config.model,
-            "cwd": "/Users/wangyiliang/market-research-workflow",
+            "cwd": str(_REPO_ROOT),
             "mrwProjectKey": config.project_key,
         },
     )
@@ -596,7 +598,7 @@ def test_codex_oauth_model_url_submit_reaches_independent_worker_and_material() 
         "/api/threads",
         body={
             "model": host.model,
-            "cwd": "/Users/wangyiliang/market-research-workflow",
+            "cwd": str(_REPO_ROOT),
             "mrwProjectKey": host.project_key,
         },
     )

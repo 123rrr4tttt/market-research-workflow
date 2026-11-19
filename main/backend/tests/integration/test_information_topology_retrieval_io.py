@@ -54,9 +54,9 @@ def test_source_records_map_to_profile_and_export_keeps_order_report_and_extensi
     with pytest.raises(FileExistsError):
         export_retrieval_directory(output, exported)
 
-    framework_root = Path(os.environ.get("INFORMATION_SEARCH_FRAMEWORK_ROOT",
-        "/Users/wangyiliang/Desktop/科学/信息搜索框架"))
-    if framework_root.is_dir():
+    framework_value = str(os.environ.get("INFORMATION_SEARCH_FRAMEWORK_ROOT") or "").strip()
+    framework_root = Path(framework_value) if framework_value else None
+    if framework_root is not None and framework_root.is_dir():
         sys.path.insert(0, str(framework_root))
         try:
             import 信息结构
@@ -151,7 +151,7 @@ def test_export_restores_ordered_discontinuities_from_provenance():
 
 def test_ordered_clue_accepts_material_references():
     source = source_bundle()
-    source["materials"] = [{"材料ID": "item:test:1", "标题": "材料", "档": "A",
+    source["materials"] = [{"材料ID": "item:test:1", "material_id": 1, "placement_title": "材料", "档": "A",
                              "节点ID": [], "边ID": [], "关系类": [], "快照路径": []}]
     source["graph"]["线索"][0]["顺序"] = ["行动者:test", "item:test:1", "e:test:1"]
     preview = build_import_preview(project_key="it-retrieval", module_id="retrieval",
@@ -174,7 +174,7 @@ def test_missing_material_is_preserved_as_unresolved_without_inventing_source_re
         namespace="retrieval", source=source, vocabulary=vocabulary())
     assert not isinstance(preview, Failure)
     missing = next(element for element in preview.state.elements if element.ref.ref.local_id == "item:missing:1")
-    assert missing.attributes == {"title": "", "url": "", "grade": "",
+    assert missing.attributes == {"grade": "",
                                   "reference_status": "unresolved_reference",
                                   "node_ids": [], "edge_ids": [], "relation_classes": [], "snapshot_path": []}
     exported = export_retrieval_bundle(state=preview.state, provenance=preview.provenance)
@@ -273,9 +273,11 @@ def test_postgres_import_edit_export_and_source_validator_round_trip():
             unchanged = store.read(session, preview.state_key)
         assert unchanged["revision"] == 2
 
-        framework_root = Path(os.environ.get("INFORMATION_SEARCH_FRAMEWORK_ROOT",
-            "/Users/wangyiliang/Desktop/科学/信息搜索框架"))
-        assert framework_root.is_dir(), "P07A framework source root is unavailable"
+        framework_value = str(os.environ.get("INFORMATION_SEARCH_FRAMEWORK_ROOT") or "").strip()
+        if not framework_value:
+            pytest.skip("INFORMATION_SEARCH_FRAMEWORK_ROOT is not configured")
+        framework_root = Path(framework_value)
+        assert framework_root.is_dir(), "INFORMATION_SEARCH_FRAMEWORK_ROOT is not a directory"
         sys.path.insert(0, str(framework_root))
         try:
             import 信息结构

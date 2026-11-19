@@ -2491,7 +2491,7 @@ AgentSessionStore = InMemoryAgentSessionStore | SqlAgentSessionStore
 def build_agent_session_store() -> Annotated[
     InMemoryAgentSessionStore | SqlAgentSessionStore | Failure,
     "kit:canonical-read canonical_owner=app.services.agent_sessions.store "
-    "witness=test:test_w02_agent_authority_metadata"
+    "witness=test:test_agent_results_declare_sources_and_effect_authority"
 ]:
     global _store_instance
     if _store_instance is not None:

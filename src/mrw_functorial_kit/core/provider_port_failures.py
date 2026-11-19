@@ -25,6 +25,11 @@ ResourcePoolHttpFetchFailureCode = Literal[
     "transport",
     "http_status",
     "response_invalid",
+    "target_policy_unavailable",
+    "unsafe_target",
+    "request_budget_exhausted",
+    "deadline_exceeded",
+    "discovery_disabled",
 ]
 ResourcePoolOfficialAccessFailureCode = Literal[
     "official_access_port_not_configured",

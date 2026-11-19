@@ -36,7 +36,7 @@ _PROGRAM_CODEC: str = "mrw.functorial-successor.workflow.program.v1"
 _SCALAR_TYPES: frozenset[str] = frozenset(
     {"string", "number", "integer", "boolean", "null"}
 )
-_FAILURE_WITNESS = "test:test_w02_functorial_projection_failure_lifts"
+_FAILURE_WITNESS = "test:test_functorial_projection_failure_lifts"
 ProjectionFailure: TypeAlias = Failure
 
 
@@ -83,9 +83,9 @@ def _projection_failure(code: str, message: str, **details: Any) -> Failure:
 
 def _raise_projection_failure(value: Failure) -> NoReturn:
     if not agent_functorial_projection_failures.matches(value):
-        # kit:boundary owner=workflow.py class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w02_functorial_projection_failure_lifts
+        # kit:boundary owner=workflow.py class=PROGRAMMER_DEFECT failure_family=none witness=test:test_functorial_projection_failure_lifts
         raise TypeError("invalid functorial projection failure")  # noqa: TRY003
-    # kit:boundary owner=workflow.py class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=agent.functorial_projection.failure witness=test:test_w02_functorial_projection_failure_lifts
+    # kit:boundary owner=workflow.py class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=agent.functorial_projection.failure witness=test:test_functorial_projection_failure_lifts
     raise WorkflowValidationError(value.message)
 
 
@@ -389,7 +389,7 @@ def build_workflow_program(
 ) -> Annotated[
     WorkflowSpec,
     "kit:prepared-command effect_boundary=functorial_workflow "
-    "witness=test:test_w02_agent_authority_metadata"
+    "witness=test:test_agent_results_declare_sources_and_effect_authority"
 ]:
     result = _build_workflow_program(
         workflow_id,

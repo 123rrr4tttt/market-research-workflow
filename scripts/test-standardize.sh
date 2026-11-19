@@ -34,7 +34,6 @@ Profiles:
   e2e         Run e2e tests
   core-business Run core business suite (tests/core_business)
   external-smoke Run external chain smoke checks in docker compose
-  source-library-strength Run heavier source-library keyword collection strength profile
   frontend-e2e Run frontend Playwright e2e suite
   coverage    Run split coverage gate (core=100%, other=20%)
   all         Run unit + integration + contract + e2e
@@ -119,57 +118,17 @@ run_external_smoke() {
     compose up -d db es redis
     compose run --rm backend python -m scripts.test_resource_library_e2e
     compose run --rm backend python -m scripts.test_search_to_document_chain
-    compose run --rm backend python -m scripts.test_source_library_keyword_collect_smoke
-  )
-}
-
-run_source_library_strength() {
-  (
-    cd "${OPS_DIR}"
-    cleanup() {
-      compose down -v || true
-    }
-    trap cleanup EXIT
-    compose up -d db es redis
-    compose run --rm \
-      -e PROJECT_KEY \
-      -e SOURCE_LIBRARY_STRENGTH_PACK \
-      -e SOURCE_LIBRARY_STRENGTH_ITEM_KEY \
-      -e SOURCE_LIBRARY_STRENGTH_QUERY \
-      -e SOURCE_LIBRARY_STRENGTH_MAX_CANDIDATES \
-      -e SOURCE_LIBRARY_STRENGTH_INGEST_LIMIT \
-      -e SOURCE_LIBRARY_STRENGTH_MIN_CANDIDATES \
-      -e SOURCE_LIBRARY_STRENGTH_MIN_VALID \
-      -e SOURCE_LIBRARY_STRENGTH_ENABLE_EXTRACTION \
-      -e SOURCE_LIBRARY_STRENGTH_KEEP_ITEM \
-      backend python -m scripts.test_source_library_keyword_collect_strength
   )
 }
 
 run_frontend_e2e() {
-  if ! command -v npm >/dev/null 2>&1; then
-    echo "[test-standardize] Missing npm for frontend-e2e profile" >&2
+  if ! command -v pnpm >/dev/null 2>&1; then
+    echo "[test-standardize] Missing pnpm for frontend-e2e profile" >&2
     return 127
-  fi
-  if [[ "${FRONTEND_E2E_SKIP_BACKEND_CHECK:-0}" != "1" ]]; then
-    local backend_base_url="${BACKEND_BASE_URL:-http://127.0.0.1:8000}"
-    local health_url="${backend_base_url%/}/api/v1/health"
-    if ! command -v curl >/dev/null 2>&1; then
-      echo "[test-standardize] Missing curl for frontend-e2e backend readiness check" >&2
-      echo "[test-standardize] Install curl or rerun with FRONTEND_E2E_SKIP_BACKEND_CHECK=1 for fully mocked tests" >&2
-      return 127
-    fi
-    if ! curl -fsS --max-time 3 "${health_url}" >/dev/null 2>&1; then
-      echo "[test-standardize] Backend readiness check failed for frontend-e2e: ${health_url}" >&2
-      echo "[test-standardize] Start backend first, for example:" >&2
-      echo "[test-standardize]   cd ${BACKEND_DIR} && ./.venv311/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 8000" >&2
-      echo "[test-standardize] If this e2e run is fully mocked, rerun with FRONTEND_E2E_SKIP_BACKEND_CHECK=1" >&2
-      return 2
-    fi
   fi
   (
     cd "${FRONTEND_DIR}"
-    npm run test:e2e -- "$@"
+    pnpm run test:e2e "$@"
   )
 }
 
@@ -241,10 +200,6 @@ case "${profile}" in
   external-smoke)
     prepare_env
     run_external_smoke "$@"
-    ;;
-  source-library-strength)
-    prepare_env
-    run_source_library_strength "$@"
     ;;
   frontend-e2e)
     run_frontend_e2e "$@"

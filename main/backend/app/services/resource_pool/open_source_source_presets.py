@@ -352,7 +352,7 @@ OPEN_SOURCE_PRESET_PACKS: dict[str, OpenSourcePresetPack] = {
 }
 
 
-_RESOURCE_POOL_FAILURE_WITNESS = "test:test_latest_service_b_resource_pool_failure_lifts"
+_RESOURCE_POOL_FAILURE_WITNESS = "test:test_resource_pool_failure_preserves_public_errors"
 _RESOURCE_POOL_FAILURE_CONTEXT_KEYS = frozenset(
     {
         "boundary_class",
@@ -394,9 +394,9 @@ def _raise_contract_failure(
         or _RESOURCE_POOL_FAILURE_CONTEXT_KEYS - set(context)
         or context.get("public_exception") != exception_type.__name__
     ):
-        # kit:boundary owner=resource_pool.open_source_source_presets.failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_latest_service_b_resource_pool_failure_lifts
+        # kit:boundary owner=resource_pool.open_source_source_presets.failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_resource_pool_failure_preserves_public_errors
         raise TypeError("resource pool failure lift context is incomplete or inconsistent")
-    # kit:boundary owner=resource_pool.open_source_source_presets.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=resource_pool.contract.failure witness=test:test_latest_service_b_resource_pool_failure_lifts
+    # kit:boundary owner=resource_pool.open_source_source_presets.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=resource_pool.contract.failure witness=test:test_resource_pool_failure_preserves_public_errors
     raise exception_type(str(context["public_message"]))
 
 

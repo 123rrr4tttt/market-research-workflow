@@ -35,7 +35,7 @@ class IngestNewsRedditTermsUnitTestCase(unittest.TestCase):
         with patch("app.services.ingest.news._dispatch_links_via_source_library_frontdoor", side_effect=_fake_dispatch_links):
             news._persist_reddit_items(  # noqa: SLF001
                 posts=posts,
-                doc_type="social_feed",
+                material_type="social_feed",
                 source_name="reddit",
                 base_url="reddit.com",
                 default_state="CA",
@@ -75,7 +75,7 @@ class IngestNewsRedditTermsUnitTestCase(unittest.TestCase):
         ):
             result = news._persist_google_news_items(  # noqa: SLF001
                 items=items,
-                doc_type="news",
+                material_type="news",
                 source_name="Google News",
                 base_url="news.google.com",
                 default_state=None,
@@ -113,7 +113,7 @@ class IngestNewsRedditTermsUnitTestCase(unittest.TestCase):
         ):
             result = news._persist_google_news_items(  # noqa: SLF001
                 items=items,
-                doc_type="news",
+                material_type="news",
                 source_name="Google News",
                 base_url="news.google.com",
                 default_state=None,
@@ -170,7 +170,7 @@ class IngestNewsRedditTermsUnitTestCase(unittest.TestCase):
         ):
             result = news._persist_google_news_items(  # noqa: SLF001
                 items=items,
-                doc_type="news",
+                material_type="news",
                 source_name="Google News",
                 base_url="news.google.com",
                 default_state=None,
@@ -219,7 +219,7 @@ class IngestNewsRedditTermsUnitTestCase(unittest.TestCase):
         ):
             result = news._persist_google_news_items(  # noqa: SLF001
                 items=[item],
-                doc_type="news",
+                material_type="news",
                 source_name="Google News",
                 base_url="news.google.com",
                 default_state=None,

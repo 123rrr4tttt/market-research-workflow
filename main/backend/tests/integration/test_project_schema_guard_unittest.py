@@ -82,9 +82,9 @@ class ProjectSchemaGuardTestCase(unittest.TestCase):
                 continue
 
             data = body.get("data") or {}
-            documents = data.get("documents") if isinstance(data, dict) else None
-            if not isinstance(documents, dict) or "total" not in documents:
-                broken.append(f"{project_key}: missing documents.total in payload={_compact_json(body)}")
+            materials = data.get("materials") if isinstance(data, dict) else None
+            if not isinstance(materials, dict) or "total" not in materials:
+                broken.append(f"{project_key}: missing materials.total in payload={_compact_json(body)}")
 
         if broken:
             self.fail(

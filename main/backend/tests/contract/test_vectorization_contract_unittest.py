@@ -18,7 +18,7 @@ try:
     from app.main import app as backend_app
     from app.models.entities import Embedding
     from app.services.projects import bind_project
-    from app.services.search.hybrid import hybrid_search, qdrant_vector_search, vector_search
+    from app.services.search.hybrid import SearchInvocationObservation, hybrid_search, qdrant_vector_search, vector_search
     from app.services.search.vector_contracts import SEARCH_EVIDENCE_HIT_CONTRACT_VERSION
 
     _IMPORT_ERROR = None
@@ -134,7 +134,7 @@ class VectorizationContractTestCase(unittest.TestCase):
     def test_vector_search_output_shape_contract(self):
         with (
             patch(
-                "app.services.search.hybrid.qdrant_vector_search",
+                "app.services.search.hybrid.try_qdrant_vector_search",
                 side_effect=RuntimeError("qdrant_unavailable: deterministic test fallback"),
             ),
             patch("app.services.search.hybrid.get_embeddings", return_value=_FakeEmbeddingsClient()),
@@ -145,7 +145,7 @@ class VectorizationContractTestCase(unittest.TestCase):
         self.assertEqual(len(results), 1)
         row = results[0]
         expected_keys = {
-            "document_id",
+            "material_id",
             "score",
             "chunk_index",
             "title",
@@ -195,7 +195,7 @@ class VectorizationContractTestCase(unittest.TestCase):
             def search(self, **kwargs):
                 _FakeQdrantClient.searches.append(kwargs)
                 payload = {
-                    "document_id": 303,
+                    "material_id": 303,
                     "project_key": "demo_proj",
                     "object_type": "policy_chunk",
                     "object_id": 303,
@@ -285,7 +285,7 @@ class VectorizationContractTestCase(unittest.TestCase):
 
         with (
             patch(
-                "app.services.search.hybrid.qdrant_vector_search",
+                "app.services.search.hybrid.try_qdrant_vector_search",
                 side_effect=RuntimeError("qdrant_unavailable: deterministic test fallback"),
             ),
             patch("app.services.search.hybrid.get_embeddings", return_value=_FakeEmbeddingsClient()),
@@ -305,7 +305,7 @@ class VectorizationContractTestCase(unittest.TestCase):
 
         with (
             patch(
-                "app.services.search.hybrid.qdrant_vector_search",
+                "app.services.search.hybrid.try_qdrant_vector_search",
                 side_effect=RuntimeError("qdrant_unavailable: deterministic test fallback"),
             ),
             patch("app.services.search.hybrid.get_embeddings", return_value=_FakeEmbeddingsClient()),
@@ -325,11 +325,11 @@ class VectorizationContractTestCase(unittest.TestCase):
 
         def _vector_search(_query, _state, _top_k, *, project_key):
             calls.append(project_key)
-            return [{"document_id": 303, "backend": "qdrant", "project_key": project_key}]
+            return SearchInvocationObservation([{ "material_id": 303, "backend": "qdrant", "project_key": project_key}], ("qdrant",), ())
 
         with (
             patch("app.services.search.hybrid.get_es_client", return_value=object()),
-            patch("app.services.search.hybrid.vector_search", _vector_search),
+            patch("app.services.search.hybrid.observe_vector_search", _vector_search),
         ):
             results = hybrid_search("market trend", None, 3, "vector", project_key="project_a")
 
@@ -355,7 +355,7 @@ class VectorizationContractTestCase(unittest.TestCase):
 
             def search(self, **_kwargs):
                 payload = {
-                    "document_id": 303,
+                    "material_id": 303,
                     "project_key": "demo_proj",
                     "object_type": "policy_chunk",
                     "object_id": 303,
@@ -408,7 +408,7 @@ class VectorizationContractTestCase(unittest.TestCase):
     def test_search_api_vector_rank_response_shape_contract(self):
         vector_like_results = [
             {
-                "document_id": 101,
+                "material_id": 101,
                 "score": 0.98,
                 "chunk_index": 0,
                 "title": "vector title",
@@ -421,7 +421,7 @@ class VectorizationContractTestCase(unittest.TestCase):
             }
         ]
 
-        with patch("app.api.search.hybrid_search", return_value=vector_like_results):
+        with patch("app.api.search.observe_hybrid_search", return_value=SearchInvocationObservation(vector_like_results, ("qdrant",), ())):
             resp = self.client.get(
                 "/api/v1/search",
                 params={"q": "market", "rank": "vector", "modality": "text", "top_k": 5},
@@ -439,7 +439,7 @@ class VectorizationContractTestCase(unittest.TestCase):
         evidence_hit = body["data"]["evidence_hits"][0]
         self.assertEqual(evidence_hit["retrieval_mode"], "vector")
         self.assertEqual(evidence_hit["retrieval_family"], "main_search")
-        self.assertEqual(evidence_hit["global_vector_object"]["document_id"], "101")
+        self.assertEqual(evidence_hit["global_vector_object"]["material_id"], "101")
         self.assertEqual(evidence_hit["global_vector_object"]["vector_version"], "v1")
         self.assertTrue(evidence_hit["matrix_branch_id"].startswith("branch_"))
         self.assertEqual(body["data"]["retrieval_run"]["contract_version"], "search_retrieval_run.v1")

@@ -1,6 +1,0 @@
-{
-  "_docs_root_migration": "compatibility shim",
-  "authoritative_target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-04-07-parallel-agent-wave-orchestration/wave16_runtime_boundary_closure_2026-05-22.json",
-  "previous_source_path": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-07-parallel-agent-wave-orchestration/wave16_runtime_boundary_closure_2026-05-22.json",
-  "migration_batch": "development-plans-archive-closed-wave31-batch"
-}

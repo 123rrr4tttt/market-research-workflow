@@ -12,7 +12,7 @@ from .base import CrawlerProvider
 
 
 _PROVIDERS: dict[str, CrawlerProvider] = {}
-_CRAWLER_FAILURE_WITNESS = "test:test_w03_crawler_failure_lifts"
+_CRAWLER_FAILURE_WITNESS = "test:test_crawler_failure_lifts"
 _CRAWLER_FAILURE_CONTEXT_KEYS = frozenset(
     {
         "boundary_class",
@@ -94,13 +94,13 @@ def raise_crawler_contract_failure(
         or context.get("public_exception") != exception_type.__name__
         or context.get("public_message") != failure.message
     ):
-        # kit:boundary owner=crawlers.registry.failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w03_crawler_failure_lifts
+        # kit:boundary owner=crawlers.registry.failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_crawler_failure_lifts
         raise TypeError("crawler failure lift context is incomplete or inconsistent")
     message = str(context["public_message"])
     if cause is None:
-        # kit:boundary owner=crawlers.registry.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=crawler.registry.contract_failure witness=test:test_w03_crawler_failure_lifts
+        # kit:boundary owner=crawlers.registry.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=crawler.registry.contract_failure witness=test:test_crawler_failure_lifts
         raise exception_type(message)
-    # kit:boundary owner=crawlers.registry.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=crawler.registry.contract_failure witness=test:test_w03_crawler_failure_lifts
+    # kit:boundary owner=crawlers.registry.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=crawler.registry.contract_failure witness=test:test_crawler_failure_lifts
     raise exception_type(message) from cause
 
 

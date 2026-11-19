@@ -96,6 +96,14 @@
           "name": "material_query.failure"
         }
       },
+      "mrw.ingest_config.failure": {
+        "content": {
+          "codes": [
+            "reserved_module_selection_key"
+          ],
+          "name": "mrw.ingest_config.failure"
+        }
+      },
       "project_retrieval.failure": {
         "content": {
           "codes": [
@@ -130,6 +138,22 @@
             "surface_contract_invalid"
           ],
           "name": "projection.evidence-surface.failure"
+        }
+      },
+      "resource_pool.http_fetch.failure": {
+        "content": {
+          "codes": [
+            "port_not_configured",
+            "transport",
+            "http_status",
+            "response_invalid",
+            "target_policy_unavailable",
+            "unsafe_target",
+            "request_budget_exhausted",
+            "deadline_exceeded",
+            "discovery_disabled"
+          ],
+          "name": "resource_pool.http_fetch.failure"
         }
       },
       "source.contract.failure": {
@@ -284,8 +308,6 @@
       "workflow.definition.failure": {
         "content": {
           "codes": [
-            "WORKFLOW_ACCEPTANCE_DIGEST_INVALID",
-            "WORKFLOW_ACCEPTANCE_INPUT_INVALID",
             "WORKFLOW_CONTRACT_KIND_UNSUPPORTED",
             "WORKFLOW_DSL_COMPILE_FAILURE",
             "WORKFLOW_DSL_CYCLE",
@@ -295,7 +317,6 @@
             "WORKFLOW_DSL_UNSUPPORTED_NODE_TYPE",
             "WORKFLOW_OBSERVATION_SHAPE_INVALID",
             "WORKFLOW_PROGRAM_PLAN_BINDING_INVALID",
-            "WORKFLOW_RECEIPT_CONTRACT_INVALID",
             "WORKFLOW_ROLLBACK_BINDING_INVALID",
             "WORKFLOW_SLICE_SHAPE_INVALID"
           ],

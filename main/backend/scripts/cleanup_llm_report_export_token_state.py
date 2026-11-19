@@ -46,7 +46,7 @@ def build_cleanup_report(
     dict[str, Any],
     "kit:non-authoritative derived_as=generated_evidence "
     "fact_source=prune_llm_report_export_token_states.summary "
-    "witness=test:test_c15_backend_misc_cli_report_metadata_preserves_abi",
+    "witness=test:test_cleanup_report_keeps_dry_run_and_counts_explicit",
 ]:
     started_at_utc = _utcnow_iso()
     summary = _run_cleanup(retention_days=retention_days, dry_run=dry_run)

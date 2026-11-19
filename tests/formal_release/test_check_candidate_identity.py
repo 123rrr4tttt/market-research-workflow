@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import contextlib
-import importlib.util
 import io
 import json
 import os
@@ -9,16 +8,19 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from collections.abc import Iterable
 from pathlib import Path
+from typing import TypeGuard
 from unittest import mock
 
+from scripts.formal_release import check_candidate_identity as checker
+from scripts.formal_release.model import DirectoryIdentity, Finding
 
 SCRIPT_PATH = Path(__file__).resolve().parents[2] / "scripts" / "formal_release" / "check_candidate_identity.py"
-SPEC = importlib.util.spec_from_file_location("check_candidate_identity", SCRIPT_PATH)
-assert SPEC is not None and SPEC.loader is not None
-checker = importlib.util.module_from_spec(SPEC)
-sys.modules[SPEC.name] = checker
-SPEC.loader.exec_module(checker)
+
+
+def is_value_list(value: object) -> TypeGuard[list[object]]:
+    return isinstance(value, list)
 
 
 def configured_python_matrix() -> tuple[Path, ...]:
@@ -34,14 +36,18 @@ def configured_python_matrix() -> tuple[Path, ...]:
             if path.exists()
         )
         return configured or (Path(sys.executable),)
-    values = json.loads(raw)
-    if (
-        not isinstance(values, list) or not values
-        or any(not isinstance(value, str) or not Path(value).is_absolute() for value in values)
-        or len(values) != len(set(values))
-    ):
+    values: object = json.loads(raw)
+    if not is_value_list(values):
         raise ValueError("MRW_TEST_PYTHON_EXECUTABLES requires unique absolute interpreter paths")
-    return tuple(Path(value) for value in values)
+    raw_values: list[object] = values
+    interpreters: list[str] = []
+    for value in raw_values:
+        if not isinstance(value, str) or not Path(value).is_absolute():
+            raise ValueError("MRW_TEST_PYTHON_EXECUTABLES requires absolute interpreter paths")
+        interpreters.append(value)
+    if not interpreters or len(interpreters) != len(set(interpreters)):
+        raise ValueError("MRW_TEST_PYTHON_EXECUTABLES requires unique absolute interpreter paths")
+    return tuple(Path(value) for value in interpreters)
 
 
 class CandidateIdentityPreflightTestCase(unittest.TestCase):
@@ -51,7 +57,8 @@ class CandidateIdentityPreflightTestCase(unittest.TestCase):
     def test_explicit_runtime_matrix_is_nonempty_unique_and_absolute(self) -> None:
         with mock.patch.dict(os.environ, {"MRW_TEST_PYTHON_EXECUTABLES": json.dumps([sys.executable])}):
             self.assertEqual((Path(sys.executable),), configured_python_matrix())
-        for value in ([], ["relative/python"], [sys.executable, sys.executable], {}, [1]):
+        invalid_values: tuple[object, ...] = ([], ["relative/python"], [sys.executable, sys.executable], {}, [1])
+        for value in invalid_values:
             with self.subTest(value=value):
                 with mock.patch.dict(os.environ, {"MRW_TEST_PYTHON_EXECUTABLES": json.dumps(value)}):
                     with self.assertRaises(ValueError):
@@ -71,6 +78,34 @@ class CandidateIdentityPreflightTestCase(unittest.TestCase):
         )
         return completed.stdout.strip()
 
+    def observed_git_context(self, root: Path) -> tuple[tuple[str, ...], dict[str, str]]:
+        observed: list[tuple[tuple[str, ...], dict[str, str]]] = []
+        original_run = subprocess.run
+
+        def observe_run(
+            command: tuple[str, ...], *, check: bool, capture_output: bool,
+            text: bool, env: dict[str, str],
+        ) -> subprocess.CompletedProcess[str]:
+            observed.append((command, env))
+            return original_run(command, check=check, capture_output=capture_output, text=text, env=env)
+
+        with mock.patch.object(subprocess, "run", observe_run):
+            checker.evaluate_candidate_identity(
+                repo_root=root, expected_commit="unused observation", expected_tree="unused observation",
+                candidate_strategy="REMEDIATION_INCLUSIVE_RELEASE",
+            )
+        self.assertTrue(observed)
+        command, environment = observed[0]
+        self.assertEqual(("rev-parse", "HEAD"), command[-2:])
+        return command[:-2], environment
+
+    def observed_git_read(self, root: Path, *args: str) -> tuple[str | None, str | None]:
+        prefix, environment = self.observed_git_context(root)
+        completed = subprocess.run((*prefix, *args), check=False, capture_output=True, text=True, env=environment)
+        if completed.returncode == 0:
+            return completed.stdout, None
+        return None, completed.stderr.strip()
+
     def init_repo(self) -> tuple[Path, str, str]:
         root = self.make_repo()
         self.git(root, "init")
@@ -83,9 +118,8 @@ class CandidateIdentityPreflightTestCase(unittest.TestCase):
         tree = self.git(root, "rev-parse", "HEAD^{tree}")
         return root, commit, tree
 
-    def findings(self, report: object) -> dict[str, dict[str, object]]:
-        payload = report.to_dict()  # type: ignore[no-any-return]
-        return {item["check_id"]: item for item in payload["findings"]}
+    def findings(self, report: checker.PreflightReport) -> dict[str, Finding]:
+        return {finding.check_id: finding for finding in report.findings}
 
     def run_main(self, argv: list[str]) -> tuple[int, str]:
         with contextlib.redirect_stdout(io.StringIO()) as buffer:
@@ -117,6 +151,12 @@ class CandidateIdentityPreflightTestCase(unittest.TestCase):
     def test_exact_clean_match_passes_and_writes_json(self) -> None:
         root, commit, tree = self.init_repo()
         output = self.make_repo() / "candidate.json"
+        report = checker.evaluate_candidate_identity(
+            repo_root=root,
+            expected_commit=commit,
+            expected_tree=tree,
+            candidate_strategy="REMEDIATION_INCLUSIVE_RELEASE",
+        )
 
         exit_code, stdout = self.run_main(self.base_argv(root, commit, tree, "--output", str(output)))
         payload = json.loads(output.read_text(encoding="utf-8"))
@@ -135,9 +175,9 @@ class CandidateIdentityPreflightTestCase(unittest.TestCase):
                 "candidate.dirty_tracked",
                 "candidate.untracked",
             ],
-            [item["check_id"] for item in payload["findings"]],
+            [finding.check_id for finding in report.findings],
         )
-        self.assertTrue(all(item["status"] == "PASS" for item in payload["findings"]))
+        self.assertTrue(all(finding.status == "PASS" for finding in report.findings))
 
     def test_commit_mismatch_fails(self) -> None:
         root, commit, tree = self.init_repo()
@@ -150,11 +190,11 @@ class CandidateIdentityPreflightTestCase(unittest.TestCase):
         findings = self.findings(report)
 
         self.assertEqual("FAIL", report.status)
-        self.assertEqual("FAIL", findings["candidate.commit"]["status"])
-        self.assertEqual("PASS", findings["candidate.tree"]["status"])
-        self.assertEqual("PASS", findings["candidate.dirty_tracked"]["status"])
-        self.assertEqual("PASS", findings["candidate.untracked"]["status"])
-        self.assertEqual(f"observed={commit}", findings["candidate.commit"]["evidence"][1])
+        self.assertEqual("FAIL", findings["candidate.commit"].status)
+        self.assertEqual("PASS", findings["candidate.tree"].status)
+        self.assertEqual("PASS", findings["candidate.dirty_tracked"].status)
+        self.assertEqual("PASS", findings["candidate.untracked"].status)
+        self.assertEqual(f"observed={commit}", findings["candidate.commit"].evidence[1])
 
     def test_external_output_is_create_only(self) -> None:
         root, commit, tree = self.init_repo()
@@ -306,9 +346,10 @@ class CandidateIdentityPreflightTestCase(unittest.TestCase):
         }
 
         with mock.patch.dict(os.environ, poisoned):
-            output, error = checker._git_output(root, "remote", "get-url", "origin")
+            output, error = self.observed_git_read(root, "remote", "get-url", "origin")
 
         self.assertIsNone(error)
+        assert output is not None
         self.assertEqual(original_remote, output.strip())
 
     def test_home_and_xdg_gitconfigs_cannot_affect_git_reads(self) -> None:
@@ -342,20 +383,22 @@ class CandidateIdentityPreflightTestCase(unittest.TestCase):
             os.environ,
             {"HOME": str(home), "XDG_CONFIG_HOME": str(xdg)},
         ):
-            remote, remote_error = checker._git_output(root, "remote", "get-url", "origin")
+            remote, remote_error = self.observed_git_read(root, "remote", "get-url", "origin")
             report = checker.evaluate_candidate_identity(
                 repo_root=root,
                 expected_commit=commit,
                 expected_tree=tree,
                 candidate_strategy="REMEDIATION_INCLUSIVE_RELEASE",
             )
-            tree_output, tree_error = checker._git_output(root, "ls-tree", "-r", "-z", "HEAD")
-            isolated_env = checker._git_env()
+            tree_output, tree_error = self.observed_git_read(root, "ls-tree", "-r", "-z", "HEAD")
+            isolated_env = self.observed_git_context(root)[1]
 
         self.assertIsNone(remote_error)
+        assert remote is not None
         self.assertEqual(original_remote, remote.strip())
         self.assertEqual("PASS", report.status)
         self.assertIsNone(tree_error)
+        assert tree_output is not None
         self.assertIn("tracked.txt", tree_output)
         self.assertEqual("1", isolated_env["GIT_CONFIG_NOSYSTEM"])
         self.assertEqual(os.devnull, isolated_env["GIT_CONFIG_GLOBAL"])
@@ -401,14 +444,16 @@ class CandidateIdentityPreflightTestCase(unittest.TestCase):
                 expected_tree=tree,
                 candidate_strategy="REMEDIATION_INCLUSIVE_RELEASE",
             )
-            observed_tree, tree_error = checker._git_output(root, "rev-parse", "HEAD^{tree}")
-            tree_listing, listing_error = checker._git_output(root, "ls-tree", "-r", "-z", "HEAD")
-            isolated_env = checker._git_env()
+            observed_tree, tree_error = self.observed_git_read(root, "rev-parse", "HEAD^{tree}")
+            tree_listing, listing_error = self.observed_git_read(root, "ls-tree", "-r", "-z", "HEAD")
+            isolated_env = self.observed_git_context(root)[1]
 
         self.assertEqual("PASS", report.status)
         self.assertIsNone(tree_error)
+        assert observed_tree is not None
         self.assertEqual(tree, observed_tree.strip())
         self.assertIsNone(listing_error)
+        assert tree_listing is not None
         self.assertEqual(original_listing, tree_listing.strip())
         self.assertEqual("1", isolated_env["GIT_NO_REPLACE_OBJECTS"])
 
@@ -427,7 +472,11 @@ class CandidateIdentityPreflightTestCase(unittest.TestCase):
         )
         original_write = checker.write_create_only_bytes
 
-        def redirect_before_write(path: Path, payload: bytes, identities: object) -> Path:
+        def redirect_before_write(
+            path: Path,
+            payload: bytes,
+            identities: Iterable[DirectoryIdentity],
+        ) -> Path:
             output_parent.rename(moved_parent)
             output_parent.symlink_to(root, target_is_directory=True)
             return original_write(path, payload, identities)
@@ -456,7 +505,7 @@ class CandidateIdentityPreflightTestCase(unittest.TestCase):
         def rename_candidate_before_write(
             path: Path,
             payload: bytes,
-            identities: object,
+            identities: Iterable[DirectoryIdentity],
         ) -> Path:
             root.rename(output_parent)
             return original_write(path, payload, identities)
@@ -485,11 +534,11 @@ class CandidateIdentityPreflightTestCase(unittest.TestCase):
         findings = self.findings(report)
 
         self.assertEqual("FAIL", report.status)
-        self.assertEqual("PASS", findings["candidate.commit"]["status"])
-        self.assertEqual("FAIL", findings["candidate.tree"]["status"])
-        self.assertEqual("PASS", findings["candidate.dirty_tracked"]["status"])
-        self.assertEqual("PASS", findings["candidate.untracked"]["status"])
-        self.assertEqual(f"observed={tree}", findings["candidate.tree"]["evidence"][1])
+        self.assertEqual("PASS", findings["candidate.commit"].status)
+        self.assertEqual("FAIL", findings["candidate.tree"].status)
+        self.assertEqual("PASS", findings["candidate.dirty_tracked"].status)
+        self.assertEqual("PASS", findings["candidate.untracked"].status)
+        self.assertEqual(f"observed={tree}", findings["candidate.tree"].evidence[1])
 
     def test_dirty_tracked_file_fails(self) -> None:
         root, commit, tree = self.init_repo()
@@ -504,14 +553,14 @@ class CandidateIdentityPreflightTestCase(unittest.TestCase):
         findings = self.findings(report)
 
         self.assertEqual("FAIL", report.status)
-        self.assertEqual("PASS", findings["candidate.commit"]["status"])
-        self.assertEqual("PASS", findings["candidate.tree"]["status"])
-        self.assertEqual("FAIL", findings["candidate.dirty_tracked"]["status"])
-        self.assertEqual("PASS", findings["candidate.untracked"]["status"])
+        self.assertEqual("PASS", findings["candidate.commit"].status)
+        self.assertEqual("PASS", findings["candidate.tree"].status)
+        self.assertEqual("FAIL", findings["candidate.dirty_tracked"].status)
+        self.assertEqual("PASS", findings["candidate.untracked"].status)
         self.assertTrue(
             any(
                 str(item).startswith("porcelain=")
-                for item in findings["candidate.dirty_tracked"]["evidence"]
+                for item in findings["candidate.dirty_tracked"].evidence
             )
         )
 
@@ -537,14 +586,14 @@ class CandidateIdentityPreflightTestCase(unittest.TestCase):
                 findings = self.findings(report)
 
                 self.assertEqual("FAIL", report.status)
-                self.assertEqual("PASS", findings["candidate.commit"]["status"])
-                self.assertEqual("PASS", findings["candidate.tree"]["status"])
-                self.assertEqual("FAIL", findings["candidate.dirty_tracked"]["status"])
-                self.assertEqual("PASS", findings["candidate.untracked"]["status"])
-                self.assertIn("hidden_flag_count=1", findings["candidate.dirty_tracked"]["evidence"])
+                self.assertEqual("PASS", findings["candidate.commit"].status)
+                self.assertEqual("PASS", findings["candidate.tree"].status)
+                self.assertEqual("FAIL", findings["candidate.dirty_tracked"].status)
+                self.assertEqual("PASS", findings["candidate.untracked"].status)
+                self.assertIn("hidden_flag_count=1", findings["candidate.dirty_tracked"].evidence)
                 self.assertIn(
                     f"hidden_flag={tag} {flag_name} tracked.txt",
-                    findings["candidate.dirty_tracked"]["evidence"],
+                    findings["candidate.dirty_tracked"].evidence,
                 )
 
     def test_overlay_hidden_index_flags_fail_when_porcelain_is_clean(self) -> None:
@@ -572,14 +621,14 @@ class CandidateIdentityPreflightTestCase(unittest.TestCase):
         findings = self.findings(report)
 
         self.assertEqual("FAIL", report.status)
-        self.assertEqual("PASS", findings["candidate.commit"]["status"])
-        self.assertEqual("PASS", findings["candidate.tree"]["status"])
-        self.assertEqual("FAIL", findings["candidate.dirty_tracked"]["status"])
-        self.assertEqual("PASS", findings["candidate.untracked"]["status"])
-        self.assertIn("hidden_flag_count=1", findings["candidate.dirty_tracked"]["evidence"])
+        self.assertEqual("PASS", findings["candidate.commit"].status)
+        self.assertEqual("PASS", findings["candidate.tree"].status)
+        self.assertEqual("FAIL", findings["candidate.dirty_tracked"].status)
+        self.assertEqual("PASS", findings["candidate.untracked"].status)
+        self.assertIn("hidden_flag_count=1", findings["candidate.dirty_tracked"].evidence)
         self.assertIn(
             "hidden_flag=s assume-unchanged+skip-worktree tracked.txt",
-            findings["candidate.dirty_tracked"]["evidence"],
+            findings["candidate.dirty_tracked"].evidence,
         )
 
     def test_untracked_file_fails(self) -> None:
@@ -595,14 +644,14 @@ class CandidateIdentityPreflightTestCase(unittest.TestCase):
         findings = self.findings(report)
 
         self.assertEqual("FAIL", report.status)
-        self.assertEqual("PASS", findings["candidate.commit"]["status"])
-        self.assertEqual("PASS", findings["candidate.tree"]["status"])
-        self.assertEqual("PASS", findings["candidate.dirty_tracked"]["status"])
-        self.assertEqual("FAIL", findings["candidate.untracked"]["status"])
+        self.assertEqual("PASS", findings["candidate.commit"].status)
+        self.assertEqual("PASS", findings["candidate.tree"].status)
+        self.assertEqual("PASS", findings["candidate.dirty_tracked"].status)
+        self.assertEqual("FAIL", findings["candidate.untracked"].status)
         self.assertTrue(
             any(
                 str(item).startswith("porcelain=??")
-                for item in findings["candidate.untracked"]["evidence"]
+                for item in findings["candidate.untracked"].evidence
             )
         )
 
@@ -617,14 +666,14 @@ class CandidateIdentityPreflightTestCase(unittest.TestCase):
         findings = self.findings(report)
 
         self.assertEqual("FAIL", report.status)
-        self.assertEqual("FAIL", findings["candidate.strategy"]["status"])
-        self.assertEqual("PASS", findings["candidate.commit"]["status"])
-        self.assertEqual("PASS", findings["candidate.tree"]["status"])
-        self.assertEqual("PASS", findings["candidate.dirty_tracked"]["status"])
-        self.assertEqual("PASS", findings["candidate.untracked"]["status"])
+        self.assertEqual("FAIL", findings["candidate.strategy"].status)
+        self.assertEqual("PASS", findings["candidate.commit"].status)
+        self.assertEqual("PASS", findings["candidate.tree"].status)
+        self.assertEqual("PASS", findings["candidate.dirty_tracked"].status)
+        self.assertEqual("PASS", findings["candidate.untracked"].status)
         self.assertIn(
             "allowed=REMEDIATION_INCLUSIVE_RELEASE,PRODUCTION_MAIN_STABILIZATION",
-            findings["candidate.strategy"]["evidence"],
+            findings["candidate.strategy"].evidence,
         )
 
     def test_cli_help_runs_in_repo_python_envs(self) -> None:

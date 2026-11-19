@@ -156,8 +156,6 @@ class WorkflowGraphCompilerUnitTestCase(unittest.TestCase):
         self.assertEqual(
             set(get_args(WorkflowDefinitionFailureCode)),
             {
-                "WORKFLOW_ACCEPTANCE_DIGEST_INVALID",
-                "WORKFLOW_ACCEPTANCE_INPUT_INVALID",
                 "WORKFLOW_CONTRACT_KIND_UNSUPPORTED",
                 "WORKFLOW_DSL_COMPILE_FAILURE",
                 "WORKFLOW_DSL_CYCLE",
@@ -167,7 +165,6 @@ class WorkflowGraphCompilerUnitTestCase(unittest.TestCase):
                 "WORKFLOW_DSL_UNSUPPORTED_NODE_TYPE",
                 "WORKFLOW_OBSERVATION_SHAPE_INVALID",
                 "WORKFLOW_PROGRAM_PLAN_BINDING_INVALID",
-                "WORKFLOW_RECEIPT_CONTRACT_INVALID",
                 "WORKFLOW_ROLLBACK_BINDING_INVALID",
                 "WORKFLOW_SLICE_SHAPE_INVALID",
             },

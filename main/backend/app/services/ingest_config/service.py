@@ -3,15 +3,18 @@
 from __future__ import annotations
 
 import logging
+from typing import Final
 
 from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 
+from ...contracts.ingest_config_failures import ingest_config_failure
 from ...models.base import SessionLocal
 from ...models.entities import IngestConfig
 from ..projects import bind_schema
 
 logger = logging.getLogger(__name__)
+MODULE_SELECTION_CONFIG_KEY: Final = "platform.modules"
 
 
 def _model_value(row: object, field: str) -> object:
@@ -65,6 +68,13 @@ def upsert_config(
     payload: dict[str, object] | None = None,
 ) -> dict[str, object]:
     """Upsert ingest config. Returns the saved config dict."""
+    if config_key == MODULE_SELECTION_CONFIG_KEY:
+        failure = ingest_config_failure(
+            "reserved_module_selection_key",
+            "platform.modules is reserved for the module selection CAS owner",
+        )
+        # noqa: E501  # kit:boundary owner=ingest_config.upsert class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=mrw.ingest_config.failure witness=test:test_platform_modules_upsert_is_rejected_before_database
+        raise ValueError(failure.message)
     with bind_schema("public"):
         with SessionLocal() as session:
             cfg = session.execute(

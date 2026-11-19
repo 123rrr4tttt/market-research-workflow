@@ -61,16 +61,8 @@ export type ModuleContractDefinition<ModuleKey extends string = string> = {
   requiredContext: readonly string[]
   keepLoops: readonly string[]
   supportsInfoCard: boolean
-  designSourceRefs: readonly string[]
 }
 
-export type DesignSourceRecord = {
-  sourceType: 'figma' | 'demo' | 'reference_pool'
-  sourceRef: string
-  targetLayers: readonly LayerId[]
-  reuseTarget: 'interaction' | 'structure' | 'visual_semantics'
-  validationMethod: string
-}
 
 export type ModuleManifestEntryDefinition<ModuleKey extends string = string> = {
   moduleKey: ModuleKey
@@ -87,7 +79,6 @@ export type ModuleManifestEntryDefinition<ModuleKey extends string = string> = {
   supportsInfoCard: boolean
   visibleInNav: boolean
   enabled: boolean
-  designSourceRefs: readonly string[]
 }
 
 export type RouteSource = 'default' | 'layered' | 'legacy' | 'retired' | 'unknown'

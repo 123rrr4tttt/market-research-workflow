@@ -8,6 +8,7 @@ is part of this graph.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Protocol, Self
@@ -164,7 +165,12 @@ class PostgresMaterialReadHandler:
 class ExactInstalledHandlerResolver:
     """Resolve only handler digests present in the immutable node installation."""
 
-    def __init__(self, handlers: tuple[RuntimeHandler, ...]) -> None:
+    def __init__(
+        self,
+        handlers: tuple[RuntimeHandler, ...],
+        *,
+        validate_assignment: Callable[[RuntimeAssignment], None] | None = None,
+    ) -> None:
         by_digest: dict[str, RuntimeHandler] = {}
         for handler in handlers:
             if handler.handler_binding_digest in by_digest:
@@ -173,6 +179,7 @@ class ExactInstalledHandlerResolver:
         if not by_digest:
             raise ValueError("runtime installation requires at least one handler")
         self._by_digest = by_digest
+        self._validate_assignment = validate_assignment
 
     def resolve_exact(
         self,
@@ -197,6 +204,8 @@ class ExactInstalledHandlerResolver:
             != assignment.operation_contract_digest
         ):
             raise ExactHandlerMismatch("installed operation contract drift")
+        if self._validate_assignment is not None:
+            self._validate_assignment(assignment)
         return handler
 
 
@@ -474,7 +483,10 @@ def compose_postgres_runtime(
         PostgresMaterialReadHandler(item, replay) for item in installations
     )
     installed_handlers = handlers + additional_handlers
-    resolver = ExactInstalledHandlerResolver(installed_handlers)
+    resolver = ExactInstalledHandlerResolver(
+        installed_handlers,
+        validate_assignment=terminal_hook.validate_assignment if terminal_hook is not None else None,
+    )
     installation = DeploymentInstallationSnapshot.from_runtime(
         deployment=deployment,
         profile=profile,

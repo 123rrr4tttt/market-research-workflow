@@ -42,8 +42,6 @@ class RuntimeProjectionError(ExactBindingConflict):
 
 RUN_OBSERVATION_PROJECTOR_ID = "mrw.task.run-observation.projector.v1"
 RUN_OBSERVATION_PROJECTOR_VERSION = "1.0.0"
-HISTORICAL_RUNTIME_RUN_PROJECTOR_ID = "successor-runtime-run-projector"
-HISTORICAL_RUNTIME_RUN_PROJECTOR_VERSION = "1.1.0"
 
 
 class RuntimeProjectionRow(TypedDict):
@@ -216,49 +214,6 @@ class PostgresRuntimeRunProjector:
         )
         return row
 
-    def load_historical(
-        self,
-        source: RuntimeJournalSource,
-        *,
-        projector_id: str = HISTORICAL_RUNTIME_RUN_PROJECTOR_ID,
-        projector_version: str = HISTORICAL_RUNTIME_RUN_PROJECTOR_VERSION,
-    ) -> RuntimeProjectionRow:
-        """Read one explicit historical projection/offset pair without writes."""
-
-        if (
-            projector_id != HISTORICAL_RUNTIME_RUN_PROJECTOR_ID
-            or projector_version != HISTORICAL_RUNTIME_RUN_PROJECTOR_VERSION
-        ):
-            raise RuntimeProjectionError(
-                "unsupported historical runtime projector identity"
-            )
-
-        key = ProjectionOffsetKey(
-            projector_id=projector_id,
-            projector_version=projector_version,
-            source_kind=self.source_kind,
-            source_ref=source.source_ref,
-            source_incarnation=source.run_incarnation,
-        )
-        row = self._load_bound_projection(
-            source,
-            projector_id=projector_id,
-            projector_version=projector_version,
-            for_update=False,
-        )
-        if row is None:
-            raise RecordNotFound(
-                f"historical runtime projection not found: {source.source_ref}"
-            )
-        offset = _projection_offset_row(self._offsets.load_source(key))
-        self._decode_bound(
-            source,
-            offset,
-            row,
-            projector_id=projector_id,
-            projector_version=projector_version,
-        )
-        return row
 
     def _key(self, source: RuntimeJournalSource) -> ProjectionOffsetKey:
         if source.source_kind != self.source_kind:
@@ -640,8 +595,6 @@ def _is_string_key(value: object) -> bool:
 
 
 __all__ = [
-    "HISTORICAL_RUNTIME_RUN_PROJECTOR_ID",
-    "HISTORICAL_RUNTIME_RUN_PROJECTOR_VERSION",
     "PostgresRuntimeRunProjector",
     "ProjectionFailpoint",
     "RUN_OBSERVATION_PROJECTOR_ID",

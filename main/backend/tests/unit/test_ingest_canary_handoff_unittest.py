@@ -112,13 +112,13 @@ class IngestCanaryHandoffUnitTestCase(unittest.TestCase):
             project_key="demo_proj",
             source_ref={"url": "https://example.com/search?q=robotics"},
             collection_payload={
-                "document_candidate": {
+                "material_candidate": {
                     "uri": "https://example.com/search?q=robotics",
                     "title": "Search page",
                     "summary": "summary",
                     "content": "Robotics market update with enough meaningful context. " * 8,
                     "source_base_url": "example.com",
-                    "doc_type": "market",
+                    "material_type": "market",
                 },
                 "terminal_context": {
                     "project_key": "demo_proj",
@@ -177,8 +177,8 @@ class IngestCanaryHandoffUnitTestCase(unittest.TestCase):
         with (
             patch("app.services.projects.bind_project", return_value=nullcontext()),
             patch("app.services.source_library.resolver.list_effective_channels", return_value=[{"channel_key": "url_pool"}]),
-            patch("app.services.source_library.resolver.run_item_with_url_routing", side_effect=_fake_route),
-            patch("app.services.ingest.postprocess_frontdoor.persist_terminal_document", return_value={"doc_id": 90, "inserted": 1, "skipped": 0}),
+            patch("app.services.source_library.orchestrators.url_execution.fetch_routed_targets", side_effect=_fake_route),
+            patch("app.services.ingest.postprocess_frontdoor.persist_terminal_material", return_value={"material_id": 90, "inserted": 1, "skipped": 0}),
             patch("app.services.ingest.postprocess_frontdoor.settings.ingest_enable_strict_gate", False),
             patch("app.services.ingest.guardrail_rollout.settings.ingest_enable_strict_gate", False),
             patch("app.services.ingest.guardrail_rollout.settings.ingest_guardrail_rollout_mode", "canary"),
@@ -193,6 +193,7 @@ class IngestCanaryHandoffUnitTestCase(unittest.TestCase):
                 enable_extraction=False,
             )
 
+        self.assertIn("canary_handoff", result, result)
         handoff = result["canary_handoff"]
         self.assertEqual(result["status"], "success")
         self.assertEqual(result["inserted_valid"], 1)

@@ -22,6 +22,7 @@ from .http_port import (
     handle_official_access_api,
 )
 from .resolver import list_urls
+from .search_contract_discovery import QueryContractResolution, QueryDiscoveryBudget
 from .search_template_adapters import apply_search_template_adapter_plan, resolve_search_template_adapter_plan
 from .search_template_service import (
     execute_external_site_search,
@@ -47,6 +48,7 @@ class UnifiedSearchResult:
     ingest_result: dict[str, Any] | None
     errors: list[dict[str, object]]
     relevance_review_queue: dict[str, Any]
+    query_discovery_budget: dict[str, object] | None = None
 
 
 @dataclass(frozen=True)
@@ -112,7 +114,7 @@ def _optional_int(value: object) -> int | None:
         return None
 
 
-_RESOURCE_POOL_FAILURE_WITNESS = "test:test_latest_service_b_resource_pool_failure_lifts"
+_RESOURCE_POOL_FAILURE_WITNESS = "test:test_resource_pool_failure_preserves_public_errors"
 _RESOURCE_POOL_FAILURE_CONTEXT_KEYS = frozenset(
     {
         "boundary_class",
@@ -154,9 +156,9 @@ def _raise_contract_failure(
         or _RESOURCE_POOL_FAILURE_CONTEXT_KEYS - set(context)
         or context.get("public_exception") != exception_type.__name__
     ):
-        # kit:boundary owner=resource_pool.unified_search.failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_latest_service_b_resource_pool_failure_lifts
+        # kit:boundary owner=resource_pool.unified_search.failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_resource_pool_failure_preserves_public_errors
         raise TypeError("resource pool failure lift context is incomplete or inconsistent")
-    # kit:boundary owner=resource_pool.unified_search.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=resource_pool.contract.failure witness=test:test_latest_service_b_resource_pool_failure_lifts
+    # kit:boundary owner=resource_pool.unified_search.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=resource_pool.contract.failure witness=test:test_resource_pool_failure_preserves_public_errors
     raise exception_type(str(context["public_message"]))
 
 
@@ -591,6 +593,59 @@ def _entry_supports_query_terms(entry: dict[str, Any], entry_type: str) -> bool:
     return bool(capabilities.get("supports_query_terms"))
 
 
+def _resolve_entry_query_contract(
+    *,
+    project_key: str,
+    entry: dict[str, Any],
+    query_terms: list[str],
+    probe_timeout: float,
+    params: dict[str, Any],
+    budget: QueryDiscoveryBudget | None,
+) -> QueryContractResolution:
+    from .search_contract_discovery import resolve_query_contract
+
+    return resolve_query_contract(
+        project_key=project_key,
+        entry=entry,
+        query_terms=query_terms,
+        probe_timeout=probe_timeout,
+        params=params,
+        budget=budget,
+    )
+
+
+def _query_contract_view(resolution: QueryContractResolution) -> dict[str, Any]:
+    execution = resolution.execution
+    diagnostics = dict(resolution.diagnostics)
+    raw_reason_codes = diagnostics.get("reason_codes")
+    reason_values = raw_reason_codes if _is_object_list(raw_reason_codes) else []
+    reason_codes = [str(value or "").strip() for value in reason_values if str(value or "").strip()]
+    return {
+        "status": resolution.status,
+        "diagnostics": diagnostics,
+        "exploration_request": dict(resolution.exploration_request or {}),
+        "transient_entry_observed": resolution.entry is not None,
+        "execution_observed": execution is not None,
+        "selected_candidate_count": len(execution.selected_candidates if execution else []),
+        "reason_codes": reason_codes,
+        "claims_content_acquired": False,
+    }
+
+
+def _query_contract_reason(diagnostics: dict[str, object], default: str) -> str:
+    raw_codes = diagnostics.get("reason_codes")
+    code_values = raw_codes if _is_object_list(raw_codes) else []
+    codes = [str(value or "").strip() for value in code_values if str(value or "").strip()]
+    codes = [value for value in codes if value and value != "verified_query_results"]
+    return codes[0] if codes else str(diagnostics.get("reason_code") or default)
+
+
+def _string_list_view(value: object) -> list[str]:
+    if not _is_object_list(value):
+        return []
+    return [str(item or "").strip() for item in value if str(item or "").strip()]
+
+
 def _entry_keyword_mode(entry: dict[str, Any], entry_type: str) -> str:
     capabilities = _resolve_entry_keyword_capabilities(entry, entry_type)
     return str(capabilities.get("keyword_mode") or "none").strip().lower()
@@ -628,6 +683,7 @@ def unified_search_by_item(
     ingest_limit: int = 10,
     enable_extraction: bool = True,
     allow_term_fallback: bool = True,
+    query_discovery_budget: QueryDiscoveryBudget | None = None,
 ) -> UnifiedSearchResult:
     terms = _as_terms(query_terms)
     item_key = (item_key or "").strip()
@@ -681,6 +737,7 @@ def unified_search_by_item(
         ingest_limit=ingest_limit,
         enable_extraction=enable_extraction,
         allow_term_fallback=allow_term_fallback,
+        query_discovery_budget=query_discovery_budget,
     )
 
 
@@ -702,10 +759,173 @@ def _process_query_route(
     sitemap_max_depth: int,
     sitemap_max_sitemaps: int,
     external_search_enabled: bool,
+    project_key: str,
+    item_key: str,
+    query_discovery_budget: QueryDiscoveryBudget | None,
     local_errors: list[dict[str, object]],
     local_candidates: list[tuple[str, dict[str, object], float]],
 ) -> dict[str, object]:
     etype = entry_type
+    # Domain roots have no native keyword route even when a stale declaration
+    # claims support, so query-contract discovery precedes every route gate.
+    if etype == "domain_root":
+        resolution = _resolve_entry_query_contract(
+            project_key=project_key,
+            entry=entry,
+            query_terms=terms,
+            probe_timeout=probe_timeout,
+            params=routed_params,
+            budget=query_discovery_budget,
+        )
+        status = resolution.status
+        resolution_entry = resolution.entry
+        entry_runtime["query_contract"] = _query_contract_view(resolution)
+        exploration_request = dict(resolution.exploration_request or {})
+        exploration_request["status"] = str(exploration_request.get("status") or "requested")
+        exploration_request["item_key"] = str(item_key or "")
+        exploration_request["root_source_url"] = base_url
+        if exploration_request:
+            entry_runtime["exploration_request"] = exploration_request
+        diagnostics = dict(resolution.diagnostics)
+        reason_codes = [str(value) for value in _string_list_view(diagnostics.get("reason_codes"))]
+        primary_reason = _query_contract_reason(diagnostics, "no_candidate_interface")
+
+        if status == "verified":
+            verified_execution = resolution.execution
+            effective_type = str((resolution_entry or {}).get("entry_type") or "").strip().lower()
+            effective_template = str((resolution_entry or {}).get("template") or "").strip()
+            if verified_execution is None or effective_type not in {"search_template", "rss", "sitemap"}:
+                local_errors.append(
+                    {
+                        "site_url": base_url,
+                        "error": "query_contract_invalid_verified_result",
+                        "error_class": "query_contract_invalid",
+                        "query_contract_status": status,
+                    }
+                )
+                return {"entry": None, "runtime": entry_runtime, "candidates": local_candidates, "errors": local_errors}
+            resolution_extra = _string_object_view((resolution_entry or {}).get("extra"))
+            selected_provenance = _string_object_view(resolution_extra.get("query_contract_resolution"))
+            entry_runtime["query_contract_reused_execution"] = True
+            entry_runtime["query_contract_selected_provenance"] = selected_provenance
+            entry_runtime["transient_entry"] = {
+                "site_url": str((resolution_entry or {}).get("site_url") or base_url),
+                "entry_type": effective_type,
+                "template": effective_template,
+                "origin": _string_object_view((resolution_entry or {}).get("source_ref")).get("origin") or "query_contract",
+            }
+            entry_runtime["search_service"] = str(verified_execution.diagnostics.get("search_service") or effective_type)
+            for error_row in verified_execution.errors:
+                local_errors.append({**dict(error_row), "query_contract_status": status})
+            for decision in verified_execution.selected_candidates:
+                u = str(decision.url or "").strip()
+                if u:
+                    local_candidates.append(
+                        (
+                            u,
+                            {
+                                "site_entry_url": base_url,
+                                "entry_type": "domain_root",
+                                "resolved_entry_type": effective_type,
+                                "effective_entry_type": effective_type,
+                                "resolved_template": effective_template,
+                                "query_contract_selected_provenance": selected_provenance,
+                                "domain": entry_domain,
+                                "entry_domain": entry_domain,
+                                "tool": f"query_contract_{effective_type}",
+                                "candidate_source": "query_contract_verified",
+                                "site_policy": policy.category,
+                                "query_contract_status": status,
+                                "query_contract_execution_reused": True,
+                                "matched_by": decision.matched_by,
+                                "route_kind": getattr(decision, "route_kind", "page"),
+                                "candidate_quality": decision.candidate_quality,
+                                "usable_for_search": decision.usable_for_search,
+                            },
+                            decision.score,
+                        )
+                    )
+            return {"entry": entry_view, "runtime": entry_runtime, "candidates": local_candidates, "errors": local_errors}
+
+        if status in {"unresolved", "budget_exhausted"} and external_search_enabled:
+            execution = execute_external_site_search(
+                entry_domain=entry_domain,
+                query_terms=terms,
+                probe_timeout=probe_timeout,
+                allow_term_fallback=allow_term_fallback,
+                params=routed_params,
+            )
+            entry_runtime["search_service"] = str(execution.diagnostics.get("search_service") or "external_search")
+            entry_runtime["query_contract_external_fallback"] = True
+            for error_row in execution.errors:
+                local_errors.append({**dict(error_row), "query_contract_status": status})
+            for decision in execution.selected_candidates:
+                u = str(decision.url or "").strip()
+                if u:
+                    local_candidates.append(
+                        (
+                            u,
+                            {
+                                "site_entry_url": base_url,
+                                "entry_type": "domain_root",
+                                "resolved_entry_type": "external_search",
+                                "effective_entry_type": "external_search",
+                                "domain": entry_domain,
+                                "entry_domain": entry_domain,
+                                "tool": "external_site_search",
+                                "candidate_source": "external_search",
+                                "site_policy": policy.category,
+                                "query_contract_status": status,
+                                "query_contract_reason_codes": reason_codes,
+                                "matched_by": decision.matched_by,
+                                "route_kind": getattr(decision, "route_kind", "page"),
+                                "candidate_quality": decision.candidate_quality,
+                                "usable_for_search": decision.usable_for_search,
+                            },
+                            decision.score,
+                        )
+                    )
+            if execution.selected_candidates:
+                local_errors.append(
+                    {
+                        "site_url": base_url,
+                        "error": "external_search_fallback_used",
+                        "search_service_used": entry_runtime["search_service"],
+                        "query_contract_status": status,
+                        "query_contract_reason_codes": reason_codes,
+                    }
+                )
+            else:
+                local_errors.append(
+                    {
+                        "site_url": base_url,
+                        "error": "query_discovery_required_external_fallback_no_results",
+                        "error_class": "query_discovery_required",
+                        "query_contract_status": status,
+                        "query_contract_reason_codes": reason_codes,
+                        "exploration_request_status": str(exploration_request.get("status") or "requested"),
+                    }
+                )
+            return {"entry": None, "runtime": entry_runtime, "candidates": local_candidates, "errors": local_errors}
+
+        if status == "blocked":
+            terminal_reason = f"query_discovery_blocked_{primary_reason}"
+        elif status == "budget_exhausted":
+            terminal_reason = "query_discovery_budget_exhausted"
+        else:
+            terminal_reason = "query_discovery_required"
+        local_errors.append(
+            {
+                "site_url": base_url,
+                "error": terminal_reason,
+                "error_class": terminal_reason,
+                "query_contract_status": status,
+                "query_contract_reason_codes": reason_codes,
+                "exploration_request_status": str(exploration_request.get("status") or "requested"),
+            }
+        )
+        return {"entry": None, "runtime": entry_runtime, "candidates": local_candidates, "errors": local_errors}
+
     if not _entry_supports_query_terms(entry, etype):
         return {"entry": None, "runtime": entry_runtime, "candidates": local_candidates, "errors": local_errors}
     # Only keep sources that can accept keyword parameters directly.
@@ -738,15 +958,21 @@ def _process_query_route(
                     "search_service_used": "feed_native",
                 }
             )
+        candidate_filter_state = str(execution.diagnostics.get("candidate_filter_state") or "")
         if execution.used_term_fallback:
             local_errors.append(
                 {
                     "site_url": base_url,
-                    "error": (
-                        "url_term_filter_empty_fallback_used"
-                        if allow_term_fallback
-                        else "url_term_filter_empty_no_fallback"
-                    ),
+                    "error": "url_term_filter_empty_fallback_used",
+                }
+            )
+        elif candidate_filter_state == "term_filter_empty_no_fallback" or (
+            candidate_filter_state == "empty_no_raw_candidates" and terms and not allow_term_fallback
+        ):
+            local_errors.append(
+                {
+                    "site_url": base_url,
+                    "error": "url_term_filter_empty_no_fallback",
                 }
             )
         for decision in execution.selected_candidates:
@@ -790,15 +1016,21 @@ def _process_query_route(
                     "search_service_used": "sitemap_native",
                 }
             )
+        candidate_filter_state = str(execution.diagnostics.get("candidate_filter_state") or "")
         if execution.used_term_fallback:
             local_errors.append(
                 {
                     "site_url": base_url,
-                    "error": (
-                        "url_term_filter_empty_fallback_used"
-                        if allow_term_fallback
-                        else "url_term_filter_empty_no_fallback"
-                    ),
+                    "error": "url_term_filter_empty_fallback_used",
+                }
+            )
+        elif candidate_filter_state == "term_filter_empty_no_fallback" or (
+            candidate_filter_state == "empty_no_raw_candidates" and terms and not allow_term_fallback
+        ):
+            local_errors.append(
+                {
+                    "site_url": base_url,
+                    "error": "url_term_filter_empty_no_fallback",
                 }
             )
         for decision in execution.selected_candidates:
@@ -928,17 +1160,24 @@ def _process_query_route(
             entry_runtime["browser_candidate_deferred"] = True
             entry_runtime["browser_candidate_reason"] = "throttle_or_blocking_signals"
             entry_runtime["search_service_degraded_to"] = "browser_candidate_deferred"
+        candidate_filter_state = str(execution.diagnostics.get("candidate_filter_state") or "")
         if execution.used_term_fallback:
             local_errors.append(
                 {
                     "site_url": base_url,
-                    "error": (
-                        "url_term_filter_empty_fallback_used"
-                        if allow_term_fallback
-                        else "url_term_filter_empty_no_fallback"
-                    ),
+                    "error": "url_term_filter_empty_fallback_used",
                 }
             )
+        elif candidate_filter_state == "term_filter_empty_no_fallback" or (
+            candidate_filter_state == "empty_no_raw_candidates" and terms and not allow_term_fallback
+        ):
+            local_errors.append(
+                {
+                    "site_url": base_url,
+                    "error": "url_term_filter_empty_no_fallback",
+                }
+            )
+        if execution.used_term_fallback and execution.selected_candidates:
             entry_runtime["relevance_review_required"] = True
             entry_runtime["relevance_review_reason"] = "term_fallback_candidates"
         start_page, max_pages = _resolve_search_template_pagination(params)
@@ -1198,6 +1437,7 @@ def unified_search_by_item_payload(
     ingest_limit: int = 10,
     enable_extraction: bool = True,
     allow_term_fallback: bool = True,
+    query_discovery_budget: QueryDiscoveryBudget | None = None,
 ) -> UnifiedSearchResult:
     terms = _as_terms(query_terms)
     item_key = str(item.get("item_key") or "").strip()
@@ -1247,6 +1487,7 @@ def unified_search_by_item_payload(
             site_entry_urls=site_entry_urls,
             max_candidates=max_candidates,
         )
+    query_discovery_budget = query_discovery_budget or QueryDiscoveryBudget.from_params(params)
 
     used_entries: list[dict[str, object]] = []
     runtime_diagnostics: list[dict[str, object]] = []
@@ -1349,6 +1590,9 @@ def unified_search_by_item_payload(
                 sitemap_max_depth=sitemap_max_depth,
                 sitemap_max_sitemaps=sitemap_max_sitemaps,
                 external_search_enabled=external_search_enabled,
+                project_key=project_key,
+                item_key=item_key,
+                query_discovery_budget=query_discovery_budget,
                 local_errors=local_errors,
                 local_candidates=local_candidates,
             )
@@ -1534,4 +1778,5 @@ def unified_search_by_item_payload(
         ingest_result=ingest_result,
         errors=errors,
         relevance_review_queue=relevance_review_queue,
+        query_discovery_budget=dict(query_discovery_budget.diagnostics),
     )

@@ -631,6 +631,7 @@ class AgentSessionService:
         *,
         content: str,
         approval_id: str | None = None,
+        attachments: Sequence[dict[str, Any]] | None = None,
     ) -> dict[str, Any] | Failure:
         """Record a user message at the trusted host input boundary only."""
 
@@ -655,6 +656,8 @@ class AgentSessionService:
                 "user_message_id": context.user_message_id,
             },
         }
+        if attachments:
+            metadata["host_message"]["attachments"] = [dict(item) for item in attachments]
         if approval_id is not None:
             metadata["host_confirmation"] = {"approval_id": str(approval_id).strip()}
         return self.create_message(

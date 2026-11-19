@@ -1,5 +1,6 @@
 from celery.utils.dispatch.signal import Signal
 
+worker_init: Signal
 worker_process_init: Signal
 task_prerun: Signal
 task_postrun: Signal

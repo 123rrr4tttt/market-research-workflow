@@ -23,7 +23,7 @@ from functorial_kit import Failure
 
 from .assignments import AssignmentKind, require_digest
 
-_RUNTIME_CONTRACT_WITNESS = "test:test_w07_runtime_non_start_proof_negative"
+_RUNTIME_CONTRACT_WITNESS = "test:test_runtime_non_start_proof_negative"
 _T = TypeVar("_T")
 
 
@@ -104,13 +104,13 @@ class QueueEligibility:
 
     def __post_init__(self) -> None:
         if not self.project_key or not self.capability_id:
-            # kit:boundary owner=successor.runtime.resources.queue_eligibility class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_runtime_non_start_proof_negative
+            # kit:boundary owner=successor.runtime.resources.queue_eligibility class=PROGRAMMER_DEFECT failure_family=none witness=test:test_runtime_non_start_proof_negative
             raise ValueError("queue eligibility requires project and capability")
         if self.units <= 0:
-            # kit:boundary owner=successor.runtime.resources.queue_eligibility class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_runtime_non_start_proof_negative
+            # kit:boundary owner=successor.runtime.resources.queue_eligibility class=PROGRAMMER_DEFECT failure_family=none witness=test:test_runtime_non_start_proof_negative
             raise ValueError("queue eligibility units must be positive")
         if self.policy_epoch < 0:
-            # kit:boundary owner=successor.runtime.resources.queue_eligibility class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_runtime_non_start_proof_negative
+            # kit:boundary owner=successor.runtime.resources.queue_eligibility class=PROGRAMMER_DEFECT failure_family=none witness=test:test_runtime_non_start_proof_negative
             raise ValueError("queue eligibility policy_epoch must be >= 0")
         require_digest(self.policy_digest, "policy_digest")
 
@@ -156,10 +156,10 @@ class ResourcePolicySnapshot:
             self.max_units,
         )
         if any(value <= 0 for value in ceilings):
-            # kit:boundary owner=successor.runtime.resources.policy class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_runtime_non_start_proof_negative
+            # kit:boundary owner=successor.runtime.resources.policy class=PROGRAMMER_DEFECT failure_family=none witness=test:test_runtime_non_start_proof_negative
             raise ValueError("resource policy ceilings must be positive")
         if self.max_provider_active is not None and self.max_provider_active <= 0:
-            # kit:boundary owner=successor.runtime.resources.policy class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_runtime_non_start_proof_negative
+            # kit:boundary owner=successor.runtime.resources.policy class=PROGRAMMER_DEFECT failure_family=none witness=test:test_runtime_non_start_proof_negative
             raise ValueError("provider ceiling must be positive")
 
 
@@ -180,7 +180,7 @@ class ResourceUsage:
             self.active_units,
             self.provider_active,
         ) < 0:
-            # kit:boundary owner=successor.runtime.resources.usage class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_runtime_non_start_proof_negative
+            # kit:boundary owner=successor.runtime.resources.usage class=PROGRAMMER_DEFECT failure_family=none witness=test:test_runtime_non_start_proof_negative
             raise ValueError("resource usage cannot be negative")
 
 
@@ -285,7 +285,7 @@ class ExecutionReservation:
     ) -> ExecutionReservation:
         require_digest(attempt_id, "attempt_id")
         if execution_epoch < 0 or not lease_token:
-            # kit:boundary owner=successor.runtime.resources.reservation class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_runtime_non_start_proof_negative
+            # kit:boundary owner=successor.runtime.resources.reservation class=PROGRAMMER_DEFECT failure_family=none witness=test:test_runtime_non_start_proof_negative
             raise ValueError("reservation requires execution epoch and lease token")
         content: dict[str, object] = {
             "work_item_id": work_item_id,
@@ -352,13 +352,13 @@ class FairSharePolicy:
             self.max_capability_active,
             self.claim_cycle_seconds,
         ) <= 0:
-            # kit:boundary owner=successor.runtime.resources.fair_share_policy class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_runtime_non_start_proof_negative
+            # kit:boundary owner=successor.runtime.resources.fair_share_policy class=PROGRAMMER_DEFECT failure_family=none witness=test:test_runtime_non_start_proof_negative
             raise ValueError("fair-share quanta must be positive")
         if self.max_declared_priority < 0 or self.max_aging_boost < 0:
-            # kit:boundary owner=successor.runtime.resources.fair_share_policy class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_runtime_non_start_proof_negative
+            # kit:boundary owner=successor.runtime.resources.fair_share_policy class=PROGRAMMER_DEFECT failure_family=none witness=test:test_runtime_non_start_proof_negative
             raise ValueError("priority bounds must be non-negative")
         if self.max_aging_boost < self.max_declared_priority:
-            # kit:boundary owner=successor.runtime.resources.fair_share_policy class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_runtime_non_start_proof_negative
+            # kit:boundary owner=successor.runtime.resources.fair_share_policy class=PROGRAMMER_DEFECT failure_family=none witness=test:test_runtime_non_start_proof_negative
             raise ValueError("aging boost must span the declared priority range")
 
 
@@ -377,10 +377,10 @@ class FairClaimCandidate:
         if not all(
             (self.work_item_id, self.project_key, self.capability_id, self.fairness_key)
         ):
-            # kit:boundary owner=successor.runtime.resources.fair_claim_candidate class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_runtime_non_start_proof_negative
+            # kit:boundary owner=successor.runtime.resources.fair_claim_candidate class=PROGRAMMER_DEFECT failure_family=none witness=test:test_runtime_non_start_proof_negative
             raise ValueError("fair candidate identities cannot be empty")
         if self.declared_priority < 0 or self.enqueue_seq < 0:
-            # kit:boundary owner=successor.runtime.resources.fair_claim_candidate class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_runtime_non_start_proof_negative
+            # kit:boundary owner=successor.runtime.resources.fair_claim_candidate class=PROGRAMMER_DEFECT failure_family=none witness=test:test_runtime_non_start_proof_negative
             raise ValueError("priority and enqueue sequence must be non-negative")
 
 

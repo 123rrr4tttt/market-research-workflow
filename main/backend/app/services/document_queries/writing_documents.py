@@ -5,7 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 from sqlalchemy.sql.selectable import Select
 
-from mrw_functorial_kit.core.w04_service_semantics import writing_failures
+from mrw_functorial_kit.core.service_failure_semantics import writing_failures
 
 from ...models.writing_entities import WritingDocument, WritingDocumentCitation, WritingDocumentDraft
 
@@ -30,9 +30,9 @@ def require_active_document(session: Session, *, doc_id: int, project_key: str) 
     if isinstance(result, Failure):
         context = result.context or {}
         if not writing_failures.matches(result) or context.get("public_exception") != "KeyError":
-            # kit:boundary owner=document_queries.writing_documents.failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w04_writing_document_query_failure_lift
+            # kit:boundary owner=document_queries.writing_documents.failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_writing_document_query_failure_lift
             raise TypeError("writing document failure lift context is incomplete or inconsistent")
-        # kit:boundary owner=document_queries.writing_documents.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=writing.failure witness=test:test_w04_writing_document_query_failure_lift
+        # kit:boundary owner=document_queries.writing_documents.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=writing.failure witness=test:test_writing_document_query_failure_lift
         raise KeyError(str(context.get("public_message") or result.message))
     return result
 

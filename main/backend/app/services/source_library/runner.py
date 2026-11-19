@@ -156,12 +156,12 @@ def _raise_crawler_option_failure(
         or public_exception not in {"TypeError", "ValueError"}
         or context.get("public_message") != failure.message
     ):
-        # kit:boundary owner=source_library.runner.crawler_option_failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w03_crawler_failure_lifts
+        # kit:boundary owner=source_library.runner.crawler_option_failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_crawler_failure_lifts
         raise TypeError(_CRAWLER_OPTION_FAILURE_LIFT_INVALID)
     if public_exception == "TypeError":
-        # kit:boundary owner=source_library.runner.crawler_option_failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=crawler.runtime.failure witness=test:test_w03_crawler_failure_lifts
+        # kit:boundary owner=source_library.runner.crawler_option_failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=crawler.runtime.failure witness=test:test_crawler_failure_lifts
         raise TypeError(failure.message) from cause
-    # kit:boundary owner=source_library.runner.crawler_option_failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=crawler.runtime.failure witness=test:test_w03_crawler_failure_lifts
+    # kit:boundary owner=source_library.runner.crawler_option_failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=crawler.runtime.failure witness=test:test_crawler_failure_lifts
     raise ValueError(failure.message) from cause
 
 
@@ -298,8 +298,8 @@ def _dispatch_provider_effect(
 
 _handlers_registered = False
 _CRAWLER_PROVIDER_TYPES = {"scrapy", "crawlee", "meltano"}
-_FAILURE_WITNESS = "test:test_w01_source_export_failures"
-_CRAWLER_FAILURE_WITNESS = "test:test_w03_crawler_failure_lifts"
+_FAILURE_WITNESS = "test:test_source_configuration_and_report_export_failures"
+_CRAWLER_FAILURE_WITNESS = "test:test_crawler_failure_lifts"
 
 
 def _crawler_effect_failure(code: str, message: str, *, site: str, **details: object) -> Failure:
@@ -412,9 +412,9 @@ def _raise_runner_failure(failure: Failure) -> NoReturn:
         or context.get("public_exception") != "ValueError"
         or context.get("public_message") != failure.message
     ):
-        # kit:boundary owner=source_library.runner.failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w01_source_export_failures
+        # kit:boundary owner=source_library.runner.failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_source_configuration_and_report_export_failures
         raise TypeError(_RUNNER_FAILURE_LIFT_INVALID)
-    # kit:boundary owner=source_library.runner.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=source_library.contract_failure witness=test:test_w01_source_export_failures
+    # kit:boundary owner=source_library.runner.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=source_library.contract_failure witness=test:test_source_configuration_and_report_export_failures
     raise ValueError(str(context["public_message"]))
 
 

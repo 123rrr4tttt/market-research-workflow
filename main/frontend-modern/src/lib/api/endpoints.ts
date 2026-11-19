@@ -22,12 +22,6 @@ export const endpoints = {
     promptTimeDensity: `${API_BASE}/stats/prompt-time-density`,
     promptTimeDensityPriority: `${API_BASE}/stats/prompt-time-density/priority`,
   },
-  businessLines: {
-    evidenceMatrix: `${API_BASE}/business-lines/evidence-matrix`,
-    scheduledMatrixArtifactSummary: `${API_BASE}/business-lines/scheduled-matrix-artifact-summary`,
-    scheduledArtifactSummaries: `${API_BASE}/business-lines/scheduled-artifact-summaries`,
-    scheduledArtifactDrilldown: `${API_BASE}/business-lines/scheduled-artifact-drilldown`,
-  },
   projects: {
     root: `${API_BASE}/projects`,
     byKey: (projectKey: string) => `${API_BASE}/projects/${encodeURIComponent(projectKey)}`,

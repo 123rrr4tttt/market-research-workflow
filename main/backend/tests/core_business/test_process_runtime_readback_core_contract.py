@@ -650,3 +650,166 @@ def test_process_db_job_exact_endpoint_binds_project_key_for_runtime_readback(
     assert data["line_key"] == "writing_knowledge_graph_agent"
     assert data["readback_endpoint"] == "/api/v1/process/writing-task-505?project_key=demo_proj"
     assert data["readback_path"] == "/api/v1/process/writing-task-505?project_key=demo_proj"
+
+
+@pytest.mark.parametrize(
+    ("terminal_status", "job_status"),
+    [("ok", "completed"), ("partial", "partial"), ("failed", "failed"),
+     ("error", "failed"), ("cancelled", "cancelled"), ("accepted", "accepted")],
+)
+def test_source_item_worker_persists_original_terminal_status_and_transport_identity(
+    terminal_status: str, job_status: str,
+    core_business_client,
+    contract_headers: dict[str, str],
+) -> None:
+    from app.services.tasks import task_run_source_library_item
+
+    result = {"terminal_output": {"status": terminal_status, "errors": []}, "inserted": 0}
+    task_run_source_library_item.push_request(
+        id="source-task-original", hostname="worker@source", delivery_info={"routing_key": "source-q"},
+    )
+    try:
+        with (
+            patch("app.services.tasks.bind_project", return_value=contextlib.nullcontext()),
+            patch("app.services.tasks.start_job", return_value=950) as start,
+            patch("app.services.tasks.complete_job") as complete,
+            patch("app.services.tasks.update_job_tracking") as update,
+            patch("app.services.tasks.fail_job") as fail,
+            patch("app.services.collect_runtime.run_source_library_item_compat", return_value=result),
+        ):
+            observed = task_run_source_library_item.run(
+                "source-original", project_key="project_alpha", line_key="resource_source_library",
+                trace_id="source-trace-original",
+            )
+    finally:
+        task_run_source_library_item.pop_request()
+
+    start.assert_called_once()
+    assert start.call_args.args[0] == "source_item_task"
+    assert start.call_args.kwargs["external_job_id"] == "source-task-original"
+    params = start.call_args.args[1]
+    assert params["runtime_readback"]["project_key"] == "project_alpha"
+    assert params["runtime_readback"]["line_key"] == "resource_source_library"
+    assert params["runtime_readback"]["task_id"] == "source-task-original"
+    assert params["runtime_readback"]["trace_id"] == "source-trace-original"
+    assert observed["terminal_output"] == result["terminal_output"]
+    assert observed["runtime_readback"]["status"] == job_status
+    if job_status == "accepted":
+        complete.assert_not_called()
+        update.assert_called_once_with(950, status="accepted", result=observed, external_job_id="source-task-original")
+        assert not any(event["event"] == "completed" for event in observed["runtime_readback"]["events"])
+    else:
+        complete.assert_called_once_with(950, status=job_status, result=observed, external_job_id="source-task-original")
+        update.assert_not_called()
+    fail.assert_not_called()
+    now = datetime(2026, 10, 14, 12, 0, 0)
+    stored = SimpleNamespace(
+        id=950, job_type="source_item_task", status=job_status,
+        params={**params, **observed},
+        started_at=now - timedelta(seconds=1),
+        finished_at=None if job_status == "accepted" else now,
+        error=None, external_provider=None,
+        external_job_id="source-task-original", retry_count=0,
+    )
+    with (
+        patch("app.api.process.celery_app.control.inspect", return_value=_empty_inspect()),
+        patch("app.api.process.SessionLocal", new=_RuntimeReadbackSessionLocal([stored])),
+    ):
+        response = core_business_client.get(
+            "/api/v1/process/source-task-original?project_key=project_alpha", headers=contract_headers,
+        )
+    assert response.status_code == 200, response.text
+    detail = response.json()["data"]
+    assert detail["task_id"] == "source-task-original"
+    stored_payload = detail["progress"] if job_status == "accepted" else detail["result"]
+    assert stored_payload["terminal_output"]["status"] == terminal_status
+    assert stored_payload["runtime_readback"]["status"] == job_status
+    assert detail["ready"] is (job_status != "accepted")
+    assert detail["trace_id"] == "source-trace-original"
+    if job_status == "accepted":
+        assert detail["ended_at"] is None
+
+
+def test_source_item_worker_records_exception_and_reraises_original() -> None:
+    from app.services.tasks import task_run_source_library_item
+
+    original = RuntimeError("source original failure")
+    task_run_source_library_item.push_request(id="source-task-failed")
+    try:
+        with (
+            patch("app.services.tasks.bind_project", return_value=contextlib.nullcontext()),
+            patch("app.services.tasks.start_job", return_value=951),
+            patch("app.services.tasks.complete_job") as complete,
+            patch("app.services.tasks.fail_job") as fail,
+            patch("app.services.collect_runtime.run_source_library_item_compat", side_effect=original),
+        ):
+            with pytest.raises(RuntimeError) as raised:
+                task_run_source_library_item.run("source-original", project_key="project_alpha")
+    finally:
+        task_run_source_library_item.pop_request()
+    assert raised.value is original
+    fail.assert_called_once_with(951, str(original), external_job_id="source-task-failed")
+    complete.assert_not_called()
+
+
+def test_market_worker_reuses_inner_job_and_process_reads_same_transport_identity(
+    core_business_client,
+    contract_headers: dict[str, str],
+) -> None:
+    from app.services.tasks import task_ingest_market
+    from app.services.collect_runtime.adapters.search_market import SearchMarketAdapter
+    from app.services.ingest.search_and_ingest import SearchIngestResult
+    from app.services.search.candidate_contracts import CandidateBundle, CandidateSearchRequest
+
+    request = CandidateSearchRequest(topic="market-test", keywords=("market-test",), max_results=1)
+    collection = SearchIngestResult(
+        bundle=CandidateBundle(request, (), (), (), "no_candidates_observed"),
+        links=(), inserted=0, skipped=0, missing_urls=(), routed={},
+    )
+    task_ingest_market.push_request(
+        id="market-task-original", hostname="worker@market", delivery_info={"routing_key": "market-q"},
+    )
+    try:
+        with (
+            patch("app.services.tasks.bind_project", return_value=contextlib.nullcontext()),
+            patch("app.services.tasks.start_job") as outer_start,
+            patch("app.services.collect_runtime.run_collect", side_effect=SearchMarketAdapter().run),
+            patch("app.services.ingest.market_web.SessionLocal", side_effect=lambda: contextlib.nullcontext()),
+            patch("app.services.ingest.market_web._get_or_create_source"),
+            patch("app.services.ingest.market_web.run_search_and_ingest", return_value=collection),
+            patch("app.services.ingest.market_web.start_job", return_value=952) as start,
+            patch("app.services.ingest.market_web.complete_job") as complete,
+            patch("app.services.ingest.market_web.fail_job") as fail,
+        ):
+            observed = task_ingest_market.run(
+                ["market-test"], max_items=1, project_key="project_alpha", trace_id="market-trace-original",
+            )
+    finally:
+        task_ingest_market.pop_request()
+
+    outer_start.assert_not_called()
+    start.assert_called_once()
+    assert start.call_args.args[0] == "market_info"
+    assert start.call_args.kwargs["external_job_id"] == "market-task-original"
+    fail.assert_not_called()
+    params = {**start.call_args.args[1], **complete.call_args.kwargs["result"], "project_key": "project_alpha"}
+    now = datetime(2026, 10, 14, 12, 0, 0)
+    job = SimpleNamespace(
+        id=952, job_type="market_info", status="completed", params=params,
+        started_at=now - timedelta(seconds=1), finished_at=now, error=None,
+        external_provider=None, external_job_id="market-task-original", retry_count=0,
+    )
+    with (
+        patch("app.api.process.celery_app.control.inspect", return_value=_empty_inspect()),
+        patch("app.api.process.SessionLocal", new=_RuntimeReadbackSessionLocal([job])),
+    ):
+        response = core_business_client.get(
+            "/api/v1/process/market-task-original?project_key=project_alpha", headers=contract_headers,
+        )
+    assert response.status_code == 200, response.text
+    detail = response.json()["data"]
+    assert detail["task_id"] == "market-task-original"
+    assert detail["status"] == observed["runtime_readback"]["status"] == "completed"
+    assert detail["trace_id"] == "market-trace-original"
+    assert detail["line_key"] == "search_discovery_index"
+    assert detail["result"]["inserted"] == observed["inserted"] == 0

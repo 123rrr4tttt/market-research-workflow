@@ -295,7 +295,7 @@ def build_material_query_statement(
 ) -> Annotated[
     Select[tuple[Material]],
     "kit:prepared-command effect_boundary=material_query_statement "
-    "witness=test:test_w04_authority_metadata",
+    "witness=test:test_service_results_declare_sources_and_effect_authority",
 ]:
     return apply_material_query_to_statement(query)
 

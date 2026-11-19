@@ -9,8 +9,6 @@ manufacturing a terminal sequence.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
-from dataclasses import dataclass
 from enum import StrEnum
 from typing import Literal
 
@@ -52,12 +50,7 @@ AGENT_SESSION_PROJECTOR_ID = "mrw.task.session-observation.projector.v1"
 AGENT_SESSION_PROJECTOR_VERSION = "1.0.0"
 AGENT_SESSION_SNAPSHOT_SCHEMA_V1 = "mrw.task.session-observation.v1"
 AGENT_TASK_SNAPSHOT_SCHEMA_V1 = "mrw.task.observation.v1"
-HISTORICAL_AGENT_SESSION_PROJECTOR_ID = (
-    "successor.agent_session.journal_projection.v1"
-)
-HISTORICAL_AGENT_SESSION_SNAPSHOT_SCHEMA_V1 = (
-    "mrw.successor.agent-session-snapshot.v1"
-)
+
 
 
 class SessionStatus(StrEnum):
@@ -390,36 +383,6 @@ class PostgresAgentSessionReadAdapter:
         )
 
 
-@dataclass(frozen=True, slots=True)
-class HistoricalAgentSessionSnapshotRead:
-    """Explicit historical v1 snapshot decode; its digest is never rehashed."""
-
-    schema_version: Literal["mrw.successor.agent-session-snapshot.v1"]
-    content: Mapping[str, object]
-    projection_digest: str
-
-
-def read_historical_agent_session_snapshot(
-    payload: Mapping[str, object],
-) -> HistoricalAgentSessionSnapshotRead:
-    """Decode one historical snapshot without changing its identity."""
-
-    if payload.get("schema_version") != HISTORICAL_AGENT_SESSION_SNAPSHOT_SCHEMA_V1:
-        raise AgentSessionProjectionError(
-            "historical agent-session snapshot schema mismatch"
-        )
-    digest = payload.get("projection_digest")
-    if not isinstance(digest, str) or len(digest) != 64:
-        raise AgentSessionProjectionError(
-            "historical agent-session projection digest is invalid"
-        )
-    return HistoricalAgentSessionSnapshotRead(
-        schema_version=HISTORICAL_AGENT_SESSION_SNAPSHOT_SCHEMA_V1,
-        content=payload,
-        projection_digest=digest,
-    )
-
-
 __all__ = [
     "AGENT_SESSION_PROJECTOR_ID",
     "AGENT_SESSION_PROJECTOR_VERSION",
@@ -428,12 +391,8 @@ __all__ = [
     "AgentSessionProjectionError",
     "AgentSessionSnapshot",
     "AgentTaskSnapshot",
-    "HISTORICAL_AGENT_SESSION_PROJECTOR_ID",
-    "HISTORICAL_AGENT_SESSION_SNAPSHOT_SCHEMA_V1",
-    "HistoricalAgentSessionSnapshotRead",
     "PostgresAgentSessionReadAdapter",
     "SessionStatus",
     "TaskStatus",
     "fold_agent_session",
-    "read_historical_agent_session_snapshot",
 ]

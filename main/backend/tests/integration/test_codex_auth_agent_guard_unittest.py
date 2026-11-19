@@ -179,7 +179,11 @@ def test_macro_http_ingress_preserves_only_current_mrw_actor(monkeypatch, creden
     elif credential in {"session", "revoked", "expired"}:
         headers["Cookie"] = "codex_session=active-session"
     payload = {"threadId": "thread", "turnId": "turn"}
-    payload.update({"content": "read"} if route == "record-input" else {"callId": "call", "tool": "demo.read"})
+    payload.update(
+        {"content": "read", "admissionId": "admission"}
+        if route == "record-input"
+        else {"callId": "call", "tool": "demo.read"}
+    )
     if route in {"url", "graph", "batch"}:
         from fastapi import HTTPException
         import app.services.request_identity as identity
@@ -217,7 +221,7 @@ def test_macro_http_ingress_preserves_only_current_mrw_actor(monkeypatch, creden
         assert seen == []
 
 
-@pytest.mark.parametrize("route", ["record-input", "dispatch"])
+@pytest.mark.parametrize("route", ["prepare-turn", "record-input", "dispatch"])
 def test_local_single_user_http_ingress_projects_stable_host_actor(monkeypatch, route):
     if _IMPORT_ERROR is not None:
         pytest.skip(str(_IMPORT_ERROR))
@@ -232,6 +236,7 @@ def test_local_single_user_http_ingress_projects_stable_host_actor(monkeypatch, 
 
     seen = []
     fake = SimpleNamespace(
+        prepare_turn=lambda **kwargs: seen.append(kwargs) or {"admissionId": "admission"},
         record_input=lambda **kwargs: seen.append(kwargs) or {"recorded": True},
         dispatch=lambda **kwargs: seen.append(kwargs) or {"success": True},
     )
@@ -260,12 +265,11 @@ def test_local_single_user_http_ingress_projects_stable_host_actor(monkeypatch, 
         "X-MRW-Server-API-Key": "webui-service-key",
         "X-Actor-Id": "forged",
     }
-    payload = {"threadId": "thread", "turnId": "turn"}
-    payload.update(
-        {"content": "read"}
-        if route == "record-input"
-        else {"callId": "call", "tool": "demo.read"}
-    )
+    payload = {"threadId": "thread"}
+    if route == "record-input":
+        payload.update({"turnId": "turn", "content": "read", "admissionId": "admission"})
+    elif route == "dispatch":
+        payload.update({"turnId": "turn", "callId": "call", "tool": "demo.read"})
 
     response = TestClient(
         backend_app, client=("127.0.0.1", 50000)

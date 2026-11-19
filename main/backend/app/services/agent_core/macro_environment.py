@@ -39,6 +39,12 @@ _ACTIVATE_TOOL_NAME = "agent_macro.registration_package.activate"
 _REGISTRATION_ARTIFACT_TYPE = "agent_macro.registration_package"
 _REGISTRATION_NAME_PREFIX = "macro-registration/"
 
+SYSTEM_NAVIGATION_INSTRUCTIONS = (
+    "You are the MRW native Agent. Use agent_runtime.system.inspect to discover the MRW system: "
+    "start from its root, use query or ref to read bounded pages as needed, then call the original "
+    "registered tool shown by its directory entry. Preserve its permission, failure and readback semantics."
+)
+
 
 def _is_object_mapping(value: object) -> TypeGuard[Mapping[object, object]]:
     return isinstance(value, Mapping)
@@ -152,6 +158,7 @@ class ResolvedMacroEnvironment:
             "declared_tool_names": [spec.name for spec in self.declared_tools],
             "facilities": [binding.to_projection() for binding in self.facilities],
             "package_version_digests": version_digests,
+            "system_instructions": SYSTEM_NAVIGATION_INSTRUCTIONS,
         }
 
 
@@ -718,7 +725,8 @@ def assemble_native_macro_binding(
         ),
         developer_instructions=(
             "Apply the mounted skill content after the original user input. Preserve project "
-            "identity, tool failures, readback states and package identity exactly."
+            "identity, tool failures, readback states and package identity exactly. "
+            f"{SYSTEM_NAVIGATION_INSTRUCTIONS}"
         ),
         sandbox="workspace-write",
     )

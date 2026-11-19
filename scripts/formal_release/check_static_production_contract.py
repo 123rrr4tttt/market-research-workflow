@@ -824,36 +824,38 @@ def check_release_identity(inputs: ContractInputs, root: Path) -> Finding:
         return blocked("release.identity_alignment", "release identity inputs are unavailable", tuple(evidence))
     try:
         services = production_services(inputs.compose)
-        backend_env = service_environment(services["backend"], "backend")
+        service_versions = {
+            name: service_environment(services[name], name).get("SERVICE_VERSION", "").strip()
+            for name in ("backend", "celery-worker")
+        }
     except StrictParseError as exc:
-        return blocked("release.identity_alignment", "backend identity contract is not resolvable", (str(exc),))
+        return blocked("release.identity_alignment", "service identity contract is not resolvable", (str(exc),))
     project = pyproject.get("project") if isinstance(pyproject, dict) else None
     root_version = str(project.get("version", "") if isinstance(project, dict) else "").strip()
     frontend_version = str(frontend.get("version", "") if isinstance(frontend, dict) else "").strip()
-    backend_version = backend_env.get("SERVICE_VERSION", "").strip()
     evidence = [
         f"{PYPROJECT_PATH.as_posix()} version={root_version or '<missing>'}",
         f"{FRONTEND_PATH.as_posix()} version={frontend_version or '<missing>'}",
-        f"{COMPOSE_PATH.as_posix()} backend.SERVICE_VERSION={backend_version or '<missing>'}",
+        *(
+            f"{COMPOSE_PATH.as_posix()} {name}.SERVICE_VERSION={version or '<missing>'}"
+            for name, version in service_versions.items()
+        ),
     ]
-    statuses = {
-        "root": release_version_status(root_version),
-        "frontend": release_version_status(frontend_version),
-        "backend": release_version_status(backend_version),
-    }
-    aligned = all(ok for ok, _ in statuses.values()) and root_version == frontend_version == backend_version
+    versions = {"root": root_version, "frontend": frontend_version, **service_versions}
+    statuses = {name: release_version_status(version) for name, version in versions.items()}
+    aligned = all(ok for ok, _ in statuses.values()) and len(set(versions.values())) == 1
     if not aligned:
         reasons = [f"{name}={reason}" for name, (ok, reason) in statuses.items() if not ok]
         if not reasons:
             reasons.append("versions_differ")
         return fail_finding(
             "release.identity_alignment",
-            "root, frontend, and backend must share one stable release version",
+            "root, frontend, backend and worker must share one stable release version",
             tuple(evidence + [";".join(reasons)]),
         )
     return pass_finding(
         "release.identity_alignment",
-        "root, frontend, and backend share one stable release version",
+        "root, frontend, backend and worker share one stable release version",
         tuple(evidence),
     )
 
@@ -1211,7 +1213,6 @@ def check_workflow_security(
         "python scripts/formal_release/check_functorial_kit_dependency_audit.py",
         "--requirements main/backend/requirements.txt",
         "--pyproject pyproject.toml",
-        "--manifest tools/functorial-kit/consumer-gate.manifest.json",
         "--source-checkout .ci/functorial-kit-source",
         '--public-requirements "${RUNNER_TEMP}/mrw-public-pypi-requirements.txt"',
         '--report "${RUNNER_TEMP}/mrw-functorial-kit-dependency-audit.json"',
@@ -1223,7 +1224,7 @@ def check_workflow_security(
             step.get("uses") == "actions/checkout@v4"
             and isinstance(step_with, dict)
             and step_with.get("repository") == "123rrr4tttt/functorial-kit"
-            and step_with.get("ref") == "785ff25e201c9eae84c862e68e786bc975e7a800"
+            and step_with.get("ref") == "6dbae536a72ab235998b21c9647b8b00d15a71e6"
             and step_with.get("path") == ".ci/functorial-kit-source"
             and step_with.get("persist-credentials") is False
         ):

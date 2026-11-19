@@ -100,8 +100,8 @@ class VerificationBinding(ContentAddressedBinding):
     def validate_ordered_event_closure(self) -> "VerificationBinding":
         expected = ordered_event_closure_digest(self.ordered_event_payload_digests)
         if self.ordered_event_payload_closure_digest != expected:
-            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
-            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
+            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_runtime_failure_lift_context
+            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_runtime_failure_lift_context
             raise ValueError("ordered event payload closure digest mismatch")
         return self
 
@@ -118,15 +118,15 @@ class VerificationBinding(ContentAddressedBinding):
         if payloads is None:
             payloads = content.pop("ordered_event_records", None)
         if payloads is None:
-            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
+            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_runtime_failure_lift_context
             raise ValueError("ordered_event_payloads are required")
         if "ordered_event_payload_digests" in content or (
             "ordered_event_payload_closure_digest" in content
         ):
-            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
+            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_runtime_failure_lift_context
             raise ValueError("ordered event digests are derived from payloads")
         if not _is_object_sequence(payloads) or not payloads:
-            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
+            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_runtime_failure_lift_context
             raise ValueError("ordered_event_payloads must be a non-empty sequence")
         digests = tuple(event_payload_digest(payload) for payload in payloads)
         return super().from_content(
@@ -140,10 +140,10 @@ class VerificationBinding(ContentAddressedBinding):
     ) -> None:
         actual = tuple(event_payload_digest(payload) for payload in ordered_event_payloads)
         if actual != self.ordered_event_payload_digests:
-            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
+            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_runtime_failure_lift_context
             raise ValueError("ordered event payload bytes drift")
         if ordered_event_closure_digest(actual) != self.ordered_event_payload_closure_digest:
-            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
+            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_runtime_failure_lift_context
             raise ValueError("ordered event closure drift")
 
 
@@ -216,51 +216,51 @@ def require_admission_binding(
     """
 
     if intent.state is not CommitIntentState.PREPARED:
-        # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
+        # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_runtime_failure_lift_context
         raise ValueError("commit intent is not prepared")
     binding.require_exact_ordered_event_payloads(ordered_event_payloads)
     if binding.binding_digest != intent.verification_binding_digest:
-        # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
+        # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_runtime_failure_lift_context
         raise ValueError("verification binding drift")
     if (
         binding.canonical_owner != intent.canonical_owner
         or binding.project_key != intent.project_key
         or binding.canonical_object_id != intent.object_id
     ):
-        # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
+        # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_runtime_failure_lift_context
         raise ValueError("canonical identity drift")
     if (
         binding.project_registry_revision != intent.project_registry_revision
         or binding.project_scope_digest != intent.project_scope_digest
     ):
-        # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
+        # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_runtime_failure_lift_context
         raise ValueError("project scope drift")
     if (
         binding.authority_digest != intent.authority_digest
         or binding.authority_digest != current_authority_digest
     ):
-        # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
+        # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_runtime_failure_lift_context
         raise ValueError("authority drift before canonical commit")
     if (
         binding.canonical_base_revision != intent.expected_base_revision
         or binding.canonical_base_revision != current_base_revision
     ):
-        # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
+        # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_runtime_failure_lift_context
         raise ValueError("canonical base revision drift")
     if (
         binding.canonical_incarnation != intent.expected_incarnation
         or binding.canonical_incarnation != current_incarnation
     ):
-        # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
+        # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_runtime_failure_lift_context
         raise ValueError("canonical incarnation drift")
     if binding.output_content_digest != intent.content_digest:
-        # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
+        # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_runtime_failure_lift_context
         raise ValueError("candidate content drift")
     if (
         binding.ordered_event_payload_closure_digest
         != intent.ordered_event_closure_digest
     ):
-        # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
+        # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_runtime_failure_lift_context
         raise ValueError("ordered event closure drift")
 
 

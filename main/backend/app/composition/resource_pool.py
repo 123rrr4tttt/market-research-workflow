@@ -12,6 +12,7 @@ from app.services.ingest.retry_policy import RequestScope
 from app.services.search import web
 from app.services.resource_pool.http_port import (
     HttpFetchResponse,
+    SameOriginHttpTargetPolicy,
     set_http_fetch_port,
     set_official_access_port,
 )
@@ -29,6 +30,7 @@ class RequestsHttpFetchPort:
         timeout: float = 30.0,
         retries: int = 3,
         backoff: float = 1.5,
+        target_policy: SameOriginHttpTargetPolicy | None = None,
     ) -> tuple[str, HttpFetchResponse]:
         text, response = http_utils.fetch_html(
             url,
@@ -38,6 +40,7 @@ class RequestsHttpFetchPort:
             timeout=timeout,
             retries=retries,
             backoff=backoff,
+            target_policy=target_policy,
         )
         return text, HttpFetchResponse(
             text=response.text,

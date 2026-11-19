@@ -33,7 +33,7 @@ from .context import bind_project
 logger = logging.getLogger(__name__)
 
 
-_PROJECT_WORKFLOW_FAILURE_WITNESS = "test:test_w01_project_identity_failures"
+_PROJECT_WORKFLOW_FAILURE_WITNESS = "test:test_project_context_and_workflow_lifts_preserve_public_messages"
 _PROJECT_WORKFLOW_FAILURE_CONTEXT_KEYS = frozenset(
     {
         "boundary_class",
@@ -72,11 +72,11 @@ def _raise_workflow_failure(failure: Failure) -> NoReturn:
         or _PROJECT_WORKFLOW_FAILURE_CONTEXT_KEYS - set(context)
         or context.get("public_exception") != "ValueError"
     ):
-        # kit:boundary owner=projects.workflow.failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w01_project_context_and_workflow_lifts_preserve_public_messages
+        # kit:boundary owner=projects.workflow.failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_project_context_and_workflow_lifts_preserve_public_messages
         raise TypeError(  # noqa: TRY003
             "project workflow failure lift context is incomplete"
         )
-    # kit:boundary owner=projects.workflow.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=project.operation.failure witness=test:test_w01_project_context_and_workflow_lifts_preserve_public_messages
+    # kit:boundary owner=projects.workflow.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=project.operation.failure witness=test:test_project_context_and_workflow_lifts_preserve_public_messages
     raise ValueError(str(context["public_message"]))
 
 ProjectWorkflowKernel = Callable[[dict[str, Any]], dict[str, Any]]

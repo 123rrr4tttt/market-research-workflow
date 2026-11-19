@@ -33,7 +33,7 @@ from app.successor_runtime.substrate.postgres.runtime_activation import Activati
 from app.successor_runtime.substrate.postgres.idempotency import IdempotencyBinding
 from app.successor_runtime.substrate.postgres.models import PUBLIC_TABLES
 from app.successor_runtime.substrate.postgres.runtime_journal import ExactBindingConflict
-from .test_p0b_postgres_integration import (PROJECT_KEY, PROJECT_SCHEMA, REGISTRY_REVISION, SCOPE_DIGEST, SCOPE_INCARNATION,
+from .test_runtime_substrate_postgres_integration import (PROJECT_KEY, PROJECT_SCHEMA, REGISTRY_REVISION, SCOPE_DIGEST, SCOPE_INCARNATION,
     LiveDatabase, _seed_run, _digest, empty_successor_tables as empty_successor_tables, live_database as live_database)
 
 

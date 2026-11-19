@@ -42,7 +42,7 @@ class WritingKeywordCardsApiIntegrationTestCase(unittest.TestCase):
             cards=[
                 KeywordCardItem(
                     card_id="card-1",
-                    source_type="document",
+                    source_type="material",
                     title="Doc",
                     snippet="Snippet",
                     score=0.8,
@@ -67,7 +67,7 @@ class WritingKeywordCardsApiIntegrationTestCase(unittest.TestCase):
                     title="Doc",
                     snippet="Preview",
                     score=0.8,
-                    source_type="document",
+                    source_type="material",
                 ),
             ),
             patch(
@@ -76,7 +76,7 @@ class WritingKeywordCardsApiIntegrationTestCase(unittest.TestCase):
                     card_id="card-1",
                     title="Doc",
                     score=0.8,
-                    source_type="document",
+                    source_type="material",
                 ),
             ),
         ):

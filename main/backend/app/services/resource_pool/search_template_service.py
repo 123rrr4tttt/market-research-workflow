@@ -13,7 +13,10 @@ from urllib.parse import parse_qs, parse_qsl, unquote, urlencode, urlsplit, urlu
 
 from functorial_kit import Failure
 
-from mrw_functorial_kit.core.provider_port_failures import resource_pool_contract_failures
+from mrw_functorial_kit.core.provider_port_failures import (
+    resource_pool_contract_failures,
+    resource_pool_http_fetch_failures,
+)
 
 from ..ingest.source_search_contract import build_query_url_from_contract, normalize_source_search_contract
 from .http_port import HttpFetchError, fetch_html
@@ -51,7 +54,7 @@ _ENCODED_Q_PLACEHOLDER = re.compile(r"%7B%7Bq%7D%7D", re.IGNORECASE)
 _ENCODED_PAGE_PLACEHOLDER = re.compile(r"%7B%7Bpage%7D%7D", re.IGNORECASE)
 _RESILIENT_SEARCH_MARKERS = ("403", "429", "Failed to fetch", "blocked", "rate limit")
 
-_RESOURCE_POOL_FAILURE_WITNESS = "test:test_latest_service_b_resource_pool_failure_lifts"
+_RESOURCE_POOL_FAILURE_WITNESS = "test:test_resource_pool_failure_preserves_public_errors"
 _RESOURCE_POOL_FAILURE_CONTEXT_KEYS = frozenset(
     {
         "boundary_class",
@@ -93,9 +96,9 @@ def _raise_contract_failure(
         or _RESOURCE_POOL_FAILURE_CONTEXT_KEYS - set(context)
         or context.get("public_exception") != exception_type.__name__
     ):
-        # kit:boundary owner=resource_pool.search_template_service.failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_latest_service_b_resource_pool_failure_lifts
+        # kit:boundary owner=resource_pool.search_template_service.failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_resource_pool_failure_preserves_public_errors
         raise TypeError("resource pool failure lift context is incomplete or inconsistent")
-    # kit:boundary owner=resource_pool.search_template_service.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=resource_pool.contract.failure witness=test:test_latest_service_b_resource_pool_failure_lifts
+    # kit:boundary owner=resource_pool.search_template_service.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=resource_pool.contract.failure witness=test:test_resource_pool_failure_preserves_public_errors
     raise exception_type(str(context["public_message"]))
 @dataclass(frozen=True)
 class SearchTemplateRawCandidate:
@@ -139,10 +142,39 @@ def _integer(value: object, default: int) -> int:
 def _fallback_search_service(error: Exception | str, current_service: str, *, enabled: bool) -> str | None:
     if not enabled or current_service != "basic":
         return None
+    if (
+        isinstance(error, HttpFetchError)
+        and error.failure is not None
+        and resource_pool_http_fetch_failures.matches(error.failure)
+        and not error.retryable
+    ):
+        return None
     message = str(error or "")
     if any(marker.lower() in message.lower() for marker in _RESILIENT_SEARCH_MARKERS):
         return "resilient"
     return None
+
+
+def _http_failure_details(error: HttpFetchError) -> Annotated[
+    dict[str, object],
+    "kit:non-authoritative derived_as=view fact_source=http_fetch_error witness=test:test_query_probes_preserve_policy_failure_identity",
+]:
+    details: dict[str, object] = {
+        "reason_code": error.reason_code or error.reason.value,
+        "http_reason": error.reason.value,
+        "http_status": error.status_code,
+        "retryable": error.retryable,
+        "failure_url": error.url,
+    }
+    if error.failure is not None:
+        details.update(
+            {
+                "failure_family": error.failure.family,
+                "failure_code": error.failure.code,
+                "failure_context": dict(error.failure.context or {}),
+            }
+        )
+    return details
 
 
 def normalize_search_template_placeholders(template: str | None) -> str:
@@ -268,7 +300,7 @@ def build_search_template_urls(
     params: Mapping[object, object],
 ) -> Annotated[
     tuple[list[str], int],
-    "kit:non-authoritative derived_as=view fact_source=search_template+query_terms+pagination_params witness=test:test_w03_ingest_ports_authority_metadata",
+    "kit:non-authoritative derived_as=view fact_source=search_template+query_terms+pagination_params witness=test:test_ingest_ports_declare_sources_and_effect_authority",
 ]:
     normalized_template = normalize_search_template_placeholders(template)
     if not normalized_template or "{{q}}" not in normalized_template:
@@ -339,6 +371,7 @@ def execute_search_template(
                             "error": str(exc),
                             "error_class": "transport_failure",
                             "recommended_search_service": fallback_service,
+                            **_http_failure_details(exc),
                         }
                     )
                     continue
@@ -350,6 +383,7 @@ def execute_search_template(
                         "error": str(exc),
                         "error_class": "transport_failure",
                         "recommended_search_service": _fallback_search_service(exc, active_service, enabled=True),
+                        **_http_failure_details(exc),
                     }
                 )
                 continue
@@ -419,7 +453,7 @@ def execute_search_template(
         )
         if candidate is not None
     ]
-    selected_candidates, used_term_fallback = select_search_candidates(
+    selected_candidates, legacy_filter_flag = select_search_candidates(
         scored,
         query_terms,
         strategy="search_template",
@@ -428,7 +462,9 @@ def execute_search_template(
         allow_fallback=allow_term_fallback,
         fallback_limit=int(cast(Any, params.get("fallback_limit") or 30)),
         scoring_config=_resolve_candidate_scoring_config(params),
+        allow_llm=bool(params.get("allow_candidate_semantic_llm", True)),
     )
+    used_term_fallback = bool(legacy_filter_flag and allow_term_fallback and selected_candidates)
 
     diagnostics: dict[str, object] = {
         "entry_domain": effective_domain,
@@ -531,6 +567,7 @@ def execute_external_site_search(
                 "error": str(exc),
                 "error_class": "transport_failure",
                 "recommended_search_service": "browser_candidate",
+                **_http_failure_details(exc),
             }
         )
     except Exception as exc:  # noqa: BLE001
@@ -559,7 +596,7 @@ def execute_external_site_search(
         )
         if candidate is not None
     ]
-    selected_candidates, used_term_fallback = select_search_candidates(
+    selected_candidates, legacy_filter_flag = select_search_candidates(
         scored,
         query_terms,
         strategy="external_search",
@@ -568,7 +605,9 @@ def execute_external_site_search(
         allow_fallback=allow_term_fallback,
         fallback_limit=int(params.get("fallback_limit") or 20),
         scoring_config=_resolve_candidate_scoring_config(params),
+        allow_llm=bool(params.get("allow_candidate_semantic_llm", True)),
     )
+    used_term_fallback = bool(legacy_filter_flag and allow_term_fallback and selected_candidates)
     return SearchTemplateExecutionResult(
         template=search_url,
         search_urls=[search_url],
@@ -657,7 +696,7 @@ def execute_feed_probe(
         xml_text, _ = fetch_html(feed_url, timeout=probe_timeout, retries=1)
         raw_candidates = extract_feed_candidates(xml_text)
     except HttpFetchError as exc:
-        errors.append({"site_url": feed_url, "error": str(exc), "error_class": "transport_failure"})
+        errors.append({"site_url": feed_url, "error": str(exc), "error_class": "transport_failure", **_http_failure_details(exc)})
     except Exception as exc:  # noqa: BLE001
         errors.append({"site_url": feed_url, "error": str(exc), "error_class": "unexpected_failure"})
 
@@ -677,7 +716,7 @@ def execute_feed_probe(
         )
         if candidate is not None
     ]
-    selected_candidates, used_term_fallback = select_search_candidates(
+    selected_candidates, legacy_filter_flag = select_search_candidates(
         scored,
         query_terms,
         strategy="rss",
@@ -686,6 +725,7 @@ def execute_feed_probe(
         allow_fallback=allow_term_fallback,
         scoring_config=_resolve_candidate_scoring_config(params),
     )
+    used_term_fallback = bool(legacy_filter_flag and allow_term_fallback and selected_candidates)
     return SearchTemplateExecutionResult(
         template=feed_url,
         search_urls=[feed_url],
@@ -792,7 +832,7 @@ def execute_sitemap_probe(
         )
         raw_candidates = [SearchTemplateRawCandidate(url=url) for url in urls]
     except HttpFetchError as exc:
-        errors.append({"site_url": sitemap_url, "error": str(exc), "error_class": "transport_failure"})
+        errors.append({"site_url": sitemap_url, "error": str(exc), "error_class": "transport_failure", **_http_failure_details(exc)})
     except Exception as exc:  # noqa: BLE001
         errors.append({"site_url": sitemap_url, "error": str(exc), "error_class": "unexpected_failure"})
 
@@ -812,7 +852,7 @@ def execute_sitemap_probe(
         )
         if candidate is not None
     ]
-    selected_candidates, used_term_fallback = select_search_candidates(
+    selected_candidates, legacy_filter_flag = select_search_candidates(
         scored,
         query_terms,
         strategy="sitemap",
@@ -821,6 +861,7 @@ def execute_sitemap_probe(
         allow_fallback=allow_term_fallback,
         scoring_config=_resolve_candidate_scoring_config(params),
     )
+    used_term_fallback = bool(legacy_filter_flag and allow_term_fallback and selected_candidates)
     return SearchTemplateExecutionResult(
         template=sitemap_url,
         search_urls=[sitemap_url],

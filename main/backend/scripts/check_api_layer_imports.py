@@ -2,7 +2,7 @@
 # ruff: noqa: TRY003, TRY004
 """Guardrail for API-layer standards.
 
-Wave0 behavior:
+Baseline behavior:
 - Allow existing baseline imports listed in allowlist.
 - Fail only when new direct imports from ``..models`` are introduced.
 - Allow existing baseline ``raise HTTPException(..., detail=...)`` in API layer.

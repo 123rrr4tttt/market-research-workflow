@@ -359,7 +359,7 @@ def build_search_result_parser_profile(
     parser_profile: str | None = None,
 ) -> Annotated[
     SearchResultParserProfile,
-    "kit:non-authoritative derived_as=view fact_source=entry_domain+requested_parser_profile+parser_profile_constants witness=test:test_w03_ingest_ports_authority_metadata",
+    "kit:non-authoritative derived_as=view fact_source=entry_domain+requested_parser_profile+parser_profile_constants witness=test:test_ingest_ports_declare_sources_and_effect_authority",
 ]:
     domain = (entry_domain or "").strip().lower()
     requested = str(parser_profile or "").strip().lower()

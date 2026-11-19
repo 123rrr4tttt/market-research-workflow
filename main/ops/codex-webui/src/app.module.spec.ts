@@ -18,16 +18,21 @@ describe('AppModule', () => {
   // migrations against the developer's own database.
   let dbDir: string;
   let previousDbPath: string | undefined;
+  let previousApiKey: string | undefined;
 
   beforeAll(() => {
     dbDir = mkdtempSync(join(tmpdir(), 'codex-webui-appmodule-'));
     previousDbPath = process.env.WEBUI_DB_PATH;
+    previousApiKey = process.env.WEBUI_API_KEY;
     process.env.WEBUI_DB_PATH = join(dbDir, 'test.sqlite');
+    process.env.WEBUI_API_KEY = 'app-module-test-key';
   });
 
   afterAll(() => {
     if (previousDbPath === undefined) delete process.env.WEBUI_DB_PATH;
     else process.env.WEBUI_DB_PATH = previousDbPath;
+    if (previousApiKey === undefined) delete process.env.WEBUI_API_KEY;
+    else process.env.WEBUI_API_KEY = previousApiKey;
     rmSync(dbDir, { recursive: true, force: true });
   });
 

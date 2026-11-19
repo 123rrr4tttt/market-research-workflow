@@ -403,7 +403,7 @@ def plans_structurally_equivalent(
     bool,
     "kit:non-authoritative derived_as=view "
     "fact_source=successor_runtime.language.plan.ExecutionPlan "
-    "witness=test:test_w07_derived_metadata_is_exact_and_non_authoritative",
+    "witness=test:test_workflow_language_projections_do_not_claim_authority",
 ]:
     return normalized_plan_structure(left) == normalized_plan_structure(right)
 

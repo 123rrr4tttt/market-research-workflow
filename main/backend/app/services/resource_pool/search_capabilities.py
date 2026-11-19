@@ -170,7 +170,7 @@ def build_capability_candidates(
     raw_candidates: list[dict[str, Any] | str],
 ) -> Annotated[
     list[SearchCapabilityCandidate],
-    "kit:non-authoritative derived_as=view fact_source=strategy+raw_candidates+url_normalization witness=test:test_w03_ingest_ports_authority_metadata",
+    "kit:non-authoritative derived_as=view fact_source=strategy+raw_candidates+url_normalization witness=test:test_ingest_ports_declare_sources_and_effect_authority",
 ]:
     out: list[SearchCapabilityCandidate] = []
     seen: set[str] = set()
@@ -269,6 +269,7 @@ def select_search_candidates(
     allow_fallback: bool,
     fallback_limit: int = 30,
     scoring_config: dict[str, Any] | str | None = None,
+    allow_llm: bool = True,
 ) -> tuple[list[SearchCapabilityScore], bool]:
     if not candidates:
         return [], bool(query_terms)
@@ -304,7 +305,7 @@ def select_search_candidates(
         allow_fallback=allow_fallback,
         fallback_limit=fallback_limit,
     )
-    if selected or not query_terms or normalized_strategy in {"rss", "sitemap"}:
+    if selected or not query_terms or normalized_strategy in {"rss", "sitemap"} or not allow_llm:
         return selected, used_fallback
 
     semantic_terms = _expand_semantic_query_terms_with_llm(query_terms)

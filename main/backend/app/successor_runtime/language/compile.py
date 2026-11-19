@@ -6,7 +6,7 @@ from dataclasses import dataclass, replace
 from typing import Any, NoReturn, TypeGuard
 
 from functorial_kit import Failure
-from mrw_functorial_kit.core.w07_semantics import language_failures
+from mrw_functorial_kit.core.workflow_research_failure_semantics import language_failures
 
 from app.successor_runtime.research.object_types import ObjectType
 
@@ -50,7 +50,7 @@ COMPILER_ID = "mrw.functorial-successor.compiler"
 COMPILER_VERSION = "1.0.0"
 TRAVERSAL_MATERIALIZER_TRANSFORM = "mrw.traverse_ordered.materialize"
 TRAVERSAL_MATERIALIZER_VERSION = "1.0.0"
-_FAILURE_WITNESS = "test:test_w07_language_b_failure_boundary"
+_FAILURE_WITNESS = "test:test_invalid_program_fails_typed_before_any_effect_boundary"
 
 
 @dataclass(frozen=True, slots=True)

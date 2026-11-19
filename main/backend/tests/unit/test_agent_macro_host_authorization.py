@@ -115,6 +115,48 @@ def _confirm(service, approval_id, *, decision: str = "approved") -> None:
     assert not isinstance(result, Failure), result
 
 
+def test_host_user_message_preserves_attachment_identity_and_project_binding() -> None:
+    service = AgentSessionService(store=InMemoryAgentSessionStore())
+    bundle = service.create_session(
+        source="trusted_host",
+        entrypoint_type="agent_macro",
+        project_key="project_a",
+        goal="attachment-only input",
+    )
+    session_id = bundle["session"]["session_id"]
+    context = _context(session_id)
+    attachment = {
+        "kind": "local_image",
+        "attachmentId": "a" * 64,
+        "filename": "evidence.png",
+        "size": 5,
+        "sha256": "a" * 64,
+    }
+
+    message = service.create_host_user_message(
+        context,
+        content="附件 ×1",
+        attachments=[attachment],
+    )
+
+    assert not isinstance(message, Failure)
+    messages = service.list_messages(session_id)
+    assert not isinstance(messages, Failure)
+    recorded = next(
+        item
+        for item in reversed(messages)
+        if item["actor"] == "trusted_host:thread-1"
+    )
+    assert recorded["content"] == "附件 ×1"
+    metadata = dict(recorded["metadata"])
+    host_message = dict(metadata["host_message"])
+    assert host_message["project_key"] == "project_a"
+    assert host_message["session_id"] == session_id
+    assert host_message["turn_id"] == "turn-1"
+    assert host_message["attachments"] == [attachment]
+    assert "/tmp/" not in recorded["content"]
+
+
 def test_allow_tool_executes_without_host_context_and_with_verified_host_context() -> None:
     service, registry, spec, calls = _setup("allow")
     session_id = _session_id(service)

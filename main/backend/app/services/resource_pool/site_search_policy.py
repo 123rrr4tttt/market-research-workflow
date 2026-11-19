@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import TypeGuard
-from urllib.parse import urlparse
+
+from .url_utils import domain_from_url
 
 
 @dataclass(frozen=True)
@@ -104,16 +105,8 @@ _DEPRIORITIZED = {
 }
 
 
-def _domain_from_url(url: str) -> str:
-    try:
-        netloc = str(urlparse(str(url or "")).netloc or "").strip().lower()
-    except Exception:
-        netloc = ""
-    return netloc[4:] if netloc.startswith("www.") else netloc
-
-
 def resolve_site_search_policy(site_url: str) -> SiteSearchPolicy:
-    domain = _domain_from_url(site_url)
+    domain = domain_from_url(site_url) or ""
     if domain in _API_PREFERRED:
         return _API_PREFERRED[domain]
     if domain in _EXTERNAL_PREFERRED:
@@ -146,10 +139,14 @@ def resolve_site_search_policy_for_entry(site_url: str, entry: object) -> SiteSe
         if status:
             return SiteSearchPolicy(
                 category=status,
-                reason=str(remediation.get("reason") or remediation.get("strategy") or "entry remediation override"),
+                reason=str(
+                    remediation.get("reason") or remediation.get("strategy") or "entry remediation override"
+                ),
                 provider_key=str(remediation.get("provider_key") or "").strip() or None,
                 preferred_search_service=str(remediation.get("preferred_search_service") or "").strip() or None,
-                implementation_hint=str(remediation.get("implementation_hint") or remediation.get("strategy") or "").strip() or None,
+                implementation_hint=(
+                    str(remediation.get("implementation_hint") or remediation.get("strategy") or "").strip() or None
+                ),
                 parser_profile=parser_profile,
             )
         if parser_profile:
@@ -158,8 +155,14 @@ def resolve_site_search_policy_for_entry(site_url: str, entry: object) -> SiteSe
                 category=base_policy.category,
                 reason=str(remediation.get("reason") or base_policy.reason or "entry parser profile override"),
                 provider_key=str(remediation.get("provider_key") or "").strip() or base_policy.provider_key,
-                preferred_search_service=str(remediation.get("preferred_search_service") or "").strip() or base_policy.preferred_search_service,
-                implementation_hint=str(remediation.get("implementation_hint") or remediation.get("strategy") or "").strip() or base_policy.implementation_hint,
+                preferred_search_service=(
+                    str(remediation.get("preferred_search_service") or "").strip()
+                    or base_policy.preferred_search_service
+                ),
+                implementation_hint=(
+                    str(remediation.get("implementation_hint") or remediation.get("strategy") or "").strip()
+                    or base_policy.implementation_hint
+                ),
                 parser_profile=parser_profile,
             )
     return resolve_site_search_policy(site_url)

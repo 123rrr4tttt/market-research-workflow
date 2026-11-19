@@ -59,7 +59,7 @@ def build_graph_edit_audit_record(
     dict[str, Any],
     "kit:non-authoritative derived_as=view "
     "fact_source=graph_edit_governance_inputs "
-    "witness=test:test_w04_authority_metadata",
+    "witness=test:test_service_results_declare_sources_and_effect_authority",
 ]:
     resolved_action = _required_str(action, "action")
     if resolved_action not in GRAPH_EDIT_AUDIT_ACTIONS:
@@ -119,7 +119,7 @@ def build_graph_rollback_contract(
     dict[str, Any],
     "kit:non-authoritative derived_as=view "
     "fact_source=graph_rollback_governance_inputs "
-    "witness=test:test_w04_authority_metadata",
+    "witness=test:test_service_results_declare_sources_and_effect_authority",
 ]:
     resolved_current_revision = _non_negative_int(current_revision, "current_revision")
     resolved_base_revision = None
@@ -178,7 +178,7 @@ def build_handoff_audit_record(
     dict[str, Any],
     "kit:non-authoritative derived_as=view "
     "fact_source=handoff_audit_inputs "
-    "witness=test:test_w04_authority_metadata",
+    "witness=test:test_service_results_declare_sources_and_effect_authority",
 ]:
     resolved_action = _required_str(action, "action")
     if resolved_action not in HANDOFF_AUDIT_ACTIONS:

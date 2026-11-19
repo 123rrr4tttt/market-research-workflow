@@ -16,11 +16,16 @@ export function normalizeProjectKey(raw: string) {
 }
 
 export function getProjectKey() {
-  return normalizeProjectKey(window.localStorage.getItem(STORAGE_KEY) || 'default')
+  const selected = window.sessionStorage.getItem(STORAGE_KEY)
+  if (selected) return normalizeProjectKey(selected)
+  const initial = normalizeProjectKey(window.localStorage.getItem(STORAGE_KEY) || 'default')
+  window.sessionStorage.setItem(STORAGE_KEY, initial)
+  return initial
 }
 
 export function setProjectKey(projectKey: string) {
   const next = normalizeProjectKey(projectKey)
+  window.sessionStorage.setItem(STORAGE_KEY, next)
   window.localStorage.setItem(STORAGE_KEY, next)
   return next
 }

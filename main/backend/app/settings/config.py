@@ -113,9 +113,6 @@ class Settings(BaseSettings):
     skill_loop_guard_ttl_seconds: int = Field(default=600)
     agent_batch_approval_ttl_seconds: int = Field(default=900)
     graph_structured_async_dispatch_workers: int = Field(default=4)
-    graph_node_projection_write_mode: str = Field(default="shadow")  # off | shadow | on
-    graph_node_projection_read_mode: str = Field(default="a_only")  # a_only | b_canary | b_primary
-    graph_node_projection_canary_projects: str = Field(default="demo_proj")
     ingest_enable_strict_gate: bool = Field(default=False)
     ingest_guardrail_rollout_mode: str = Field(default="canary")  # off | canary | on | passthrough
     ingest_guardrail_canary_projects: str = Field(default="demo_proj")

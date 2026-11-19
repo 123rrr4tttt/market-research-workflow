@@ -10,7 +10,8 @@ import shutil
 import subprocess
 import sys
 import tomllib
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
+from typing import TypeGuard
 from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlparse
@@ -21,7 +22,7 @@ CATALOG = ROOT / "contributions" / "project_catalog.py"
 PILOT_TESTS = (
     "main/backend/tests/unit/test_project_tool_contribution.py",
     "main/backend/tests/unit/test_raw_material_import_task_native.py",
-    "main/backend/tests/successor_runtime/test_c1_native_catalog.py",
+    "main/backend/tests/successor_runtime/test_workflow_native_catalog.py",
     "main/backend/tests/successor_runtime/test_retrieval_native_catalog.py",
 )
 ARCHITECTURE_TEST = "tests/test_architecture.py"
@@ -94,7 +95,7 @@ def _kit_source() -> KitSource:
     except (KeyError, OSError, tomllib.TOMLDecodeError, TypeError, ValueError) as exc:
         raise RuntimeError(_MISSING_KIT_SOURCE) from exc
     fields = (source.repository, source.revision, source.subdirectory)
-    if not all(isinstance(field, str) and field.strip() for field in fields):
+    if not all(field.strip() for field in fields):
         raise RuntimeError(_MISSING_KIT_SOURCE)
     requirements = (ROOT / "main" / "backend" / "requirements.txt").read_text(encoding="utf-8").splitlines()
     if source.declaration != declaration or source.declaration not in requirements:
@@ -191,8 +192,16 @@ def _command_for(
     raise ValueError(command)
 
 
+def _is_mapping(value: object) -> TypeGuard[Mapping[object, object]]:
+    return isinstance(value, dict)
+
+
+def _is_metadata_object(value: object) -> TypeGuard[dict[str, object]]:
+    return _is_mapping(value) and all(isinstance(key, str) for key in value)
+
+
 def _default_provenance_error(direct_url: object, source: KitSource) -> str | None:
-    if not isinstance(direct_url, dict):
+    if not _is_metadata_object(direct_url):
         return f"installed direct_url metadata is missing; expected Git revision {source.revision}"
     installed_url = direct_url.get("url")
     if not isinstance(installed_url, str):
@@ -222,9 +231,9 @@ def _default_provenance_error(direct_url: object, source: KitSource) -> str | No
             f"expected {source.repository}@{source.revision}#subdirectory={source.subdirectory}"
         )
     vcs_info = direct_url.get("vcs_info")
-    requested_revision = vcs_info.get("requested_revision") if isinstance(vcs_info, dict) else None
+    requested_revision = vcs_info.get("requested_revision") if _is_metadata_object(vcs_info) else None
     if (
-        not isinstance(vcs_info, dict)
+        not _is_metadata_object(vcs_info)
         or vcs_info.get("vcs") != "git"
         or vcs_info.get("commit_id") != source.revision
         or (requested_revision is not None and requested_revision != source.revision)
@@ -234,7 +243,7 @@ def _default_provenance_error(direct_url: object, source: KitSource) -> str | No
 
 
 def _local_provenance_error(direct_url: object, kit_path: Path) -> str | None:
-    if not isinstance(direct_url, dict):
+    if not _is_metadata_object(direct_url):
         return f"installed direct_url metadata is missing; expected editable checkout {kit_path}"
     installed_url = direct_url.get("url")
     if not isinstance(installed_url, str):
@@ -244,7 +253,7 @@ def _local_provenance_error(direct_url: object, kit_path: Path) -> str | None:
         return f"installed direct_url is {installed_url}; expected editable local checkout {kit_path}"
     installed_path = Path(unquote(installed.path)).resolve()
     dir_info = direct_url.get("dir_info")
-    if installed_path != kit_path or not isinstance(dir_info, dict) or dir_info.get("editable") is not True:
+    if installed_path != kit_path or not _is_metadata_object(dir_info) or dir_info.get("editable") is not True:
         return f"installed direct_url is {installed_url}; expected editable local checkout {kit_path}"
     return None
 
@@ -267,12 +276,11 @@ def _setup_hint(python: Path, kit_path: Path | None) -> str:
     return f"{command} --local-kit {kit_path}" if kit_path is not None else command
 
 
-def _require_kit_source(python: Path, kit_path: Path | None = None, *, runner=None) -> bool:
+def _require_kit_source(python: Path, kit_path: Path | None = None) -> bool:
     if not python.is_file():
         print(f"MRW dev Python does not exist: {python}", file=sys.stderr)
         return False
-    active_runner = subprocess.run if runner is None else runner
-    probe = active_runner(
+    probe = subprocess.run(
         [str(python), "-c", _KIT_PROBE_CODE],
         cwd=ROOT,
         env=_command_environment(),
@@ -377,11 +385,10 @@ def _require_test_environment(python: Path, *, backend_dependencies: bool) -> bo
     return False
 
 
-def _run_validate(python: Path, *, runner=None) -> int:
+def _run_validate(python: Path) -> int:
     """Run development validation stages sequentially without masking an earlier failure."""
-    active_runner = subprocess.run if runner is None else runner
     for command_name in VALIDATE_COMMANDS:
-        completed = active_runner(
+        completed = subprocess.run(
             _command_for(command_name, python),
             cwd=ROOT,
             env=_command_environment(),

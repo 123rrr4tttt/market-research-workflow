@@ -1,4 +1,4 @@
-# Wave0 baseline allowlist for API-layer raise HTTPException(..., detail=...).
+# Baseline allowlist for API-layer raise HTTPException(..., detail=...).
 # Format:
 #   <api_file.py>:L<line>|raise HTTPException(<args>, detail=<expr>)
 

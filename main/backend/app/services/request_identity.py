@@ -14,13 +14,14 @@ LEGACY_ACTOR_HEADERS = ("X-Actor-Id", "X-User-Id", "X-User-Email", "X-Request-Ac
 
 LOCAL_SINGLE_USER_ACTOR_PATHS = frozenset(
     {
+        "/api/v1/agent-macro-host/prepare-turn",
         "/api/v1/agent-macro-host/record-input",
         "/api/v1/agent-macro-host/dispatch",
     }
 )
 _FORWARDED_CLIENT_HEADERS = frozenset({"forwarded", "x-real-ip"})
 
-_REQUEST_IDENTITY_FAILURE_WITNESS = "test:test_w01_project_identity_failures"
+_REQUEST_IDENTITY_FAILURE_WITNESS = "test:test_project_context_and_workflow_lifts_preserve_public_messages"
 _REQUEST_IDENTITY_FAILURE_CONTEXT_KEYS = frozenset(
     {
         "boundary_class",
@@ -70,9 +71,9 @@ def _raise_identity_failure(failure: Failure) -> NoReturn:
         or context.get("status_code") != 403
         or not _is_payload_dict(public_detail)
     ):
-        # kit:boundary owner=request_identity.failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w01_request_identity_preserves_http_403_detail_envelope
+        # kit:boundary owner=request_identity.failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_request_identity_preserves_http_403_detail_envelope
         raise TypeError("request identity failure lift context is incomplete")
-    # kit:boundary owner=request_identity.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=request_identity.failure witness=test:test_w01_request_identity_preserves_http_403_detail_envelope
+    # kit:boundary owner=request_identity.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=request_identity.failure witness=test:test_request_identity_preserves_http_403_detail_envelope
     raise HTTPException(status_code=403, detail=dict(public_detail))
 
 

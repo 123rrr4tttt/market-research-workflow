@@ -136,7 +136,7 @@ def build_frontdoor_fetch_router_contract(
     diagnostics: Mapping[str, Any] | None = None,
 ) -> Annotated[
     dict[str, Any],
-    "kit:non-authoritative derived_as=view fact_source=router_inputs+fallback_evidence+diagnostics+router_contract_constants witness=test:test_w03_ingest_ports_authority_metadata",
+    "kit:non-authoritative derived_as=view fact_source=router_inputs+fallback_evidence+diagnostics+router_contract_constants witness=test:test_ingest_ports_declare_sources_and_effect_authority",
 ]:
     normalized_fetch_strategy = _clean_text(fetch_strategy)
     normalized_router_state = _normalize_router_state(

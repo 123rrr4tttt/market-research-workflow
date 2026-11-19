@@ -130,15 +130,14 @@ def normalize_url(url: str) -> str | None:
     return canonical
 
 
+def normalize_domain(value: str) -> str:
+    """Normalize a host name without dropping unrelated leading characters."""
+    return str(value or "").strip().lower().removeprefix("www.")
+
+
 def domain_from_url(url: str) -> str | None:
-    """Extract domain from URL. Returns None if invalid."""
-    if not url:
-        return None
+    """Extract a normalized host name from a URL. Returns None if invalid."""
     try:
-        parsed = urlparse(url)
-        netloc = parsed.netloc or ""
-        if not netloc:
-            return None
-        return netloc.lower().lstrip("www.")
-    except Exception:
+        return normalize_domain(urlparse(url).netloc) or None
+    except ValueError:
         return None

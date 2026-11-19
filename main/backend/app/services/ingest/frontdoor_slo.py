@@ -154,7 +154,7 @@ def record_frontdoor_slo_observation(
 
 def build_frontdoor_slo_payload(summary: Mapping[str, object] | None) -> Annotated[
     dict[str, object],
-    "kit:non-authoritative derived_as=view fact_source=summary+tri_state_contract+latency_samples witness=test:test_w03_ingest_ports_authority_metadata",
+    "kit:non-authoritative derived_as=view fact_source=summary+tri_state_contract+latency_samples witness=test:test_ingest_ports_declare_sources_and_effect_authority",
 ]:
     raw = summary or {}
     sample_size = _as_non_negative_int(raw.get("sample_size"))

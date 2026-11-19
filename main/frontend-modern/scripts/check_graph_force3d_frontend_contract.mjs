@@ -113,7 +113,7 @@ assertIncludes(
   files.packageJson,
 )
 assertIncludes(runtimePixelGate, 'graph runtime pixel gate proves force3d pixels without tenant DB', files.runtimePixelGate)
-assertIncludes(runtimePixelGate, 'wave17-graph-runtime-pixel-gate', files.runtimePixelGate)
+assertIncludes(runtimePixelGate, 'graph-runtime-pixel-gate', files.runtimePixelGate)
 assertIncludes(runtimePixelGate, 'inspectPixelDiversity', files.runtimePixelGate)
 assertIncludes(runtimePixelGate, 'nonblank-pixels', files.runtimePixelGate)
 assertIncludes(runtimePixelGate, 'expect(pixelEvidence.nonblank).toBe(true)', files.runtimePixelGate)

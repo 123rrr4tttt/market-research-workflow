@@ -23,7 +23,7 @@ async function setup(page: Page, options: { betaTemplates?: 'empty' | 'error' } 
     nav_beta: [{ template_id: 'beta-transport', name: 'Beta saved transport', active_version_id: 'v-active' }],
   }
   await page.addInitScript(() => {
-    localStorage.setItem('market_project_key', 'nav_alpha')
+    if (!localStorage.getItem('market_project_key')) localStorage.setItem('market_project_key', 'nav_alpha')
     localStorage.setItem('app_theme_v1', 'dark')
     localStorage.setItem('app_locale_v1', 'en-US')
   })
@@ -152,6 +152,27 @@ test('project projection bindings drive sidebar labels, order, visibility and ta
   await sidebar(page).getByRole('button', { name: 'Alpha policy', exact: true }).click()
   await expect(page).toHaveURL(/#\/visual\/graph\/policy$/)
   await expect(page.getByTestId('graph-workspace-tab-graphPolicy')).toHaveAttribute('aria-selected', 'true')
+})
+
+test('selecting another project does not change requests from an open window', async ({ page, context }) => {
+  await setup(page)
+  await page.goto('/#/visual/graph/market')
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Alpha water')
+
+  const otherWindow = await context.newPage()
+  await setup(otherWindow)
+  await otherWindow.goto('/#/visual/graph/market')
+  await switchProject(otherWindow, 'nav_beta')
+  await expect(otherWindow.getByRole('heading', { level: 1 })).toHaveText('Beta transport')
+
+  const nextProjectionRequest = page.waitForRequest((request) =>
+    new URL(request.url()).pathname === '/api/v1/project-customization/graph-config',
+  )
+  await page.reload()
+  const request = await nextProjectionRequest
+  expect(request.headers()['x-project-key']).toBe('nav_alpha')
+  expect(new URL(request.url()).searchParams.get('project_key')).toBe('nav_alpha')
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Alpha water')
 })
 
 test('a direct market route remains usable when all project projections are hidden', async ({ page }) => {

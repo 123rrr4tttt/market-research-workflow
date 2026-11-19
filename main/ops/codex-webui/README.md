@@ -9,35 +9,25 @@
 
 [English](./README.en.md)
 
-## MRW vendoring provenance
+## MRW 本机构建与启动
 
-本目录是 MRW 的 vendored 副本，不是 submodule 或嵌套 Git 仓库。
+本目录内置于 MRW。保留的上游基准记录为 `LimLLL/codex-webui` 的 `44ad73a99c4d4385fa60d0c519c243baf8f160b7`，本目录含 MRW 的宿主启动与 Cell 接线改动，不是该提交的逐字节副本。CLI 基准为 `@openai/codex@0.160.0`。`src/codex/codex-schema/` 由同版本 CLI 生成。运行身份、数据库和凭据分别在本机配置，不随源码分发。
 
-| 项 | 值 |
-| --- | --- |
-| Upstream | `https://github.com/LimLLL/codex-webui.git` |
-| Upstream HEAD | `44ad73a99c4d4385fa60d0c519c243baf8f160b7` |
-| 本地改动来源 | `/Users/wangyiliang/.codex/manual-worktrees/mrw-functorial-successor-p0/main/ops/codex-webui` 的 dirty 工作树（2026-10-04：16 个已跟踪文件改动与 8 个未跟踪路径中的 allowlist 内容） |
-| Codex 协议基准 | `@openai/codex@0.160.0`；`src/codex/codex-schema/` 由同版本 `codex app-server generate-ts` 生成并纳管 |
-| 外部保留物 | 外部源码树、运行状态、OAuth、数据库、日志、`mrw_mcp_server.py`、`refresh-business-snapshot.sh` 均留在原树；主仓不复制 secret 或运行数据 |
-
-### MRW build and host switch
+从仓库根目录完成 `./scripts/local-deploy.sh prepare` 后执行：
 
 ```bash
-cd /Users/wangyiliang/market-research-workflow/main/ops/codex-webui
-pnpm install --frozen-lockfile --offline
-pnpm exec codex --version
-pnpm exec vitest run src/auth/auth.controller.spec.ts
+cd main/ops/codex-webui
+pnpm --dir web install --frozen-lockfile
 pnpm run build
 pnpm --dir web run build
-./start.sh
 ```
+
+在后端私密 `.env` 设置 `CODEX_WEBUI_LOCAL_SINGLE_USER_ENABLED=true` 和 `CODEX_WEBUI_SERVER_API_KEY`，重启后端使配置生效。确认宿主已登录 Codex；在 WebUI 启动环境中私下设置 `MRW_BACKEND_API_KEY`（与后端 key 一致）和独立的 `WEBUI_API_KEY`，再执行 `./start.sh`。默认后端地址为 `http://127.0.0.1:8000`；非默认端口须显式设置 `MRW_BACKEND_URL`。WebUI 默认监听 `127.0.0.1:8172`，业务界面通过 `/codex/` 访问。
 
 `start.sh` 从 `launchd/com.mrw.codex-webui.plist.template` 生成本机 `.run/com.mrw.codex-webui.plist`，默认使用本目录的 `dist/main.js`、`.tmp/codex-webui.sqlite` 和仓库内 `@openai/codex@0.160.0`。它要求 `~/.codex-mrw-agent/auth.json` 是指向宿主 `~/.codex/auth.json` 的 symlink；不创建独立登录页，也不复制 token。`stop.sh` 只卸载同一 `com.mrw.codex-webui` LaunchAgent。
 
 `WEBUI_API_KEY` 显式环境变量优先。未设置时，`start.sh` 用 `plistlib` 从既有 `~/Library/LaunchAgents/com.mrw.codex-webui.plist` 私密读取同名 key；两者都缺失时明确退出。读取和写入都不打印该值，也不会把它放入子进程 argv。`MRW_WEBUI_RENDER_ONLY=1 ./start.sh` 只渲染 `.run` plist，不 bootout/bootstrap LaunchAgent。
 
-![主界面](./images/main.png)
 
 ## 功能
 
@@ -61,7 +51,6 @@ pnpm --dir web run build
 
 **文件管理与预览**
 
-![文件管理](./images/sidebar-file.png)
 
 - 树形文件浏览器，支持拖拽移动
 - Monaco Editor 代码编辑 + Git diff 分栏对比
@@ -72,7 +61,6 @@ pnpm --dir web run build
 
 **终端**
 
-![终端](./images/sidebar-terminal.png)
 
 - 多 tab 共享终端（node-pty + xterm.js）
 - 断线重连，输出不丢失
@@ -80,7 +68,6 @@ pnpm --dir web run build
 
 **集成与插件**
 
-![集成](./images/sidebar-intergration.png)
 
 **其他**
 - JWT + API Key 认证
@@ -117,7 +104,7 @@ pnpm --dir web run build
 - pnpm >= 9
 - [Codex CLI](https://github.com/openai/codex) 已安装并可用
 
-### Docker 部署（推荐）
+### 上游独立 Docker 部署（不包含 MRW 接线）
 
 直接从 GHCR 拉取镜像，无需本地构建：
 
@@ -318,14 +305,6 @@ codex.example.com {
 ### OnlyOffice 注意事项
 
 反向代理下 OnlyOffice 需要知道公开 URL 才能回调保存。代理正确传递 `X-Forwarded-Proto` / `X-Forwarded-Host` 即可自动检测；也可在 Settings → General 显式设置 `general.publicBaseUrl`。
-
-## 贡献
-
-欢迎提 issue 和 PR。开发环境搭建、代码规范、测试要求和提交流程见 [CONTRIBUTING.md](./CONTRIBUTING.md)。
-
-报 bug 前请先确认问题出在 WebUI 而不是 Codex CLI 本身；[Bug 模板](./.github/ISSUE_TEMPLATE/bug_report.yml)会引导你从 Diagnostics 页面导出诊断信息。
-
-**安全问题请勿公开提交**，走私密上报渠道，见 [SECURITY.md](./SECURITY.md)。
 
 ## License
 

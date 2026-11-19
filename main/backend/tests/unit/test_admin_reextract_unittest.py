@@ -70,18 +70,14 @@ class AdminReextractUnitTest(unittest.TestCase):
     def test_material_routes_reuse_existing_handlers_and_accept_material_ids(self):
         routes = {route.path: route.endpoint for route in admin_module.router.routes}
         route_order = [route.path for route in admin_module.router.routes]
-        legacy = {path: endpoint for path, endpoint in routes.items() if "/documents/" in path}
-        self.assertEqual(len(legacy), 8)
-        for path, endpoint in legacy.items():
-            self.assertIs(routes[path.replace("/documents/", "/materials/")], endpoint)
-        for prefix in ("/documents", "/materials"):
-            dynamic_path = f"/admin{prefix}/{{doc_id}}/extracted-data"
-            bulk_path = f"/admin{prefix}/bulk/extracted-data"
-            self.assertIn(dynamic_path, routes)
-            self.assertLess(route_order.index(bulk_path), route_order.index(dynamic_path))
-        self.assertEqual(admin_module.ReExtractRequest(material_ids=[101]).doc_ids, [101])
-        self.assertEqual(admin_module.BulkUpdateExtractedDataRequest(material_ids=[101]).doc_ids, [101])
-        self.assertEqual(admin_module.DeleteDocumentsRequest(material_ids=[101]).ids, [101])
+        self.assertFalse(any("/documents/" in path for path in routes))
+        dynamic_path = "/admin/materials/{material_id}/extracted-data"
+        bulk_path = "/admin/materials/bulk/extracted-data"
+        self.assertIn(dynamic_path, routes)
+        self.assertLess(route_order.index(bulk_path), route_order.index(dynamic_path))
+        self.assertEqual(admin_module.ReExtractRequest(material_ids=[101]).material_ids, [101])
+        self.assertEqual(admin_module.BulkUpdateExtractedDataRequest(material_ids=[101]).material_ids, [101])
+        self.assertEqual(admin_module.DeleteMaterialsRequest(material_ids=[101]).material_ids, [101])
 
     @classmethod
     def setUpClass(cls):
@@ -95,7 +91,7 @@ class AdminReextractUnitTest(unittest.TestCase):
             summary="summary",
             content="policy content",
             uri="https://example.com/policy",
-            doc_type="policy",
+            material_type="policy",
             extracted_data={"legacy": {"keep": True}},
         )
         session_factory = _FakeSessionLocal([doc])
@@ -114,8 +110,8 @@ class AdminReextractUnitTest(unittest.TestCase):
                 },
             ) as mocked_extract,
         ):
-            result = admin_module.re_extract_documents(
-                admin_module.ReExtractRequest(doc_ids=[101], force=True, batch_size=10)
+            result = admin_module.re_extract_materials(
+                admin_module.ReExtractRequest(material_ids=[101], force=True, batch_size=10)
             )
 
         self.assertEqual(result.get("status"), "ok")
@@ -137,7 +133,7 @@ class AdminReextractUnitTest(unittest.TestCase):
             "id": 7,
             "material_id": 7,
             "title": "Scoped document",
-            "doc_type": "policy",
+            "material_type": "policy",
             "state": "CA",
             "status": "ready",
             "publish_date": None,
@@ -167,24 +163,24 @@ class AdminReextractUnitTest(unittest.TestCase):
         responses = []
         with (
             patch.object(settings, "active_project_key", "project_a"),
-            patch.object(admin_module.document_admin, "bulk_update_admin_document_extracted_data", side_effect=mutate),
+            patch.object(admin_module.document_admin, "bulk_update_admin_material_extracted_data", side_effect=mutate),
         ):
             client = TestClient(main_module.app)
-            for prefix in ("documents", "materials"):
+            for prefix in ("materials",):
                 responses.append(
                     client.post(
                         f"/api/v1/admin/{prefix}/bulk/extracted-data",
                         headers={"X-Project-Key": "Project-B", "X-Request-Id": f"admin-project-b-{prefix}"},
-                        json={"doc_ids": [7], "mode": "replace", "extracted_data": {"version": "after"}},
+                        json={"material_ids": [7], "mode": "replace", "extracted_data": {"version": "after"}},
                     )
                 )
 
         for response in responses:
             self.assertEqual(response.status_code, 200, response.text)
-        self.assertEqual(observed_project_keys, ["project_b", "project_b"])
+        self.assertEqual(observed_project_keys, ["project_b"])
         self.assertEqual(current_state["extracted_data"], {"version": "after"})
         expected_trace = admin_module._admin_response_trace_id(
-            action_kind="documents.bulk_extracted_data",
+            action_kind="materials.bulk_extracted_data",
             project_key="project_b",
             requested_ids=[7],
             affected_count=1,
@@ -193,7 +189,7 @@ class AdminReextractUnitTest(unittest.TestCase):
             status="completed",
         )
         fallback_trace = admin_module._admin_response_trace_id(
-            action_kind="documents.bulk_extracted_data",
+            action_kind="materials.bulk_extracted_data",
             project_key="project_a",
             requested_ids=[7],
             affected_count=1,
@@ -212,7 +208,7 @@ class AdminReextractUnitTest(unittest.TestCase):
             self.assertEqual(selection["source_snapshot_timing"], "pre_mutation")
             self.assertFalse(selection["post_commit_readback_performed"])
             self.assertEqual(data["trace_chain"][-1]["stage"], "admin.after_action.response_readback")
-            self.assertEqual(data["source_refs"][0]["document_id"], 7)
+            self.assertEqual(data["source_refs"][0]["material_id"], 7)
 
     def test_reserved_public_scope_is_rejected_before_admin_mutation(self):
         with (
@@ -221,11 +217,11 @@ class AdminReextractUnitTest(unittest.TestCase):
                 "app.services.projects.context.get_effective_project_key_enforcement_mode",
                 return_value="require",
             ),
-            patch.object(admin_module.document_admin, "delete_admin_documents") as mutation,
+            patch.object(admin_module.document_admin, "delete_admin_materials") as mutation,
         ):
             with self.assertRaisesRegex(ValueError, "reserved key public"):
                 TestClient(main_module.app).post(
-                    "/api/v1/admin/documents/delete",
+                    "/api/v1/admin/materials/delete",
                     headers={"X-Project-Key": "public"},
                     json={"ids": [7]},
                 )

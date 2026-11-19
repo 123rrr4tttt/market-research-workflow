@@ -17,7 +17,7 @@ from .url_utils import domain_from_url, normalize_url
 ScopeType = str
 SiteEntryRow = ResourcePoolSiteEntry | SharedResourcePoolSiteEntry
 
-_RESOURCE_POOL_FAILURE_WITNESS = "test:test_latest_service_b_resource_pool_failure_lifts"
+_RESOURCE_POOL_FAILURE_WITNESS = "test:test_resource_pool_failure_preserves_public_errors"
 _RESOURCE_POOL_FAILURE_CONTEXT_KEYS = frozenset(
     {
         "boundary_class",
@@ -71,13 +71,13 @@ def raise_resource_pool_contract_legacy(
         or _RESOURCE_POOL_FAILURE_CONTEXT_KEYS - set(context)
         or context.get("public_exception") != exception_type.__name__
     ):
-        # kit:boundary owner=resource_pool.site_entries.failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_latest_service_b_resource_pool_failure_lifts
+        # kit:boundary owner=resource_pool.site_entries.failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_resource_pool_failure_preserves_public_errors
         raise TypeError("resource pool failure lift context is incomplete or inconsistent")
     message = str(context["public_message"])
     if cause is None:
-        # kit:boundary owner=resource_pool.site_entries.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=resource_pool.contract.failure witness=test:test_latest_service_b_resource_pool_failure_lifts
+        # kit:boundary owner=resource_pool.site_entries.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=resource_pool.contract.failure witness=test:test_resource_pool_failure_preserves_public_errors
         raise exception_type(message)
-    # kit:boundary owner=resource_pool.site_entries.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=resource_pool.contract.failure witness=test:test_latest_service_b_resource_pool_failure_lifts
+    # kit:boundary owner=resource_pool.site_entries.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=resource_pool.contract.failure witness=test:test_resource_pool_failure_preserves_public_errors
     raise exception_type(message) from cause
 
 

@@ -324,7 +324,7 @@ class CollectRuntimeSourceLibraryAdapterUnitTestCase(unittest.TestCase):
         self.assertEqual(response["frontdoor_ingress"]["source_ref"]["execution_mode"], "rss_feed")
         self.assertEqual(response["authority_output"]["summary"]["record_stats"]["normalized"], 1)
 
-    def test_to_source_library_response_promotes_external_article_body_record_to_document_candidate(self) -> None:
+    def test_to_source_library_response_promotes_external_article_body_record_to_material_candidate(self) -> None:
         body = " ".join(["Materialized article body paragraph"] * 40)
         raw = {
             "item_key": "external.demo.article",
@@ -400,8 +400,9 @@ class CollectRuntimeSourceLibraryAdapterUnitTestCase(unittest.TestCase):
         response = to_source_library_response(collect_result)
 
         payload = response["frontdoor_ingress"]["collection_payload"]
-        self.assertEqual(payload["document_candidate"]["uri"], "https://example.com/article")
-        self.assertEqual(payload["document_candidate"]["content"], body)
+        self.assertEqual(payload["material_candidate"]["uri"], "https://example.com/article")
+        self.assertEqual(payload["material_candidate"]["content"], body)
+        self.assertNotIn("document_candidate", payload)
         self.assertEqual(payload["dispatch_plan"]["reason"], "external_project_article_body_materialized")
         self.assertFalse(payload["dispatch_plan"]["run_extraction"])
         self.assertFalse(payload["dispatch_plan"]["run_writer"])

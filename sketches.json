@@ -484,7 +484,7 @@
       },
       "equations": [
         {
-          "claim": "registered fragment codecs match their on-disk representative key sets",
+          "claim": "registered fragment codecs preserve their wire contract and exact key sets",
           "class": "testable",
           "witness": "test:INVARIANT__shared_family_fragment_registry_consistency"
         },
@@ -501,12 +501,12 @@
         {
           "kind": "record",
           "name": "P3SharedFamilyFragment",
-          "owner": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p3-fragments/C2.json"
+          "owner": "src/mrw_functorial_kit/core/shared_family_generator_semantics.py"
         },
         {
           "kind": "record",
           "name": "P4SharedFamilyFragment",
-          "owner": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p4-fragments/C7.json"
+          "owner": "src/mrw_functorial_kit/core/shared_family_generator_semantics.py"
         }
       ],
       "operations": [
@@ -517,68 +517,6 @@
         {
           "name": "to_wire",
           "order_depends_on": []
-        }
-      ],
-      "shape": "codec"
-    },
-    {
-      "axes": {
-        "closed": "checker schema, statuses, classifications, warning severities, and schedule source vocabulary",
-        "open": "automation lanes and artifact payloads"
-      },
-      "change": {
-        "declared_loss": [
-          "runtime scheduled execution and artifact generation"
-        ],
-        "kind": "extension"
-      },
-      "derived": {
-        "authoritative": false,
-        "derived_as": "external_claim"
-      },
-      "equations": [
-        {
-          "claim": "checker constants and report keys match the registered closure",
-          "class": "testable",
-          "witness": "test:INVARIANT__scheduled_automation_checker_registration_matches_ast"
-        },
-        {
-          "claim": "report wire projection preserves checker output as an external claim",
-          "class": "testable",
-          "witness": "test:INVARIANT__scheduled_automation_identity_wire_projection_is_lossless"
-        },
-        {
-          "claim": "foreign report schema versions fail closed",
-          "class": "testable",
-          "witness": "test:FAILURE_PRESERVED__scheduled_automation_foreign_discriminant_fails_closed"
-        }
-      ],
-      "failures": [
-        "scheduled.automation.evidence.failure"
-      ],
-      "objects": [
-        {
-          "kind": "record",
-          "name": "ScheduledAutomationArtifactEvidence",
-          "owner": "scripts/check_scheduled_automation_artifacts.py"
-        }
-      ],
-      "operations": [
-        {
-          "name": "build_report",
-          "order_depends_on": []
-        },
-        {
-          "name": "parse",
-          "order_depends_on": [
-            "build_report"
-          ]
-        },
-        {
-          "name": "to_wire",
-          "order_depends_on": [
-            "build_report"
-          ]
         }
       ],
       "shape": "codec"

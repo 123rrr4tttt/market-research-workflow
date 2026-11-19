@@ -996,7 +996,7 @@ skill_dispatch_ingest_source_library_item = _skill_dispatch_ingest_source_librar
 
 
 def _require_project_key(project_key: str | None) -> str:
-    """Stage-1 policy: allow context fallback but emit warning for observability."""
+    """Allow request-context fallback when project selection is optional."""
     key = (project_key or "").strip()
     if key:
         return key

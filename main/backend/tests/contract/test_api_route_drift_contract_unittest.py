@@ -45,10 +45,10 @@ class ApiRouteDriftContractTestCase(unittest.TestCase):
             msg="The public project customization prefix is hyphenated.",
         )
 
-    def test_source_library_run_keeps_ingest_frontdoor_with_deprecated_legacy_route(self):
+    def test_source_library_runs_through_ingest_frontdoor(self):
         keys = _route_keys()
         self.assertIn(("POST", "/api/v1/ingest/source-library/run"), keys)
-        self.assertIn(("POST", "/api/v1/source_library/items/{item_key}/run"), keys)
+        self.assertNotIn(("POST", "/api/v1/source_library/items/{item_key}/run"), keys)
 
     def test_recent_backend_core_routes_remain_in_public_surface(self):
         keys = _route_keys()

@@ -1,0 +1,132 @@
+"""Database isolation and effect boundaries for runtime integration tests."""
+
+from __future__ import annotations
+
+import ast
+from pathlib import Path
+
+import pytest
+
+from .research_runtime_postgres_fixture import (
+    DATABASE_ENV,
+    SEED_CONTENT_BYTES,
+    SEED_CONTENT_SHA256,
+    SEED_STATEMENT_SHA256,
+    _require_dedicated_database_url,
+    frozen_document_seed_statements,
+)
+
+pytestmark = pytest.mark.contract
+
+HERE = Path(__file__).resolve().parent
+BACKEND = HERE.parents[1]
+RUNTIME_INTEGRATION_TESTS = (
+    HERE / "test_document_capture_postgres.py",
+    HERE / "test_two_node_lifecycle_postgres.py",
+    HERE / "test_vertical_specimen_postgres.py",
+    HERE / "test_delivery_recovery_postgres.py",
+)
+
+
+def forbidden_imports(path: Path, forbidden: tuple[str, ...]) -> frozenset[str]:
+    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    package_parts = path.relative_to(BACKEND).with_suffix("").parts[:-1]
+    modules: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            modules.update(alias.name for alias in node.names)
+        elif isinstance(node, ast.ImportFrom):
+            if node.level == 0:
+                if node.module:
+                    modules.add(node.module)
+                continue
+            base = list(package_parts)
+            if node.level > 1:
+                del base[-(node.level - 1) :]
+            if node.module:
+                base.extend(node.module.split("."))
+            modules.add(".".join(base))
+    return frozenset(
+        module
+        for module in modules
+        if any(module == prefix or module.startswith(prefix + ".") for prefix in forbidden)
+    )
+
+
+def test_database_url_guard_rejects_default_and_non_test_databases(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    for url in (
+        "postgresql+psycopg2:///postgres",
+        "postgresql+psycopg2:///market_research_workflow",
+        "sqlite:///successor_test.db",
+    ):
+        monkeypatch.setenv(DATABASE_ENV, url)
+        with pytest.raises(pytest.fail.Exception):
+            _require_dedicated_database_url()
+
+
+def test_frozen_seed_101_102_statements_and_known_content_contract_are_pinned() -> None:
+    statements = frozen_document_seed_statements()
+    assert set(statements) == {101, 102}
+    assert SEED_STATEMENT_SHA256 == {
+        101: "2d784235fbd94613e46782e2016eb7ddebf42e14f1779885ebbaf4576699bb93",
+        102: "80ae76aac30d1670b3838079534f550bc01c39f3747428f9b533f99093c812ab",
+    }
+    assert SEED_CONTENT_BYTES == {101: 1153, 102: 50009}
+    assert SEED_CONTENT_SHA256 == {
+        101: "409789283ff6ee8aabcd5924866199cc6f9bb26f957a99f854708bd4aabb3c40",
+        102: "0494ea262e1577dc00cb3241341c4ab8bfe155b5601d61be7bee70407cc4ea6b",
+    }
+
+
+
+
+def test_runtime_harness_never_reopens_legacy_documents_after_capture() -> None:
+    adapter_name = "PostgresLegacyDocumentCanonicalReadAdapter"
+    runtime_files = (
+        HERE / "test_two_node_lifecycle_postgres.py",
+        HERE / "test_vertical_specimen_postgres.py",
+        HERE / "test_delivery_recovery_postgres.py",
+    )
+    for path in runtime_files:
+        assert adapter_name not in path.read_text(encoding="utf-8"), path.name
+    fixture = (HERE / "research_runtime_postgres_fixture.py").read_text(encoding="utf-8")
+    assert fixture.count(adapter_name) >= 2
+    assert "def capture_documents(" in fixture
+    assert "document_port:" in fixture
+
+
+def test_successor_runtime_has_no_legacy_service_or_migration_import() -> None:
+    runtime_root = BACKEND / "app" / "successor_runtime"
+    forbidden = (
+        "app.services",
+        "app.successor_migration",
+        "import celery",
+        "import redis",
+    )
+    for path in runtime_root.rglob("*.py"):
+        relative = path.relative_to(runtime_root)
+        if relative.parts and relative.parts[0] == "specification":
+            # Family fragment configs are deterministic evidence/CLI glue that
+            # deliberately read legacy adapters to build observations.  The
+            # production runtime boundary below remains enforced for every
+            # other module under app/successor_runtime.
+            continue
+        violations = forbidden_imports(path, forbidden)
+        assert not violations, f"{path} imports forbidden modules: {sorted(violations)}"
+
+
+def test_live_harness_contains_no_network_provider_or_external_delivery_call() -> None:
+    source = "\n".join(path.read_text(encoding="utf-8") for path in RUNTIME_INTEGRATION_TESTS)
+    forbidden_calls = (
+        "requests.",
+        "httpx.",
+        "urllib.request",
+        "boto3.",
+        "OpenAI(",
+        "external_delivery(",
+    )
+    for fragment in forbidden_calls:
+        assert fragment not in source
+    assert "internal-export://" in source

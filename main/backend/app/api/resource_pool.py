@@ -29,13 +29,12 @@ from ..services.resource_pool import (
     list_open_source_preset_packs,
     list_site_entries,
     simplify_site_entries,
-    unified_search_by_item,
     upsert_site_entry,
     upsert_capture_config,
     write_discovered_site_entries,
 )
 from ..services.source_library.item_plan import build_item_execution_plan
-from ..services.resource_pool.unified_search import UnifiedSearchResult
+from ..services.resource_pool.unified_search import UnifiedSearchResult, unified_search_by_item
 
 ScopeType = Literal["shared", "project", "effective"]
 

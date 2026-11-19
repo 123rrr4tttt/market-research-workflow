@@ -20,7 +20,7 @@ def _result() -> dict[str, object]:
         "inserted": 2,
         "skipped": 1,
         "links": ["https://example.test/one"],
-        "doc_type": "social_sentiment",
+        "material_type": "social_sentiment",
         "extraction_stats": {
             "enabled": True,
             "ok": 1,
@@ -80,7 +80,7 @@ def _malformed_social_results() -> tuple[
         "fallback": 1,
     }
     invalid_string = _result()
-    invalid_string["doc_type"] = 1
+    invalid_string["material_type"] = 1
     invalid_list = _result()
     invalid_list["links"] = "https://example.test/not-a-list"
     invalid_list_item = _result()
@@ -117,10 +117,10 @@ def _malformed_social_results() -> tuple[
         ),
         (
             invalid_string,
-            "social collect result.doc_type",
+            "social collect result.material_type",
             "string",
             "int",
-            "social collect result.doc_type must be a string",
+            "social collect result.material_type must be a string",
         ),
         (
             invalid_list,

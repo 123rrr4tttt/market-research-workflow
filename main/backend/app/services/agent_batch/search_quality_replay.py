@@ -7,9 +7,9 @@ from collections.abc import Mapping, Sequence
 from copy import deepcopy
 from statistics import mean
 from typing import Any, Protocol, TypeGuard, runtime_checkable
-from urllib.parse import urlparse
 
 from ..derived import NonAuthoritativeDict
+from ..resource_pool.url_utils import domain_from_url
 from .task_contract import (
     AGENT_BATCH_LIVE_QUALITY_THRESHOLD_CONTRACT_VERSION,
     AGENT_BATCH_QUALITY_PROMOTION_READBACK_CONTRACT_VERSION,
@@ -1678,11 +1678,7 @@ def _resolve_axis_hits(*, record: dict[str, Any], coverage_axes: list[str]) -> l
 
 
 def _domain_from_url(url: str) -> str:
-    parsed = urlparse(str(url or "").strip())
-    domain = parsed.netloc.lower()
-    if domain.startswith("www."):
-        domain = domain[4:]
-    return domain
+    return domain_from_url(str(url or "").strip()) or ""
 
 
 def _score_freshness(*, days: int | None, limit: int | None) -> float:

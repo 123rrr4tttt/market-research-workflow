@@ -6,7 +6,7 @@ from typing import Annotated, NoReturn, TypeGuard
 
 from functorial_kit import Failure
 
-from mrw_functorial_kit.core.w06_semantics import source_single_source_guard_failures
+from mrw_functorial_kit.core.source_and_capability_failure_semantics import source_single_source_guard_failures
 
 
 GuardObject = dict[str, object]
@@ -30,7 +30,7 @@ class SourceLibrarySingleSourceGuardError(ValueError):
         self.details = details
 
 
-_FAILURE_WITNESS = "test:test_w01_source_export_failures"
+_FAILURE_WITNESS = "test:test_source_configuration_and_report_export_failures"
 
 
 def _guard_failure(
@@ -64,9 +64,9 @@ def _raise_guard_failure(failure: Failure, *, details: GuardObject) -> NoReturn:
         or context.get("public_exception") != "SourceLibrarySingleSourceGuardError"
         or context.get("public_message") != failure.message
     ):
-        # kit:boundary owner=source.single-source-guard.failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w01_source_export_failures
+        # kit:boundary owner=source.single-source-guard.failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_source_configuration_and_report_export_failures
         raise TypeError("single-source guard failure lift context is incomplete or inconsistent")
-    # kit:boundary owner=source.single-source-guard.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=source.single-source-guard.failure witness=test:test_w01_source_export_failures
+    # kit:boundary owner=source.single-source-guard.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=source.single-source-guard.failure witness=test:test_source_configuration_and_report_export_failures
     raise SourceLibrarySingleSourceGuardError(failure.message, details=details)
 
 
@@ -78,7 +78,7 @@ def build_single_source_guard_error_details(
     actual: object,
 ) -> Annotated[
     GuardObject,
-    "kit:non-authoritative derived_as=view fact_source=source_library.single_source_guard witness=test:test_w01_meta",
+    "kit:non-authoritative derived_as=view fact_source=source_library.single_source_guard witness=test:test_derived_service_annotations_match_fact_sources",
 ]:
     return {
         "reason_code": reason_code,
@@ -97,7 +97,7 @@ def build_single_source_execution_fact(
     reason_code: str = "single_source_guard_passed",
 ) -> Annotated[
     GuardObject,
-    "kit:non-authoritative derived_as=view fact_source=source_library.single_source_guard witness=test:test_w01_meta",
+    "kit:non-authoritative derived_as=view fact_source=source_library.single_source_guard witness=test:test_derived_service_annotations_match_fact_sources",
 ]:
     source_ref_value = guard.get("source_ref")
     source_ref = dict(source_ref_value) if _is_guard_object(source_ref_value) else {}

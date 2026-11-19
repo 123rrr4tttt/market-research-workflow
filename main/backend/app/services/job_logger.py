@@ -227,7 +227,7 @@ def list_jobs(limit: int = 20) -> List[dict[str, Any]]:
             msg = str(exc).lower()
             if "does not exist" in msg and "etl_job_runs" in msg:
                 return []
-            # kit:boundary owner=job.history.read class=SHELL_BOUNDARY_EXCEPTION failure_family=job.history.failure witness=test:test_w03_effect_boundaries
+            # kit:boundary owner=job.history.read class=SHELL_BOUNDARY_EXCEPTION failure_family=job.history.failure witness=test:test_collection_effect_boundaries
             raise
         result: List[dict[str, Any]] = []
         for (job,) in rows:

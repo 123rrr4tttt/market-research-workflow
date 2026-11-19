@@ -46,10 +46,12 @@ RetrySessionFactory = Callable[[], AbstractContextManager[SessionT]]
 class _RetrySuccess(Generic[T]):
     value: T
 
-_RETRIABLE_SQLSTATES = {
+_RETRYABLE_TRANSACTION_ABORTS = {
     "40001",  # serialization_failure
     "40P01",  # deadlock_detected
     "55P03",  # lock_not_available
+}
+_RETRIABLE_SQLSTATES = _RETRYABLE_TRANSACTION_ABORTS | {
     "08000",  # connection_exception
     "08003",  # connection_does_not_exist
     "08006",  # connection_failure
@@ -255,7 +257,7 @@ def _session_retry_failure(
         "site": "app.models.base.run_with_session_retry",
         "public_exception": "Exception",
         "public_message": message,
-        "witness": "test:test_w01_effect_failures",
+        "witness": "test:test_session_retry_effect_retains_original_exception_and_public_wrapper_reraises_it",
     }
     if context:
         details.update(context)
@@ -317,40 +319,45 @@ def run_with_session_retry_effect(
     base_backoff = max(1, int(base_backoff_ms or settings.db_transaction_retry_base_backoff_ms or 100))
     max_backoff = max(base_backoff, int(max_backoff_ms or settings.db_transaction_retry_max_backoff_ms or 1000))
     context = log_context or {}
-    last_exc: Exception | None = None
     for attempt in range(1, attempts + 1):
         with session_factory() as session:
+            committing = False
             try:
                 result = operation(session)
+                committing = True
                 session.commit()
-                if attempt > 1:
-                    logger.info("event=db_tx_succeeded after_retry=true attempts=%s context=%s", attempt, context)
-                return result
             except Exception as exc:  # noqa: BLE001
-                last_exc = exc
-                session.rollback()
+                try:
+                    session.rollback()
+                except Exception:  # noqa: BLE001
+                    logger.warning("event=db_tx_rollback_failed attempt=%s context=%s", attempt, context, exc_info=True)
                 error_details = classify_db_exception(exc)
-                should_retry = bool(error_details["retriable"] and attempt < attempts)
+                # A failed COMMIT may already have taken effect. Only a definite
+                # server rejection establishes that replay won't duplicate it.
+                retriable = bool(error_details["retriable"]) and (
+                    not committing
+                    or isinstance(exc, DBAPIError)
+                    and not exc.connection_invalidated
+                    and error_details["sqlstate"] in _RETRYABLE_TRANSACTION_ABORTS
+                )
+                should_retry = retriable and attempt < attempts
                 log_fn = logger.warning if should_retry else logger.error
                 log_fn(
-                    "event=db_tx_failed attempt=%s/%s retriable=%s exception_type=%s sqlstate=%s context=%s",
+                    "event=db_tx_failed attempt=%s/%s retriable=%s exception_type=%s sqlstate=%s phase=%s context=%s",
                     attempt,
                     attempts,
-                    error_details["retriable"],
+                    retriable,
                     error_details["exception_type"],
                     error_details["sqlstate"],
+                    "commit" if committing else "operation",
                     context,
                 )
                 if not should_retry:
-                    failure_code = (
-                        "retry_exhausted"
-                        if bool(error_details["retriable"]) and attempt >= attempts
-                        else "operation_failed"
-                    )
+                    failure_code = "retry_exhausted" if retriable else "operation_failed"
                     failure_message = (
                         "database transaction retries exhausted"
-                        if failure_code == "retry_exhausted"
-                        else "database operation failed"
+                        if retriable
+                        else "database commit failed" if committing else "database operation failed"
                     )
                     return _session_retry_failure(
                         failure_code,
@@ -364,28 +371,17 @@ def run_with_session_retry_effect(
                             "sqlstate": error_details["sqlstate"],
                             "attempt": attempt,
                             "attempts": attempts,
-                            "retriable": bool(error_details["retriable"]),
+                            "retriable": retriable,
                             "log_context": dict(context),
                         },
                     )
-                delay_ms = min(max_backoff, base_backoff * (2 ** (attempt - 1)))
-                delay_ms += random.randint(0, max(5, delay_ms // 4))
-                time.sleep(delay_ms / 1000)
-    if last_exc is not None:
-        return _session_retry_failure(
-            "retry_exhausted",
-            "database transaction retries exhausted",
-            operation="run_with_session_retry",
-            context={
-                "cause": last_exc,
-                "public_exception": last_exc.__class__.__name__,
-                "public_message": str(last_exc),
-                "exception_type": last_exc.__class__.__name__,
-                "attempt": attempts,
-                "attempts": attempts,
-                "log_context": dict(context),
-            },
-        )
+            else:
+                if attempt > 1:
+                    logger.info("event=db_tx_succeeded after_retry=true attempts=%s context=%s", attempt, context)
+                return result
+        delay_ms = min(max_backoff, base_backoff * (2 ** (attempt - 1)))
+        delay_ms += random.randint(0, max(5, delay_ms // 4))
+        time.sleep(delay_ms / 1000)
     # kit:boundary owner=database.session_retry.failure_core class=PROGRAMMER_DEFECT failure_family=none witness=test:test_session_retry_failure_lift_boundaries
     raise RuntimeError("run_with_session_retry reached unexpected empty state")
 

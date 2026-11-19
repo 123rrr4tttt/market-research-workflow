@@ -1276,13 +1276,6 @@ def augment_market_graph_with_topic_structured(
             ]
 
 
-def _rollback_graph_session(session: Session, *, context: str) -> None:
-    try:
-        session.rollback()
-    except Exception as exc:  # noqa: BLE001
-        logger.warning("%s rollback_failed err=%s", context, exc)
-
-
 def _export_graph(graph: Graph) -> AdminGraphResult:
     from .graph.exporter import export_to_json
 
@@ -1305,23 +1298,13 @@ def _finalize_admin_graph(
     *,
     graph_kind: Literal["social", "market", "policy"],
     project_key: str,
-    session: Session,
     materials: list[Material] | None = None,
     market_deep_view: bool = False,
     topic_scope: TopicName | None = None,
     market_graph_augmenter: AdminMarketGraphAugmenter | None = None,
 ) -> AdminGraphResult:
-    from .graph.compat import compare_graphs
     from .graph.doc_types import resolve_graph_node_combo, resolve_graph_topic_scope_entities
-    from .graph.persistence import GraphNodeReader, GraphNodeWriter
     from .graph.projection import project_graph_by_node_types
-    from ..settings.config import settings
-
-    canary_raw = str(getattr(settings, "graph_node_projection_canary_projects", "") or "")
-    canary_projects = {value.strip() for value in canary_raw.split(",") if value.strip()}
-    read_mode = str(getattr(settings, "graph_node_projection_read_mode", "a_only") or "a_only").strip().lower()
-    write_mode = str(getattr(settings, "graph_node_projection_write_mode", "shadow") or "shadow").strip().lower()
-    use_b_read = read_mode == "b_primary" or (read_mode == "b_canary" and project_key in canary_projects)
 
     if graph_kind == "market" and market_deep_view and market_graph_augmenter is not None:
         try:
@@ -1352,54 +1335,7 @@ def _finalize_admin_graph(
         combo = merged_combo
 
     primary_graph = project_graph_by_node_types(graph, combo)
-    finalized_graph = primary_graph
-    if write_mode in {"shadow", "on"}:
-        try:
-            summary = GraphNodeWriter(
-                session,
-                schema_version=str(primary_graph.schema_version or "v1"),
-            ).persist_graph_nodes(primary_graph)
-            session.commit()
-            logger.info(
-                "graph_b_write project=%s kind=%s mode=%s attempted=%s written=%s aliases=%s edges=%s skipped=%s",
-                project_key,
-                graph_kind,
-                write_mode,
-                summary.attempted,
-                summary.inserted_or_updated,
-                summary.aliases_written,
-                summary.edges_written,
-                summary.skipped,
-            )
-        except Exception as exc:  # noqa: BLE001
-            _rollback_graph_session(session, context="graph_b_write")
-            logger.warning(
-                "graph_b_write_failed project=%s kind=%s mode=%s err=%s",
-                project_key,
-                graph_kind,
-                write_mode,
-                exc,
-            )
-
-    if use_b_read:
-        try:
-            persisted_graph = GraphNodeReader(session).load_graph(limit=10000)
-            if persisted_graph.nodes:
-                persisted_graph = project_graph_by_node_types(persisted_graph, combo)
-                diff = compare_graphs(primary_graph, persisted_graph)
-                logger.info(
-                    "graph_b_read_enabled project=%s kind=%s node_count_diff=%s edge_count_diff=%s type_overlap=%.4f",
-                    project_key,
-                    graph_kind,
-                    diff.node_count_diff,
-                    diff.edge_count_diff,
-                    diff.node_type_overlap_ratio,
-                )
-                finalized_graph = persisted_graph
-        except Exception as exc:  # noqa: BLE001
-            _rollback_graph_session(session, context="graph_b_read")
-            logger.warning("graph_b_read_fallback_to_a project=%s kind=%s err=%s", project_key, graph_kind, exc)
-    return _export_graph(finalized_graph)
+    return _export_graph(primary_graph)
 
 
 def export_admin_graph(material_ids: list[int]) -> AdminGraphResult:
@@ -1492,7 +1428,6 @@ def get_admin_content_graph(
                 graph,
                 graph_kind="social",
                 project_key=project_key,
-                session=session,
             )
 
 
@@ -1571,7 +1506,6 @@ def get_admin_market_graph(
                 graph,
                 graph_kind="market",
                 project_key=project_key,
-                session=session,
                 materials=rows,
                 market_deep_view=deep_view,
                 topic_scope=topic_scope,
@@ -1663,7 +1597,6 @@ def get_admin_policy_graph(
                 graph,
                 graph_kind="policy",
                 project_key=project_key,
-                session=session,
             )
 
 

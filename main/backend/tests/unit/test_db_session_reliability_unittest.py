@@ -3,6 +3,7 @@ from __future__ import annotations
 import threading
 import unittest
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import nullcontext
 from unittest.mock import Mock
 
 from sqlalchemy.exc import OperationalError
@@ -122,6 +123,46 @@ class DbSessionReliabilityUnitTest(unittest.TestCase):
         self.assertEqual(result, "ok")
         self.assertEqual(attempts["value"], 2)
         self.assertEqual(session_factory.calls, 2)
+
+    def test_run_with_session_retry_does_not_replay_an_unconfirmed_commit(self):
+        session = _FakeSession()
+        operation = Mock(return_value="written")
+        factory = Mock(side_effect=[nullcontext(session)])
+        original = OperationalError("COMMIT", {}, OSError("connection lost"), connection_invalidated=True)
+        session.commit.side_effect = original
+        session.rollback.side_effect = OSError("rollback connection lost")
+
+        with self.assertLogs(base.logger, level="WARNING") as logs:
+            with self.assertRaises(OperationalError) as raised:
+                base.run_with_session_retry(operation, session_factory=factory, max_attempts=2)
+
+        self.assertIs(raised.exception, original)
+        operation.assert_called_once_with(session)
+        session.commit.assert_called_once_with()
+        session.rollback.assert_called_once_with()
+        factory.assert_called_once_with()
+        self.assertTrue(any("event=db_tx_rollback_failed" in line for line in logs.output))
+        self.assertTrue(any("phase=commit" in line and "retriable=False" in line for line in logs.output))
+
+    def test_run_with_session_retry_replays_a_definitively_rejected_commit(self):
+        class SerializationFailure(Exception):
+            pgcode = "40001"
+
+        first, second = _FakeSession(), _FakeSession()
+        first.commit.side_effect = OperationalError("COMMIT", {}, SerializationFailure())
+        operation = Mock(return_value="written")
+        factory = Mock(side_effect=[nullcontext(first), nullcontext(second)])
+
+        result = base.run_with_session_retry(
+            operation, session_factory=factory, max_attempts=2, base_backoff_ms=1, max_backoff_ms=1,
+        )
+
+        self.assertEqual(result, "written")
+        self.assertEqual(operation.call_count, 2)
+        self.assertEqual(factory.call_count, 2)
+        first.rollback.assert_called_once_with()
+        second.commit.assert_called_once_with()
+        second.rollback.assert_not_called()
 
     def test_run_with_session_retry_does_not_retry_non_retriable_error(self):
         session_factory = _FakeSessionFactory()

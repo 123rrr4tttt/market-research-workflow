@@ -52,7 +52,7 @@ from app.successor_runtime.language.algebra import (
 from mrw_functorial_kit.core.source_semantics import source_contract_failures
 
 
-SOURCE_TOTAL_CORE_WITNESS = "test:test_w06_c2_total_core_failure_lifts"
+SOURCE_TOTAL_CORE_WITNESS = "test:test_source_contract_failure_preserves_public_error"
 
 
 SourcePlainAtom: TypeAlias = None | bool | int | float | str
@@ -130,9 +130,9 @@ def raise_source_contract_failure(failure: Failure, exception_type: type[Excepti
         or not required <= set(context)
         or context.get("public_exception") != exception_type.__name__
     ):
-        # kit:boundary owner=source_library_c2_shared.py class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w06_c2_total_core_failure_lifts
+        # kit:boundary owner=source_library_c2_shared.py class=PROGRAMMER_DEFECT failure_family=none witness=test:test_source_contract_failure_preserves_public_error
         raise TypeError("C2 contract lift context is invalid")
-    # kit:boundary owner=source_library_c2_shared.py class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=source.contract.failure witness=test:test_w06_c2_total_core_failure_lifts
+    # kit:boundary owner=source_library_c2_shared.py class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=source.contract.failure witness=test:test_source_contract_failure_preserves_public_error
     raise exception_type(str(context["public_message"]))
 
 

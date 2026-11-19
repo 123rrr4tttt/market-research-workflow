@@ -32,7 +32,7 @@ class CleanupExecutorUnitTestCase(unittest.TestCase):
             return_value=(html, type("Resp", (), {"status_code": 200})()),
         ):
             result = execute_frontdoor_cleanup(
-                document_candidate={
+                material_candidate={
                     "uri": "https://example.com/article-shell",
                     "title": "Support shell",
                     "content": "Support menu Login Subscribe Cookie Settings",
@@ -42,7 +42,7 @@ class CleanupExecutorUnitTestCase(unittest.TestCase):
             )
         self.assertTrue(result["executed"])
         self.assertTrue(result["recovered"])
-        self.assertIn("Published January 2, 2026.", result["document_candidate"]["content"])
+        self.assertIn("Published January 2, 2026.", result["material_candidate"]["content"])
         self.assertEqual(result["content_extraction"]["page_family"], "article")
 
 

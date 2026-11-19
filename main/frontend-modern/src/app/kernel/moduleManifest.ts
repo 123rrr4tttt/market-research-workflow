@@ -15,32 +15,6 @@ const RESOURCE_LOOPS = ['search', 'filter', 'recommendation', 'site-entry-mainte
 const PROCESS_LOOPS = ['task-list', 'detail', 'auto-refresh', 'cancel', 'history'] as const
 const GOVERNANCE_LOOPS = ['project-switch', 'crawler-import', 'crawler-deploy', 'crawler-rollback', 'settings-edit'] as const
 
-const DESIGN_SOURCES = {
-  figma: 'development/latest-dev-docs/ops-frontend/F_PLAN/frontend-modern-figma-sync-PULL_STATUS_2026-02-27.md',
-  quiet: 'main/frontend-modern/src/pages/ConceptQuietPage.tsx',
-  orbital: 'main/frontend-modern/src/pages/ConceptOrbitalPage.tsx',
-  monolith: 'main/frontend-modern/src/pages/ConceptMonolithPage.tsx',
-  outlineSidebar: 'reference-pool/oss/outline/app/components/Sidebar',
-  silverbulletChat: 'reference-pool/oss/silverbullet-ai/src/chat-panel.ts',
-  codemirrorTooltip: 'reference-pool/oss/codemirror-view/src/tooltip.ts',
-} as const
-
-function buildDesignSources(layerId: ModuleManifestEntryShape['layerId'], moduleKey: string): readonly string[] {
-  const shared = [DESIGN_SOURCES.figma]
-  if (layerId === 'A') {
-    const sources: string[] = [DESIGN_SOURCES.quiet, DESIGN_SOURCES.outlineSidebar]
-    if (moduleKey === 'flowWriting') sources.push(DESIGN_SOURCES.silverbulletChat)
-    if (moduleKey === 'flowWriting' || moduleKey === 'flowLlmNodeDesign' || moduleKey === 'flowRawData') {
-      sources.push(DESIGN_SOURCES.codemirrorTooltip)
-    }
-    return [...shared, ...sources]
-  }
-  if (layerId === 'B') {
-    return [...shared, DESIGN_SOURCES.orbital, DESIGN_SOURCES.codemirrorTooltip]
-  }
-  return [...shared, DESIGN_SOURCES.monolith, DESIGN_SOURCES.outlineSidebar]
-}
-
 function defineModule<ModuleKey extends string>(
   moduleKey: ModuleKey,
   layerId: ModuleManifestEntryShape['layerId'],
@@ -70,7 +44,6 @@ function defineModule<ModuleKey extends string>(
     supportsInfoCard,
     visibleInNav: true,
     enabled: true,
-    designSourceRefs: buildDesignSources(layerId, moduleKey),
   }
 }
 

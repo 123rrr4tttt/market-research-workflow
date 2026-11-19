@@ -34,41 +34,12 @@ CORE_COVERAGE_PATHS="app/api/search.py,app/contracts/api.py,app/contracts/respon
 .venv311/bin/python -m pytest -q
 ```
 
-## CI Gate Policy
+## CI checks
 
-- Branch protection source of truth:
-  - `.github/branch-protection-required-checks.json`
-  - Required PR checks for `main`: `backend-tests`
-- Workflow source of truth:
-  - `.github/workflows/backend-tests.yml`
-
-- `pull_request`:
-  - `standards-check`
-  - `unit-check`
-  - `llm-report-must-check`
-  - `integration-check`
-  - `core-business-check`
-  - `e2e-check`
-  - `flaky-observe` (observation lane, non-blocking on PR)
-  - `schema-guard-check` (blocking)
-  - `coverage-check` (blocking)
-  - `security-check` (blocking: high/high `bandit` + `pip-audit` + `gitleaks`)
-  - `docker-check`
-- `push` to `main`, `schedule`, `workflow_dispatch`:
-  - `standards-check`
-  - `unit-check`
-  - `llm-report-must-check`
-  - `integration-check`
-  - `flaky-observe` (observation lane; still publishes artifacts/summary)
-  - `schema-guard-check` (blocking)
-  - `coverage-check` (blocking, `core=100%` and `other=20%`)
-  - `security-check` (blocking: high/high `bandit` + `pip-audit` + `gitleaks`)
-  - `contract-check`
-  - `e2e-check`
-  - `docker-check`
-  - `contracts-governance-observe` (observation lane)
-
-This enforces layered quality/security gates on both PR and mainline, while keeping observation-only lanes explicit instead of implicit.
+The [workflow](../../../.github/workflows/backend-tests.yml) defines the jobs and
+triggers. The [branch-protection manifest](../../../.github/branch-protection-required-checks.json)
+lists the required job names for `main`. Frontend CI exercises the isolated
+component project; live browser smoke tests require explicitly configured services.
 
 ## 自动化测试标准化执行
 
@@ -109,36 +80,10 @@ Profile policy:
   - Core path list can be customized via `CORE_COVERAGE_PATHS`.
 - For docker profile, `TEST_PROFILE` defaults to `test` (maps to `backend-test` service).
 - In CI `workflow_dispatch`, `test_profile` can override the profile; fallback remains `test`.
-- `core-business` is currently a standardized local/engineering entrypoint and is not a standalone CI job in `.github/workflows/backend-tests.yml`.
 - `external-smoke` runs two backend external-chain checks in docker compose:
   - `python -m scripts.test_resource_library_e2e`
   - `python -m scripts.test_search_to_document_chain`
-- `frontend-e2e` runs Playwright suite in `main/frontend-modern` via `npm run test:e2e`.
-
-Tier policy:
-
-- `PR` branch-protection tier: workflow suite `backend-tests`.
-- `PR` deterministic lane inside `backend-tests`: `standards-check + unit-check + llm-report-must-check + integration-check + core-business-check + e2e-check + schema-guard-check + coverage-check + security-check + docker-check`.
-- `PR` observation lane inside `backend-tests`: `flaky-observe`.
-- `main` full lane: `standards-check + unit-check + llm-report-must-check + integration-check + schema-guard-check + coverage-check + security-check + contract-check + e2e-check + docker-check`.
-- `main` observation lane: `flaky-observe + contracts-governance-observe`.
-- Current default PR evidence lives in `.github/PULL_REQUEST_TEMPLATE.md`: `Scope / Risk / Test Evidence / Rollback Strategy / Docs And Closure`.
-
-## Manual Checks Archive (Not CI Gates)
-
-The following scripts are kept as manual checks and are not part of default CI gate jobs:
-
-- `main/backend/scripts/test_azure_search_index.py`
-- `main/backend/scripts/test_serper_demo.py`
-- `main/backend/scripts/test_scraper_html.py`
-- `main/backend/scripts/test_scraper_info.py`
-- `main/backend/scripts/test_history_adapters.py`
-- `main/backend/scripts/test_nitter.py`
-- `main/backend/scripts/test_nitter_standalone.py`
-- `main/backend/scripts/test_twitter_api.py`
-- `main/backend/scripts/test_twitter_api_standalone.py`
-
-Reason: these scripts rely on unstable third-party dependencies, credentials, or exploratory debugging scenarios, so they are intentionally excluded from blocking gates.
+- `frontend-e2e` runs Playwright suite in `main/frontend-modern` via `pnpm run test:e2e`.
 
 ## Parallel Execution Guidance
 
@@ -148,26 +93,3 @@ Reason: these scripts rely on unstable third-party dependencies, credentials, or
   - `./scripts/test-standardize.sh integration -n auto`
   - `./scripts/test-standardize.sh core-business -n auto`
 - For CI reproduction and gate parity, run profiles without `-n auto` (default serialized pytest execution).
-
-## Migration Semantic Preservation Tests
-
-Any PR that migrates, refactors, replaces, or regenerates an existing
-capability must include migration semantic preservation tests, in addition to
-normal unit/integration/contract coverage:
-
-- Movement matrix: each test must reference the movement record
-  (`source object -> target object -> named transformation -> disposition ->
-  acceptance trace`) it verifies.
-- Legacy trace: at least one reproducible test replays a legacy end-to-end
-  behavior and asserts the same observable outcome on the target path.
-- Failure trace: at least one failure or reverse-return case must be asserted
-  on both legacy and target paths (or explicitly mapped to a `DECLARED_LOSS` /
-  `EXPLICITLY_REJECTED` disposition).
-- Loss account: the test suite must include a declared-loss or zero-loss
-  assertion for the migration scope.
-- A green suite that only exercises weakened new contracts is not sufficient:
-  tests must prove predecessor-to-successor completeness, not just
-  declared-scope correctness.
-
-Full governance requirements live in
-[semantic-movement-completeness-standard.md](../../../docs/governance/semantic-movement-completeness-standard.md).

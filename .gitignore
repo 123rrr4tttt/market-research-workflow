@@ -1,156 +1,79 @@
-# =============================================================================
-# GitHub-shareable .gitignore for Python + Docker project
-# Based on: github/gitignore Python.gitignore + project-specific patterns
-# =============================================================================
-
-# -----------------------------------------------------------------------------
 # Python
-# -----------------------------------------------------------------------------
 __pycache__/
 *.py[cod]
-*$py.class
-*.so
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
 *.egg-info/
-.installed.cfg
-*.egg
-MANIFEST
-
-# Virtual environments
-venv/
-env/
-ENV/
-.venv
+.venv/
 .venv*/
 main/backend/.venv311/
 
-# -----------------------------------------------------------------------------
-# Environment & Secrets (CRITICAL: never commit .env or credentials)
-# -----------------------------------------------------------------------------
+# Local configuration and secrets
 .env
-.env.local
-.env.*.local
-.env.backup
-.env.development
-.env.production
+.env.*
+!main/backend/.env.example
+!main/backend/.env.production.example
 *.credentials.json
 *-credentials.json
 
-# -----------------------------------------------------------------------------
-# IDE & OS
-# -----------------------------------------------------------------------------
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
+# OS, editors and local agent state
 .DS_Store
+.idea/
+.vscode/
 .cursor/
+.autonomous/
+.playwright-mcp/
 
-# -----------------------------------------------------------------------------
-# Database & Data (local DB files, dumps, data dirs - never commit)
-# -----------------------------------------------------------------------------
+# Local data and reference checkouts
+/.data/
+main/backend/data/
+main/backend/dbs/
+main/backend/eggs/
+main/backend/dbs/
+main/backend/eggs/
+main/backend/logs/
+main/backend/信息源库/
+main/backend/frontend/
+tmp/open-source-references/
+reference_pool/
+main/github/
+
+# Logs and runtime state
+*.db
+*.sqlite
+*.sqlite3
+*.rdb
+*.dump
+*.sql.gz
+*.sql.backup
 *.db
 *.sqlite
 *.sqlite3
 *.rdb
 *.aof
-*.dump
-*.sql.gz
-*.sql.backup
-
-# Local data directories
-main/backend/data/
-data/
-reference_pool/
-
-# Cloned repos / reference code (same content as reference_pool, do not re-add)
-main/github/
-tmp/open-source-references/
-tmp/open-source-references/**
-
-# Agent / IDE planning artifacts
-plans/
-*.plan.md
-.autonomous/
-.playwright-mcp/
-
-# Local symlink/copy targets (real 信息源库 is at project root)
-main/backend/信息源库/
-main/backend/frontend/
-
-# -----------------------------------------------------------------------------
-# Logs & Runtime
-# -----------------------------------------------------------------------------
 *.log
-logs/
-main/logs/
 *.pid
 celerybeat-schedule
 celerybeat.pid
 
-# -----------------------------------------------------------------------------
-# Cache & Temp
-# -----------------------------------------------------------------------------
+# Caches and test output
 .cache/
-langchain-cache.db
-*.tmp
-*.bak
-*.backup
-
-# -----------------------------------------------------------------------------
-# Node (if frontend uses npm)
-# -----------------------------------------------------------------------------
-node_modules/
-.pnpm-store/
-
-# -----------------------------------------------------------------------------
-# Build & Coverage
-# -----------------------------------------------------------------------------
-*.pyc
-*.pyo
-*.pyd
-htmlcov/
 .coverage
 .coverage.*
-coverage.xml
-*.cover
-.tox/
-.nox/
-.ruff_cache/
-main/frontend-modern/storybook-static/
-
-# -----------------------------------------------------------------------------
-# Testing & Linting
-# -----------------------------------------------------------------------------
 .pytest_cache/
+.ruff_cache/
 .mypy_cache/
-.dmypy.json
-dmypy.json
 .hypothesis/
+htmlcov/
+coverage.xml
+*.bak
+*.backup
+*.tmp
 
-# -----------------------------------------------------------------------------
-# Generated / Analysis outputs (scripts produce these)
-# -----------------------------------------------------------------------------
-# OCI payloads stay local; retain evidence manifests and indexes in Git.
+# JavaScript dependencies and local stores
+node_modules/
+.pnpm-store/
+main/frontend-modern/storybook-static/
+dist/
+
+# Local container/build payloads
 **/image.oci.tar
 **/artifacts/layouts/**/blobs/
-
-main/backend/scripts/*_analysis.json
-main/backend/scripts/*_check.json
-main/backend/scripts/remaining_docs_deep_analysis.json
-main/backend/scripts/missing_dates_analysis.json
-main/backend/scripts/actual_dates_check.json
-main/backend/scripts/date_source_analysis.json

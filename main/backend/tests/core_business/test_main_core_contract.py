@@ -308,6 +308,28 @@ def test_request_validation_error_for_contract_api_is_enveloped(core_business_cl
     assert isinstance(payload["error"]["details"]["errors"], list)
 
 
+def test_request_validation_error_does_not_return_raw_model_context(
+    core_business_client, contract_headers: dict[str, str]
+):
+    response = core_business_client.post(
+        "/api/v1/information-topology/patches",
+        json={},
+        headers=contract_headers,
+    )
+
+    assert response.status_code == 422
+    assert response.headers["X-Error-Code"] == ErrorCode.INVALID_INPUT.value
+    error = response.json()["error"]
+    assert error["code"] == ErrorCode.INVALID_INPUT.value
+    assert error["details"]["errors"] == [
+        {
+            "type": "value_error",
+            "loc": ["body"],
+            "msg": "Value error, at least one state patch or link write is required",
+        }
+    ]
+
+
 def test_unhandled_exception_for_non_contract_api_keeps_legacy_shape(core_business_client, contract_headers: dict[str, str]):
     path = "/test/main-core/unhandled"
 

@@ -93,7 +93,7 @@ class FrontdoorOrchestratorUnitTestCase(unittest.TestCase):
             self.assertEqual(kwargs["params"]["urls"], ["https://example.com/posts/robotics"])
             return {"inserted": 1, "updated": 0, "skipped": 0, "errors": [], "by_url": []}
 
-        with patch("app.services.resource_pool.unified_search_by_item_payload", side_effect=_fake_unified_search), patch(
+        with patch("app.services.resource_pool.unified_search.unified_search_by_item_payload", side_effect=_fake_unified_search), patch(
             "app.services.source_library.resolver.run_item_with_url_routing",
             side_effect=_fake_route,
         ):
@@ -125,7 +125,7 @@ class FrontdoorOrchestratorUnitTestCase(unittest.TestCase):
             errors=[{"error": "url_term_filter_empty_no_fallback"}],
         )
 
-        with patch("app.services.resource_pool.unified_search_by_item_payload", return_value=search_only), patch(
+        with patch("app.services.resource_pool.unified_search.unified_search_by_item_payload", return_value=search_only), patch(
             "app.services.source_library.resolver.run_item_with_url_routing"
         ) as routed:
             raw = resolver.run_item_payload(

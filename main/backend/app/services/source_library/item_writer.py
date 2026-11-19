@@ -20,6 +20,7 @@ from .external_project import (
     EXTERNAL_PROJECT_CHANNEL_KEY,
     normalize_external_project_extra,
 )
+from .item_plan import build_item_query_readiness
 from .types import ItemType, is_system_managed_source_library_item
 
 SourceLibraryJsonValue: TypeAlias = JsonValue
@@ -688,6 +689,7 @@ def upsert_project_item(
                 item_key=payload.item_key,
                 display_name=payload.name,
                 channel_key=payload.channel_key,
+                project_key=resolved_project_key,
             ),
             path="source_library.extra",
         )
@@ -759,6 +761,16 @@ def upsert_project_item(
             "item_key": payload.item_key,
             "project_key": resolved_project_key,
             "ok": True,
+            "query_readiness": build_item_query_readiness(
+                {
+                    "item_key": payload.item_key,
+                    "name": payload.name,
+                    "channel_key": payload.channel_key,
+                    "enabled": payload.enabled,
+                    "params": normalized_params,
+                    "extra": normalized_extra,
+                }
+            ),
         }
     )
 

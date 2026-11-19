@@ -4,8 +4,9 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 import json
 from pathlib import Path
+import re
 import threading
-from typing import Any, Callable, Mapping, Protocol, Sequence, TypeGuard, TypedDict
+from typing import Any, Callable, Literal, Mapping, Protocol, Sequence, TypeGuard, TypedDict
 from uuid import uuid4
 
 from functorial_kit import Failure
@@ -22,6 +23,7 @@ from .macro_environment import (
     resolve_macro_environment,
     resolve_tool_package_digest,
     select_active_macro_identity,
+    SYSTEM_NAVIGATION_INSTRUCTIONS,
 )
 from .project_tools import build_project_core_tool_registry
 from .registry import CoreToolRegistry
@@ -129,7 +131,6 @@ class DefaultMacroEnvironmentOwner:
     def __init__(self, *, service: AgentSessionService, source_roots: Sequence[str | Path]) -> None:
         self.service = service
         self.source_roots = tuple(source_roots)
-        self._registry: CoreToolRegistry | None = None
 
     def resolve(
         self,
@@ -141,7 +142,7 @@ class DefaultMacroEnvironmentOwner:
         package_version: str | None = None,
     ) -> MacroEnvironment:
         del binding_id, phase
-        registry = self._base_registry()
+        registry = build_project_core_tool_registry(service=self.service)
         identity = select_active_macro_identity(
             self.service,
             project_key,
@@ -213,10 +214,23 @@ class DefaultMacroEnvironmentOwner:
             resolved=resolved,
         )
 
-    def _base_registry(self) -> CoreToolRegistry:
-        if self._registry is None:
-            self._registry = build_project_core_tool_registry(service=self.service)
-        return self._registry
+@dataclass(slots=True)
+class MacroTurnAdmission:
+    admission_id: str
+    thread_id: str
+    session_id: str
+    actor_identity: tuple[str, str, str, bool] | None
+    environment: MacroEnvironment
+    expires_at: datetime
+    consumed_turn_id: str | None = None
+
+
+class MacroTurnAttachment(TypedDict):
+    kind: Literal["local_image"]
+    attachmentId: str
+    filename: str
+    size: int
+    sha256: str
 
 
 @dataclass(slots=True)
@@ -236,6 +250,13 @@ class MacroHostBinding:
     )
     turn_bindings: dict[str, MacroNativeBinding] = field(
         default_factory=lambda: dict[str, MacroNativeBinding]()
+    )
+    turn_environments: dict[str, MacroEnvironment] = field(
+        default_factory=lambda: dict[str, MacroEnvironment]()
+    )
+    turn_admissions: dict[str, str] = field(default_factory=lambda: dict[str, str]())
+    admissions: dict[str, MacroTurnAdmission] = field(
+        default_factory=lambda: dict[str, MacroTurnAdmission]()
     )
     dispatch_cache: dict[str, _DispatchCacheEntry] = field(
         default_factory=lambda: dict[str, _DispatchCacheEntry]()
@@ -261,11 +282,65 @@ def _actor_identity(actor: RequestActorContext | None) -> tuple[str, str, str, b
     return actor.actor_id, actor.actor_source, actor.actor_auth_mode, actor.actor_trusted
 
 
+_ATTACHMENT_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
+_ATTACHMENT_HASH_RE = re.compile(r"^[0-9a-f]{64}$")
+_ATTACHMENT_KEYS = frozenset({"kind", "attachmentId", "filename", "size", "sha256"})
+
+
+def _turn_attachments(
+    values: Sequence[Mapping[str, object]] | None,
+) -> tuple[MacroTurnAttachment, ...]:
+    if not values:
+        return ()
+    if len(values) > 8:
+        raise MacroHostError("invalid_attachment", "at most 8 attachments are allowed")
+    normalized: list[MacroTurnAttachment] = []
+    seen: set[str] = set()
+    for item in values:
+        if set(item) != _ATTACHMENT_KEYS or item.get("kind") != "local_image":
+            raise MacroHostError("invalid_attachment", "attachment metadata is invalid")
+        attachment_id = str(item.get("attachmentId") or "").strip()
+        filename = str(item.get("filename") or "").strip()
+        size = item.get("size")
+        digest = str(item.get("sha256") or "").strip().lower()
+        if (
+            not _ATTACHMENT_ID_RE.fullmatch(attachment_id)
+            or attachment_id in seen
+            or not filename
+            or len(filename) > 255
+            or "/" in filename
+            or "\\" in filename
+            or "\x00" in filename
+            or not isinstance(size, int)
+            or isinstance(size, bool)
+            or size < 0
+            or not _ATTACHMENT_HASH_RE.fullmatch(digest)
+        ):
+            raise MacroHostError("invalid_attachment", "attachment metadata is invalid")
+        seen.add(attachment_id)
+        normalized.append(
+            {
+                "kind": "local_image",
+                "attachmentId": attachment_id,
+                "filename": filename,
+                "size": size,
+                "sha256": digest,
+            }
+        )
+    return tuple(normalized)
+
+
 def _required_str(value: object, *, label: str) -> str:
     result = str(value or "").strip()
     if not result:
         raise MacroHostError("invalid_input", f"{label} is required")
     return result
+
+
+def _system_instructions(environment: MacroEnvironment) -> str:
+    # Fixture descriptors predate the snapshot field; production resolver always sets it.
+    value = environment.descriptor.get("system_instructions")
+    return str(value).strip() if isinstance(value, str) and value.strip() else SYSTEM_NAVIGATION_INSTRUCTIONS
 
 
 class AgentMacroHostService:
@@ -290,6 +365,7 @@ class AgentMacroHostService:
         self.clock = clock
         self._state = _BindingStoreState()
         self._lock = threading.RLock()
+        self._input_lock = threading.RLock()
         self._call_locks: dict[str, threading.Lock] = {}
 
     def prepare(
@@ -377,7 +453,7 @@ class AgentMacroHostService:
 
     def environment(self, *, binding_id: str | None = None, thread_id: str | None = None) -> dict[str, Any]:
         binding = self._binding(binding_id=binding_id, thread_id=thread_id)
-        stale = False
+        current_digest: str | None = None
         if binding.status == "bound":
             current = self._resolve_environment(
                 project_key=binding.project_key,
@@ -386,43 +462,108 @@ class AgentMacroHostService:
                 package_id=binding.package_id,
                 package_version=binding.package_version,
             )
-            stale = current.environment_digest != binding.environment.environment_digest
+            current_digest = current.environment_digest
         return {
             **self._binding_projection(binding),
-            "status": "environment_stale" if stale else binding.status,
-            "environmentStale": stale,
+            "environmentChanged": current_digest is not None and current_digest != binding.environment.environment_digest,
+            "currentEnvironmentDigest": current_digest,
+            "environmentStale": binding.status == "environment_stale",
+        }
+
+    def prepare_turn(
+        self, *, thread_id: str, actor_context: RequestActorContext | None = None,
+    ) -> dict[str, Any]:
+        if actor_context is not None and (not actor_context.actor_trusted or not actor_context.actor_id):
+            raise MacroHostError("host_actor_untrusted", "host actor is not authenticated", status_code=403)
+        binding = self._bound_binding(thread_id)
+        environment = self._resolve_environment(
+            project_key=binding.project_key,
+            binding_id=binding.binding_id,
+            phase="prepare_turn",
+            package_id=binding.package_id,
+            package_version=binding.package_version,
+        )
+        self._validate_environment(environment)
+        now = self.clock()
+        admission = MacroTurnAdmission(
+            admission_id=f"mrw-turn-{uuid4().hex}",
+            thread_id=binding.thread_id or thread_id,
+            session_id=binding.session_id or "",
+            actor_identity=_actor_identity(actor_context),
+            environment=environment,
+            expires_at=now + timedelta(seconds=self.prepared_binding_ttl_seconds),
+        )
+        with self._lock:
+            if binding.status != "bound":
+                raise MacroHostError("thread_not_bound", "native thread is not bound", status_code=404)
+            for old_id, old in tuple(binding.admissions.items()):
+                if old.consumed_turn_id is None and old.expires_at < now:
+                    del binding.admissions[old_id]
+            binding.admissions[admission.admission_id] = admission
+        return {
+            "admissionId": admission.admission_id,
+            "threadId": admission.thread_id,
+            "environmentDigest": environment.environment_digest,
+            "environmentStatus": environment.status,
+            "dynamicTools": [dict(item) for item in environment.dynamic_tools],
+            "skills": self._skill_projection(environment.skills),
+            "skillRoots": list(environment.skill_roots),
+            "systemInstructions": _system_instructions(environment),
+            "expiresAt": admission.expires_at.isoformat(),
         }
 
     def record_input(
         self, *, thread_id: str, content: str, turn_id: str,
+        admission_id: str,
+        attachments: Sequence[Mapping[str, object]] | None = None,
+        actor_context: RequestActorContext | None = None,
+    ) -> dict[str, Any]:
+        with self._input_lock:
+            return self._record_input(
+                thread_id=thread_id, content=content, turn_id=turn_id,
+                admission_id=admission_id, attachments=attachments,
+                actor_context=actor_context,
+            )
+
+    def _record_input(
+        self, *, thread_id: str, content: str, turn_id: str,
+        admission_id: str,
+        attachments: Sequence[Mapping[str, object]] | None = None,
         actor_context: RequestActorContext | None = None,
     ) -> dict[str, Any]:
         if actor_context is not None and (not actor_context.actor_trusted or not actor_context.actor_id):
             raise MacroHostError("host_actor_untrusted", "host actor is not authenticated", status_code=403)
         binding = self._bound_binding(thread_id)
         normalized_turn = _required_str(turn_id, label="turnId")
+        normalized_admission = _required_str(admission_id, label="admissionId")
+        normalized_content = str(content or "").strip()
+        normalized_attachments = _turn_attachments(attachments)
+        if not normalized_content and not normalized_attachments:
+            raise MacroHostError("invalid_input", "user text or an attachment is required")
+        message_content = normalized_content or f"附件 ×{len(normalized_attachments)}"
         with self._lock:
+            if normalized_turn in binding.ended_turns:
+                raise MacroHostError("turn_ended", "host input turn has ended", status_code=409)
             prior = binding.turn_contexts.get(normalized_turn)
             if prior is not None and _actor_identity(prior.actor_context) != _actor_identity(actor_context):
                 raise MacroHostError("host_actor_mismatch", "recorded turn belongs to another authenticated actor", status_code=403)
-        normalized_content = str(content or "").strip()
-        if not normalized_content:
-            raise MacroHostError("invalid_input", "original user input is required")
-        current = self._resolve_environment(
-            project_key=binding.project_key,
-            binding_id=binding.binding_id,
-            phase="record",
-            package_id=binding.package_id,
-            package_version=binding.package_version,
-        )
-        self._validate_environment(current)
-        if current.environment_digest != binding.environment.environment_digest:
-            binding.status = "environment_stale"
-            raise MacroHostError(
-                "environment_stale",
-                "macro environment changed before host input recording",
-                status_code=409,
-            )
+            admission = binding.admissions.get(normalized_admission)
+            if admission is None:
+                raise MacroHostError("admission_not_found", "turn admission was not found", status_code=404)
+            if (admission.thread_id != binding.thread_id or admission.session_id != binding.session_id
+                    or admission.actor_identity != _actor_identity(actor_context)):
+                raise MacroHostError("admission_mismatch", "turn admission does not match this host context", status_code=409)
+            if prior is None:
+                if admission.consumed_turn_id is not None:
+                    raise MacroHostError("admission_consumed", "turn admission was already used", status_code=409)
+                if admission.expires_at < self.clock():
+                    raise MacroHostError("admission_expired", "turn admission expired", status_code=409)
+                admission.consumed_turn_id = normalized_turn
+                environment = admission.environment
+            else:
+                if binding.turn_admissions.get(normalized_turn) != normalized_admission:
+                    raise MacroHostError("admission_mismatch", "turn admission differs from recorded turn", status_code=409)
+                environment = binding.turn_environments[normalized_turn]
         context = TrustedHostContext(
             project_key=binding.project_key,
             session_id=binding.session_id or "",
@@ -431,24 +572,38 @@ class AgentMacroHostService:
             user_message_id=f"host-message-{uuid4().hex}",
             actor_context=actor_context,
         )
-        turn_binding = self._assemble_turn(binding.environment, context)
-        message = self.agent_session_service.create_host_user_message(context, content=normalized_content)
-        if isinstance(message, Failure):
-            raise MacroHostError("host_input_rejected", message.message, status_code=403)
+        try:
+            turn_binding = self._assemble_turn(environment, context) if prior is None else None
+            message = self.agent_session_service.create_host_user_message(
+                context,
+                content=message_content,
+                attachments=list(normalized_attachments) or None,
+            )
+            if isinstance(message, Failure):
+                raise MacroHostError("host_input_rejected", message.message, status_code=403)
+        except Exception:
+            if prior is None:
+                with self._lock:
+                    if normalized_turn not in binding.turn_contexts:
+                        admission.consumed_turn_id = None
+            raise
         with self._lock:
-            prior = binding.turn_contexts.get(normalized_turn)
-            if prior is not None and _actor_identity(prior.actor_context) != _actor_identity(actor_context):
-                raise MacroHostError("host_actor_mismatch", "recorded turn belongs to another authenticated actor", status_code=403)
+            if prior is None:
+                binding.turn_environments[normalized_turn] = environment
+                binding.turn_admissions[normalized_turn] = normalized_admission
+                assert turn_binding is not None
+                binding.turn_bindings[normalized_turn] = turn_binding
             binding.turn_contexts[normalized_turn] = context
-            binding.turn_bindings[normalized_turn] = turn_binding
         message_id = message.get("message_id")
         return {
             "recorded": True,
             "role": "user",
             "messageId": message_id,
             "turnId": normalized_turn,
+            "attachments": list(normalized_attachments),
             "sessionId": binding.session_id,
-            "environmentStatus": binding.environment.status,
+            "environmentStatus": environment.status,
+            "environmentDigest": environment.environment_digest,
         }
 
     def confirm(
@@ -490,12 +645,17 @@ class AgentMacroHostService:
         }
 
     def end_turn(self, *, thread_id: str, turn_id: str) -> dict[str, Any]:
-        binding = self._bound_binding(thread_id)
-        normalized_turn = _required_str(turn_id, label="turnId")
-        with self._lock:
-            binding.ended_turns.add(normalized_turn)
-            binding.turn_contexts.pop(normalized_turn, None)
-            binding.turn_bindings.pop(normalized_turn, None)
+        with self._input_lock:
+            binding = self._bound_binding(thread_id)
+            normalized_turn = _required_str(turn_id, label="turnId")
+            with self._lock:
+                binding.ended_turns.add(normalized_turn)
+                binding.turn_contexts.pop(normalized_turn, None)
+                binding.turn_bindings.pop(normalized_turn, None)
+                binding.turn_environments.pop(normalized_turn, None)
+                admission_id = binding.turn_admissions.pop(normalized_turn, None)
+                if admission_id is not None:
+                    binding.admissions.pop(admission_id, None)
         return {
             "ended": True,
             "threadId": binding.thread_id,
@@ -525,7 +685,8 @@ class AgentMacroHostService:
                 return self._tool_failure("dynamic tool call rejected: turn ended")
             context = binding.turn_contexts.get(normalized_turn)
             native = binding.turn_bindings.get(normalized_turn)
-        if context is None or native is None:
+            turn_environment = binding.turn_environments.get(normalized_turn)
+        if context is None or native is None or turn_environment is None:
             return self._tool_failure("dynamic tool call rejected: trusted host input is not recorded for this turn")
         if _actor_identity(context.actor_context) != _actor_identity(actor_context):
             return self._tool_failure("dynamic tool call rejected: authenticated host actor differs from recorded input")
@@ -566,7 +727,7 @@ class AgentMacroHostService:
                 call_id=normalized_call,
                 reason="codex_webui_macro_host",
             )
-            resolved_env = binding.environment.resolved
+            resolved_env = turn_environment.resolved
             if resolved_env is not None:
                 package_digest = resolve_tool_package_digest(
                     resolved_env,
@@ -579,7 +740,7 @@ class AgentMacroHostService:
                         f"dynamic tool package digest rejected: {package_digest.message}"
                     )
             else:
-                package_digest = binding.environment.package_digest
+                package_digest = turn_environment.package_digest
             with self._lock:
                 if normalized_turn in binding.ended_turns:
                     return self._tool_failure("dynamic tool call rejected: turn ended")
@@ -593,7 +754,7 @@ class AgentMacroHostService:
                     context={
                         "runtime_variant": "agent_macro_webui_host",
                         "binding_id": binding.binding_id,
-                        "environment_status": binding.environment.status,
+                        "environment_status": turn_environment.status,
                     },
                 ),
                 emit=_ignore_core_event,
@@ -613,6 +774,8 @@ class AgentMacroHostService:
                 arguments_digest=digest,
                 status=status,
                 structured=structured,
+                environment=turn_environment,
+                package_digest=package_digest,
             )
             pending_action = None
             if status == "needs_approval":
@@ -652,6 +815,8 @@ class AgentMacroHostService:
         arguments_digest: str,
         status: str,
         structured: Mapping[str, object],
+        environment: MacroEnvironment,
+        package_digest: str | None,
     ) -> None:
         if not binding.session_id:
             return
@@ -667,8 +832,8 @@ class AgentMacroHostService:
                     "call_id": call_id,
                     "tool": logical_name,
                     "arguments_digest": arguments_digest,
-                    "package_digest": binding.environment.package_digest,
-                    "environment_digest": binding.environment.environment_digest,
+                    "package_digest": package_digest,
+                    "environment_digest": environment.environment_digest,
                     "status": status,
                     "structured_content": dict(structured or {}),
                 }),
@@ -812,20 +977,25 @@ class AgentMacroHostService:
             "environmentStatus": binding.environment.status,
             "environmentDigest": binding.environment.environment_digest,
             "dynamicTools": [dict(item) for item in binding.environment.dynamic_tools],
-            "skills": [
-                {
-                    "name": item.name,
-                    "path": item.path,
-                    "contentDigest": item.content_digest,
-                    "sourceRoot": item.source_root,
-                    "relativePath": item.relative_path,
-                }
-                for item in binding.environment.skills
-            ],
+            "skills": self._skill_projection(binding.environment.skills),
             "skillRoots": list(binding.environment.skill_roots),
+            "systemInstructions": _system_instructions(binding.environment),
             "preparedAt": binding.prepared_at.isoformat(),
             "expiresAt": binding.expires_at.isoformat(),
         }
+
+    @staticmethod
+    def _skill_projection(skills: Sequence[MacroSkillDescriptor]) -> list[dict[str, object]]:
+        return [
+            {
+                "name": item.name,
+                "path": item.path,
+                "contentDigest": item.content_digest,
+                "sourceRoot": item.source_root,
+                "relativePath": item.relative_path,
+            }
+            for item in skills
+        ]
 
     @staticmethod
     def _tool_failure(message: str) -> dict[str, Any]:

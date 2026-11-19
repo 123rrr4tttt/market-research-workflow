@@ -82,7 +82,7 @@ _ACTOR_METADATA_VALUE_MAX_LENGTH = 128
 _ACTOR_DIGEST_HEX_LENGTH = 16
 
 _EMPTY_METADATA: Mapping[str, Any] = MappingProxyType({})
-_FAILURE_WITNESS = "test:test_w06_retained_failure_lifts_preserve_public_abi"
+_FAILURE_WITNESS = "test:test_capability_failure_preserves_public_errors"
 
 
 def _failure(
@@ -104,9 +104,9 @@ def _failure(
 def _raise_contract_failure(failure: Failure, exception_type: type[Exception] = ValueError) -> NoReturn:
     context = failure.context or {}
     if failure.family != request_identity_failures.name or context.get("public_exception") != exception_type.__name__:
-        # kit:boundary owner=request_identity_port.py class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w06_retained_failure_lifts_preserve_public_abi
+        # kit:boundary owner=request_identity_port.py class=PROGRAMMER_DEFECT failure_family=none witness=test:test_capability_failure_preserves_public_errors
         raise TypeError("request identity contract lift context is incomplete")  # noqa: TRY003
-    # kit:boundary owner=request_identity_port.py class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=request_identity.failure witness=test:test_w06_retained_failure_lifts_preserve_public_abi
+    # kit:boundary owner=request_identity_port.py class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=request_identity.failure witness=test:test_capability_failure_preserves_public_errors
     raise exception_type(str(context.get("public_message", failure.message)))
 
 

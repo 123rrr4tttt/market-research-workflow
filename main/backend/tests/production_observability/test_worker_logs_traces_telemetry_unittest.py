@@ -42,40 +42,40 @@ class WorkerTelemetryTestCase(unittest.TestCase):
     def test_identity_uses_allowlist_and_nested_runtime_readback(self) -> None:
         request = SimpleNamespace(
             id="celery-task-1",
-            hostname="celery@stage5-worker",
+            hostname="celery@worker-a",
             delivery_info={"routing_key": "celery"},
         )
         task = SimpleNamespace(name="app.tasks.task_worker_observability_noop", request=request)
         identity = build_worker_telemetry_identity(
             args=(),
             kwargs={
-                "request_id": "request-stage5",
-                "trace_id": "trace-stage5",
-                "project_key": "stage5_observability_20260913",
+                "request_id": "request-a",
+                "trace_id": "trace-a",
+                "project_key": "observability_fixture",
                 "candidate_id": "governance:cleanup",
                 "secret": "must-not-be-copied",
-                "runtime_readback": {"run_id": "run-stage5"},
+                "runtime_readback": {"run_id": "run-a"},
             },
             task=task,
         )
 
-        self.assertEqual(identity["request_id"], "request-stage5")
-        self.assertEqual(identity["run_id"], "run-stage5")
+        self.assertEqual(identity["request_id"], "request-a")
+        self.assertEqual(identity["run_id"], "run-a")
         self.assertEqual(identity["candidate_id"], "governance:cleanup")
-        self.assertEqual(identity["worker_name"], "celery@stage5-worker")
+        self.assertEqual(identity["worker_name"], "celery@worker-a")
         self.assertNotIn("secret", identity)
 
     def test_publish_read_and_unknown_boundary(self) -> None:
         client = _RedisFake()
         base = {
-            "request_id": "request-stage5",
-            "trace_id": "trace-stage5",
-            "run_id": "run-stage5",
-            "project_key": "stage5_observability_20260913",
+            "request_id": "request-a",
+            "trace_id": "trace-a",
+            "run_id": "run-a",
+            "project_key": "observability_fixture",
             "candidate_id": "governance:aggregator-sync",
             "task_id": "celery-task-1",
             "task_name": "app.tasks.task_worker_observability_noop",
-            "worker_name": "celery@stage5-worker",
+            "worker_name": "celery@worker-a",
             "queue": "celery",
         }
         for record_type in ("worker_event", "structured_log", "trace"):
@@ -96,7 +96,7 @@ class WorkerTelemetryTestCase(unittest.TestCase):
         self.assertEqual(payload["structured_logs_status"], "observed")
         self.assertEqual(payload["traces_status"], "observed")
         self.assertEqual(payload["record_counts"], {"worker_event": 1, "structured_log": 1, "trace": 1})
-        self.assertEqual(payload["correlatable_request_ids"], ["request-stage5"])
+        self.assertEqual(payload["correlatable_request_ids"], ["request-a"])
 
         empty = read_worker_telemetry_snapshot(_RedisFake()).to_dict()
         self.assertEqual(empty["read_status"], "ok")

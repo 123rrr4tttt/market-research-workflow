@@ -1,15 +1,30 @@
 # 后端文档
 
-全仓文档从 [统一导航](../../../docs/README.md) 进入；启动与认证见 [日常使用](../../../docs/usage.md)，当前系统边界见 [架构入口](../../../docs/architecture/README.md)。本目录保留后端专题说明，接口行为以当前路由实现和运行服务的 `/docs` 为准。
+这里说明后端对象、领域边界、接口合同和主要执行链。总体设计见[架构总览](../../../docs/architecture/README.md)，安装与认证见[使用说明](../../../docs/usage.md)。
 
-| 主题 | 文档 |
-|---|---|
-| API | [接口参考](../API接口文档.md)、[响应与错误规范](API_CONTRACT_STANDARD.md)、[接口分层](接口层调查文档.md) |
-| 信息检索 | [语义、方法、结构与实现](INFORMATION_RETRIEVAL_FRAMEWORK_DESIGN.md) |
-| Agent | [宏胞腔与 Codex Core](AGENT_MACRO_ARCHITECTURE.md)、[Codex WebUI](../../ops/codex-webui/README.md) |
-| 数据摄取 | [摄取架构](INGEST_ARCHITECTURE.md)、[数据源说明](INGEST_DATA_SOURCES.md)、[去重逻辑](文档去重逻辑说明.md)、[日期提取](日期提取与修复总览.md) |
-| 来源与资源库 | [资源库定义](RESOURCE_LIBRARY_DEFINITION.md)、[资源池提取接口](RESOURCE_POOL_EXTRACTION_API.md) |
-| 数据与图谱 | [数据库说明](数据库说明文档.md)、[政策结构](政策数据结构说明.md)、[社交图谱标准](社交平台图谱生成标准文档.md)、[社交图谱 API](社交平台内容图谱API.md) |
-| 来源配置 | [Reddit 配置](REDDIT_API_SETUP.md)、[Reddit 限制](REDDIT_API_LIMITS.md)、[Twitter/X 配置](TWITTER_API_SETUP.md) |
+## 核心架构
 
-专题文档中的设计、实现计划和实测状态按其各自声明阅读。开发命令与现行规则统一见 [开发入口](../../../docs/development/README.md)；分发计划、阶段报告、旧路由盘点及本目录 `archive/` 的归属见 [历史资料](../../../docs/history/README.md)。
+| 主题 | 入口 |
+| --- | --- |
+| 项目、来源、材料、检索、证据与写作的整体关系 | [架构总览](../../../docs/architecture/README.md) |
+| Agent、Cell、工具、批准和原生 Core | [Agent、Cell 与原生 Core](AGENT_MACRO_ARCHITECTURE.md) |
+| 检索、专题调查、索引、知识和证据 | [信息检索与知识组织](INFORMATION_RETRIEVAL_FRAMEWORK_DESIGN.md) |
+| 采集、解析、入库和任务 | [数据摄取](INGEST_ARCHITECTURE.md)、[统一采集](UNIFIED_COLLECT_ARCHITECTURE.md) |
+| 来源库、通道与路由 | [来源库定义](RESOURCE_LIBRARY_DEFINITION.md) |
+| API 响应、错误和兼容边界 | [API 合同](API_CONTRACT_STANDARD.md) |
+
+## 领域专题
+
+| 主题 | 入口 |
+| --- | --- |
+| 项目与数据 | [项目 API](../app/api/projects.py)、[实体定义](../app/models/entities.py)、[迁移](../migrations/versions) |
+| 来源与配置 | [摄取来源](INGEST_DATA_SOURCES.md)、[资源池接口](RESOURCE_POOL_EXTRACTION_API.md)、[Reddit](REDDIT_API_SETUP.md)、[Reddit 限制](REDDIT_API_LIMITS.md)、[Twitter/X](TWITTER_API_SETUP.md) |
+| 政策与可视化 | [政策数据结构](政策数据结构说明.md)、[数据校验与实时性](政策可视化数据校验与实时性说明.md) |
+| 数据库与去重 | [数据库结构](数据库说明文档.md)、[文档去重](文档去重逻辑说明.md)、[数据摄取内容](数据摄取内容.md) |
+| 日期与来源质量 | [日期提取与修复](日期提取与修复总览.md) |
+| 社交图谱 | [内容图谱 API](社交平台内容图谱API.md)、[生成标准](社交平台图谱生成标准文档.md) |
+| API 路由与 OpenAPI | [路由入口](../app/api)；已启动服务的 `/docs` 提供当前 OpenAPI |
+| 写作与报告 | [写作 API](../app/api/writing.py)、[报告 API](../app/api/llm_report.py) |
+| 工作流与任务 | [工作流服务](../app/services/workflow_graph)、[任务接口](../app/api/process.py) |
+
+接口响应以实际路由和客户端合同为准。开发命令见[开发指南](../../../docs/development/README.md)。

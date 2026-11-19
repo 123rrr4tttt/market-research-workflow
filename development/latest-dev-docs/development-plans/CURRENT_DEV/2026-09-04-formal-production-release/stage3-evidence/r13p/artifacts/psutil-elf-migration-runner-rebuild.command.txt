@@ -1,1 +1,0 @@
-docker run --rm --entrypoint /bin/sh mrw-r13p-psutil-elf-migration-runner-rebuild:local -ec <bounded ELF inspection>

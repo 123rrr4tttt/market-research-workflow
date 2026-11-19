@@ -35,6 +35,7 @@ export async function deleteE2eWritingDocument(request: APIRequestContext, proje
 export async function setProjectKeyForPage(page: Page, projectKey: string) {
   await page.addInitScript((key) => {
     window.localStorage.clear()
+    window.sessionStorage.setItem('market_project_key', key)
     window.localStorage.setItem('market_project_key', key)
   }, projectKey)
 }

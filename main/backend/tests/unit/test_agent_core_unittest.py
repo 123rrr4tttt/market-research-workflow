@@ -430,13 +430,13 @@ class SharedCoreToolProjectionUnitTest(unittest.TestCase):
             current_version=4,
             server_snapshot={"conflict_code": "VERSION_CONFLICT", "version": 4},
         )
-        import app.services.agent_core.authoring_tools as authoring_tools
+        from app.services.writing import document_edit
 
         with (
-            patch.object(authoring_tools, "bind_project", return_value=nullcontext()),
-            patch.object(authoring_tools, "get_document", return_value=current_document),
+            patch.object(document_edit, "bind_project", return_value=nullcontext()),
+            patch.object(document_edit, "get_document", return_value=current_document),
             patch.object(
-                authoring_tools,
+                document_edit,
                 "save_document_with_conflict",
                 side_effect=conflict,
             ) as mocked_save,
@@ -583,13 +583,13 @@ class SharedCoreToolProjectionUnitTest(unittest.TestCase):
                 emit=lambda _event: None,
             )
 
-        import app.services.agent_core.authoring_tools as authoring_tools
+        from app.services.writing import document_edit
         with (
-            patch.object(authoring_tools, "bind_project", return_value=nullcontext()),
-            patch.object(authoring_tools, "get_document", return_value=current),
-            patch.object(authoring_tools, "create_document", return_value=saved) as mocked_create,
+            patch.object(document_edit, "bind_project", return_value=nullcontext()),
+            patch.object(document_edit, "get_document", return_value=current),
+            patch.object(document_edit, "create_document", return_value=saved) as mocked_create,
             patch.object(
-                authoring_tools, "save_document_with_conflict", return_value=saved
+                document_edit, "save_document_with_conflict", return_value=saved
             ) as mocked_save,
         ):
             dry = execute({**arguments, "dry_run": True})
@@ -627,7 +627,7 @@ class SharedCoreToolProjectionUnitTest(unittest.TestCase):
                     "agent_updates": [success.structured_content["agent_update"]],
                 },
             }
-            with patch.object(authoring_tools, "get_document", return_value=replayed_document):
+            with patch.object(document_edit, "get_document", return_value=replayed_document):
                 replayed = execute({**arguments, "base_version": 4, "if_match": "etag-4"})
                 assert replayed.status == "completed"
                 assert replayed.structured_content["replayed"] is True
@@ -894,7 +894,7 @@ class SharedCoreToolProjectionUnitTest(unittest.TestCase):
         )
 
     def test_url_pool_outcome_reader_uses_exact_contract_version_without_identity_aliasing(self):
-        from app.services.agent_core.authoring_tools import _decode_url_outcome_bytes
+        from app.successor_runtime.capabilities.acquisition_url import build_url_single_url_contract_version
         from app.successor_runtime.capabilities.acquisition_url import (
             LegacyUrlSingleUrlOutcome,
             UrlSingleUrlOutcome,
@@ -929,13 +929,11 @@ class SharedCoreToolProjectionUnitTest(unittest.TestCase):
             )
         )
 
-        legacy = _decode_url_outcome_bytes(
-            json.dumps(legacy_payload).encode("utf-8"),
-            legacy_contract.ref,
+        legacy = build_url_single_url_contract_version(legacy_contract.ref).decode_outcome(
+            json.dumps(legacy_payload).encode("utf-8")
         )
-        current = _decode_url_outcome_bytes(
-            json.dumps(current_payload).encode("utf-8"),
-            current_contract.ref,
+        current = build_url_single_url_contract_version(current_contract.ref).decode_outcome(
+            json.dumps(current_payload).encode("utf-8")
         )
 
         assert isinstance(legacy, LegacyUrlSingleUrlOutcome)
@@ -946,7 +944,7 @@ class SharedCoreToolProjectionUnitTest(unittest.TestCase):
         assert not hasattr(current, "document_id")
 
     def test_historical_unknown_url_run_is_read_only_and_never_invokes_provider(self):
-        from app.services.agent_core.authoring_tools import _url_pool_runtime_evidence
+        from app.services.agent_core.authoring_tools import _read_authorized_url_pool_evidence
         from app.services.agent_core.host_authorization import (
             TrustedHostContext,
             VerifiedHostAuthorization,
@@ -985,7 +983,7 @@ class SharedCoreToolProjectionUnitTest(unittest.TestCase):
         invoke = MagicMock()
         with (
             patch(
-                "app.services.agent_core.authoring_tools._url_pool_capability_grant_is_current",
+                "app.composition.url_pool_readback.url_pool_capability_grant_is_current",
                 return_value=True,
             ),
             patch(
@@ -1005,7 +1003,7 @@ class SharedCoreToolProjectionUnitTest(unittest.TestCase):
                 ),
             ),
             patch(
-                "app.services.agent_core.authoring_tools._read_url_pool_runtime_url",
+                "app.composition.url_pool_readback._read_url_pool_runtime_url",
                 return_value="https://example.gov/historical",
             ),
             patch("app.composition.production.read_installed_program_outputs") as outputs,
@@ -1013,7 +1011,7 @@ class SharedCoreToolProjectionUnitTest(unittest.TestCase):
             patch("app.services.ingest.url_pool.invoke_url_single_url", invoke),
             verified_host_authorization_channel(authorization),
         ):
-            evidence = _url_pool_runtime_evidence(
+            evidence = _read_authorized_url_pool_evidence(
                 submission={
                     "project_key": "demo_proj",
                     "runtime_run_ref": "runtime-run:legacy-unknown",
@@ -1090,7 +1088,7 @@ class SharedCoreToolProjectionUnitTest(unittest.TestCase):
         with (
             patch("app.services.job_logger.list_jobs", return_value=[]),
             patch(
-                "app.services.agent_core.authoring_tools._url_pool_capability_grant_is_current",
+                "app.composition.url_pool_readback.url_pool_capability_grant_is_current",
                 return_value=True,
             ),
             patch(
@@ -1106,7 +1104,7 @@ class SharedCoreToolProjectionUnitTest(unittest.TestCase):
                 ),
             ) as read_runtime,
             patch(
-                "app.services.agent_core.authoring_tools._read_url_pool_runtime_url",
+                "app.composition.url_pool_readback._read_url_pool_runtime_url",
                 return_value="https://example.gov/report",
             ),
             patch(
@@ -1183,7 +1181,7 @@ class SharedCoreToolProjectionUnitTest(unittest.TestCase):
         with (
             patch("app.services.job_logger.list_jobs", return_value=[]),
             patch(
-                "app.services.agent_core.authoring_tools._url_pool_capability_grant_is_current",
+                "app.composition.url_pool_readback.url_pool_capability_grant_is_current",
                 return_value=True,
             ),
             patch(
@@ -1199,7 +1197,7 @@ class SharedCoreToolProjectionUnitTest(unittest.TestCase):
                 ),
             ),
             patch(
-                "app.services.agent_core.authoring_tools._read_url_pool_runtime_url",
+                "app.composition.url_pool_readback._read_url_pool_runtime_url",
                 return_value="https://example.gov/report",
             ),
             patch(
@@ -1207,7 +1205,7 @@ class SharedCoreToolProjectionUnitTest(unittest.TestCase):
                 return_value=(("url-step", object(), exact),),
             ),
             patch(
-                "app.services.agent_core.authoring_tools._read_url_pool_material",
+                "app.composition.url_pool_readback.read_url_pool_material",
                 return_value={
                     "project_key": "demo_proj",
                     "material_id": 42,
@@ -1234,7 +1232,7 @@ class SharedCoreToolProjectionUnitTest(unittest.TestCase):
         read_material.assert_called_once_with("demo_proj", 42, "https://example.gov/report")
 
     def test_url_pool_material_rejects_same_domain_root_and_accepts_persisted_redirect(self):
-        from app.services.agent_core.authoring_tools import _read_url_pool_material
+        from app.composition.url_pool_readback import read_url_pool_material
 
         session = MagicMock()
         session.execute.return_value.first.side_effect = (
@@ -1255,18 +1253,18 @@ class SharedCoreToolProjectionUnitTest(unittest.TestCase):
         session_context.__enter__.return_value = session
         with (
             patch(
-                "app.services.agent_core.authoring_tools.bind_project",
+                "app.services.projects.bind_project",
                 return_value=nullcontext(),
             ),
             patch(
-                "app.services.agent_core.authoring_tools.SessionLocal",
+                "app.models.base.SessionLocal",
                 return_value=session_context,
             ),
         ):
-            root_match = _read_url_pool_material(
+            root_match = read_url_pool_material(
                 "demo_proj", 42, "https://example.gov"
             )
-            redirect_match = _read_url_pool_material(
+            redirect_match = read_url_pool_material(
                 "demo_proj", 42, "https://example.gov/requested"
             )
 
@@ -1377,7 +1375,7 @@ class SharedCoreToolProjectionUnitTest(unittest.TestCase):
         with (
             patch("app.services.job_logger.list_jobs", return_value=[]),
             patch(
-                "app.services.agent_core.authoring_tools._url_pool_capability_grant_is_current",
+                "app.composition.url_pool_readback.url_pool_capability_grant_is_current",
                 return_value=False,
             ) as grant_check,
             patch("app.composition.production.read_installed_program") as read_runtime,
@@ -1456,7 +1454,7 @@ class SharedCoreToolProjectionUnitTest(unittest.TestCase):
                 with (
                     patch("app.services.job_logger.list_jobs", return_value=[]),
                     patch(
-                        "app.services.agent_core.authoring_tools._url_pool_capability_grant_is_current",
+                        "app.composition.url_pool_readback.url_pool_capability_grant_is_current",
                         return_value=True,
                     ),
                     patch(
@@ -1476,7 +1474,7 @@ class SharedCoreToolProjectionUnitTest(unittest.TestCase):
                         ),
                     ),
                     patch(
-                        "app.services.agent_core.authoring_tools._read_url_pool_runtime_url",
+                        "app.composition.url_pool_readback._read_url_pool_runtime_url",
                         return_value="https://example.gov/report",
                     ),
                     patch(

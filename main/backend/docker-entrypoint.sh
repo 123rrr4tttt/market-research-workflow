@@ -49,56 +49,42 @@ ES_PORT="$(parse_url_part "${ES_URL}" port 9200)"
 ES_SCHEME="$(parse_url_part "${ES_URL}" scheme http)"
 ES_USER="$(parse_url_part "${ES_URL}" user '')"
 ES_PASSWORD="$(parse_url_part "${ES_URL}" password '')"
-REDIS_HOST="$(parse_url_part "${REDIS_URL}" host redis)"
-REDIS_PORT="$(parse_url_part "${REDIS_URL}" port 6379)"
-REDIS_PASSWORD="$(parse_url_part "${REDIS_URL}" password '')"
 
 ES_CURL_AUTH=()
 if [ -n "${ES_USER}" ] && [ -n "${ES_PASSWORD}" ]; then
     ES_CURL_AUTH=(--user "${ES_USER}:${ES_PASSWORD}")
 fi
 
-# 等待PostgreSQL就绪
-echo "⏳ 等待PostgreSQL服务就绪..."
-RETRY=0
-until pg_isready -h "${DB_HOST}" -p "${DB_PORT}" -U "${DB_USER}" -d "${DB_NAME}" >/dev/null 2>&1; do
-    RETRY=$((RETRY + 1))
-    if [ $RETRY -ge $MAX_RETRIES ]; then
-        echo "❌ PostgreSQL服务未能在${MAX_RETRIES}次重试后就绪"
-        exit 1
-    fi
-    echo "   等待PostgreSQL... ($RETRY/$MAX_RETRIES)"
-    sleep "${RETRY_DELAY}"
-done
-echo "✅ PostgreSQL已就绪"
+wait_for_service() {
+    local name="$1" attempt=1
+    shift
+    echo "⏳ 等待${name}服务就绪..."
+    until "$@" >/dev/null 2>&1; do
+        if (( attempt >= MAX_RETRIES )); then
+            echo "❌ ${name}服务未能在${MAX_RETRIES}次尝试后就绪" >&2
+            return 1
+        fi
+        echo "   等待${name}... ($attempt/$MAX_RETRIES)"
+        sleep "${RETRY_DELAY}"
+        attempt=$((attempt + 1))
+    done
+    echo "✅ ${name}已就绪"
+}
 
-# 等待Elasticsearch就绪
-echo "⏳ 等待Elasticsearch服务就绪..."
-RETRY=0
-until curl -fsS "${ES_CURL_AUTH[@]}" "${ES_SCHEME}://${ES_HOST}:${ES_PORT}/_cluster/health" >/dev/null 2>&1; do
-    RETRY=$((RETRY + 1))
-    if [ $RETRY -ge $MAX_RETRIES ]; then
-        echo "❌ Elasticsearch服务未能在${MAX_RETRIES}次重试后就绪"
-        exit 1
-    fi
-    echo "   等待Elasticsearch... ($RETRY/$MAX_RETRIES)"
-    sleep "${RETRY_DELAY}"
-done
-echo "✅ Elasticsearch已就绪"
+check_redis() {
+    REDIS_URL="${REDIS_URL}" python - <<'PYTHON'
+import os
 
-# 等待Redis就绪（使用Python检查，因为redis-cli可能不可用）
-echo "⏳ 等待Redis服务就绪..."
-RETRY=0
-until python -c "import redis; r=redis.Redis(host='${REDIS_HOST}', port=int('${REDIS_PORT}'), db=0, password='${REDIS_PASSWORD}'); r.ping()" >/dev/null 2>&1; do
-    RETRY=$((RETRY + 1))
-    if [ $RETRY -ge $MAX_RETRIES ]; then
-        echo "❌ Redis服务未能在${MAX_RETRIES}次重试后就绪"
-        exit 1
-    fi
-    echo "   等待Redis... ($RETRY/$MAX_RETRIES)"
-    sleep "${RETRY_DELAY}"
-done
-echo "✅ Redis已就绪"
+from redis import Redis
+
+with Redis.from_url(os.environ["REDIS_URL"], socket_connect_timeout=5, socket_timeout=5) as client:
+    raise SystemExit(0 if client.ping() else 1)
+PYTHON
+}
+
+wait_for_service PostgreSQL pg_isready -h "${DB_HOST}" -p "${DB_PORT}" -U "${DB_USER}" -d "${DB_NAME}"
+wait_for_service Elasticsearch curl -fsS "${ES_CURL_AUTH[@]}" "${ES_SCHEME}://${ES_HOST}:${ES_PORT}/_cluster/health"
+wait_for_service Redis check_redis
 
 # 运行数据库迁移
 cd /app

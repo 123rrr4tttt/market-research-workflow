@@ -12,7 +12,7 @@ from app.successor_runtime.runtime.activation import (
     activate_plan_result,
 )
 
-from .test_p0c_activation import _compile, _empty_registries, _program, identity_node, INPUT
+from .test_program_activation import _compile, _empty_registries, _program, identity_node, INPUT
 
 
 def test_activate_plan_result_closes_input_validation() -> None:

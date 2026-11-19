@@ -36,7 +36,7 @@ def build_candidate_source_plan(
     external_search_enabled: bool,
 ) -> Annotated[
     CandidateSourcePlan,
-    "kit:non-authoritative derived_as=view fact_source=entry_type+policy_category+search_feature_flags witness=test:test_w03_ingest_ports_authority_metadata",
+    "kit:non-authoritative derived_as=view fact_source=entry_type+policy_category+search_feature_flags witness=test:test_ingest_ports_declare_sources_and_effect_authority",
 ]:
     etype = str(entry_type or "").strip().lower()
     policy = str(policy_category or "").strip().lower()
@@ -94,7 +94,7 @@ def build_candidate_source_plan(
 
 def plan_to_metadata(plan: CandidateSourcePlan) -> Annotated[
     dict[str, Any],
-    "kit:non-authoritative derived_as=view fact_source=candidate_source_plan witness=test:test_w03_ingest_ports_authority_metadata",
+    "kit:non-authoritative derived_as=view fact_source=candidate_source_plan witness=test:test_ingest_ports_declare_sources_and_effect_authority",
 ]:
     return {
         "entry_type": plan.entry_type,

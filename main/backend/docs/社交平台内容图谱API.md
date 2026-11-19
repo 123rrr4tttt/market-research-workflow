@@ -1,7 +1,5 @@
 # 社交平台内容图谱API文档
 
-> 最后更新：2026-02 | 文档索引：`docs/README.md`
-
 ## 概述
 
 本文档描述了社交平台内容图谱的构建和导出功能。内容图谱聚焦于关键词、关键实体、主题与情感倾向，构建可查询的图结构。
@@ -348,7 +346,7 @@ python scripts/export_content_graph.py -o graphs/reddit_decay.json \
 
 ## 内容图谱数据结构快速参考（已并入）
 
-以下内容整合自历史文档 `main/backend/docs/archive/graph-specs/社交平台数据结构说明.md`，用于 API 使用时快速核对输入/输出结构。
+以下结构用于 API 使用时快速核对输入和输出。
 
 ### 最小输入字段（来自 `extracted_data`）
 

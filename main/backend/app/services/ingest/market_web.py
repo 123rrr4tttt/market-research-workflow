@@ -110,6 +110,10 @@ def collect_market_info(
             "provider": provider,
             **({"runtime_readback": dict(runtime_readback)} if runtime_readback else {}),
         },
+        external_job_id=(
+            str(runtime_readback.get("task_id") or "").strip() or None
+            if runtime_readback else None
+        ),
     )
 
     try:

@@ -54,7 +54,7 @@ def build_policy_summary(
     dict[str, Any],
     "kit:non-authoritative derived_as=view "
     "fact_source=policy_document_extractors "
-    "witness=test:test_w04_authority_metadata",
+    "witness=test:test_service_results_declare_sources_and_effect_authority",
 ]:
     policy = get_policy_data(doc)
     publish_date = getattr(doc, "publish_date", None)
@@ -81,7 +81,7 @@ def build_policy_detail(
     dict[str, Any],
     "kit:non-authoritative derived_as=view "
     "fact_source=policy_summary+document_detail_extractors "
-    "witness=test:test_w04_authority_metadata",
+    "witness=test:test_service_results_declare_sources_and_effect_authority",
 ]:
     updated_at = getattr(doc, "updated_at", None)
     return {

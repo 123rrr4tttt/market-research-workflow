@@ -1,1 +1,0 @@
-docker run --rm --entrypoint python mrw-r13p-runtime-backend-rebuild:local -c from\ app.main\ import\ app\;\ print\(app.title\) 

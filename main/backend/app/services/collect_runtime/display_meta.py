@@ -61,7 +61,7 @@ def _is_json_object(value: object) -> TypeGuard[dict[object, object]]:
 
 def build_display_meta(request: CollectRequest, result: CollectResult | None = None, *, summary: str | None = None) -> Annotated[
     CollectJsonObject,
-    "kit:non-authoritative derived_as=view fact_source=request+result+summary witness=test:test_w03_ingest_ports_authority_metadata",
+    "kit:non-authoritative derived_as=view fact_source=request+result+summary witness=test:test_ingest_ports_declare_sources_and_effect_authority",
 ]:
     flow = str(request.flow or "").strip() or FLOW_COLLECT
     if flow not in ALLOWED_COLLECT_FLOWS:

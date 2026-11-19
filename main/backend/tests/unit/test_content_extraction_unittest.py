@@ -189,7 +189,7 @@ class ContentExtractionUnitTestCase(unittest.TestCase):
         self.assertEqual(analysis["main_text_ratio"], 1.0)
 
     def test_declared_material_text_survives_frontdoor_cleaning_limit(self) -> None:
-        from app.services.ingest.content_cleaner import clean_frontdoor_document_candidate
+        from app.services.ingest.content_cleaner import clean_frontdoor_material_candidate
 
         body = "Preserved plain report body.\n" * 2500
         self.assertGreater(len(body), 50000)
@@ -208,7 +208,7 @@ class ContentExtractionUnitTestCase(unittest.TestCase):
             },
         }
         extracted, profile = apply_main_content_extraction(candidate)
-        cleaned, cleaning_report = clean_frontdoor_document_candidate(extracted)
+        cleaned, cleaning_report = clean_frontdoor_material_candidate(extracted)
 
         self.assertEqual(cleaned["content"], body)
         self.assertEqual(profile["main_text_ratio"], 1.0)

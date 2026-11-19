@@ -197,7 +197,7 @@ def reduce_step(
         snapshot, event, target, guard=guard, qualifier=qualifier
     )
     if isinstance(result, Failure):
-        # kit:boundary owner=successor.runtime.reducer.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context  # noqa: E501
+        # kit:boundary owner=successor.runtime.reducer.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_runtime_failure_lift_context  # noqa: E501
         raise_runtime_failure(result, IllegalTransition)
     return result
 
@@ -475,7 +475,7 @@ def reduce_branch_decision(
             if result.code == "GUARD_EXPRESSION_INVALID"
             else ValueError
         )
-        # kit:boundary owner=successor.runtime.reducer.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context  # noqa: E501
+        # kit:boundary owner=successor.runtime.reducer.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_runtime_failure_lift_context  # noqa: E501
         raise_runtime_failure(result, exception_type)
     return result
 
@@ -568,7 +568,7 @@ def guard_holds(expression: str, input_value: object) -> bool:
 
     result = guard_holds_result(expression, input_value)
     if isinstance(result, Failure):
-        # kit:boundary owner=successor.runtime.reducer.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context  # noqa: E501
+        # kit:boundary owner=successor.runtime.reducer.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_runtime_failure_lift_context  # noqa: E501
         raise_runtime_failure(result, GuardExpressionError)
     return result
 
@@ -683,7 +683,7 @@ def reduce_run_completion(
             if result.code == "ILLEGAL_RUN_TRANSITION"
             else ValueError
         )
-        # kit:boundary owner=successor.runtime.reducer.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context  # noqa: E501
+        # kit:boundary owner=successor.runtime.reducer.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_runtime_failure_lift_context  # noqa: E501
         raise_runtime_failure(result, exception_type)
     return result
 
@@ -714,6 +714,6 @@ def reduce_run_event(
             if result.code == "ILLEGAL_RUN_TRANSITION"
             else ValueError
         )
-        # kit:boundary owner=successor.runtime.reducer.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context  # noqa: E501
+        # kit:boundary owner=successor.runtime.reducer.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_runtime_failure_lift_context  # noqa: E501
         raise_runtime_failure(result, exception_type)
     return result

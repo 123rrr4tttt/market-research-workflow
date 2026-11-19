@@ -33,7 +33,7 @@ _TIME_DENSITY_TIME_FALLBACK_CHAIN = [
     "created_at",
 ]
 _LOG = logging.getLogger(__name__)
-_FAILURE_WITNESS = "test:test_w01_request_failures"
+_FAILURE_WITNESS = "test:test_invalid_service_requests_preserve_public_errors"
 _FAILURE_CONTEXT_KEYS = frozenset(
     {"owner", "operation", "failure_family", "public_exception", "public_message", "witness"}
 )
@@ -58,9 +58,9 @@ def _request_failure(code: str, message: str, *, operation: str, **details: Any)
 def _raise_request_failure(failure: Failure) -> NoReturn:
     context = failure.context or {}
     if not prompt_time_density_request_failures.matches(failure) or _FAILURE_CONTEXT_KEYS - set(context):
-        # kit:boundary owner=prompt_time_density.failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w01_request_failures
+        # kit:boundary owner=prompt_time_density.failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_invalid_service_requests_preserve_public_errors
         raise TypeError("prompt time density failure lift context is incomplete or inconsistent")
-    # kit:boundary owner=prompt_time_density.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=prompt_time_density.request.failure witness=test:test_w01_request_failures
+    # kit:boundary owner=prompt_time_density.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=prompt_time_density.request.failure witness=test:test_invalid_service_requests_preserve_public_errors
     raise ValueError(str(context["public_message"]))
 
 
@@ -468,7 +468,7 @@ def build_time_density_live_gap_markers(
     production_data_verified: bool = False,
 ) -> Annotated[
     list[str],
-    "kit:non-authoritative derived_as=view fact_source=prompt_time_density.trace witness=test:test_w01_meta",
+    "kit:non-authoritative derived_as=view fact_source=prompt_time_density.trace witness=test:test_derived_service_annotations_match_fact_sources",
 ]:
     markers: set[str] = set()
     if not feedback_observed:
@@ -507,7 +507,7 @@ def build_time_density_decision_log_features(
     trace: dict[str, Any] | None = None,
 ) -> Annotated[
     dict[str, Any],
-    "kit:non-authoritative derived_as=view fact_source=prompt_time_density.decision_log witness=test:test_w01_meta",
+    "kit:non-authoritative derived_as=view fact_source=prompt_time_density.decision_log witness=test:test_derived_service_annotations_match_fact_sources",
 ]:
     trace_mapping = trace or _mapping_or_empty(row.get("policy_decision_trace"))
     effective_time_provenance = _mapping_or_empty(
@@ -725,7 +725,7 @@ def build_policy_decision_trace(
     live_data_gap_markers: list[str] | None = None,
 ) -> Annotated[
     dict[str, Any],
-    "kit:non-authoritative derived_as=view fact_source=prompt_time_density.decision_log witness=test:test_w01_meta",
+    "kit:non-authoritative derived_as=view fact_source=prompt_time_density.decision_log witness=test:test_derived_service_annotations_match_fact_sources",
 ]:
     effective_time_provenance = effective_time_provenance or {}
     return {

@@ -3,66 +3,29 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from importlib import import_module
-from typing import Any, Dict, Protocol, TypeGuard, runtime_checkable
+from typing import TYPE_CHECKING, Any, Dict, TypeGuard
 
 from ..candidate_aggregation import (
-    aggregate_written_counts,
     batch_max_candidates,
     candidate_record_stats,
     normalize_handler_candidate_limits,
     normalize_query_terms,
     split_query_batches,
-    unique_candidates,
-    unique_site_entries,
 )
 from ..relevance_review import annotate_records_with_relevance_review_queue
 from ..relevance_review import merge_relevance_review_queues
+from ..orchestrators.site_search import fold_search_observations
 
-
-class _UnifiedSearchResultView(Protocol):
-    runtime_diagnostics: list[dict[str, object]]
-    site_entries_used: list[dict[str, object]]
-    relevance_review_queue: dict[str, object]
-    errors: list[dict[str, str]]
-    ingest_result: dict[str, object] | None
-
-
-@runtime_checkable
-class _UnifiedSearchPort(Protocol):
-    def __call__(
-        self,
-        *,
-        project_key: str,
-        item: dict[str, object],
-        query_terms: list[str],
-        max_candidates: int,
-        write_to_pool: bool,
-        pool_scope: str,
-        probe_timeout: float,
-        sitemap_max_depth: int,
-        sitemap_max_sitemaps: int,
-        auto_ingest: bool,
-        ingest_limit: int,
-        enable_extraction: bool,
-        allow_term_fallback: bool,
-    ) -> _UnifiedSearchResultView: ...
+if TYPE_CHECKING:
+    from ...resource_pool.unified_search import UnifiedSearchResult
 
 
 def _is_object(value: object) -> TypeGuard[dict[object, object]]:
     return isinstance(value, dict)
 
 
-def _is_object_list(value: object) -> TypeGuard[list[object]]:
-    return isinstance(value, list)
-
-
 def _object(value: object) -> dict[object, object]:
     return dict(value) if _is_object(value) else {}
-
-
-def _object_list(value: object) -> list[object]:
-    return list(value) if _is_object_list(value) else []
 
 
 def _int(value: object) -> int:
@@ -83,14 +46,6 @@ def _float(value: object, default: float) -> float:
         return default
 
 
-def _resolve_unified_search() -> _UnifiedSearchPort:
-    module = import_module("app.services.resource_pool")
-    candidate = getattr(module, "unified_search_by_item_payload", None)
-    if not isinstance(candidate, _UnifiedSearchPort):
-        raise RuntimeError("resource_pool.unified_search adapter is unavailable")
-    return candidate
-
-
 def _source_library_item_context(params: Mapping[object, object]) -> dict[str, object]:
     raw = _object(params.get("_source_library_item"))
     extra = _object(raw.get("extra"))
@@ -104,6 +59,8 @@ def _source_library_item_context(params: Mapping[object, object]) -> dict[str, o
 
 
 def handle_handler_cluster(params: Mapping[object, object], project_key: str | None) -> Dict[str, Any]:
+    from ...resource_pool.unified_search import unified_search_by_item_payload
+
     merged_params = _object(params)
     item_ctx = _source_library_item_context(merged_params)
     terminal_output_only = bool(merged_params.get("source_library_terminal_output_only")) or str(
@@ -134,8 +91,7 @@ def handle_handler_cluster(params: Mapping[object, object], project_key: str | N
     sitemap_max_depth = candidate_limits.sitemap_max_depth
     sitemap_max_sitemaps = candidate_limits.sitemap_max_sitemaps
 
-    unified_search_by_item_payload = _resolve_unified_search()
-    us_runs: list[_UnifiedSearchResultView] = []
+    us_runs: list[UnifiedSearchResult] = []
     for term_batch in term_batches:
         batch_ingest_limit = min(global_ingest_limit, per_keyword_limit * max(1, len(term_batch)))
         us_runs.append(
@@ -156,15 +112,15 @@ def handle_handler_cluster(params: Mapping[object, object], project_key: str | N
             )
         )
 
-    benign_markers = {"url_term_filter_empty_fallback_used", "url_term_filter_empty_no_fallback"}
-    merged_site_entries = unique_site_entries(us_runs)
-    merged_candidates = unique_candidates(us_runs)
-    written_urls_new, written_urls_skipped = aggregate_written_counts(us_runs)
-    merged_runtime_diagnostics: list[dict[object, object]] = []
-    merged_review_queues: list[dict[object, object]] = []
-    seen_runtime: set[str] = set()
-    merged_error_details: list[dict[object, object]] = []
-    merged_errors: list[str] = []
+    observations = fold_search_observations(us_runs, deduplicate_error_messages=False)
+    merged_site_entries = observations.site_entries_used
+    merged_candidates = observations.candidates
+    written_urls_new = observations.written_urls_new
+    written_urls_skipped = observations.written_urls_skipped
+    merged_runtime_diagnostics = observations.runtime_diagnostics
+    merged_review_queues = observations.relevance_review_queues
+    merged_error_details = observations.error_details
+    merged_errors = observations.errors
     ingest_inserted = 0
     ingest_updated = 0
     ingest_skipped = 0
@@ -173,23 +129,6 @@ def handle_handler_cluster(params: Mapping[object, object], project_key: str | N
     rejection_breakdown_total: dict[str, int] = {}
 
     for us in us_runs:
-        runtime_rows = [_object(entry) for entry in _object_list(getattr(us, "runtime_diagnostics", None))]
-        if not runtime_rows:
-            runtime_rows = [_object(entry) for entry in _object_list(getattr(us, "site_entries_used", None))]
-        for diag in runtime_rows:
-            key = str(diag.get("site_url") or diag.get("id") or "")
-            if key and key not in seen_runtime:
-                seen_runtime.add(key)
-                merged_runtime_diagnostics.append(diag)
-        review_queue = _object(getattr(us, "relevance_review_queue", None))
-        if review_queue:
-            merged_review_queues.append(review_queue)
-        for raw_error in _object_list(getattr(us, "errors", None)):
-            e = _object(raw_error)
-            merged_error_details.append(e)
-            msg = str(e.get("error") or "").strip()
-            if msg and msg not in benign_markers:
-                merged_errors.append(msg)
         if terminal_output_only:
             continue
         ir = _object(getattr(us, "ingest_result", None))

@@ -6,6 +6,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
+from app.services.search.hybrid import SearchInvocationObservation
 from functorial_kit import Failure
 from sqlalchemy import select
 
@@ -24,8 +25,7 @@ from app.services.document_queries import (
     build_material_query_result_envelope,
     compile_material_query_statement,
     material_query_to_statement,
-    query_hybrid_material_envelope,
-    query_hybrid_material_rows,
+    query_hybrid_material_observation,
     query_source_library_material_envelope,
     query_source_library_material_rows,
     rows_for_material_views,
@@ -194,10 +194,10 @@ class MaterialQueriesContractUnitTestCase(unittest.TestCase):
                 }
             )
 
-    def test_writing_hybrid_query_uses_contract_envelope_before_legacy_rows(self) -> None:
+    def test_writing_hybrid_query_preserves_search_observation_and_ranked_result(self) -> None:
         with patch(
-            "app.services.document_queries.writing_material_queries.hybrid_search",
-            return_value=[
+            "app.services.document_queries.writing_material_queries.observe_hybrid_search",
+            return_value=SearchInvocationObservation([
                 {
                     "material_id": 7,
                     "title": "Robot market note",
@@ -205,12 +205,14 @@ class MaterialQueriesContractUnitTestCase(unittest.TestCase):
                     "score": 0.77,
                     "backend": "pgvector",
                 }
-            ],
+            ], ("pgvector",), ()),
         ) as hybrid_search:
-            envelope = query_hybrid_material_envelope("robot", limit=3)
-            rows = query_hybrid_material_rows("robot", limit=3)
+            envelope, observation = query_hybrid_material_observation("robot", limit=3)
+            rows = rows_for_material_views(envelope)
 
-        hybrid_search.assert_called_with("robot", state=None, top_k=3, mode="hybrid")
+        hybrid_search.assert_called_once_with("robot", state=None, top_k=3, mode="hybrid")
+        self.assertEqual(observation.used_backends, ("pgvector",))
+        self.assertEqual(envelope["meta"]["search_backends_used"], ["pgvector"])
         self.assertEqual(envelope["data"]["query"]["sources"], ["material"])
         self.assertEqual(envelope["data"]["pagination"]["limit"], 3)
         self.assertEqual(envelope["data"]["results"][0]["backend"], "pgvector")

@@ -1,6 +1,4 @@
-# API Contract Standard (Phase 1)
-
-> 最后更新：2026-03 | 规范已并入 `../API接口文档.md` 第 0 节，此为独立副本
+# API 合同标准
 
 ## 1. 统一响应 Envelope
 

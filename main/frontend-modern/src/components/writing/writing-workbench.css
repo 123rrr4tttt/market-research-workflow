@@ -414,6 +414,70 @@
   font-size: 12px;
 }
 
+.writing-conflict-panel {
+  position: absolute;
+  top: 72px;
+  left: 50%;
+  z-index: 39;
+  width: min(520px, calc(100% - 24px));
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid rgba(251, 191, 36, 0.38);
+  border-radius: 12px;
+  background: rgba(255, 251, 235, 0.94);
+  box-shadow: 0 16px 34px rgba(15, 23, 42, 0.1);
+  transform: translateX(-50%);
+}
+
+.writing-conflict-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.writing-conflict-panel__header strong {
+  color: #92400e;
+  font-size: 13px;
+}
+
+.writing-conflict-panel__header span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-soft);
+  font-size: 12px;
+}
+
+.writing-conflict-panel dl {
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(108px, 1fr));
+  gap: 8px;
+}
+
+.writing-conflict-panel dl div {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+  padding: 7px 8px;
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.78);
+}
+
+.writing-conflict-panel dt {
+  color: var(--text-soft);
+  font-size: 11px;
+}
+
+.writing-conflict-panel dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-size: 13px;
+}
+
 .writing-agent-updates-panel {
   position: fixed;
   right: 14px;
@@ -1259,6 +1323,10 @@
     width: calc(100% - 24px);
     border-radius: 18px;
     flex-wrap: wrap;
+  }
+
+  .writing-conflict-panel {
+    top: 146px;
   }
 
   .writing-canvas-stage.is-split {

@@ -7,7 +7,7 @@ from urllib.parse import urlparse
 
 from functorial_kit import Failure
 
-from mrw_functorial_kit.core.w04_service_semantics import search_failures
+from mrw_functorial_kit.core.service_failure_semantics import search_failures
 
 from ...contracts.materials import normalize_material_source_type
 
@@ -87,7 +87,7 @@ GLOBAL_VECTOR_OBJECT_PROVENANCE_REQUIRED_FIELDS = (
 _VECTOR_RETRIEVAL_MODES = {"vector", "hybrid"}
 _DEFAULT_VECTOR_VERSION = "v1"
 _LEGACY_MATERIAL_IDENTITY_FIELDS = frozenset({"document_id", "doc_id"})
-_SEARCH_FAILURE_WITNESS = "test:test_w04_graph_search_contract_core"
+_SEARCH_FAILURE_WITNESS = "test:test_search_validators_are_total_typed_failures"
 _SEARCH_FAILURE_CONTEXT_KEYS = frozenset(
     {
         "boundary_class",
@@ -138,13 +138,13 @@ def raise_search_contract_legacy(
         or context.get("failure_family") != search_failures.name
         or context.get("public_exception") != exception_type.__name__
     ):
-        # kit:boundary owner=search.vector_contracts.failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w04_search_abi_lift_preserves_legacy_value_error_message
+        # kit:boundary owner=search.vector_contracts.failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_search_abi_lift_preserves_legacy_value_error_message
         raise TypeError("search contract failure lift context is incomplete or inconsistent")
     message = str(context["public_message"])
     if cause is None:
-        # kit:boundary owner=search.vector_contracts.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=search.failure witness=test:test_w04_search_abi_lift_preserves_legacy_value_error_message
+        # kit:boundary owner=search.vector_contracts.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=search.failure witness=test:test_search_abi_lift_preserves_legacy_value_error_message
         raise exception_type(message)
-    # kit:boundary owner=search.vector_contracts.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=search.failure witness=test:test_w04_search_abi_lift_preserves_legacy_value_error_message
+    # kit:boundary owner=search.vector_contracts.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=search.failure witness=test:test_search_abi_lift_preserves_legacy_value_error_message
     raise exception_type(message) from cause
 
 
@@ -283,7 +283,7 @@ def build_query_group_id(
     str,
     "kit:non-authoritative derived_as=view "
     "fact_source=search_query_parameters "
-    "witness=test:test_w04_authority_metadata",
+    "witness=test:test_service_results_declare_sources_and_effect_authority",
 ]:
     return _stable_id(
         "qg",
@@ -421,7 +421,7 @@ def build_global_vector_object(
     dict[str, Any],
     "kit:non-authoritative derived_as=view "
     "fact_source=search_row+projection_parameters "
-    "witness=test:test_w04_authority_metadata",
+    "witness=test:test_service_results_declare_sources_and_effect_authority",
 ]:
     _reject_legacy_material_identity(
         row,
@@ -537,7 +537,7 @@ def build_search_evidence_hit(
     dict[str, Any],
     "kit:non-authoritative derived_as=view "
     "fact_source=search_row+query_group+rank_parameters "
-    "witness=test:test_w04_authority_metadata",
+    "witness=test:test_service_results_declare_sources_and_effect_authority",
 ]:
     raw = dict(row)
     retrieval_mode = _infer_retrieval_mode(raw, rank_mode)
@@ -624,7 +624,7 @@ def build_search_evidence_hits(
     tuple[str, list[dict[str, Any]]],
     "kit:non-authoritative derived_as=view "
     "fact_source=search_rows+query_parameters "
-    "witness=test:test_w04_authority_metadata",
+    "witness=test:test_service_results_declare_sources_and_effect_authority",
 ]:
     query_group_id = build_query_group_id(
         query=query,
@@ -665,7 +665,7 @@ def build_retrieval_run_record(
     dict[str, Any],
     "kit:non-authoritative derived_as=view "
     "fact_source=query+evidence_hits+rank_parameters "
-    "witness=test:test_w04_authority_metadata",
+    "witness=test:test_service_results_declare_sources_and_effect_authority",
 ]:
     hits = [dict(hit) for hit in evidence_hits]
     branch_map: dict[str, dict[str, Any]] = {}
@@ -831,7 +831,7 @@ def build_agent_matrix_evidence_hits(
     tuple[str, list[dict[str, Any]]],
     "kit:non-authoritative derived_as=view "
     "fact_source=agent_matrix_candidates+query_parameters "
-    "witness=test:test_w04_authority_metadata",
+    "witness=test:test_service_results_declare_sources_and_effect_authority",
 ]:
     rows: list[dict[str, Any]] = []
     for index, candidate in enumerate(candidates, start=1):

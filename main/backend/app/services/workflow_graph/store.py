@@ -478,7 +478,7 @@ class SqlCompiledGraphStore:
 
 def build_compiled_graph_store() -> Annotated[
     InMemoryCompiledGraphStore | SqlCompiledGraphStore,
-    "kit:prepared-command effect_boundary=workflow_graph_compiled_store witness=test:test_w04_authority_metadata",
+    "kit:prepared-command effect_boundary=workflow_graph_compiled_store witness=test:test_service_results_declare_sources_and_effect_authority",
 ]:
     if not bool(getattr(settings, "workflow_graph_db_store_enabled", True)):
         return InMemoryCompiledGraphStore()

@@ -39,6 +39,7 @@
     "main/backend/app/services/agent_core/functorial/motif.py",
     "main/backend/app/services/agent_core/functorial/workflow.py",
     "main/backend/app/services/agent_runtime/read_only_tools.py",
+    "main/backend/app/services/agent_runtime/system_projection.py",
     "main/backend/app/services/ingest/canary_handoff_live.py",
     "main/backend/app/services/projects/schema_initialization.py",
     "main/backend/app/services/workflow_graph/store.py",

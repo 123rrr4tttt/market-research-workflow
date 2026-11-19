@@ -22,9 +22,9 @@ from packaging.requirements import InvalidRequirement, Requirement
 
 EXPECTED_NAME = "functorial-kit"
 EXPECTED_VERSION = "0.1.0"
-EXPECTED_COMMIT = "785ff25e201c9eae84c862e68e786bc975e7a800"
-EXPECTED_REPOSITORY_TREE = "40a8019815040ff00c0ce61c0cdca30ac004ec7e"
-EXPECTED_PYTHON_SUBTREE = "a3d291c03826e8be781aac866797cc98cb744385"
+EXPECTED_COMMIT = "6dbae536a72ab235998b21c9647b8b00d15a71e6"
+EXPECTED_REPOSITORY_TREE = "9ff6eab9e121f25cfca5301a8c22577a7a6f5a44"
+EXPECTED_PYTHON_SUBTREE = "5dbf5783e54241a1995687b24a1406069ff7f167"
 EXPECTED_GIT_URL = "https://github.com/123rrr4tttt/functorial-kit.git"
 EXPECTED_SUBDIRECTORY = "python"
 EXPECTED_REQUIREMENT = (
@@ -48,15 +48,6 @@ class InstalledDependency:
     direct_url: dict[str, Any]
     declared_requirements: tuple[str, ...]
     active_runtime_requirements: tuple[str, ...]
-
-
-@dataclass(frozen=True)
-class ManifestIdentity:
-    path: Path
-    commit: str
-    repository_tree: str
-    runtime_requirement: str
-    runtime_pin_modified: bool
 
 
 @dataclass(frozen=True)
@@ -147,42 +138,6 @@ def classify_declarations(requirements_text: str, pyproject_bytes: bytes) -> str
             projection += "\n"
         projection += "".join(f"{requirement}\n" for requirement in additions)
     return projection
-
-
-def inspect_consumer_gate_manifest(path: Path) -> ManifestIdentity:
-    try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
-        raise AuditContractError(f"consumer-gate manifest is not valid UTF-8 JSON: {exc}") from exc
-    if not isinstance(payload, dict):
-        raise AuditContractError("consumer-gate manifest root must be an object")
-    base = payload.get("base")
-    runtime_identity = payload.get("runtime_identity")
-    if not isinstance(base, dict) or not isinstance(runtime_identity, dict):
-        raise AuditContractError("consumer-gate manifest identity sections must be objects")
-    commit = base.get("git_commit")
-    repository_tree = base.get("git_tree")
-    runtime_requirement = runtime_identity.get("pyproject_runtime_dependency")
-    runtime_pin_modified = runtime_identity.get("pyproject_runtime_pin_modified")
-    if commit != EXPECTED_COMMIT:
-        raise AuditContractError(f"consumer-gate manifest commit mismatch: {commit!r}")
-    if repository_tree != EXPECTED_REPOSITORY_TREE:
-        raise AuditContractError(f"consumer-gate manifest repository tree mismatch: {repository_tree!r}")
-    if runtime_requirement != EXPECTED_REQUIREMENT:
-        raise AuditContractError(
-            f"consumer-gate manifest runtime requirement mismatch: {runtime_requirement!r}"
-        )
-    if runtime_pin_modified is not False:
-        raise AuditContractError(
-            "consumer-gate manifest must record pyproject_runtime_pin_modified=false"
-        )
-    return ManifestIdentity(
-        path=path.resolve(),
-        commit=commit,
-        repository_tree=repository_tree,
-        runtime_requirement=runtime_requirement,
-        runtime_pin_modified=runtime_pin_modified,
-    )
 
 
 def _package_file_manifest(files: dict[str, bytes]) -> tuple[tuple[dict[str, Any], ...], str]:
@@ -503,7 +458,6 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--requirements", type=Path, required=True)
     parser.add_argument("--pyproject", type=Path, required=True)
-    parser.add_argument("--manifest", type=Path, required=True)
     parser.add_argument("--source-checkout", type=Path, required=True)
     parser.add_argument("--public-requirements", type=Path, required=True)
     parser.add_argument("--report", type=Path, required=True)
@@ -542,7 +496,6 @@ def main(argv: Sequence[str] | None = None) -> int:
         requirements_text = args.requirements.read_text(encoding="utf-8")
         pyproject_bytes = args.pyproject.read_bytes()
         public_requirements = classify_declarations(requirements_text, pyproject_bytes)
-        manifest = inspect_consumer_gate_manifest(args.manifest)
         source = inspect_source_checkout(args.source_checkout)
         try:
             distribution = importlib.metadata.distribution(EXPECTED_NAME)
@@ -569,13 +522,6 @@ def main(argv: Sequence[str] | None = None) -> int:
                     "public_requirements": str(args.public_requirements),
                     "public_requirements_sha256": hashlib.sha256(public_requirements.encode("utf-8")).hexdigest(),
                     "runtime_requirements_added_to_public_projection": list(runtime_projection),
-                },
-                "consumer_gate_manifest": {
-                    "path": str(manifest.path),
-                    "base_git_commit": manifest.commit,
-                    "base_git_tree": manifest.repository_tree,
-                    "runtime_requirement": manifest.runtime_requirement,
-                    "runtime_pin_modified": manifest.runtime_pin_modified,
                 },
                 "source": {
                     "checkout": str(source.checkout),

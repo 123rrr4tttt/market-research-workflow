@@ -26,7 +26,7 @@ function apiEnvelope(data: unknown) {
     status: 'ok',
     data,
     error: null,
-    meta: { trace_id: 'wave17-graph-runtime-pixel-gate' },
+    meta: { trace_id: 'graph-runtime-pixel-gate' },
   }
 }
 
@@ -42,9 +42,9 @@ async function setupGraphRuntimeMocks(page: Page) {
   let marketGraphHit = 0
   const marketPayload = {
     nodes: [
-      { id: 'n1', type: 'product', name: 'Wave17 Product' },
-      { id: 'n2', type: 'company', name: 'Wave17 Company' },
-      { id: 'n3', type: 'policy', name: 'Wave17 Policy' },
+      { id: 'n1', type: 'product', name: 'Market Product' },
+      { id: 'n2', type: 'company', name: 'Market Company' },
+      { id: 'n3', type: 'policy', name: 'Market Policy' },
     ],
     edges: [
       {
@@ -296,7 +296,7 @@ test('graph runtime pixel gate proves force3d pixels without tenant DB', async (
   const pixelEvidence = inspectPixelDiversity(await host.screenshot())
   expect(pixelEvidence.nonblank).toBe(true)
   const proof = 'nonblank-pixels'
-  await testInfo.attach('wave17-graph-runtime-pixel-gate.json', {
+  await testInfo.attach('graph-runtime-pixel-gate.json', {
     contentType: 'application/json',
     body: Buffer.from(JSON.stringify({
       proof,

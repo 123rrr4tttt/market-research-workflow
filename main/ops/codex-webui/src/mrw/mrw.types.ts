@@ -34,10 +34,29 @@ export type MrwPreparedEnvironment = {
   dynamicTools: unknown[];
   skills: MrwSkillDescriptor[];
   skillRoots: string[];
+  systemInstructions: string;
   environmentStale?: boolean;
 };
 
 export type MrwBindResult = MrwPreparedEnvironment;
+
+export type MrwTurnAdmission = Pick<
+  MrwPreparedEnvironment,
+  | 'threadId'
+  | 'environmentDigest'
+  | 'environmentStatus'
+  | 'dynamicTools'
+  | 'skills'
+  | 'skillRoots'
+> & { admissionId: string; expiresAt: string; systemInstructions: string };
+
+export type MrwTurnAttachment = {
+  kind: 'local_image';
+  attachmentId: string;
+  filename: string;
+  size: number;
+  sha256: string;
+};
 
 export type MrwPendingAction = {
   actionId: string;

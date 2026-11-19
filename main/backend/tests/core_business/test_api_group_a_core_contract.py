@@ -2,10 +2,13 @@ from __future__ import annotations
 
 import sys
 import unittest
+import tempfile
 from pathlib import Path
 from unittest.mock import Mock, patch
 
 import pytest
+from elasticsearch import ConnectionError as ElasticsearchConnectionError
+from app.services.search.hybrid import SearchInvocationObservation
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
@@ -25,6 +28,13 @@ except Exception as exc:  # noqa: BLE001
 
 
 class ApiGroupACoreContractTestCase(unittest.TestCase):
+    def setUp(self):
+        temp = tempfile.TemporaryDirectory(prefix="search-consumer-")
+        self.addCleanup(temp.cleanup)
+        env = patch.dict("os.environ", {"SEARCH_RETRIEVAL_RUNS_PATH": str(Path(temp.name) / "runs.jsonl")})
+        env.start()
+        self.addCleanup(env.stop)
+
     @classmethod
     def setUpClass(cls):
         if _IMPORT_ERROR is not None:
@@ -110,7 +120,7 @@ class ApiGroupACoreContractTestCase(unittest.TestCase):
             }
         ]
 
-        with patch("app.api.search.hybrid_search", return_value=mocked_results):
+        with patch("app.api.search.observe_hybrid_search", return_value=SearchInvocationObservation(mocked_results, ("opensearch",), ())):
             response = self.client.get(
                 "/api/v1/search",
                 params={"q": "market", "state": "CA", "rank": "hybrid", "top_k": 1},
@@ -142,10 +152,12 @@ class ApiGroupACoreContractTestCase(unittest.TestCase):
         )
 
     def test_search_upstream_error_maps_to_standard_error_envelope(self):
-        with patch("app.api.search.hybrid_search", side_effect=RuntimeError("Elasticsearch Connection refused")):
+        with patch(
+            "app.services.search.hybrid.get_es_client", side_effect=ElasticsearchConnectionError("Connection refused")
+        ):
             response = self.client.get(
                 "/api/v1/search",
-                params={"q": "market", "top_k": 1},
+                params={"q": "market", "rank": "bm25", "top_k": 1},
                 headers=self.headers,
             )
 

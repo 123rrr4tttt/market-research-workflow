@@ -47,23 +47,25 @@ def _request(
 class RequestIdentityBoundaryTests(unittest.TestCase):
     def test_local_single_user_actor_has_stable_explicit_identity(self):
         key = "webui-service-key"
-        request = _request(
-            {"X-MRW-Server-API-Key": key, "X-Actor-Id": "forged"},
-            path="/api/v1/agent-macro-host/record-input",
-            client_host="127.0.0.1",
-        )
+        for route in ("prepare-turn", "record-input", "dispatch"):
+            with self.subTest(route=route):
+                request = _request(
+                    {"X-MRW-Server-API-Key": key, "X-Actor-Id": "forged"},
+                    path=f"/api/v1/agent-macro-host/{route}",
+                    client_host="127.0.0.1",
+                )
 
-        context = resolve_local_single_user_actor_context(
-            request, enabled=True, server_api_key=key,
-        )
+                context = resolve_local_single_user_actor_context(
+                    request, enabled=True, server_api_key=key,
+                )
 
-        self.assertIsNotNone(context)
-        assert context is not None
-        self.assertEqual(context.actor_id, actor_id_from_secret("local_host", key))
-        self.assertEqual(context.actor_source, "local_host")
-        self.assertEqual(context.actor_auth_mode, "local_host")
-        self.assertEqual(context.legacy_actor_id, "forged")
-        self.assertTrue(context.actor_trusted)
+                self.assertIsNotNone(context)
+                assert context is not None
+                self.assertEqual(context.actor_id, actor_id_from_secret("local_host", key))
+                self.assertEqual(context.actor_source, "local_host")
+                self.assertEqual(context.actor_auth_mode, "local_host")
+                self.assertEqual(context.legacy_actor_id, "forged")
+                self.assertTrue(context.actor_trusted)
 
     def test_local_single_user_actor_rejects_nonlocal_or_spoofable_inputs(self):
         key = "webui-service-key"

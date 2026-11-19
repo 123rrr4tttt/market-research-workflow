@@ -72,6 +72,12 @@ def _nullable_str(value: object) -> str | None:
 def handle_external_project_manifest(params: Mapping[object, object], project_key: str | None) -> dict[str, object]:
     _ = project_key
     item = _object(params.get("_source_library_item"))
+    # V2 declares parameter bindings that legacy runners do not consume. Reject
+    # before normalization (DNS) or dispatch, even if callers enable the item.
+    from ..external_integration import INTEGRATION_MANIFEST_VERSION
+    raw_manifest = _object(_object(item.get("extra")).get("external_project_manifest"))
+    if raw_manifest.get("contract_version") == INTEGRATION_MANIFEST_VERSION or "integration" in raw_manifest:
+        raise ValueError("integration_runtime_not_connected: integration specifications cannot execute yet")
     manifest = get_external_project_manifest(
         _object(item.get("extra")),
         item_key=str(item.get("item_key") or "").strip() or None,

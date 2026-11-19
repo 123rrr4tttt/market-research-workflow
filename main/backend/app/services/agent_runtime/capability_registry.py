@@ -3,9 +3,11 @@ from __future__ import annotations
 from typing import Any
 
 from .material_ontology import classify_material_intent
+from .system_projection_contracts import system_inspect_capability
 
 
 _CAPABILITIES: tuple[dict[str, Any], ...] = (
+    system_inspect_capability(),
     {
         "capability_id": "agent_runtime.capability.catalog",
         "name": "Agent capability catalogue",

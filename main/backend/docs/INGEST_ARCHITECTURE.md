@@ -1,12 +1,9 @@
-# 数据摄取架构总览
-
-> 最后更新：2026-02 | 文档索引：`docs/README.md`
+# 数据摄取架构
 
 ## 1. 文档定位
 
 本文件整合摄取流程图与流程深度分析，作为数据摄取架构的主文档。
 
-原始文档已归档至 `main/backend/docs/archive/ingest-architecture/`。
 
 **相关文档**：信息资源库（item/channel、来源字段、URL→Channel 路由）见 `RESOURCE_LIBRARY_DEFINITION.md`。
 
@@ -25,6 +22,18 @@ API 层 (app/api/ingest.py) — 需 project_key，绑定项目 schema
 ```
 
 ## 3. 核心职责
+
+### 3.1 现役 URL 与来源获取组合
+
+直接 URL 的原入口 `ingest/url_pool.py::_run_source_library_frontdoor_ingress` 准备 `FrontDoorExecutionProtocol`、有效渠道和请求选项，然后调用 `source_library/orchestrators/url_execution.py::fetch_routed_targets`。正式来源入口仍由 resolver 解析条目与来源策略，再调用同一个获取核；直接 URL 不再创建 `*.single_url_compat` 伪来源条目。
+
+获取核复用具名渠道叶子，保持 URL 展开、静态／渲染／crawler 选择、参数注入、回退及 collect-only 结果。直接 URL 完成获取后仍只调用一次原 postprocess；Material 写入、去重及项目事务归原 writer。候选、已取得正文、队列 ACK 与已入库 Material 分开观察。
+
+站内搜索的 frontdoor 与 handler-cluster adapter 共用 `fold_search_observations` 聚合候选、diagnostics、review queue 和错误。frontdoor 去重错误消息并显式 fetch；adapter 保留重复错误及原 pool／auto-ingest 尾部。两条交付链的权限和失败并未合并。
+
+耐久 URL 操作沿 installed operation 与 RuntimeNode 执行。URL 工具读回调用 `composition/url_pool_readback.py::read_url_pool_evidence`，使用 capability 的精确版本关联核对 request、outcome 与 Material 的实际来源 URL；UNKNOWN 结果和已保存版本保留只读观察。Cell、Runtime journal、领域 writer 各自拥有原身份与事实，读回组合没有写权限。
+
+### 3.2 市场数据流程职责
 
 - API 层：参数校验、同步/异步执行选择、任务响应包装
 - 服务层：采集流程编排、去重/匹配、入库与任务日志
@@ -119,8 +128,3 @@ API 层 (app/api/ingest.py) — 需 project_key，绑定项目 schema
 - 缺失字段分布
 - 数据新鲜度
 - 多源冲突次数
-
-## 11. 历史归档（来源）
-
-- `main/backend/docs/archive/ingest-architecture/INGEST_FLOW_DIAGRAM.md`
-- `main/backend/docs/archive/ingest-architecture/INGEST_PIPELINE_ANALYSIS.md`

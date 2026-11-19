@@ -77,7 +77,7 @@ def build_single_url_canary_handoff(
     live_canary_evidence: Mapping[str, object] | None = None,
 ) -> Annotated[
     dict[str, object],
-    "kit:non-authoritative derived_as=view fact_source=ingress_envelope+postprocess_frontdoor+writer_result+metrics_payload+live_canary_evidence witness=test:test_w03_ingest_ports_authority_metadata",
+    "kit:non-authoritative derived_as=view fact_source=ingress_envelope+postprocess_frontdoor+writer_result+metrics_payload+live_canary_evidence witness=test:test_ingest_ports_declare_sources_and_effect_authority",
 ]:
     ingress = dict(ingress_envelope or {})
     postprocess = dict(postprocess_frontdoor or {})

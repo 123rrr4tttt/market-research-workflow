@@ -1,8 +1,6 @@
-# 市场情报（market-intel）后端数据采集扩展说明
+# 后端
 
-> 最后更新：2026-10-05 | 当前入口：[`../../README.md`](../../README.md) | API 文档：[`API接口文档.md`](API接口文档.md) | 文档索引：[`docs/README.md`](docs/README.md)
-
-本文件说明后端采集、发现接口与配置边界。当前实现状态、运行入口和生产历史以根 README 和 [2026-10-04 本机日常链路证据](../../.data/readiness-repair/20261004-daily-chain/daily-chain-state.json) 为准。
+API、领域服务和后台任务在这里实现。运行见[使用说明](../../docs/usage.md)，接口和专题见[后端文档](docs/README.md)。
 
 ## 配置项（`.env`）
 
@@ -29,33 +27,15 @@ LLM：`OPENAI_API_KEY`、`AZURE_*`、`OLLAMA_BASE_URL`（提取与发现依赖�
 - `POST /api/v1/ingest/market`、`/news/resource/{resource_id}`、`/social/reddit`、`/data-api`、`/reports/weekly`、`/commodity/metrics`、`/ecom/prices` 等
 - `POST /api/v1/discovery/search`、`/smart`、`/deep`、`/generate-keywords`
 
-均支持 `async_mode=true` 触发 Celery 任务。完整接口见 `API接口文档.md` 或 `http://localhost:8000/docs`。
+均支持 `async_mode=true` 触发 Celery 任务。完整接口与当前 schema 见启动后的 `/docs`，实现入口见 `app/api`。
 
 ## 当前能力边界
 
 - **来源与采集**：来源库、文件导入、HTTP 来源获取和异步采集任务继续由原服务与 Celery worker 执行；任务状态和业务结果从 Process/文档接口读回。
-- **发现与检索**：网页搜索、智能/深度发现入口和 BM25、向量、混合检索并存；2026-10-04 日常链路证据覆盖 pgvector 后端的实际读回。
-- **Agent 工作台**：当前对话入口为 Codex WebUI，项目能力通过现有 AgentCore 宿主绑定提供；胞腔结构从 `GET /api/v1/agent-cell` 只读查询，显式选择的 package identity 随请求传递。旧 `/api/v1/agent-chat/*` 入口已撤下。
+- **发现与检索**：网页搜索、智能/深度发现入口和 BM25、向量、混合检索并存。
+- **Agent 工作台**：当前对话入口为 Codex WebUI，项目能力通过现有 AgentCore 宿主绑定提供；胞腔结构从 `GET /api/v1/agent-cell` 只读查询，显式选择的 package identity 随请求传递。
 - **WebUI 边界**：Codex WebUI 的源码、协议版本、OAuth 和 LaunchAgent 说明见 [`../ops/codex-webui/README.md`](../ops/codex-webui/README.md)，其线程存储不自动等同于后端 native binding 的会话。
 
-## 贡献开发入口
+## 开发与验证
 
-后端贡献检查从仓库根执行 `python3 scripts/dev.py`，默认选择本目录的 `.venv311`，或用 `MRW_DEV_PYTHON` 指向等价环境。默认 kit 来源由根 [`pyproject.toml`](../../pyproject.toml) 固定为 Git revision `6dbae536a72ab235998b21c9647b8b00d15a71e6`；`setup` 显式安装并回验，`check` 只核验不安装。
-
-显式本地开发时，同一子命令追加 `--local-kit <checkout>/python`。该路径必须是真实 functorial-kit Git checkout 的 `python` 包目录，先经 `setup --local-kit` 安装为 editable，后续子命令核验安装路径一致：
-
-```bash
-python3 scripts/dev.py setup --local-kit /path/to/functorial-kit/python
-python3 scripts/dev.py check --local-kit /path/to/functorial-kit/python
-python3 scripts/dev.py validate --local-kit /path/to/functorial-kit/python
-```
-
-`test` 和 `validate` 还要求所选环境已有 SQLAlchemy 等后端测试依赖；完整子命令和验证口径见根 [`README.md`](../../README.md#项目贡献检查)。
-
-## 历史状态入口
-
-以下 2026-02-27 文件是当时 8.x 路线的工作快照，仅用于追溯分项 owner、验收和执行记录；它们不是当前实现状态或新的执行指令：
-
-- [`../../plans/status-8x-2026-02-27.md`](../../plans/status-8x-2026-02-27.md)
-- [`../../plans/8x-multi-agent-kickoff-2026-02-27.md`](../../plans/8x-multi-agent-kickoff-2026-02-27.md)
-- [`../../development/latest-dev-docs/root-plans/G_REVIEW/MERGED_PLAN_REVIEW.md`](../../development/latest-dev-docs/root-plans/G_REVIEW/MERGED_PLAN_REVIEW.md)：记录当时同组缺失的 round/decision 文件及合并审查结论。
+依赖来源、本地 kit 调试、贡献检查和测试入口见[开发指南](../../docs/development/README.md)。

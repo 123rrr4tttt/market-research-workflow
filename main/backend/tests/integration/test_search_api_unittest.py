@@ -7,6 +7,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
+from elasticsearch import ConnectionError as ElasticsearchConnectionError
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
@@ -17,6 +18,7 @@ try:
 
     from app.contracts.errors import ErrorCode
     from app.main import app as backend_app
+    from app.services.search.hybrid import SearchInvocationObservation
 
     _IMPORT_ERROR = None
 except Exception as exc:  # noqa: BLE001
@@ -31,10 +33,16 @@ class SearchApiIntegrationTestCase(unittest.TestCase):
         cls.client = TestClient(backend_app)
         cls.headers = {"X-Project-Key": "demo_proj", "X-Request-Id": "search-integration"}
 
+    def setUp(self):
+        temp = tempfile.TemporaryDirectory(prefix="search-api-observations-")
+        self.addCleanup(temp.cleanup)
+        env = patch.dict("os.environ", {"SEARCH_RETRIEVAL_RUNS_PATH": str(Path(temp.name) / "runs.jsonl")})
+        env.start()
+        self.addCleanup(env.stop)
+
     def test_search_success(self):
         with (
-            patch("app.api.search.hybrid_search", return_value=[{"id": "doc-1"}]),
-            patch("app.api.search.get_last_used_backends", return_value=["opensearch"]),
+            patch("app.api.search.observe_hybrid_search", return_value=SearchInvocationObservation([{"material_id": "doc-1"}], tuple(["opensearch"]), ())),
         ):
             response = self.client.get("/api/v1/search", params={"q": "market"}, headers=self.headers)
 
@@ -42,7 +50,7 @@ class SearchApiIntegrationTestCase(unittest.TestCase):
         body = response.json()
         self.assertEqual(body["status"], "ok")
         self.assertEqual(body["data"]["query"], "market")
-        self.assertEqual(body["data"]["results"], [{"id": "doc-1", "material_id": "doc-1", "source_type": "material"}])
+        self.assertEqual(body["data"]["results"], [{"material_id": "doc-1", "source_type": "material"}])
         self.assertEqual(body["data"]["search_backends_used"], ["opensearch_lexical"])
         self.assertEqual(body["data"]["index_backend"], "opensearch_lexical")
         self.assertFalse(body["data"]["fallback_used"])
@@ -61,9 +69,8 @@ class SearchApiIntegrationTestCase(unittest.TestCase):
         )
 
     def test_search_passes_explicit_request_scope_to_hybrid_search(self):
-        mocked_search = patch("app.api.search.hybrid_search", return_value=[{"id": "doc-1"}])
-        mocked_backends = patch("app.api.search.get_last_used_backends", return_value=["opensearch"])
-        with mocked_search as hybrid_mock, mocked_backends:
+        mocked_search = patch("app.api.search.observe_hybrid_search", return_value=SearchInvocationObservation([{"material_id": "doc-1"}], tuple(["opensearch"]), ()))
+        with mocked_search as hybrid_mock:
             response = self.client.get("/api/v1/search", params={"q": "market"}, headers=self.headers)
 
         self.assertEqual(response.status_code, 200)
@@ -78,7 +85,7 @@ class SearchApiIntegrationTestCase(unittest.TestCase):
     def test_search_retrieval_run_readback_reads_success_response_run_id(self):
         mocked_results = [
             {
-                "id": "doc-1",
+                "material_id": "doc-1",
                 "score": 0.91,
                 "backend": "opensearch",
                 "source_type": "document",
@@ -89,8 +96,7 @@ class SearchApiIntegrationTestCase(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="search-api-retrieval-runs-") as tmp_dir:
             retrieval_runs_path = Path(tmp_dir) / "retrieval_runs.jsonl"
             with (
-                patch("app.api.search.hybrid_search", return_value=mocked_results),
-                patch("app.api.search.get_last_used_backends", return_value=["opensearch"]),
+                patch("app.api.search.observe_hybrid_search", return_value=SearchInvocationObservation(mocked_results, tuple(["opensearch"]), ())),
                 patch.dict("os.environ", {"SEARCH_RETRIEVAL_RUNS_PATH": str(retrieval_runs_path)}),
             ):
                 search_response = self.client.get(
@@ -124,8 +130,7 @@ class SearchApiIntegrationTestCase(unittest.TestCase):
 
             retrieval_runs_path = Path(tmp_dir) / "retrieval_runs.jsonl"
             with (
-                patch("app.api.search.hybrid_search", return_value=[{"id": "doc-1"}]),
-                patch("app.api.search.get_last_used_backends", return_value=["opensearch"]),
+                patch("app.api.search.observe_hybrid_search", return_value=SearchInvocationObservation([{"material_id": "doc-1"}], tuple(["opensearch"]), ())),
                 patch.dict("os.environ", {"SEARCH_RETRIEVAL_RUNS_PATH": str(retrieval_runs_path)}),
             ):
                 self.client.get("/api/v1/search", params={"q": "market"}, headers=self.headers)
@@ -151,17 +156,16 @@ class SearchApiIntegrationTestCase(unittest.TestCase):
     def test_search_fallback_index_freshness_handles_unavailable_readback(self):
         with (
             patch(
-                "app.api.search.hybrid_search",
-                return_value=[
+                "app.api.search.observe_hybrid_search",
+                return_value=SearchInvocationObservation([
                     {
-                        "id": "doc-fallback",
+                        "material_id": "doc-fallback",
                         "backend": "pgvector",
                         "source_type": "document",
                         "provenance": {"source_id": "fallback-source"},
                     }
-                ],
+                ], tuple(["pgvector"]), ()),
             ),
-            patch("app.api.search.get_last_used_backends", return_value=["pgvector"]),
             patch(
                 "app.api.search.persist_search_retrieval_run_record",
                 return_value={
@@ -191,8 +195,7 @@ class SearchApiIntegrationTestCase(unittest.TestCase):
 
     def test_search_index_freshness_unavailable_and_unknown_readback(self):
         with (
-            patch("app.api.search.hybrid_search", return_value=[{"id": "doc-1", "backend": "opensearch"}]),
-            patch("app.api.search.get_last_used_backends", return_value=["opensearch"]),
+            patch("app.api.search.observe_hybrid_search", return_value=SearchInvocationObservation([{"material_id": "doc-1", "backend": "opensearch"}], tuple(["opensearch"]), ())),
             patch(
                 "app.api.search.persist_search_retrieval_run_record",
                 return_value={"readback_available": False, "status": "failed"},
@@ -201,8 +204,7 @@ class SearchApiIntegrationTestCase(unittest.TestCase):
             unavailable = self.client.get("/api/v1/search", params={"q": "market"}, headers=self.headers)
 
         with (
-            patch("app.api.search.hybrid_search", return_value=[{"id": "doc-1", "backend": "opensearch"}]),
-            patch("app.api.search.get_last_used_backends", return_value=["opensearch"]),
+            patch("app.api.search.observe_hybrid_search", return_value=SearchInvocationObservation([{"material_id": "doc-1", "backend": "opensearch"}], tuple(["opensearch"]), ())),
             patch("app.api.search.persist_search_retrieval_run_record", return_value={}),
         ):
             unknown = self.client.get("/api/v1/search", params={"q": "market"}, headers=self.headers)
@@ -215,10 +217,9 @@ class SearchApiIntegrationTestCase(unittest.TestCase):
     def test_search_fallback_provenance_and_default_backend(self):
         with (
             patch(
-                "app.api.search.hybrid_search",
-                return_value=[{"id": "doc-1", "fallback_reason": "index_miss"}],
+                "app.api.search.observe_hybrid_search",
+                return_value=SearchInvocationObservation([{"material_id": "doc-1", "fallback_reason": "index_miss"}], tuple([]), ()),
             ),
-            patch("app.api.search.get_last_used_backends", return_value=[]),
             patch(
                 "app.api.search.persist_search_retrieval_run_record",
                 return_value={"readback_available": True, "branch_count": 0, "hit_count": 0},
@@ -234,8 +235,7 @@ class SearchApiIntegrationTestCase(unittest.TestCase):
 
     def test_search_invalid_readback_count_returns_zero(self):
         with (
-            patch("app.api.search.hybrid_search", return_value=[{"id": "doc-1", "backend": "opensearch"}]),
-            patch("app.api.search.get_last_used_backends", return_value=["opensearch"]),
+            patch("app.api.search.observe_hybrid_search", return_value=SearchInvocationObservation([{"material_id": "doc-1", "backend": "opensearch"}], tuple(["opensearch"]), ())),
             patch(
                 "app.api.search.persist_search_retrieval_run_record",
                 return_value={
@@ -260,7 +260,7 @@ class SearchApiIntegrationTestCase(unittest.TestCase):
         from app.services.search.retrieval_runs import write_search_retrieval_run_record
 
         query_group_id, evidence_hits = build_search_evidence_hits(
-            [{"id": "doc-1", "backend": "opensearch", "source_id": "source-a"}],
+            [{"material_id": "doc-1", "backend": "opensearch", "source_id": "source-a"}],
             query="market",
         )
         record = build_retrieval_run_record(
@@ -295,7 +295,7 @@ class SearchApiIntegrationTestCase(unittest.TestCase):
         from app.services.search.retrieval_runs import write_search_retrieval_run_record
 
         query_group_id, evidence_hits = build_search_evidence_hits(
-            [{"id": "doc-1", "backend": "opensearch", "source_id": "source-a"}],
+            [{"material_id": "doc-1", "backend": "opensearch", "source_id": "source-a"}],
             query="market",
         )
         record = build_retrieval_run_record(
@@ -317,14 +317,59 @@ class SearchApiIntegrationTestCase(unittest.TestCase):
         self.assertTrue(response.json()["data"]["fallback_used"])
 
     def test_search_upstream_error(self):
-        with patch("app.api.search.hybrid_search", side_effect=RuntimeError("Elasticsearch Connection refused")):
-            response = self.client.get("/api/v1/search", params={"q": "market"}, headers=self.headers)
+        with patch(
+            "app.services.search.hybrid.get_es_client", side_effect=ElasticsearchConnectionError("Connection refused")
+        ):
+            response = self.client.get("/api/v1/search", params={"q": "market", "rank": "bm25"}, headers=self.headers)
 
         self.assertEqual(response.status_code, 503)
         self.assertEqual(response.headers.get("x-error-code"), ErrorCode.UPSTREAM_ERROR.value)
 
+    def test_vector_empty_success_is_distinct_from_total_backend_failure(self):
+        from app.services.search.hybrid import _qdrant_failure, _pgvector_failure
+        q = _qdrant_failure("backend_unavailable", "qdrant unavailable", RuntimeError())
+        p = _pgvector_failure("embedding_failed", "embedding unavailable")
+        for observation, expected in (
+            (SearchInvocationObservation([], ("pgvector",), (q,)), 200),
+            (SearchInvocationObservation([], (), (q, p)), 503),
+        ):
+            with self.subTest(backends=observation.used_backends):
+                with patch("app.api.search.observe_hybrid_search", return_value=observation):
+                    response = self.client.get("/api/v1/search", params={"q": "market", "rank": "vector"}, headers=self.headers)
+                self.assertEqual(response.status_code, expected)
+
+    def test_hybrid_search_retains_successful_channel_and_rejects_total_failure(self):
+        from app.services.search.hybrid import _qdrant_failure, _pgvector_failure
+
+        q = _qdrant_failure("backend_unavailable", "qdrant unavailable", RuntimeError())
+        p = _pgvector_failure("backend_unavailable", "pgvector unavailable")
+        with patch(
+            "app.services.search.hybrid.get_es_client", side_effect=ElasticsearchConnectionError("Connection refused")
+        ):
+            with patch("app.services.search.hybrid.try_qdrant_vector_search", return_value=[]):
+                response = self.client.get("/api/v1/search", params={"q": "market"}, headers=self.headers)
+            self.assertEqual(response.status_code, 200)
+            data = response.json()["data"]
+            self.assertEqual(data["results"], [])
+            self.assertEqual(data["search_backends_used"], ["qdrant_vector"])
+            self.assertEqual([failure["provider"] for failure in data["search_failures"]], ["opensearch"])
+
+            with (
+                patch("app.services.search.hybrid.try_qdrant_vector_search", return_value=q),
+                patch("app.services.search.hybrid._pgvector_search", return_value=p),
+                patch("app.api.search.persist_search_retrieval_run_record") as persist,
+            ):
+                response = self.client.get("/api/v1/search", params={"q": "market"}, headers=self.headers)
+            self.assertEqual(response.status_code, 503)
+            self.assertEqual(response.headers.get("x-error-code"), ErrorCode.UPSTREAM_ERROR.value)
+            self.assertEqual(
+                [failure["provider"] for failure in response.json()["error"]["details"]["search_failures"]],
+                ["opensearch", "qdrant", "pgvector"],
+            )
+            persist.assert_not_called()
+
     def test_search_internal_error(self):
-        with patch("app.api.search.hybrid_search", side_effect=RuntimeError("boom")):
+        with patch("app.api.search.observe_hybrid_search", side_effect=RuntimeError("boom")):
             response = self.client.get("/api/v1/search", params={"q": "market"}, headers=self.headers)
 
         self.assertEqual(response.status_code, 500)

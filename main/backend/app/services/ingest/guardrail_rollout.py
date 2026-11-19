@@ -152,7 +152,7 @@ def build_ingest_guardrail_rollout_readiness(
     metrics_visibility_fields: list[str] | tuple[str, ...] | set[str],
 ) -> Annotated[
     IngestGuardrailRolloutReadiness,
-    "kit:non-authoritative derived_as=preflight fact_source=rollout_inputs+visibility_fields+rollout_contract_constants witness=test:test_w03_ingest_ports_authority_metadata",
+    "kit:non-authoritative derived_as=preflight fact_source=rollout_inputs+visibility_fields+rollout_contract_constants witness=test:test_ingest_ports_declare_sources_and_effect_authority",
 ]:
     mode = _normalize_rollout_mode(rollout_mode)
     projects = _parse_project_allowlist(canary_projects)

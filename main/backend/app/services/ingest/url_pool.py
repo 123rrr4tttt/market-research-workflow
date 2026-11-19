@@ -605,7 +605,13 @@ def _run_source_library_frontdoor_ingress(
     enable_extraction: bool = True,
 ) -> JsonObject:
     from ..projects import bind_project
-    from ..source_library.resolver import list_effective_channels, run_item_with_url_routing
+    from ..source_library.orchestrators.url_execution import fetch_routed_targets
+    from ..source_library.resolver import as_optional_int, list_effective_channels
+    from ..source_library.types import (
+        FrontDoorExecutionProtocol,
+        build_source_concurrency_plan,
+        source_concurrency_plan_to_dict,
+    )
     from .frontdoor_ingress import build_frontdoor_ingress_envelope
     from .postprocess_frontdoor import run_postprocess_frontdoor
 
@@ -638,24 +644,51 @@ def _run_source_library_frontdoor_ingress(
         for channel in channels
         if channel.get("channel_key")
     }
-    synthetic_item: dict[str, object] = {
-        "item_key": f"{source_name}.single_url_compat",
-        "channel_key": "url_pool",
-        "params": {},
-        "extra": {
-            "item_type": "service_aggregated",
-            "managed_by": "single_url_compat",
-        },
-    }
+
+    concurrency_plan = build_source_concurrency_plan(
+        params={key: value for key, value in params.items()},
+        total_search_tasks=0,
+        total_url_tasks=1,
+    )
+    protocol = FrontDoorExecutionProtocol(
+        item_key=source_name or "url_pool",
+        item_channel_key="url_pool",
+        project_key=project_key,
+        front_door_owner="run_item_payload",
+        execution_mode="url_routing",
+        write_mode="front_door_url_routing",
+        route_decision="front_door_url_routing",
+        query_terms=list(query_terms or []),
+        site_entries=[],
+        candidate_urls=[normalized_url],
+        expected_entry_type=None,
+        write_to_pool=_as_bool(params.get("write_to_pool"), True),
+        auto_ingest=_as_bool(params.get("auto_ingest"), True),
+        ingest_limit=max(
+            1,
+            as_optional_int(params.get("ingest_limit") or params.get("limit")) or 20,
+        ),
+        force_url_routing_flow=_as_bool(params.get("force_url_routing_flow"), True),
+        prefer_crawler_first=_as_bool(params.get("prefer_crawler_first"), False) and not _as_bool(
+            params.get("force_url_routing_flow"), True
+        ),
+        search_parallelism=concurrency_plan.search.parallelism,
+        routing_parallelism=concurrency_plan.url.parallelism,
+        concurrency_plan=source_concurrency_plan_to_dict(concurrency_plan),
+        source_tier="",
+        onboarding_priority="",
+    )
 
     ctx = bind_project(project_key) if project_key else nullcontext()
     with ctx:
         open_params: dict[object, object] = {key: value for key, value in params.items()}
-        routed = run_item_with_url_routing(
-            item=synthetic_item,
+        routed = fetch_routed_targets(
+            protocol=protocol,
+            item_channel_key=protocol.item_channel_key,
             params=open_params,
             project_key=project_key,
             channel_map=channel_map,
+            runtime_targets=[(normalized_url, {"source": "params.urls", "index": 0})],
             execution_layer="terminal_output_only",
         )
 

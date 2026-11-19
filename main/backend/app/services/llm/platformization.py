@@ -356,7 +356,7 @@ def build_trace_audit_record(
     error_detail: str | None = None,
 ) -> Annotated[
     dict[str, Any],
-    "kit:non-authoritative derived_as=generated_evidence fact_source=llm.runtime_trace witness=test:test_w01_meta",
+    "kit:non-authoritative derived_as=generated_evidence fact_source=llm.runtime_trace witness=test:test_derived_service_annotations_match_fact_sources",
 ]:
     return {
         "consumer": identity.consumer,

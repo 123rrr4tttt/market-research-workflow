@@ -28,7 +28,7 @@ class DiscoveryStoreGuardrailsUnitTestCase(unittest.TestCase):
         ok, reason, _ = store_module._discovery_gate_check(
             url="https://www.google.com/search?q=robotics",
             content="robotics market update " * 40,
-            doc_type="market",
+            material_type="market",
             extracted_data={},
         )
         self.assertFalse(ok)
@@ -38,7 +38,7 @@ class DiscoveryStoreGuardrailsUnitTestCase(unittest.TestCase):
         ok, reason, _ = store_module._discovery_gate_check(
             url="https://example.com/post/1",
             content="self.__next_f = []; var bodyCacheable = true;",
-            doc_type="market",
+            material_type="market",
             extracted_data={},
         )
         self.assertFalse(ok)
@@ -48,7 +48,7 @@ class DiscoveryStoreGuardrailsUnitTestCase(unittest.TestCase):
         ok, reason, diagnostics = store_module._discovery_gate_check(
             url="https://example.com/news/ai-supply-chain",
             content=" ".join(["ai supply chain production demand"] * 120),
-            doc_type="market",
+            material_type="market",
             extracted_data={"entities_relations": {"entities": [{"name": "NVIDIA"}]}},
         )
         self.assertTrue(ok)

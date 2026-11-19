@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import NoReturn
 
 from functorial_kit import Failure
-from mrw_functorial_kit.core.w06_semantics import first_specimen_capability_failures
+from mrw_functorial_kit.core.source_and_capability_failure_semantics import first_specimen_capability_failures
 
 
 def capability_failure(code: str, message: str, **context: object) -> Failure:
@@ -19,7 +19,7 @@ def capability_failure(code: str, message: str, **context: object) -> Failure:
             "effect_boundary": "first_specimen.capability.contract_core",
             "failure_family": first_specimen_capability_failures.name,
             "boundary_class": "PURE_CONTRACT_FAILURE",
-            "witness": "test:test_w06_first_specimen_failure_lifts",
+            "witness": "test:test_capability_failure_preserves_public_errors",
             **context,
         },
     )
@@ -32,7 +32,7 @@ def raise_capability_failure(
 ) -> NoReturn:
     """Lift a typed core failure only at the compatibility ABI boundary."""
 
-    # kit:boundary owner=first_specimen.capabilities class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=first_specimen.capability.failure witness=test:test_w06_retained_failure_lifts_preserve_public_abi
+    # kit:boundary owner=first_specimen.capabilities class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=first_specimen.capability.failure witness=test:test_capability_failure_preserves_public_errors
     raise exception_type(*(exception_args or (failure.message,)))
 
 

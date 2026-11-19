@@ -2,10 +2,13 @@ from __future__ import annotations
 
 import sys
 import unittest
+import tempfile
 from pathlib import Path
 from unittest.mock import patch
 
 import pytest
+from elasticsearch import ConnectionError as ElasticsearchConnectionError
+from app.services.search.hybrid import SearchInvocationObservation
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
@@ -13,6 +16,13 @@ pytestmark = pytest.mark.contract
 
 
 class MigratedEndpointEnvelopeContractTestCase(unittest.TestCase):
+    def setUp(self):
+        temp = tempfile.TemporaryDirectory(prefix="search-consumer-")
+        self.addCleanup(temp.cleanup)
+        env = patch.dict("os.environ", {"SEARCH_RETRIEVAL_RUNS_PATH": str(Path(temp.name) / "runs.jsonl")})
+        env.start()
+        self.addCleanup(env.stop)
+
     def _build_app(self):
         try:
             from fastapi import FastAPI
@@ -47,7 +57,7 @@ class MigratedEndpointEnvelopeContractTestCase(unittest.TestCase):
                 },
             }
         ]
-        with patch("app.api.search.hybrid_search", return_value=mocked_results):
+        with patch("app.api.search.observe_hybrid_search", return_value=SearchInvocationObservation(mocked_results, ("opensearch",), ())):
             response = client.get(
                 "/api/v1/search",
                 params={"q": "market", "state": "CA", "rank": "hybrid", "top_k": 1},
@@ -132,8 +142,10 @@ class MigratedEndpointEnvelopeContractTestCase(unittest.TestCase):
             self.skipTest(f"Unable to import contract dependencies: {exc}")
 
         client = TestClient(self._build_app())
-        with patch("app.api.search.hybrid_search", side_effect=RuntimeError("Elasticsearch Connection refused")):
-            response = client.get("/api/v1/search", params={"q": "market"})
+        with patch(
+            "app.services.search.hybrid.get_es_client", side_effect=ElasticsearchConnectionError("Connection refused")
+        ):
+            response = client.get("/api/v1/search", params={"q": "market", "rank": "bm25"})
 
         self.assertEqual(response.status_code, 503)
         payload = response.json()

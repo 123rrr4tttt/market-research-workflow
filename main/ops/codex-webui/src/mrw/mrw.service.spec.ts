@@ -15,6 +15,7 @@ describe('MrwService', () => {
   const respond = vi.fn();
   const mockBackend = {
     prepare: vi.fn(),
+    prepareTurn: vi.fn(),
     bind: vi.fn(),
     dispatch: vi.fn(),
     confirm: vi.fn(),
@@ -38,6 +39,8 @@ describe('MrwService', () => {
     tool: 'write',
     arguments: { target: 'a' },
   };
+  const systemInstructions =
+    'You are the MRW native Agent. Follow the mounted system navigation.';
 
   beforeEach(async () => {
     vi.restoreAllMocks();
@@ -56,6 +59,251 @@ describe('MrwService', () => {
     respond.mockClear();
     mockCodex.request.mockReset();
     mockCodex.getClient.mockReturnValue({ respondToServerRequest: respond });
+    mockBackend.prepare.mockResolvedValue({
+      bindingId: 'b1',
+      dynamicTools: [],
+      systemInstructions,
+    });
+    mockBackend.bind.mockResolvedValue({
+      threadId: 't1',
+      dynamicTools: [],
+      systemInstructions,
+    });
+    mockBackend.prepareTurn.mockResolvedValue({
+      admissionId: 'admission-1',
+      threadId: 't1',
+      environmentStatus: 'configured',
+      dynamicTools: [],
+      skills: [],
+      skillRoots: [],
+      systemInstructions,
+      expiresAt: '2999-01-01T00:00:00Z',
+    });
+  });
+
+  async function bindPrepared(): Promise<void> {
+    await service.prepareThread('p1');
+    await service.bindThread('b1', 't1');
+  }
+
+  async function admit(): Promise<void> {
+    await bindPrepared();
+    await service.prepareTurn('t1');
+  }
+
+  it('rejects concurrent and active same-thread admissions until the turn ends', async () => {
+    await bindPrepared();
+    let resolveFirst!: (value: unknown) => void;
+    const firstBackendCall = new Promise((resolve) => {
+      resolveFirst = resolve;
+    });
+    mockBackend.prepareTurn.mockImplementationOnce(() => firstBackendCall);
+
+    const first = service.prepareTurn('t1');
+    await expect(service.prepareTurn('t1')).rejects.toMatchObject({
+      status: 409,
+    });
+    expect(mockBackend.prepareTurn).toHaveBeenCalledTimes(1);
+
+    resolveFirst({
+      admissionId: 'first',
+      threadId: 't1',
+      environmentStatus: 'configured',
+      dynamicTools: [],
+      skills: [],
+      systemInstructions,
+      expiresAt: '2999-01-01T00:00:00Z',
+    });
+    await first;
+    await expect(service.prepareTurn('t1')).rejects.toMatchObject({
+      status: 409,
+    });
+    expect(mockBackend.prepareTurn).toHaveBeenCalledTimes(1);
+
+    await service.endTurn('t1', 'turn1');
+    await expect(service.prepareTurn('t1')).resolves.toMatchObject({
+      admissionId: 'admission-1',
+    });
+  });
+
+  it('cannot install a cancelled preparation over a later admission', async () => {
+    await bindPrepared();
+    let resolveFirst!: (value: unknown) => void;
+    const firstBackendCall = new Promise((resolve) => {
+      resolveFirst = resolve;
+    });
+    mockBackend.prepareTurn.mockImplementationOnce(() => firstBackendCall);
+
+    const cancelled = service.prepareTurn('t1');
+    service.abortTurnInput('t1');
+    await service.prepareTurn('t1');
+    resolveFirst({
+      admissionId: 'cancelled',
+      threadId: 't1',
+      environmentStatus: 'configured',
+      dynamicTools: [],
+      skills: [],
+      systemInstructions,
+      expiresAt: '2999-01-01T00:00:00Z',
+    });
+    await expect(cancelled).rejects.toMatchObject({ status: 409 });
+    await expect(service.prepareTurn('t1')).rejects.toMatchObject({
+      status: 409,
+    });
+  });
+
+  it('refuses a changed native tool schema before mounting or starting a turn', async () => {
+    mockBackend.prepare.mockResolvedValue({
+      bindingId: 'b1',
+      dynamicTools: [{ name: 'read', inputSchema: { type: 'object' } }],
+      systemInstructions,
+    });
+    await bindPrepared();
+    mockBackend.prepareTurn.mockResolvedValue({
+      admissionId: 'a2',
+      threadId: 't1',
+      environmentStatus: 'configured',
+      dynamicTools: [{ name: 'read', inputSchema: { type: 'string' } }],
+      skills: [],
+      systemInstructions,
+    });
+
+    await expect(service.prepareTurn('t1')).rejects.toMatchObject({
+      status: 409,
+    });
+    expect(mockCodex.request).not.toHaveBeenCalled();
+  });
+
+  it('rejects an MRW prepare without valid bounded system instructions', async () => {
+    mockBackend.prepare.mockResolvedValue({
+      bindingId: 'b1',
+      dynamicTools: [],
+      systemInstructions: '',
+    });
+
+    await expect(service.prepareThread('p1')).rejects.toMatchObject({
+      status: HttpStatus.BAD_GATEWAY,
+    });
+  });
+
+  it('refuses bind when the prepared system instructions changed', async () => {
+    mockBackend.prepare.mockResolvedValue({
+      bindingId: 'b1',
+      dynamicTools: [],
+      systemInstructions,
+    });
+    await service.prepareThread('p1');
+    mockBackend.bind.mockResolvedValue({
+      threadId: 't1',
+      dynamicTools: [],
+      systemInstructions: 'changed instructions',
+    });
+
+    await expect(service.bindThread('b1', 't1')).rejects.toMatchObject({
+      status: HttpStatus.CONFLICT,
+    });
+    await expect(service.bindThread('b1', 't1')).rejects.toThrow(
+      'native_rebind_required: system instructions changed during bind',
+    );
+    expect(service.isBound('t1')).toBe(false);
+  });
+
+  it('refuses bind without an actual prepared instruction load', async () => {
+    mockBackend.bind.mockResolvedValue({
+      threadId: 't1',
+      dynamicTools: [],
+      systemInstructions,
+    });
+
+    await expect(service.bindThread('b1', 't1')).rejects.toThrow(
+      'native_rebind_required: prepared system instructions are missing',
+    );
+    expect(service.isBound('t1')).toBe(false);
+  });
+
+  it('requires native rebind when admitted instructions differ from thread load', async () => {
+    await bindPrepared();
+    mockBackend.prepareTurn.mockResolvedValue({
+      admissionId: 'a2',
+      threadId: 't1',
+      environmentStatus: 'configured',
+      dynamicTools: [],
+      skills: [],
+      systemInstructions: 'changed instructions',
+    });
+
+    await expect(service.prepareTurn('t1')).rejects.toThrow(
+      'native_rebind_required: system instructions changed',
+    );
+    expect(mockCodex.request).not.toHaveBeenCalled();
+  });
+
+  it('refuses turn skills without a verifiable content digest', async () => {
+    await bindPrepared();
+    mockBackend.prepareTurn.mockResolvedValue({
+      admissionId: 'a2',
+      threadId: 't1',
+      environmentStatus: 'configured',
+      dynamicTools: [],
+      skills: [{ name: 'demo', path: '/app/demo/SKILL.md' }],
+      systemInstructions,
+    });
+
+    await expect(service.prepareTurn('t1')).rejects.toMatchObject({
+      status: 409,
+    });
+    expect(mockCodex.request).not.toHaveBeenCalled();
+  });
+
+  it('refuses an admission that expires before native turn start', async () => {
+    await bindPrepared();
+    mockBackend.prepareTurn.mockResolvedValue({
+      admissionId: 'expired',
+      threadId: 't1',
+      environmentStatus: 'configured',
+      dynamicTools: [],
+      skills: [],
+      systemInstructions,
+      expiresAt: '2000-01-01T00:00:00Z',
+    });
+    await expect(service.prepareTurn('t1')).rejects.toMatchObject({
+      status: 409,
+    });
+    expect(service.turnSkillInputs('t1')).toEqual([]);
+  });
+
+  it('rechecks skill bytes on every admitted turn', async () => {
+    const previous = process.env.MRW_SKILL_SOURCE_ROOT;
+    process.env.MRW_SKILL_SOURCE_ROOT = '/tmp/mrw-skills';
+    vi.spyOn(fs, 'realpath').mockResolvedValue('/tmp/mrw-skills/demo/SKILL.md');
+    vi.spyOn(fs, 'readFile').mockResolvedValue(Buffer.from('changed'));
+    await bindPrepared();
+    mockBackend.prepareTurn.mockResolvedValue({
+      admissionId: 'a2',
+      threadId: 't1',
+      environmentStatus: 'configured',
+      dynamicTools: [],
+      skillRoots: [],
+      skills: [
+        {
+          name: 'demo',
+          path: '/app/demo/SKILL.md',
+          relativePath: 'demo/SKILL.md',
+          contentDigest: createHash('sha256').update('original').digest('hex'),
+        },
+      ],
+      systemInstructions,
+    });
+
+    try {
+      await expect(service.prepareTurn('t1')).rejects.toMatchObject({
+        status: 409,
+      });
+      expect(mockCodex.request).not.toHaveBeenCalled();
+    } finally {
+      if (previous === undefined) delete process.env.MRW_SKILL_SOURCE_ROOT;
+      else process.env.MRW_SKILL_SOURCE_ROOT = previous;
+    }
   });
 
   it('holds back a call that needs approval and emits the card', async () => {
@@ -84,11 +332,14 @@ describe('MrwService', () => {
   });
 
   it('binds original credentials to the accepted turn and clears them on end', async () => {
-    mockBackend.bind.mockResolvedValue({ threadId: 't1' });
+    mockBackend.bind.mockResolvedValue({
+      threadId: 't1',
+      systemInstructions,
+    });
     mockBackend.recordInput.mockResolvedValue({ recorded: true });
     mockBackend.dispatch.mockResolvedValue({ success: true, contentItems: [] });
     const credentials = { sessionCookie: 'codex_session=original-session' };
-    await service.bindThread('b1', 't1');
+    await admit();
     await service.recordInput('t1', 'turn1', 'read', credentials);
     await service.handleDynamicToolCall(1, callParams);
     expect(mockBackend.dispatch).toHaveBeenLastCalledWith(
@@ -114,7 +365,10 @@ describe('MrwService', () => {
   it.each(['thread', 'turn', 'end', 'expire'])(
     'does not restore credentials when pending input settles after %s cleanup',
     async (cleanup) => {
-      mockBackend.bind.mockResolvedValue({ threadId: 't1' });
+      mockBackend.bind.mockResolvedValue({
+        threadId: 't1',
+        systemInstructions,
+      });
       mockBackend.dispatch.mockResolvedValue({
         success: true,
         contentItems: [],
@@ -125,7 +379,7 @@ describe('MrwService', () => {
           resolve = done;
         }),
       );
-      await service.bindThread('b1', 't1');
+      await admit();
       const pending = service.recordInput('t1', 'turn1', 'read', {
         codexAuth: 'original-token',
       });
@@ -234,23 +488,13 @@ describe('MrwService', () => {
     const digest = createHash('sha256').update('skill-body').digest('hex');
     vi.spyOn(fs, 'realpath').mockResolvedValue(realPath);
     vi.spyOn(fs, 'readFile').mockResolvedValue(Buffer.from('skill-body'));
-    mockCodex.request
-      .mockResolvedValueOnce(undefined)
-      .mockResolvedValueOnce({ data: [{ skills: [{ path: realPath }] }] });
+    mockCodex.request.mockResolvedValueOnce(undefined).mockResolvedValueOnce({
+      data: [{ skills: [{ name: 'demo', path: realPath }] }],
+    });
 
     try {
       await service.mountSkillEnvironment({
         bindingId: 'b1',
-        projectKey: 'p1',
-        packageId: null,
-        packageVersion: null,
-        sessionId: null,
-        threadId: null,
-        status: 'configured',
-        environmentStatus: 'configured',
-        environmentDigest: 'd',
-        dynamicTools: [],
-        skillRoots: [],
         skills: [
           {
             name: 'demo',
@@ -281,16 +525,6 @@ describe('MrwService', () => {
       await expect(
         service.mountSkillEnvironment({
           bindingId: 'b1',
-          projectKey: 'p1',
-          packageId: null,
-          packageVersion: null,
-          sessionId: null,
-          threadId: null,
-          status: 'configured',
-          environmentStatus: 'configured',
-          environmentDigest: 'd',
-          dynamicTools: [],
-          skillRoots: [],
           skills: [
             {
               name: 'bad',
@@ -315,24 +549,18 @@ describe('MrwService', () => {
     const digest = createHash('sha256').update('skill-body').digest('hex');
     vi.spyOn(fs, 'realpath').mockResolvedValue(realPath);
     vi.spyOn(fs, 'readFile').mockResolvedValue(Buffer.from('skill-body'));
-    mockCodex.request
-      .mockResolvedValueOnce(undefined)
-      .mockResolvedValueOnce({ data: [{ skills: [{ path: realPath }] }] });
-    mockBackend.bind.mockResolvedValue({ threadId: 't1', bindingId: 'b1' });
+    mockCodex.request.mockResolvedValueOnce(undefined).mockResolvedValueOnce({
+      data: [{ skills: [{ name: 'demo', path: realPath }] }],
+    });
+    mockBackend.bind.mockResolvedValue({
+      threadId: 't1',
+      bindingId: 'b1',
+      systemInstructions,
+    });
 
     try {
       await service.mountSkillEnvironment({
         bindingId: 'b1',
-        projectKey: 'p1',
-        packageId: null,
-        packageVersion: null,
-        sessionId: null,
-        threadId: null,
-        status: 'configured',
-        environmentStatus: 'configured',
-        environmentDigest: 'd',
-        dynamicTools: [],
-        skillRoots: [],
         skills: [
           {
             name: 'demo',
@@ -343,7 +571,7 @@ describe('MrwService', () => {
           },
         ],
       });
-      await service.bindThread('b1', 't1');
+      await bindPrepared();
 
       expect(service.isBound('t1')).toBe(true);
       expect(service.isBound('t2')).toBe(false);
@@ -358,23 +586,17 @@ describe('MrwService', () => {
   });
 
   it('treats an empty base environment as bound with no skill inputs', async () => {
-    mockBackend.bind.mockResolvedValue({ threadId: 't1', bindingId: 'b1' });
+    mockBackend.bind.mockResolvedValue({
+      threadId: 't1',
+      bindingId: 'b1',
+      systemInstructions,
+    });
 
     await service.mountSkillEnvironment({
       bindingId: 'b1',
-      projectKey: 'p1',
-      packageId: null,
-      packageVersion: null,
-      sessionId: null,
-      threadId: null,
-      status: 'configured',
-      environmentStatus: 'configured',
-      environmentDigest: 'd',
-      dynamicTools: [],
-      skillRoots: [],
       skills: [],
     });
-    await service.bindThread('b1', 't1');
+    await bindPrepared();
 
     expect(service.isBound('t1')).toBe(true);
     expect(service.turnSkillInputs('t1')).toEqual([]);
@@ -394,10 +616,14 @@ describe('MrwService', () => {
       .mockResolvedValueOnce(pathB);
     mockCodex.request
       .mockResolvedValueOnce(undefined)
-      .mockResolvedValueOnce({ data: [{ skills: [{ path: pathA }] }] })
+      .mockResolvedValueOnce({
+        data: [{ skills: [{ name: 'a', path: pathA }] }],
+      })
       .mockResolvedValueOnce(undefined)
-      .mockResolvedValueOnce({ data: [{ skills: [{ path: pathB }] }] });
-    mockBackend.bind.mockResolvedValue({});
+      .mockResolvedValueOnce({
+        data: [{ skills: [{ name: 'b', path: pathB }] }],
+      });
+    mockBackend.bind.mockResolvedValue({ systemInstructions });
 
     const base = {
       projectKey: 'p1',
@@ -437,7 +663,14 @@ describe('MrwService', () => {
           },
         ],
       });
+      await service.prepareThread('p1');
       await service.bindThread('b1', 't1');
+      mockBackend.prepare.mockResolvedValue({
+        bindingId: 'b2',
+        dynamicTools: [],
+        systemInstructions,
+      });
+      await service.prepareThread('p1');
       await service.bindThread('b2', 't2');
 
       expect(service.turnSkillInputs('t1').map((item) => item.name)).toEqual([
@@ -457,6 +690,7 @@ describe('MrwService', () => {
 
   it('records only the original user text through the backend', async () => {
     mockBackend.recordInput.mockResolvedValue({ recorded: true });
+    await admit();
 
     await service.recordInput('t1', 'turn1', 'original user words');
 
@@ -464,11 +698,14 @@ describe('MrwService', () => {
       't1',
       'turn1',
       'original user words',
+      'admission-1',
       undefined,
+      [],
     );
   });
 
   it('waits for an in-flight host input recording before dispatching', async () => {
+    await admit();
     const respond = vi.fn();
     mockCodex.getClient.mockReturnValue({ respondToServerRequest: respond });
     let resolveRecord!: (value: unknown) => void;
@@ -499,6 +736,7 @@ describe('MrwService', () => {
   });
 
   it('answers a clear tool failure when in-flight host input recording rejects', async () => {
+    await admit();
     const respond = vi.fn();
     mockCodex.getClient.mockReturnValue({ respondToServerRequest: respond });
     let rejectRecord!: (error: Error) => void;
@@ -533,6 +771,7 @@ describe('MrwService', () => {
   });
 
   it('blocks a tool call that arrives before host input registration completes', async () => {
+    await admit();
     const respond = vi.fn();
     mockCodex.getClient.mockReturnValue({ respondToServerRequest: respond });
     mockBackend.dispatch.mockResolvedValue({
@@ -557,6 +796,7 @@ describe('MrwService', () => {
   });
 
   it('clears a rejected input gate so a later turn starts fresh', async () => {
+    await admit();
     mockBackend.recordInput
       .mockRejectedValueOnce(new Error('down'))
       .mockResolvedValue({ recorded: true });
@@ -571,6 +811,7 @@ describe('MrwService', () => {
     service.beginTurnInput('t1');
     await service.recordInput('t1', 'turn1', 'hello').catch(() => undefined);
 
+    await service.prepareTurn('t1');
     service.beginTurnInput('t1');
     await service.recordInput('t1', 'turn2', 'again');
     await service.handleDynamicToolCall(9, { ...callParams, turnId: 'turn2' });

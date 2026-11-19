@@ -1,4 +1,4 @@
-# Wave0 baseline allowlist for API-layer direct model imports.
+# Baseline allowlist for API-layer direct model imports.
 # Format:
 #   <api_file.py>|from ..models[.submodule] import <sorted names>
 

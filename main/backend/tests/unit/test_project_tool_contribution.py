@@ -146,6 +146,56 @@ def test_source_library_run_is_project_tool_author_source() -> None:
     assert "uses_existing_frontdoor" not in spec.metadata
 
 
+def test_default_project_registry_reads_effective_source_library_items() -> None:
+    from app.services.agent_core.project_tools import build_project_core_tool_registry
+
+    item = {
+        "item_key": "water.monitoring",
+        "name": "Water monitoring",
+        "channel_key": "official_site",
+        "description": "Water quality observations",
+        "enabled": True,
+        "scope": "project",
+        "params": {"site": "example.org"},
+    }
+    service = AgentSessionService(store=InMemoryAgentSessionStore())
+    registry = build_project_core_tool_registry(service=service)
+    request = AgentCoreRequest(message="source library", session_id="session-1", project_key="water_proj")
+
+    with patch("app.services.source_library.list_effective_items", return_value=[item]) as lister:
+        listed = registry.execute_tool(
+            tool_call=CoreToolCall(tool_name="source_library.item.list", call_id="list-call"),
+            request=request,
+            emit=lambda _event: None,
+        )
+        searched = registry.execute_tool(
+            tool_call=CoreToolCall(
+                tool_name="source_library.item.search", arguments={"query": "quality"}, call_id="search-call"
+            ),
+            request=request,
+            emit=lambda _event: None,
+        )
+        inspected = registry.execute_tool(
+            tool_call=CoreToolCall(
+                tool_name="source_library.item.inspect",
+                arguments={"item_key": "water.monitoring"},
+                call_id="inspect-call",
+            ),
+            request=request,
+            emit=lambda _event: None,
+        )
+
+    assert [result.status for result in (listed, searched, inspected)] == ["completed"] * 3
+    assert listed.structured_content["result"]["items"][0]["item_key"] == "water.monitoring"
+    assert searched.structured_content["result"]["total"] == 1
+    assert inspected.structured_content["result"]["item"]["params"] == item["params"]
+    assert lister.call_count == 3
+    assert all(
+        invocation.kwargs == {"scope": "effective", "project_key": "water_proj"}
+        for invocation in lister.call_args_list
+    )
+
+
 def test_project_tool_operation_rule_preserves_identity_exception_and_permission() -> None:
     call = CoreToolCall(tool_name="example.observe", call_id="operation-call")
     request = AgentCoreRequest(message="observe", session_id="operation-session")

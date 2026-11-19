@@ -136,7 +136,7 @@ class TokenSinkPathSecurityError(PermissionError):
     pass
 
 
-_OAUTH_FAILURE_WITNESS = "test:test_w02_oauth_failure_lifts"
+_OAUTH_FAILURE_WITNESS = "test:test_oauth_failure_producer_and_legacy_lift_preserve_value_error_abi"
 _OAUTH_FAILURE_CONTEXT_KEYS = frozenset(
     {"operation", "public_exception", "public_message", "site", "witness"}
 )
@@ -177,12 +177,12 @@ def _raise_oauth_failure(
         or _OAUTH_FAILURE_CONTEXT_KEYS - set(context)
         or context.get("public_exception") != exception_type.__name__
     ):
-        # kit:boundary owner=codex_oauth.failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w02_oauth_failure_lifts
+        # kit:boundary owner=codex_oauth.failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_oauth_failure_producer_and_legacy_lift_preserve_value_error_abi
         raise TypeError("OAuth failure lift context is incomplete")
     if cause is None:
-        # kit:boundary owner=codex_oauth.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=codex.oauth.failure witness=test:test_w02_oauth_failure_lifts
+        # kit:boundary owner=codex_oauth.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=codex.oauth.failure witness=test:test_oauth_failure_producer_and_legacy_lift_preserve_value_error_abi
         raise exception_type(str(context["public_message"]))
-    # kit:boundary owner=codex_oauth.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=codex.oauth.failure witness=test:test_w02_oauth_failure_lifts
+    # kit:boundary owner=codex_oauth.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=codex.oauth.failure witness=test:test_oauth_failure_producer_and_legacy_lift_preserve_value_error_abi
     raise exception_type(str(context["public_message"])) from cause
 
 
@@ -212,7 +212,7 @@ def codex_oauth_frontend_error_url() -> str:
 def build_authorize_url(*, next_url: str | None = None, redirect_uri: str | None = None) -> Annotated[
     str,
     "kit:prepared-command effect_boundary=codex_oauth_authorize_redirect "
-    "witness=test:test_w02_agent_authority_metadata"
+    "witness=test:test_agent_results_declare_sources_and_effect_authority"
 ]:
     cfg = _read_oauth_config()
     _cleanup_expired_state_and_sessions()

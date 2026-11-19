@@ -3,7 +3,6 @@
 
 from __future__ import annotations
 
-import importlib.util
 import json
 import subprocess
 import sys
@@ -11,26 +10,23 @@ import tempfile
 import textwrap
 import unittest
 from pathlib import Path
-from typing import Any
+from typing import TypedDict
 
+from scripts.formal_release import check_static_production_contract as checker
 
 ROOT = Path(__file__).resolve().parents[2]
 SCRIPT_PATH = ROOT / "scripts" / "formal_release" / "check_static_production_contract.py"
 COMPOSE_REL_PATH = "main/ops/docker-compose.production.yml"
 ENV_REL_PATH = "main/backend/.env.production.example"
-CHECKER_ID = "check_static_production_contract_live"
 
 
-def _load_checker():
-    spec = importlib.util.spec_from_file_location(CHECKER_ID, SCRIPT_PATH)
-    assert spec is not None and spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-    return module
+class WorkflowJob(TypedDict):
+    name: str
+    steps: list[dict[str, object]]
 
 
-checker = _load_checker()
+class RequiredWorkflow(TypedDict):
+    jobs: dict[str, WorkflowJob]
 
 
 def test_build_role_is_non_authoritative_and_rejects_ambiguity() -> None:
@@ -55,8 +51,8 @@ def required_workflow(
     step_name: str,
     uses: str | None = None,
     continue_on_error: bool | None = None,
-) -> dict[str, Any]:
-    step: dict[str, Any] = {
+) -> RequiredWorkflow:
+    step: dict[str, object] = {
         "name": step_name,
         "if": condition,
         "uses": uses,
@@ -246,7 +242,7 @@ SECURITY_JOB = """
       - uses: actions/checkout@v4
         with:
           repository: 123rrr4tttt/functorial-kit
-          ref: 785ff25e201c9eae84c862e68e786bc975e7a800
+          ref: 6dbae536a72ab235998b21c9647b8b00d15a71e6
           path: .ci/functorial-kit-source
           persist-credentials: false
       - run: bandit -q -r main/backend/app
@@ -254,7 +250,6 @@ SECURITY_JOB = """
           python scripts/formal_release/check_functorial_kit_dependency_audit.py \
             --requirements main/backend/requirements.txt \
             --pyproject pyproject.toml \
-            --manifest tools/functorial-kit/consumer-gate.manifest.json \
             --source-checkout .ci/functorial-kit-source \
             --public-requirements "${RUNNER_TEMP}/mrw-public-pypi-requirements.txt" \
             --report "${RUNNER_TEMP}/mrw-functorial-kit-dependency-audit.json"
@@ -427,7 +422,7 @@ def test_yaml_sequence_mixed_mapping_item_remains_rejected() -> None:
 
 class StaticProductionContractTestCase(unittest.TestCase):
     def setUp(self) -> None:
-        temp_dir = tempfile.TemporaryDirectory(prefix="s1-r3-static-")
+        temp_dir = tempfile.TemporaryDirectory(prefix="static-production-")
         self.addCleanup(temp_dir.cleanup)
         self.root = Path(temp_dir.name)
 
@@ -496,6 +491,24 @@ class StaticProductionContractTestCase(unittest.TestCase):
         finding = self.findings()["compose.production_profile"]
         self.assertEqual("PASS", finding.status)
         self.assertIn("services=backend,celery-worker,db,es,frontend,redis", finding.evidence[0])
+
+    def test_release_identity_requires_worker_to_match_other_components(self) -> None:
+        compose = good_compose()
+        services_before_worker, worker, remaining = compose.partition("  celery-worker:\n")
+        for version, reason in (
+            ("1.0.0", None),
+            ("0.9.0", "versions_differ"),
+            ("1.0.0rc1", "celery-worker=prerelease_or_local"),
+            ("", "celery-worker=placeholder_or_missing"),
+        ):
+            with self.subTest(version=version):
+                worker_version = f"      SERVICE_VERSION: {version}\n" if version else ""
+                worker_config = remaining.replace("      SERVICE_VERSION: 1.0.0\n", worker_version, 1)
+                self.write_good_repo(services_before_worker + worker + worker_config)
+                finding = self.findings()["release.identity_alignment"]
+                self.assertEqual("PASS" if reason is None else "FAIL", finding.status, finding.evidence)
+                if reason is not None:
+                    self.assertIn(reason, finding.evidence)
 
     def test_all_images_must_use_exact_fail_fast_digest_form(self) -> None:
         self.write_good_repo()
@@ -566,7 +579,7 @@ class StaticProductionContractTestCase(unittest.TestCase):
 
     def test_direct_cli_reviews_production_compose_and_emits_json(self) -> None:
         self.write_good_repo()
-        output = self.root / "r3.json"
+        output = self.root / "static-production-contract.json"
         completed = subprocess.run(
             [sys.executable, str(SCRIPT_PATH), "--repo-root", str(self.root), "--output", str(output)],
             text=True,
@@ -580,7 +593,7 @@ class StaticProductionContractTestCase(unittest.TestCase):
         check_ids = {finding["check_id"] for finding in payload["findings"]}
         self.assertIn("compose.production_policy", check_ids)
 
-    def test_contract_10_phase_b_workflow_families_pass(self) -> None:
+    def test_production_workflow_families_pass(self) -> None:
         self.write_good_repo()
         findings = self.findings()
         for check_id in (
@@ -653,11 +666,6 @@ class StaticProductionContractTestCase(unittest.TestCase):
                 'pip-audit -r "${RUNNER_TEMP}/mrw-public-pypi-requirements.txt" --strict',
                 "pip-audit -r main/backend/requirements.txt --strict",
                 "pip_audit_public_strict=missing",
-            ),
-            (
-                "--manifest tools/functorial-kit/consumer-gate.manifest.json",
-                "--manifest tools/functorial-kit/other.json",
-                "functorial_kit_dependency_audit=missing",
             ),
             (
                 "--source-checkout .ci/functorial-kit-source",

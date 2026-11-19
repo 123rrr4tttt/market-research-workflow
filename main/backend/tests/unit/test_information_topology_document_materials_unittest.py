@@ -102,15 +102,17 @@ def test_current_import_preview_builds_v3_and_binds_only_explicit_material_ident
         vocabulary,
     )
 
-    source = source_bundle()
+    rejected_source = source_bundle()
+    del rejected_source["materials"][0]["material_id"]
     rejected = build_import_preview(
         project_key="it-retrieval",
         module_id="retrieval",
         namespace="retrieval",
-        source=source,
+        source=rejected_source,
         vocabulary=vocabulary(),
     )
     assert isinstance(rejected, Failure) and rejected.code == "INVALID_STRUCTURE"
+    source = source_bundle()
     source["materials"][0]["material_id"] = 42
     preview = build_import_preview(
         project_key="it-retrieval",

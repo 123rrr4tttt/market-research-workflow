@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 import logging
 from functools import partial
 from collections.abc import Mapping, Sequence
-from typing import TYPE_CHECKING, Literal, NoReturn, TypeGuard, TypeVar
+from typing import TYPE_CHECKING, NoReturn, TypeGuard, TypeVar
 
 from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
@@ -27,12 +27,9 @@ from ..projects import bind_project, bind_schema
 from .external_project import EXTERNAL_PROJECT_CHANNEL_KEY, normalize_bounded_int
 from .candidate_aggregation import (
     HandlerCandidateLimits,
-    aggregate_written_counts,
     batch_max_candidates,
     candidate_record_stats,
     normalize_handler_candidate_limits,
-    unique_candidates,
-    unique_site_entries,
 )
 from .item_resolver import (
     ExecutionPayload,
@@ -50,12 +47,14 @@ from .orchestrators import (
     run_site_search_orchestrator,
     run_url_execution_orchestrator,
 )
+from .orchestrators.site_search import fold_search_observations
 from .relevance_review import annotate_records_with_relevance_review_queue
 from .relevance_review import merge_relevance_review_queues
 from .loader import load_project_library_files
 from .runner import RunnerObject, is_runner_mapping, run_channel
 from .single_source_guard import build_single_source_execution_fact, validate_single_source_guard
 from .types import (
+    ExecutionLayer,
     FrontDoorExecutionProtocol,
     RoutingObservation,
     RoutingSummary,
@@ -66,14 +65,14 @@ from .types import (
 from .url_router import resolve_channel_for_url
 
 if TYPE_CHECKING:
+    from ..resource_pool.search_contract_discovery import QueryDiscoveryBudget
     from ..resource_pool.unified_search import UnifiedSearchResult
 
 logger = logging.getLogger(__name__)
 
-ExecutionLayer = Literal["execute", "terminal_output_only"]
 PROVIDER_HANDOFF_CONTRACT_VERSION = "source_library.provider_handoff.v1"
 SMOKE_ONLY_CONTRACT_VERSION = "source_library.smoke_only.v1"
-_FAILURE_WITNESS = "test:test_w01_source_export_failures"
+_FAILURE_WITNESS = "test:test_source_configuration_and_report_export_failures"
 _Key = TypeVar("_Key")
 
 
@@ -89,14 +88,14 @@ def _object(value: object) -> dict[object, object]:
     return dict(value) if _is_object(value) else {}
 
 
-def _object_list(value: object) -> list[object]:
+def object_list(value: object) -> list[object]:
     return list(value) if _is_object_list(value) else []
 
 
-def _as_runner_object(value: object) -> RunnerObject:
+def as_runner_object(value: object) -> RunnerObject:
     if not is_runner_mapping(value):
-        _raise_resolver_failure(
-            _resolver_failure(
+        raise_resolver_failure(
+            resolver_failure(
                 "routing_value_invalid",
                 "source-library routing value is not a runner object",
                 site="_as_runner_object.value",
@@ -106,11 +105,11 @@ def _as_runner_object(value: object) -> RunnerObject:
     return dict(value)
 
 
-def _optional_runner_object(value: object) -> RunnerObject | None:
+def optional_runner_object(value: object) -> RunnerObject | None:
     return dict(value) if is_runner_mapping(value) else None
 
 
-def _resolver_failure(code: str, message: str, *, site: str, **details: object) -> Failure:
+def resolver_failure(code: str, message: str, *, site: str, **details: object) -> Failure:
     public_exception = "TypeError" if code == "routing_value_invalid" else "ValueError"
     context: dict[str, object] = {
         "boundary_class": "PURE_CONTRACT_FAILURE",
@@ -126,7 +125,7 @@ def _resolver_failure(code: str, message: str, *, site: str, **details: object) 
     return source_library_contract_failures.fail(code, message, context)
 
 
-def _raise_resolver_failure(failure: Failure) -> NoReturn:
+def raise_resolver_failure(failure: Failure) -> NoReturn:
     context = failure.context or {}
     expected_public_exception = "TypeError" if failure.code == "routing_value_invalid" else "ValueError"
     required = {"boundary_class", "failure_family", "operation", "owner", "public_exception", "public_message", "site", "witness"}
@@ -138,13 +137,13 @@ def _raise_resolver_failure(failure: Failure) -> NoReturn:
         or context.get("public_exception") != expected_public_exception
         or context.get("public_message") != failure.message
     ):
-        # kit:boundary owner=source_library.resolver.failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w01_source_export_failures
+        # kit:boundary owner=source_library.resolver.failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_source_configuration_and_report_export_failures
         raise TypeError("source-library resolver failure lift context is incomplete or inconsistent")
     message = str(context["public_message"])
     if expected_public_exception == "TypeError":
-        # kit:boundary owner=source_library.resolver.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=source_library.contract_failure witness=test:test_w01_source_export_failures
+        # kit:boundary owner=source_library.resolver.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=source_library.contract_failure witness=test:test_source_configuration_and_report_export_failures
         raise TypeError(message)
-    # kit:boundary owner=source_library.resolver.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=source_library.contract_failure witness=test:test_w01_source_export_failures
+    # kit:boundary owner=source_library.resolver.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=source_library.contract_failure witness=test:test_source_configuration_and_report_export_failures
     raise ValueError(message)
 
 
@@ -160,7 +159,7 @@ def _as_dict(value: object) -> dict[object, object]:
     return _object(value)
 
 
-def _as_bool(value: object, default: bool) -> bool:
+def as_bool(value: object, default: bool) -> bool:
     if value is None:
         return default
     if isinstance(value, bool):
@@ -187,7 +186,7 @@ def _normalize_terms(value: object) -> list[str]:
     return [s] if s else []
 
 
-def _as_optional_int(value: object, *, min_value: int | None = None, max_value: int | None = None) -> int | None:
+def as_optional_int(value: object, *, min_value: int | None = None, max_value: int | None = None) -> int | None:
     try:
         if not isinstance(value, int | float | str):
             return None
@@ -238,7 +237,7 @@ def _normalize_search_params(params: Mapping[object, object]) -> dict[object, ob
     if query_terms:
         normalized["query_terms"] = query_terms
 
-    max_items = _as_optional_int(
+    max_items = as_optional_int(
         normalized.get("max_items") if normalized.get("max_items") is not None else normalized.get("limit"),
         min_value=1,
         max_value=5000,
@@ -247,7 +246,7 @@ def _normalize_search_params(params: Mapping[object, object]) -> dict[object, ob
         normalized["max_items"] = max_items
         normalized.setdefault("limit", max_items)
 
-    per_keyword_limit = _as_optional_int(
+    per_keyword_limit = as_optional_int(
         normalized.get("per_keyword_limit") if normalized.get("per_keyword_limit") is not None else normalized.get("limit"),
         min_value=1,
         max_value=5000,
@@ -255,13 +254,13 @@ def _normalize_search_params(params: Mapping[object, object]) -> dict[object, ob
     if per_keyword_limit is not None:
         normalized["per_keyword_limit"] = per_keyword_limit
 
-    max_candidates = _as_optional_int(normalized.get("max_candidates"), min_value=1, max_value=20000)
+    max_candidates = as_optional_int(normalized.get("max_candidates"), min_value=1, max_value=20000)
     if max_candidates is None and max_items is not None:
         max_candidates = max_items
     if max_candidates is not None:
         normalized["max_candidates"] = max_candidates
 
-    ingest_limit = _as_optional_int(
+    ingest_limit = as_optional_int(
         normalized.get("ingest_limit") if normalized.get("ingest_limit") is not None else normalized.get("max_items"),
         min_value=1,
         max_value=5000,
@@ -269,7 +268,7 @@ def _normalize_search_params(params: Mapping[object, object]) -> dict[object, ob
     if ingest_limit is not None:
         normalized["ingest_limit"] = ingest_limit
 
-    page = _as_optional_int(
+    page = as_optional_int(
         normalized.get("page") if normalized.get("page") is not None else normalized.get("paged"),
         min_value=1,
         max_value=10000,
@@ -277,7 +276,7 @@ def _normalize_search_params(params: Mapping[object, object]) -> dict[object, ob
     if page is not None:
         normalized["page"] = page
 
-    page_size = _as_optional_int(
+    page_size = as_optional_int(
         normalized.get("page_size") if normalized.get("page_size") is not None else normalized.get("per_page"),
         min_value=1,
         max_value=1000,
@@ -285,7 +284,7 @@ def _normalize_search_params(params: Mapping[object, object]) -> dict[object, ob
     if page_size is not None:
         normalized["page_size"] = page_size
 
-    max_pages = _as_optional_int(
+    max_pages = as_optional_int(
         normalized.get("max_pages") if normalized.get("max_pages") is not None else normalized.get("pages"),
         min_value=1,
         max_value=100,
@@ -293,11 +292,11 @@ def _normalize_search_params(params: Mapping[object, object]) -> dict[object, ob
     if max_pages is not None:
         normalized["max_pages"] = max_pages
 
-    days_back = _as_optional_int(normalized.get("days_back"), min_value=1, max_value=3650)
+    days_back = as_optional_int(normalized.get("days_back"), min_value=1, max_value=3650)
     if days_back is not None:
         normalized["days_back"] = days_back
 
-    start_offset = _as_optional_int(normalized.get("start_offset"), min_value=1, max_value=10000)
+    start_offset = as_optional_int(normalized.get("start_offset"), min_value=1, max_value=10000)
     if start_offset is not None:
         normalized["start_offset"] = start_offset
 
@@ -424,14 +423,14 @@ def _attach_source_tiering(channel: dict[str, object]) -> dict[str, object]:
     return normalized
 
 
-def _is_crawler_channel(channel: dict[str, object] | None) -> bool:
+def is_crawler_channel(channel: dict[str, object] | None) -> bool:
     if not isinstance(channel, dict):
         return False
     provider_type = str(channel.get("provider_type") or "").strip().lower()
     return provider_type in {"scrapy", "crawlee", "meltano"}
 
 
-def _prefer_crawler_channel_key(
+def prefer_crawler_channel_key(
     *,
     channel_map: dict[str, dict[str, object]],
     project_key: str | None,
@@ -440,7 +439,7 @@ def _prefer_crawler_channel_key(
     for channel_key, channel in channel_map.items():
         if not channel.get("enabled", True):
             continue
-        if _is_crawler_channel(channel):
+        if is_crawler_channel(channel):
             candidates.append(str(channel_key))
     if not candidates:
         return None
@@ -496,7 +495,7 @@ def _build_provider_handoff(
         or None
     )
     render_required = bool(route_profile.get("render_required") or params.get("frontdoor_render_required"))
-    is_crawler = _is_crawler_channel(channel)
+    is_crawler = is_crawler_channel(channel)
     out: dict[str, object] = {
         "contract_version": PROVIDER_HANDOFF_CONTRACT_VERSION,
         "handoff_kind": "crawler_provider" if is_crawler else "mechanical_fetch",
@@ -526,7 +525,7 @@ def _build_provider_handoff(
         fallback_boundary = _object(router_contract.get("fallback_boundary"))
         if fallback_boundary:
             out["fallback_boundary"] = fallback_boundary
-    return _as_runner_object({key: value for key, value in out.items() if value is not None})
+    return as_runner_object({key: value for key, value in out.items() if value is not None})
 
 
 def _is_handler_cluster_item(item: dict[str, object] | None) -> bool:
@@ -552,7 +551,7 @@ def _has_site_entries(params: Mapping[object, object] | None) -> bool:
 def _is_source_library_smoke_only(params: Mapping[object, object] | None) -> bool:
     if params is None:
         return False
-    return _as_bool(params.get("_source_library_smoke_only"), False)
+    return as_bool(params.get("_source_library_smoke_only"), False)
 
 
 def _build_source_library_smoke_payload(
@@ -670,11 +669,11 @@ def _build_frontdoor_protocol(
         total_search_tasks=total_search_tasks,
         total_url_tasks=total_url_tasks,
     )
-    write_to_pool = _as_bool(params.get("write_to_pool"), True)
-    auto_ingest = _as_bool(params.get("auto_ingest"), True)
+    write_to_pool = as_bool(params.get("write_to_pool"), True)
+    auto_ingest = as_bool(params.get("auto_ingest"), True)
     default_force_url_routing_flow = item_channel_key.lower() == "url_pool" or item_key.lower().startswith("url_pool.")
-    force_url_routing_flow = _as_bool(params.get("force_url_routing_flow"), default_force_url_routing_flow)
-    prefer_crawler_first = _as_bool(params.get("prefer_crawler_first"), False) and not force_url_routing_flow
+    force_url_routing_flow = as_bool(params.get("force_url_routing_flow"), default_force_url_routing_flow)
+    prefer_crawler_first = as_bool(params.get("prefer_crawler_first"), False) and not force_url_routing_flow
     search_parallelism = concurrency_plan.search.parallelism
     routing_parallelism = concurrency_plan.url.parallelism
     execution_mode = "single_channel"
@@ -703,7 +702,7 @@ def _build_frontdoor_protocol(
         expected_entry_type=str(item_extra.get("expected_entry_type") or item_params.get("expected_entry_type") or "").strip() or None,
         write_to_pool=write_to_pool,
         auto_ingest=auto_ingest,
-        ingest_limit=max(1, _as_optional_int(params.get("ingest_limit") or params.get("limit")) or 20),
+        ingest_limit=max(1, as_optional_int(params.get("ingest_limit") or params.get("limit")) or 20),
         force_url_routing_flow=force_url_routing_flow,
         prefer_crawler_first=prefer_crawler_first,
         search_parallelism=search_parallelism,
@@ -773,8 +772,8 @@ def _routed_channel_observation(
     return row
 
 
-def _run_routed_target(
-    *, url: object, item: dict[str, object], params: Mapping[object, object], project_key: str | None,
+def run_routed_target(
+    *, url: object, item_key: str | None, params: Mapping[object, object], project_key: str | None,
     channel_map: dict[str, dict[str, object]], has_query_terms: bool, force_url_routing_flow: bool,
     preferred_crawler_channel_key: str | None, fallback_crawler_channel_key: str | None,
     force_crawler_fallback_on_empty: bool, execution_layer: ExecutionLayer = "execute",
@@ -791,7 +790,6 @@ def _run_routed_target(
         return {"url": url_str, "channel_key": channel_key, "error": "channel not found", "result": None}
     if not channel.get("enabled", True):
         return {"url": url_str, "channel_key": channel_key, "error": "channel disabled", "result": None}
-    item_key = str(item.get("item_key") or "").strip() or None
     per_url = _routed_channel_params(channel, params, url_str, execution_layer)
     observe = partial(
         _routed_channel_observation, url=url_str, execution_layer=execution_layer,
@@ -801,7 +799,7 @@ def _run_routed_target(
         result = _execute_routed_channel(channel, per_url, project_key, item_key)
         if (
             force_crawler_fallback_on_empty
-            and not _is_crawler_channel(channel) and not _result_has_material_output(result)
+            and not is_crawler_channel(channel) and not _result_has_material_output(result)
             and fallback_crawler_channel_key and fallback_crawler_channel_key != channel_key
         ):
             fallback_channel = channel_map.get(fallback_crawler_channel_key)
@@ -843,14 +841,14 @@ def _result_has_material_output(result: object) -> bool:
     payload = _object(result)
     if not payload:
         return False
-    records = _object_list(payload.get("records"))
+    records = object_list(payload.get("records"))
     if records:
         return True
-    if (_as_optional_int(payload.get("fetched")) or 0) > 0:
+    if (as_optional_int(payload.get("fetched")) or 0) > 0:
         return True
-    if (_as_optional_int(payload.get("inserted")) or 0) + (_as_optional_int(payload.get("updated")) or 0) > 0:
+    if (as_optional_int(payload.get("inserted")) or 0) + (as_optional_int(payload.get("updated")) or 0) > 0:
         return True
-    by_url = _object_list(payload.get("by_url"))
+    by_url = object_list(payload.get("by_url"))
     for row in by_url:
         nested = _object(row).get("result")
         nested_payload = _object(nested)
@@ -1387,10 +1385,10 @@ def run_item_with_url_routing(
     Returns aggregated { inserted, skipped, by_url }.
     """
     urls = params.get("urls")
-    url_values = _object_list(urls)
+    url_values = object_list(urls)
     if not url_values:
-        _raise_resolver_failure(
-            _resolver_failure(
+        raise_resolver_failure(
+            resolver_failure(
                 "url_routing_urls_required",
                 "params.urls must be a non-empty list for URL routing",
                 site="run_item_with_url_routing.params.urls",
@@ -1419,159 +1417,26 @@ def _run_url_routing_materialization(
     runtime_targets: Sequence[tuple[str, dict[str, object]]],
     execution_layer: ExecutionLayer = "execute",
 ) -> RoutingObservation:
-    """
-    Materialize URL routing results from frozen runtime targets.
-    """
-    if not runtime_targets:
-        _raise_resolver_failure(
-            _resolver_failure(
-                "frontdoor_runtime_targets_invalid",
-                "runtime_targets must be a non-empty sequence for URL routing",
-                site="_run_url_routing_materialization.runtime_targets",
-            )
-        )
+    from .orchestrators.url_execution import fetch_routed_targets
 
-    normalized_runtime_targets: list[tuple[str, dict[str, object]]] = []
-    for idx, target in enumerate(runtime_targets):
-        if len(target) < 1:
-            _raise_resolver_failure(
-                _resolver_failure(
-                    "frontdoor_runtime_targets_invalid",
-                    "runtime_targets entries must contain a url and optional metadata",
-                    site="_run_url_routing_materialization.runtime_targets.entry",
-                    index=idx,
-                )
-            )
-        url_str = str(target[0] or "").strip()
-        target_meta = target[1] if len(target) > 1 else {}
-        normalized_runtime_targets.append((url_str, target_meta))
-
-    urls = [url for url, _meta in normalized_runtime_targets]
-
-    inserted_total = 0
-    updated_total = 0
-    skipped_total = 0
-    by_url: list[RunnerObject] = []
-    errors: list[str] = []
-    records: list[RunnerObject] = []
     protocol = _build_frontdoor_protocol(item=item, params=params, project_key=project_key)
-    has_query_terms = bool(protocol.query_terms)
-    force_url_routing_flow = protocol.force_url_routing_flow
-    preferred_crawler_channel_key: str | None = None
-    fallback_crawler_channel_key: str | None = None
-    force_crawler_fallback_on_empty = _as_bool(params.get("force_crawler_fallback_on_empty"), True)
-    prefer_crawler_first = protocol.prefer_crawler_first
-    if prefer_crawler_first:
-        item_channel_key = str(item.get("channel_key") or "").strip()
-        item_channel = channel_map.get(item_channel_key)
-        if item_channel_key and item_channel and item_channel.get("enabled", True) and _is_crawler_channel(item_channel):
-            preferred_crawler_channel_key = item_channel_key
-        else:
-            preferred_crawler_channel_key = _prefer_crawler_channel_key(
-                channel_map=channel_map,
-                project_key=project_key,
-            )
-    if force_crawler_fallback_on_empty:
-        fallback_crawler_channel_key = _prefer_crawler_channel_key(
-            channel_map=channel_map,
-            project_key=project_key,
-        )
-
-    rows: list[RunnerObject] = []
-    for url in urls:
-        try:
-            rows.append(
-                _run_routed_target(
-                    url=url,
-                    item=item,
-                    params=params,
-                    project_key=project_key,
-                    channel_map=channel_map,
-                    has_query_terms=has_query_terms,
-                    force_url_routing_flow=force_url_routing_flow,
-                    preferred_crawler_channel_key=preferred_crawler_channel_key,
-                    fallback_crawler_channel_key=fallback_crawler_channel_key,
-                    force_crawler_fallback_on_empty=force_crawler_fallback_on_empty,
-                    execution_layer=execution_layer,
-                )
-            )
-        except Exception as exc:  # noqa: BLE001
-            rows.append(
-                _as_runner_object(
-                    {"url": str(url or ""), "channel_key": None, "error": str(exc), "result": None}
-                )
-            )
-
-    for row in rows:
-        result = _optional_runner_object(row.get("result"))
-        if result:
-            inserted_total += _as_optional_int(result.get("inserted")) or 0
-            updated_total += _as_optional_int(result.get("updated")) or 0
-            skipped_total += _as_optional_int(result.get("skipped")) or 0
-            for error_value in _object_list(result.get("errors")):
-                error_text = str(error_value or "").strip()
-                if error_text:
-                    errors.append(error_text)
-            records.extend(
-                _extract_records_from_routed_row(
-                    row=row,
-                    result=result,
-                    channel_key=str(row.get("channel_key") or "").strip(),
-                    start_index=len(records),
-                )
-            )
-        else:
-            error_text = str(row.get("error") or "").strip()
-            if error_text:
-                errors.append(f"{str(row.get('url') or '')[:80]}: {error_text}")
-        by_url.append(row)
-
-    fetched_total = len(by_url)
-    normalized_total = len(records)
-    dropped_total = max(fetched_total - normalized_total, 0)
-    response: RoutingObservation = {
-        "by_url": by_url,
-        "records": records,
-        "stats": {
-            "fetched": fetched_total,
-            "normalized": normalized_total,
-            "dropped": dropped_total,
-            "errors": len(errors),
-        },
-        "legacy_counts": {
-            "inserted": inserted_total,
-            "updated": updated_total,
-            "skipped": skipped_total,
-        },
-        "errors": errors,
-        "middle_layer_protocol": protocol.to_dict(),
-        "url_routing_parallelism": 1,
-        "diagnostics": {
-            "concurrency_plan": dict(protocol.concurrency_plan),
-            "url_stage": {
-                "budget": len(urls),
-                "parallelism": 1,
-                "fail_fast": False,
-                "timeout_seconds": None,
-                "tasks_total": len(urls),
-                "timed_out": sum(1 for row in by_url if row.get("timeout")),
-            },
-        },
-        "execution_layer": execution_layer,
-    }
-    if execution_layer != "terminal_output_only":
-        response["inserted"] = inserted_total
-        response["updated"] = updated_total
-        response["skipped"] = skipped_total
-    return response
+    return fetch_routed_targets(
+        protocol=protocol,
+        item_channel_key=str(item.get("channel_key") or "").strip(),
+        params=params,
+        project_key=project_key,
+        channel_map=channel_map,
+        runtime_targets=runtime_targets,
+        execution_layer=execution_layer,
+    )
 
 
 def _summarize_routed_results(routed: RoutingObservation) -> RoutingSummary:
     legacy_counts = _object(routed.get("legacy_counts"))
-    inserted = _as_optional_int(legacy_counts.get("inserted")) or _as_optional_int(routed.get("inserted")) or 0
-    updated = _as_optional_int(legacy_counts.get("updated")) or _as_optional_int(routed.get("updated")) or 0
-    skipped = _as_optional_int(legacy_counts.get("skipped")) or _as_optional_int(routed.get("skipped")) or 0
-    errors = [str(x) for x in _object_list(routed.get("errors")) if str(x or "").strip()]
+    inserted = as_optional_int(legacy_counts.get("inserted")) or as_optional_int(routed.get("inserted")) or 0
+    updated = as_optional_int(legacy_counts.get("updated")) or as_optional_int(routed.get("updated")) or 0
+    skipped = as_optional_int(legacy_counts.get("skipped")) or as_optional_int(routed.get("skipped")) or 0
+    errors = [str(x) for x in object_list(routed.get("errors")) if str(x or "").strip()]
     by_url = routed.get("by_url") or []
 
     inserted_valid = 0
@@ -1587,7 +1452,7 @@ def _summarize_routed_results(routed: RoutingObservation) -> RoutingSummary:
             channels_used.append(channel_key)
         if row.get("error"):
             error_details.append(
-                _as_runner_object(
+                as_runner_object(
                     {
                     "url": str(row.get("url") or ""),
                     "channel_key": channel_key or None,
@@ -1595,26 +1460,26 @@ def _summarize_routed_results(routed: RoutingObservation) -> RoutingSummary:
                     }
                 )
             )
-        result = _optional_runner_object(row.get("result"))
+        result = optional_runner_object(row.get("result"))
         if not result:
             continue
         records.extend(
-            _extract_records_from_routed_row(
+            extract_records_from_routed_row(
                 row=row,
                 result=result,
                 channel_key=channel_key,
                 start_index=len(records),
             )
         )
-        valid = _as_optional_int(result.get("inserted_valid")) or 0
-        inserted_valid += valid if valid > 0 else _as_optional_int(result.get("inserted")) or 0
-        rejected_count += _as_optional_int(result.get("rejected_count")) or 0
+        valid = as_optional_int(result.get("inserted_valid")) or 0
+        inserted_valid += valid if valid > 0 else as_optional_int(result.get("inserted")) or 0
+        rejected_count += as_optional_int(result.get("rejected_count")) or 0
         rb = _object(result.get("rejection_breakdown"))
         for key, value in rb.items():
             reason = str(key or "").strip()
             if not reason:
                 continue
-            count = _as_optional_int(value) or 0
+            count = as_optional_int(value) or 0
             if count <= 0:
                 continue
             rejection_breakdown[reason] = rejection_breakdown.get(reason, 0) + count
@@ -1634,10 +1499,10 @@ def _summarize_routed_results(routed: RoutingObservation) -> RoutingSummary:
         "by_url": by_url,
         "records": records,
         "stats": {
-            "fetched": _as_optional_int(fetch_stats.get("fetched")) or len(by_url),
-            "normalized": _as_optional_int(fetch_stats.get("normalized")) or len(records),
-            "dropped": _as_optional_int(fetch_stats.get("dropped")) or max(len(by_url) - len(records), 0),
-            "errors": _as_optional_int(fetch_stats.get("errors")) or len(errors),
+            "fetched": as_optional_int(fetch_stats.get("fetched")) or len(by_url),
+            "normalized": as_optional_int(fetch_stats.get("normalized")) or len(records),
+            "dropped": as_optional_int(fetch_stats.get("dropped")) or max(len(by_url) - len(records), 0),
+            "errors": as_optional_int(fetch_stats.get("errors")) or len(errors),
         },
         "legacy_counts": {
             "inserted": inserted,
@@ -1650,7 +1515,7 @@ def _summarize_routed_results(routed: RoutingObservation) -> RoutingSummary:
     }
 
 
-def _extract_records_from_routed_row(
+def extract_records_from_routed_row(
     *,
     row: RunnerObject,
     result: RunnerObject,
@@ -1659,7 +1524,7 @@ def _extract_records_from_routed_row(
 ) -> list[RunnerObject]:
     extracted: list[RunnerObject] = []
     record_url = str(row.get("url") or "").strip() or None
-    nested_records = _object_list(result.get("records"))
+    nested_records = object_list(result.get("records"))
     if nested_records:
         for offset, nested_value in enumerate(nested_records):
             if not _is_object(nested_value):
@@ -1677,7 +1542,7 @@ def _extract_records_from_routed_row(
             if route_profile:
                 record_meta.setdefault("frontdoor_route_profile", route_profile)
             extracted.append(
-                _as_runner_object({
+                as_runner_object({
                     "record_id": str(nested.get("record_id") or nested_url or f"record:{start_index + offset}"),
                     "url": nested_url,
                     "title": str(nested.get("title") or "").strip() or None,
@@ -1707,7 +1572,7 @@ def _extract_records_from_routed_row(
         if route_profile:
             record_meta["frontdoor_route_profile"] = route_profile
         extracted.append(
-            _as_runner_object({
+            as_runner_object({
                 "record_id": str(result.get("record_id") or record_url or f"record:{start_index}"),
                 "url": record_url,
                 "title": str(result.get("title") or "").strip() or None,
@@ -1747,8 +1612,9 @@ def _run_single_handler_search_batch(
     term_batch: list[str],
     candidate_limits: HandlerCandidateLimits,
     params: Mapping[object, object],
+    query_discovery_budget: "QueryDiscoveryBudget | None" = None,
 ) -> UnifiedSearchResult:
-    from ..resource_pool import unified_search_by_item_payload
+    from ..resource_pool.unified_search import unified_search_by_item_payload
 
     return unified_search_by_item_payload(
         project_key=str(project_key or ""),
@@ -1765,6 +1631,7 @@ def _run_single_handler_search_batch(
         ingest_limit=candidate_limits.global_ingest_limit,
         enable_extraction=bool(params.get("enable_extraction", True)),
         allow_term_fallback=bool(params.get("allow_term_fallback", False)),
+        query_discovery_budget=query_discovery_budget,
     )
 
 
@@ -1792,11 +1659,26 @@ def _run_handler_search_atom(
         },
     }
     execution_plan = build_item_execution_plan(merged_search_item)
+    merged_runtime_params: dict[str, object] = {}
+    for key, value in item_mapping_fields(item.get("params") or {}).items():
+        if isinstance(key, str):
+            merged_runtime_params[key] = value
+    for key, value in params.items():
+        if isinstance(key, str):
+            merged_runtime_params[key] = value
+    from ..resource_pool.search_contract_discovery import (
+        QueryDiscoveryBudget as QueryDiscoveryBudgetImplementation,
+    )
+
+    query_discovery_budget: QueryDiscoveryBudget = (
+        QueryDiscoveryBudgetImplementation.from_params(merged_runtime_params)
+    )
     try:
         return _run_single_handler_search_batch(
             project_key=project_key, merged_search_item=merged_search_item,
             execution_plan=execution_plan,
             term_batch=query_terms, candidate_limits=candidate_limits, params=params,
+            query_discovery_budget=query_discovery_budget,
         )
     except Exception as exc:
         return _HandlerSearchFailure(
@@ -1840,6 +1722,45 @@ def _fetch_handler_candidates(
     return routed, summary, protocol
 
 
+def _summarize_query_contract(
+    runtime_rows: Sequence[Mapping[str, object]],
+    *,
+    final_budget: Mapping[str, object] | None = None,
+) -> dict[str, object]:
+    statuses: list[str] = []
+    reason_codes: list[str] = []
+    exploration_requests: list[dict[str, object]] = []
+    def _string_object_view(value: dict[object, object]) -> dict[str, object]:
+        return {key: item for key, item in value.items() if isinstance(key, str)}
+
+    for row in runtime_rows:
+        query_contract = _object(row.get("query_contract"))
+        if not query_contract:
+            continue
+        status = str(query_contract.get("status") or "").strip()
+        if status and status not in statuses:
+            statuses.append(status)
+        diagnostics = _object(query_contract.get("diagnostics"))
+        raw_reason_codes = diagnostics.get("reason_codes")
+        reason_values = raw_reason_codes if _is_object_list(raw_reason_codes) else []
+        for reason_value in reason_values:
+            reason = str(reason_value or "").strip()
+            if reason and reason not in reason_codes:
+                reason_codes.append(reason)
+        exploration = _object(query_contract.get("exploration_request"))
+        if exploration:
+            exploration_requests.append(_string_object_view(exploration))
+    budget = dict(final_budget or {})
+    return {
+        "observation_kind": "query_contract_plan_and_execution",
+        "claims_content_acquired": False,
+        "statuses": statuses,
+        "reason_codes": reason_codes,
+        "exploration_requests": exploration_requests,
+        "discovery_budget": budget,
+    }
+
+
 def _run_handler_cluster_item(
     *,
     item: dict[str, object],
@@ -1860,35 +1781,15 @@ def _run_handler_cluster_item(
         candidate_limits=candidate_limits,
     )
 
-    benign_markers = {"url_term_filter_empty_fallback_used", "url_term_filter_empty_no_fallback"}
-    merged_site_entries = unique_site_entries([search])
-    merged_candidates = unique_candidates([search])
-    written_urls_new, written_urls_skipped = aggregate_written_counts([search])
-    merged_runtime_diagnostics: list[dict[object, object]] = []
-    merged_review_queues: list[dict[object, object]] = []
-    seen_runtime: set[str] = set()
-    merged_error_details: list[RunnerObject] = []
-    merged_errors: list[str] = []
-
-    runtime_rows = _object_list(getattr(search, "runtime_diagnostics", None))
-    if not runtime_rows:
-        runtime_rows = list(search.site_entries_used or [])
-    for diag in runtime_rows:
-        diagnostic = _object(diag)
-        key = str(diagnostic.get("site_url") or diagnostic.get("id") or "")
-        if key and key not in seen_runtime:
-            seen_runtime.add(key)
-            merged_runtime_diagnostics.append(diagnostic)
-    review_queue = getattr(search, "relevance_review_queue", None)
-    review_queue_payload = _object(review_queue)
-    if review_queue_payload:
-        merged_review_queues.append(review_queue_payload)
-    for error_value in search.errors or []:
-        error = _object(error_value)
-        merged_error_details.append(_as_runner_object(error))
-        msg = str(error.get("error") or "").strip()
-        if msg and msg not in benign_markers and msg not in merged_errors:
-            merged_errors.append(msg)
+    observations = fold_search_observations([search], deduplicate_error_messages=True)
+    merged_site_entries = observations.site_entries_used
+    merged_candidates = observations.candidates
+    written_urls_new = observations.written_urls_new
+    written_urls_skipped = observations.written_urls_skipped
+    merged_runtime_diagnostics = observations.runtime_diagnostics
+    merged_review_queues = observations.relevance_review_queues
+    merged_error_details: list[Mapping[str, object]] = list(observations.error_details)
+    merged_errors = observations.errors
 
     routed_result: RoutingObservation = {
         "inserted": 0,
@@ -1981,10 +1882,12 @@ def _run_handler_cluster_item(
         "query_batches": len(term_batches),
         "search_route": {
             "service_chain": ["primary", "fallback", "slow_lane"],
+            "service_chain_observation": "plan_only_not_execution_proof",
+            "service_chain_execution_observed": sorted(search_service_breakdown.keys()),
             "search_service_requested": "policy_driven",
             "search_service_used": sorted(search_service_breakdown.keys()),
             "search_service_fallbacks": int(sum(1 for detail in merged_error_details if str(detail.get("error") or "").strip() == "external_search_fallback_used")),
-            "slow_lane_enabled": True,
+            "slow_lane_enabled": bool(params.get("enable_external_search_slowlane", True)),
             "slow_lane": {
                 "deferred_count": slow_lane_deferred_count,
                 "reasons": slow_lane_reasons,
@@ -2016,6 +1919,10 @@ def _run_handler_cluster_item(
             "fetch_targets_from": "candidate_urls",
             "execution_layer": "terminal_output_only",
         },
+        "query_contract": _summarize_query_contract(
+            merged_runtime_diagnostics,
+            final_budget=getattr(search, "query_discovery_budget", None),
+        ),
     }
 
     return {
@@ -2099,8 +2006,8 @@ def run_item_payload(
     override_params: Mapping[object, object] | None = None,
 ) -> dict[str, object]:
     if not item.get("enabled", True):
-        _raise_resolver_failure(
-            _resolver_failure(
+        raise_resolver_failure(
+            resolver_failure(
                 "source_item_disabled",
                 f"source item disabled: {item.get('item_key')}",
                 site="run_item_payload.item_disabled",
@@ -2134,10 +2041,10 @@ def run_item_payload(
     if (
         item_channel_key_lower.startswith("generic_web.")
         and not generic_web_internal_item
-        and not _as_bool(params.get("_allow_internal_generic_web"), False)
+        and not as_bool(params.get("_allow_internal_generic_web"), False)
     ):
-        _raise_resolver_failure(
-            _resolver_failure(
+        raise_resolver_failure(
+            resolver_failure(
                 "frontdoor_entrypoint_rejected",
                 "generic_web.* direct item execution is disabled; use site_search(handler.cluster) entry",
                 site="run_item_payload.generic_web_direct",
@@ -2149,7 +2056,7 @@ def run_item_payload(
     # Operators can still explicitly freeze legacy fixed lists when needed.
     item_key_lower = str(item.get("item_key") or "").strip().lower()
     if item_channel_key_lower == "url_pool" or item_key_lower.startswith("url_pool."):
-        allow_legacy_url_list = _as_bool(params.get("enable_legacy_url_list"), True)
+        allow_legacy_url_list = as_bool(params.get("enable_legacy_url_list"), True)
         if not allow_legacy_url_list and isinstance(params.get("urls"), list):
             params = dict(params)
             params.pop("urls", None)
@@ -2172,8 +2079,7 @@ def run_item_payload(
 
     if request.source_mode == "url_execution":
         payload = run_url_execution_orchestrator(
-            item=item, request=request, channel_map=channel_map,
-            run_item_with_url_routing=run_item_with_url_routing,
+            request=request, channel_map=channel_map,
         )
     elif request.source_mode == "site_search":
         payload = run_site_search_orchestrator(

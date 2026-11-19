@@ -11,7 +11,7 @@ from pydantic import Field, model_validator
 
 from .assignments import Digest, FrozenContract, canonical_digest
 
-_RUNTIME_CONTRACT_WITNESS = "test:test_w07_runtime_non_start_proof_negative"
+_RUNTIME_CONTRACT_WITNESS = "test:test_runtime_non_start_proof_negative"
 _T = TypeVar("_T")
 
 
@@ -105,7 +105,7 @@ class AuthorityContext(FrozenContract):
     def validate_context_digest(self) -> "AuthorityContext":
         expected = canonical_digest(self, exclude_fields={"context_digest"})
         if self.context_digest != expected:
-            # kit:boundary owner=successor.runtime.qualification.authority_context class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_runtime_non_start_proof_negative
+            # kit:boundary owner=successor.runtime.qualification.authority_context class=PROGRAMMER_DEFECT failure_family=none witness=test:test_runtime_non_start_proof_negative
             raise ValueError("context_digest does not bind exact authority context")
         return self
 
@@ -154,7 +154,7 @@ class StepAuthorizationBinding(FrozenContract):
     def validate_binding_digest(self) -> "StepAuthorizationBinding":
         expected = canonical_digest(self, exclude_fields={"binding_digest"})
         if self.binding_digest != expected:
-            # kit:boundary owner=successor.runtime.qualification.step_binding class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_runtime_non_start_proof_negative
+            # kit:boundary owner=successor.runtime.qualification.step_binding class=PROGRAMMER_DEFECT failure_family=none witness=test:test_runtime_non_start_proof_negative
             raise ValueError("binding_digest does not bind exact step authorization")
         return self
 
@@ -208,7 +208,7 @@ class QualificationFailure(FrozenContract):
     def validate_failure_digest(self) -> "QualificationFailure":
         expected = canonical_digest(self, exclude_fields={"failure_digest"})
         if self.failure_digest != expected:
-            # kit:boundary owner=successor.runtime.qualification.failure class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_runtime_non_start_proof_negative
+            # kit:boundary owner=successor.runtime.qualification.failure class=PROGRAMMER_DEFECT failure_family=none witness=test:test_runtime_non_start_proof_negative
             raise ValueError("failure_digest does not bind qualification failure")
         return self
 
@@ -242,19 +242,19 @@ class QualifiedPlan(FrozenContract):
     def validate_qualified_plan(self) -> "QualifiedPlan":
         step_ids = [binding.step_id for binding in self.step_bindings]
         if len(step_ids) != len(set(step_ids)):
-            # kit:boundary owner=successor.runtime.qualification.plan class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_runtime_non_start_proof_negative
+            # kit:boundary owner=successor.runtime.qualification.plan class=PROGRAMMER_DEFECT failure_family=none witness=test:test_runtime_non_start_proof_negative
             raise ValueError("QualifiedPlan step bindings must be unique")
         awaiting = set(self.awaiting_approval_steps)
         denied = {failure.step_id for failure in self.denied_steps}
         if len(awaiting) != len(self.awaiting_approval_steps):
-            # kit:boundary owner=successor.runtime.qualification.plan class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_runtime_non_start_proof_negative
+            # kit:boundary owner=successor.runtime.qualification.plan class=PROGRAMMER_DEFECT failure_family=none witness=test:test_runtime_non_start_proof_negative
             raise ValueError("QualifiedPlan awaiting steps must be unique")
         if awaiting & denied:
-            # kit:boundary owner=successor.runtime.qualification.plan class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_runtime_non_start_proof_negative
+            # kit:boundary owner=successor.runtime.qualification.plan class=PROGRAMMER_DEFECT failure_family=none witness=test:test_runtime_non_start_proof_negative
             raise ValueError("QualifiedPlan step cannot be awaiting and denied")
         expected = canonical_digest(self, exclude_fields={"qualification_digest"})
         if self.qualification_digest != expected:
-            # kit:boundary owner=successor.runtime.qualification.plan class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_runtime_non_start_proof_negative
+            # kit:boundary owner=successor.runtime.qualification.plan class=PROGRAMMER_DEFECT failure_family=none witness=test:test_runtime_non_start_proof_negative
             raise ValueError("qualification_digest does not bind QualifiedPlan")
         return self
 

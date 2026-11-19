@@ -51,7 +51,8 @@ def test_authenticated_actor_reaches_tool_and_rejects_cross_actor_cached_dispatc
     service, _, _ = _make_service(registry)
     prepared = service.prepare(project_key="project-a")
     service.bind(binding_id=prepared["bindingId"], thread_id="thread-1")
-    service.record_input(thread_id="thread-1", turn_id="turn-1", content="read", actor_context=actor)
+    admission = service.prepare_turn(thread_id="thread-1", actor_context=actor)
+    service.record_input(thread_id="thread-1", turn_id="turn-1", content="read", actor_context=actor, admission_id=admission["admissionId"])
     arguments = dict(thread_id="thread-1", turn_id="turn-1", call_id="call-1", namespace="demo", tool="read", arguments={})
     first = service.dispatch(**arguments, actor_context=actor)
     assert observed == [actor]
@@ -60,24 +61,32 @@ def test_authenticated_actor_reaches_tool_and_rejects_cross_actor_cached_dispatc
         denied = service.dispatch(**arguments, actor_context=mismatched)
         assert "authenticated host actor differs" in str(denied)
     with pytest.raises(MacroHostError, match="another authenticated actor"):
-        service.record_input(thread_id="thread-1", turn_id="turn-1", content="replace", actor_context=other)
+        service.record_input(thread_id="thread-1", turn_id="turn-1", content="replace", actor_context=other, admission_id=admission["admissionId"])
     assert observed == [actor]
 
 
 def test_macro_api_transports_only_authenticated_request_actor(monkeypatch: pytest.MonkeyPatch) -> None:
     seen = []
-    fake = SimpleNamespace(record_input=lambda **kwargs: seen.append(kwargs) or {}, dispatch=lambda **kwargs: seen.append(kwargs) or {})
+    fake = SimpleNamespace(
+        prepare_turn=lambda **kwargs: seen.append(kwargs) or {},
+        record_input=lambda **kwargs: seen.append(kwargs) or {},
+        dispatch=lambda **kwargs: seen.append(kwargs) or {},
+    )
     monkeypatch.setattr(host_api, "get_agent_macro_host_service", lambda: fake)
     request = Request({"type": "http", "state": {}, "headers": [(b"x-actor-id", b"forged")]})
-    record = host_api.RecordInputRequest(threadId="t", turnId="u", content="read")
+    record = host_api.RecordInputRequest(threadId="t", turnId="u", content="read", admissionId="a")
+    host_api.prepare_macro_turn(host_api.PrepareTurnRequest(threadId="t"), request)
+    assert seen[-1]["actor_context"] is None
     host_api.record_macro_input(record, request)
     assert seen[-1]["actor_context"] is None
     actor = authenticated_actor_context(actor_id="user:a", source="oidc", auth_mode="oidc_claims")
     set_request_actor_context(request, actor)
+    host_api.prepare_macro_turn(host_api.PrepareTurnRequest(threadId="t"), request)
     host_api.record_macro_input(record, request)
     dispatch = host_api.DispatchRequest(threadId="t", turnId="u", callId="c", tool="demo.read")
     host_api.dispatch_macro_tool(dispatch, request)
-    for transported in (seen[-2]["actor_context"], seen[-1]["actor_context"]):
+    assert seen[-2]["admission_id"] == "a"
+    for transported in (seen[-3]["actor_context"], seen[-2]["actor_context"], seen[-1]["actor_context"]):
         assert transported.actor_id == actor.actor_id
         assert transported.actor_source == actor.actor_source
         assert transported.actor_auth_mode == actor.actor_auth_mode
@@ -156,6 +165,14 @@ def _make_service(
     return service, sessions, owner
 
 
+def _record(service: AgentMacroHostService, *, thread_id: str, turn_id: str, content: str) -> dict:
+    admission = service.prepare_turn(thread_id=thread_id)
+    return service.record_input(
+        thread_id=thread_id, turn_id=turn_id, content=content,
+        admission_id=admission["admissionId"],
+    )
+
+
 def test_prepare_is_non_session_and_bind_creates_session() -> None:
     service, sessions, _ = _make_service(_make_registry())
 
@@ -191,6 +208,10 @@ def test_bind_detects_environment_stale() -> None:
         service.bind(binding_id=prepared["bindingId"], thread_id="thread-1")
     assert exc.value.code == "environment_stale"
     assert exc.value.status_code == 409
+    read = service.environment(binding_id=prepared["bindingId"])
+    assert read["status"] == "environment_stale"
+    assert read["environmentStale"] is True
+    assert read["currentEnvironmentDigest"] is None
 
 
 def test_dispatch_confirm_redispatch_completes() -> None:
@@ -198,7 +219,7 @@ def test_dispatch_confirm_redispatch_completes() -> None:
     binding_id = service.prepare(project_key="project-a")["bindingId"]
     bound = service.bind(binding_id=binding_id, thread_id="thread-1")
     session_id = bound["sessionId"]
-    service.record_input(thread_id="thread-1", turn_id="turn-1", content="please write")
+    _record(service, thread_id="thread-1", turn_id="turn-1", content="please write")
 
     first = service.dispatch(
         thread_id="thread-1",
@@ -254,7 +275,7 @@ def test_confirm_reject_blocks_redispatch() -> None:
     service, _, _ = _make_service(_make_registry("ask"))
     binding_id = service.prepare(project_key="project-a")["bindingId"]
     service.bind(binding_id=binding_id, thread_id="thread-1")
-    service.record_input(thread_id="thread-1", turn_id="turn-1", content="go")
+    _record(service, thread_id="thread-1", turn_id="turn-1", content="go")
 
     first = service.dispatch(
         thread_id="thread-1",
@@ -287,15 +308,18 @@ def test_confirm_reject_blocks_redispatch() -> None:
     assert second["pendingAction"] is None
 
 
-def test_environment_read_reports_stale() -> None:
+def test_environment_read_reports_change_without_invalidating_bound_thread() -> None:
     service, _, owner = _make_service(_make_registry(), digest="env-digest-v1")
     binding_id = service.prepare(project_key="project-a")["bindingId"]
     service.bind(binding_id=binding_id, thread_id="thread-1")
     owner.digest = "env-digest-v2"
 
     read = service.environment(thread_id="thread-1")
-    assert read["environmentStale"] is True
-    assert read["status"] == "environment_stale"
+    assert read["environmentChanged"] is True
+    assert read["currentEnvironmentDigest"] == "env-digest-v2"
+    assert read["environmentDigest"] == "env-digest-v1"
+    assert read["environmentStale"] is False
+    assert read["status"] == "bound"
 
 
 def test_server_api_key_gate(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -365,6 +389,7 @@ def _base_resolved() -> SimpleNamespace:
 
 def test_default_owner_resolves_base_with_empty_package_ids(monkeypatch: pytest.MonkeyPatch) -> None:
     calls: dict[str, list[str]] = {}
+    registries: list[object] = []
 
     def fake_resolve(service, project, ids, versions, roots, registry, facility_catalog=None):
         del service, project, roots, registry, facility_catalog
@@ -373,11 +398,13 @@ def test_default_owner_resolves_base_with_empty_package_ids(monkeypatch: pytest.
         return _base_resolved()
 
     monkeypatch.setattr(macro_host_module, "resolve_macro_environment", fake_resolve)
-    monkeypatch.setattr(
-        macro_host_module,
-        "build_project_core_tool_registry",
-        lambda *, service: SimpleNamespace(),
-    )
+    def new_registry(*, service):
+        del service
+        registry = SimpleNamespace()
+        registries.append(registry)
+        return registry
+
+    monkeypatch.setattr(macro_host_module, "build_project_core_tool_registry", new_registry)
     monkeypatch.setattr(
         macro_host_module,
         "select_active_macro_identity",
@@ -386,12 +413,15 @@ def test_default_owner_resolves_base_with_empty_package_ids(monkeypatch: pytest.
 
     owner = macro_host_module.DefaultMacroEnvironmentOwner(service=object(), source_roots=())
     env = owner.resolve(project_key="project-a", binding_id="b", phase="prepare")
+    owner.resolve(project_key="project-a", binding_id="b", phase="prepare_turn")
 
     assert calls == {"ids": [], "versions": []}
     assert env.skills == ()
     assert env.package_digest is None
     assert env.status == "configured"
     assert env.resolved is not None
+    assert len(registries) == 2
+    assert registries[0] is not registries[1]
 
 
 def test_default_owner_resolves_explicit_package(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -448,7 +478,7 @@ def test_dispatch_cache_reads_final_result_without_reexecuting() -> None:
     service, _, _ = _make_service(registry)
     binding_id = service.prepare(project_key="project-a")["bindingId"]
     service.bind(binding_id=binding_id, thread_id="thread-1")
-    service.record_input(thread_id="thread-1", turn_id="turn-1", content="go")
+    _record(service, thread_id="thread-1", turn_id="turn-1", content="go")
 
     first = service.dispatch(
         thread_id="thread-1",
@@ -488,7 +518,7 @@ def test_end_turn_rejects_dispatch_and_confirm() -> None:
     service, _, _ = _make_service(_make_registry("ask"))
     binding_id = service.prepare(project_key="project-a")["bindingId"]
     service.bind(binding_id=binding_id, thread_id="thread-1")
-    service.record_input(thread_id="thread-1", turn_id="turn-1", content="go")
+    _record(service, thread_id="thread-1", turn_id="turn-1", content="go")
     first = service.dispatch(
         thread_id="thread-1",
         turn_id="turn-1",
@@ -635,7 +665,7 @@ def test_real_activation_from_base_candidate() -> None:
 
     bound = service.bind(binding_id=prepared["bindingId"], thread_id="thread-1")
     assert bound["sessionId"]
-    service.record_input(thread_id="thread-1", turn_id="turn-1", content="activate")
+    _record(service, thread_id="thread-1", turn_id="turn-1", content="activate")
 
     first = service.dispatch(
         thread_id="thread-1",
@@ -668,7 +698,7 @@ def test_activated_package_change_is_rejected() -> None:
 
     prepared = service.prepare(project_key="project-a")
     service.bind(binding_id=prepared["bindingId"], thread_id="thread-1")
-    service.record_input(thread_id="thread-1", turn_id="turn-1", content="activate")
+    _record(service, thread_id="thread-1", turn_id="turn-1", content="activate")
 
     first = service.dispatch(
         thread_id="thread-1",
@@ -711,7 +741,7 @@ def test_real_create_activate_first_call_chain() -> None:
     prepared = service.prepare(project_key="project-a")
     bound = service.bind(binding_id=prepared["bindingId"], thread_id="thread-1")
     session_id = bound["sessionId"]
-    service.record_input(thread_id="thread-1", turn_id="turn-1", content="create and activate")
+    _record(service, thread_id="thread-1", turn_id="turn-1", content="create and activate")
 
     created = service.dispatch(
         thread_id="thread-1",
@@ -758,7 +788,7 @@ def test_activate_dispatch_cache_and_idempotency() -> None:
 
     prepared = service.prepare(project_key="project-a")
     service.bind(binding_id=prepared["bindingId"], thread_id="thread-1")
-    service.record_input(thread_id="thread-1", turn_id="turn-1", content="go")
+    _record(service, thread_id="thread-1", turn_id="turn-1", content="go")
 
     created = service.dispatch(
         thread_id="thread-1",
@@ -863,16 +893,125 @@ def test_authorization_bound_to_old_digest_rejects_after_candidate_change() -> N
     assert result.status == "failed"
 
 
-def test_record_input_rejects_stale_environment() -> None:
+def test_turn_admission_keeps_snapshot_and_next_turn_resolves_again() -> None:
     service, _, owner = _make_service(_make_registry("allow"), digest="env-digest-v1")
     binding_id = service.prepare(project_key="project-a")["bindingId"]
     service.bind(binding_id=binding_id, thread_id="thread-1")
+    first = service.prepare_turn(thread_id="thread-1")
     owner.digest = "env-digest-v2"
-
+    recorded = service.record_input(
+        thread_id="thread-1", turn_id="turn-1", content="hello",
+        admission_id=first["admissionId"],
+    )
+    assert recorded["environmentDigest"] == "env-digest-v1"
+    steered = service.record_input(
+        thread_id="thread-1", turn_id="turn-1", content="one more thing",
+        admission_id=first["admissionId"],
+    )
+    assert steered["environmentDigest"] == "env-digest-v1"
     with pytest.raises(MacroHostError) as exc:
-        service.record_input(thread_id="thread-1", turn_id="turn-1", content="hello")
-    assert exc.value.code == "environment_stale"
-    assert exc.value.status_code == 409
+        service.record_input(
+            thread_id="thread-1", turn_id="turn-2", content="replay",
+            admission_id=first["admissionId"],
+        )
+    assert exc.value.code == "admission_consumed"
+    second = service.prepare_turn(thread_id="thread-1")
+    assert second["environmentDigest"] == "env-digest-v2"
+    recorded = service.record_input(
+        thread_id="thread-1", turn_id="turn-2", content="new turn",
+        admission_id=second["admissionId"],
+    )
+    assert recorded["environmentDigest"] == "env-digest-v2"
+
+
+def test_turn_admission_checks_actor_and_expiry() -> None:
+    from datetime import datetime, timedelta, timezone
+
+    now = datetime(2026, 10, 9, tzinfo=timezone.utc)
+    actor = authenticated_actor_context(actor_id="user:a", source="oidc", auth_mode="oidc_claims")
+    other = authenticated_actor_context(actor_id="user:b", source="oidc", auth_mode="oidc_claims")
+    service, _, _ = _make_service(_make_registry("allow"))
+    service.clock = lambda: now
+    service.prepared_binding_ttl_seconds = 10
+    binding_id = service.prepare(project_key="project-a")["bindingId"]
+    service.bind(binding_id=binding_id, thread_id="thread-1")
+    admission = service.prepare_turn(thread_id="thread-1", actor_context=actor)
+    with pytest.raises(MacroHostError) as mismatch:
+        service.record_input(
+            thread_id="thread-1", turn_id="turn-1", content="hello",
+            admission_id=admission["admissionId"], actor_context=other,
+        )
+    assert mismatch.value.code == "admission_mismatch"
+    service.clock = lambda: now + timedelta(seconds=11)
+    with pytest.raises(MacroHostError) as expired:
+        service.record_input(
+            thread_id="thread-1", turn_id="turn-1", content="hello",
+            admission_id=admission["admissionId"], actor_context=actor,
+        )
+    assert expired.value.code == "admission_expired"
+
+
+def test_turn_admissions_are_pruned_after_expiry_and_end() -> None:
+    from datetime import datetime, timedelta, timezone
+
+    now = datetime(2026, 10, 9, tzinfo=timezone.utc)
+    service, _, _ = _make_service(_make_registry("allow"))
+    service.clock = lambda: now
+    service.prepared_binding_ttl_seconds = 10
+    binding_id = service.prepare(project_key="project-a")["bindingId"]
+    service.bind(binding_id=binding_id, thread_id="thread-1")
+    abandoned = service.prepare_turn(thread_id="thread-1")
+    binding = service._bound_binding("thread-1")
+    assert abandoned["admissionId"] in binding.admissions
+
+    service.clock = lambda: now + timedelta(seconds=11)
+    active = service.prepare_turn(thread_id="thread-1")
+    assert abandoned["admissionId"] not in binding.admissions
+    assert set(binding.admissions) == {active["admissionId"]}
+    service.record_input(
+        thread_id="thread-1", turn_id="turn-1", content="hello",
+        admission_id=active["admissionId"],
+    )
+    with pytest.raises(MacroHostError) as consumed:
+        service.record_input(
+            thread_id="thread-1", turn_id="turn-2", content="replay",
+            admission_id=active["admissionId"],
+        )
+    assert consumed.value.code == "admission_consumed"
+    service.end_turn(thread_id="thread-1", turn_id="turn-1")
+    assert binding.admissions == {}
+
+
+def test_late_old_turn_dispatch_uses_its_registry_and_event_digest() -> None:
+    old_calls: list[str] = []
+    new_calls: list[str] = []
+
+    def registry_for(calls: list[str]) -> CoreToolRegistry:
+        registry = CoreToolRegistry()
+
+        def handler(call, spec, request, emit):
+            del spec, request, emit
+            calls.append(call.call_id)
+            return CoreToolRegistry.simple_result(call=call, model_summary="ran")
+
+        registry.register(CoreToolSpec(name="demo.read", description_for_model="Read", permission="allow"), handler)
+        return registry
+
+    service, sessions, owner = _make_service(registry_for(old_calls), digest="old-env")
+    binding_id = service.prepare(project_key="project-a")["bindingId"]
+    bound = service.bind(binding_id=binding_id, thread_id="thread-1")
+    _record(service, thread_id="thread-1", turn_id="turn-1", content="old turn")
+    owner.registry = registry_for(new_calls)
+    owner.digest = "new-env"
+    _record(service, thread_id="thread-1", turn_id="turn-2", content="new turn")
+    args = dict(thread_id="thread-1", namespace="demo", tool="read", arguments={})
+    assert service.dispatch(**args, turn_id="turn-1", call_id="old-call")["success"]
+    assert service.dispatch(**args, turn_id="turn-2", call_id="new-call")["success"]
+    assert old_calls == ["old-call"]
+    assert new_calls == ["new-call"]
+    events = sessions.store.list_events(bound["sessionId"])
+    dispatched = [item for item in events if item["event_type"] == "macro_host.tool.dispatched"]
+    assert [item["payload"]["environment_digest"] for item in dispatched] == ["old-env", "new-env"]
 
 
 def test_slow_handler_does_not_block_other_thread_end_turn() -> None:
@@ -898,10 +1037,10 @@ def test_slow_handler_does_not_block_other_thread_end_turn() -> None:
     service, _, _ = _make_service(registry)
     b1 = service.prepare(project_key="project-a")["bindingId"]
     service.bind(binding_id=b1, thread_id="thread-1")
-    service.record_input(thread_id="thread-1", turn_id="turn-1", content="go")
+    _record(service, thread_id="thread-1", turn_id="turn-1", content="go")
     b2 = service.prepare(project_key="project-a")["bindingId"]
     service.bind(binding_id=b2, thread_id="thread-2")
-    service.record_input(thread_id="thread-2", turn_id="turn-2", content="go")
+    _record(service, thread_id="thread-2", turn_id="turn-2", content="go")
 
     results: dict[str, object] = {}
 
@@ -927,6 +1066,52 @@ def test_slow_handler_does_not_block_other_thread_end_turn() -> None:
     assert results["dispatch"]["success"] is True
 
 
+def test_end_turn_cannot_be_overwritten_by_inflight_record_input() -> None:
+    import threading
+
+    service, sessions, _ = _make_service(_make_registry("allow"))
+    binding_id = service.prepare(project_key="project-a")["bindingId"]
+    service.bind(binding_id=binding_id, thread_id="thread-1")
+    admission = service.prepare_turn(thread_id="thread-1")
+    entered = threading.Event()
+    release = threading.Event()
+    original = sessions.create_host_user_message
+
+    def delayed_message(*args, **kwargs):
+        entered.set()
+        assert release.wait(timeout=5)
+        return original(*args, **kwargs)
+
+    sessions.create_host_user_message = delayed_message
+    results: dict[str, object] = {}
+
+    def record() -> None:
+        results["record"] = service.record_input(
+            thread_id="thread-1", turn_id="turn-1", content="hello",
+            admission_id=admission["admissionId"],
+        )
+
+    def end() -> None:
+        results["end"] = service.end_turn(thread_id="thread-1", turn_id="turn-1")
+
+    recording = threading.Thread(target=record)
+    ending = threading.Thread(target=end)
+    recording.start()
+    assert entered.wait(timeout=5)
+    ending.start()
+    release.set()
+    recording.join(timeout=5)
+    ending.join(timeout=5)
+    assert not recording.is_alive() and not ending.is_alive()
+    assert results["record"]["recorded"] is True
+    assert results["end"]["ended"] is True
+    binding = service._bound_binding("thread-1")
+    assert "turn-1" in binding.ended_turns
+    assert "turn-1" not in binding.turn_contexts
+    assert "turn-1" not in binding.turn_bindings
+    assert "turn-1" not in binding.turn_environments
+
+
 def test_same_call_concurrent_executes_once() -> None:
     import threading
 
@@ -950,7 +1135,7 @@ def test_same_call_concurrent_executes_once() -> None:
     service, _, _ = _make_service(registry)
     binding_id = service.prepare(project_key="project-a")["bindingId"]
     service.bind(binding_id=binding_id, thread_id="thread-1")
-    service.record_input(thread_id="thread-1", turn_id="turn-1", content="go")
+    _record(service, thread_id="thread-1", turn_id="turn-1", content="go")
 
     results: list[object] = []
 

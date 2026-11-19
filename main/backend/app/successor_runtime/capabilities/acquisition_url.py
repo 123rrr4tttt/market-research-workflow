@@ -11,7 +11,8 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass, field
-from typing import Annotated, Literal, NoReturn
+import json
+from typing import Annotated, Generic, Literal, NoReturn, TypeGuard, TypeVar, cast
 
 from functorial_kit import Failure
 
@@ -46,7 +47,7 @@ from app.successor_runtime.language.object_contracts import (
 )
 from app.successor_runtime.language.program import ProgramSpec, atom_node
 from app.successor_runtime.research.object_types import ObjectType
-from mrw_functorial_kit.core.w05_capability_semantics import (
+from mrw_functorial_kit.core.capability_contract_failure_semantics import (
     successor_capability_contract_failures,
 )
 
@@ -64,6 +65,8 @@ URL_SINGLE_URL_CONTRACT_VERSION = "2.0.0"
 _URL_SINGLE_URL_CONTRACT_WITNESS = (
     "test:test_single_url_program_builder_produces_exact_effect_closure"
 )
+_URL_SINGLE_URL_REQUEST_T = TypeVar("_URL_SINGLE_URL_REQUEST_T")
+_URL_SINGLE_URL_OUTCOME_T = TypeVar("_URL_SINGLE_URL_OUTCOME_T")
 
 URL_SINGLE_URL_LEGACY_REQUEST_TYPE = ObjectType(
     "UrlSingleUrlRequest.v1",
@@ -155,18 +158,84 @@ class UrlSingleUrlProgram:
     canonical_bindings: Mapping[str, tuple[int, str]]
 
 
+@dataclass(frozen=True, slots=True)
+class UrlSingleUrlContractVersion(
+    Generic[_URL_SINGLE_URL_REQUEST_T, _URL_SINGLE_URL_OUTCOME_T]
+):
+    """Exact contract/ref and request/outcome codec association for one URL version."""
+
+    contract: OperationContract
+    request_type: ObjectType
+    request_codec: PayloadCodec[_URL_SINGLE_URL_REQUEST_T]
+    outcome_type: ObjectType
+    outcome_codec: PayloadCodec[_URL_SINGLE_URL_OUTCOME_T]
+    historical: bool
+
+    def decode_request(self, exact: bytes) -> _URL_SINGLE_URL_REQUEST_T:
+        return self.request_codec.decode_payload(
+            _exact_payload_object(exact, payload_kind="request")
+        )
+
+    def decode_outcome(self, exact: bytes) -> _URL_SINGLE_URL_OUTCOME_T:
+        return self.outcome_codec.decode_payload(
+            _exact_payload_object(exact, payload_kind="output")
+        )
+
+
+def _canonical_json_value(value: object) -> CanonicalJsonValue:
+    if value is None or isinstance(value, bool | int | float | str):
+        return value
+    if _is_object_list(value):
+        return [_canonical_json_value(item) for item in value]
+    if _is_string_key_dict(value):
+        return {key: _canonical_json_value(item) for key, item in value.items()}
+    _reject_url_single_url_contract(
+        "codec_contract_invalid",
+        "runtime output is not canonical JSON",
+        site="_canonical_json_value.value",
+        public_exception="TypeError",
+    )
+
+
+def _exact_payload_object(exact: bytes, *, payload_kind: str) -> CanonicalJsonObject:
+    raw_value: object = json.loads(exact)
+    canonical_root = _canonical_json_value(raw_value)
+    if not _is_string_key_dict(canonical_root):
+        _reject_url_single_url_contract(
+            "codec_contract_invalid",
+            f"URL runtime {payload_kind} root is not an object",
+            site="_exact_payload_object.canonical_root",
+            public_exception="TypeError",
+        )
+    return canonical_root
+
+
+def _is_object_list(value: object) -> TypeGuard[list[object]]:
+    return isinstance(value, list)
+
+
+def _is_string_key_dict(
+    value: object,
+) -> TypeGuard[dict[str, CanonicalJsonValue]]:
+    if not isinstance(value, dict):
+        return False
+    mapping = cast(Mapping[object, object], value)
+    return all(isinstance(key, str) for key in mapping)
+
+
 def _url_single_url_contract_failure(
     code: str,
     message: str,
     *,
     site: str,
+    public_exception: Literal["TypeError", "ValueError"] = "ValueError",
 ) -> Failure:
     return successor_capability_contract_failures.fail(
         code,
         message,
         {
             "capability": URL_SINGLE_URL_OWNER,
-            "public_exception": "ValueError",
+            "public_exception": public_exception,
             "public_message": message,
             "site": site,
             "witness": _URL_SINGLE_URL_CONTRACT_WITNESS,
@@ -175,8 +244,13 @@ def _url_single_url_contract_failure(
 
 
 def _raise_url_single_url_contract_failure(failure: Failure) -> NoReturn:
+    context = failure.context or {}
+    public_message = str(context.get("public_message") or failure.message)
+    if context.get("public_exception") == "TypeError":
+        # kit:boundary owner=acquisition.url.single_url class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.capability.contract_failure witness=test:test_single_url_program_builder_produces_exact_effect_closure
+        raise TypeError(public_message)
     # kit:boundary owner=acquisition.url.single_url class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.capability.contract_failure witness=test:test_single_url_program_builder_produces_exact_effect_closure
-    raise ValueError(failure.message)
+    raise ValueError(public_message)
 
 
 def _reject_url_single_url_contract(
@@ -184,9 +258,15 @@ def _reject_url_single_url_contract(
     message: str,
     *,
     site: str,
+    public_exception: Literal["TypeError", "ValueError"] = "ValueError",
 ) -> NoReturn:
     _raise_url_single_url_contract_failure(
-        _url_single_url_contract_failure(code, message, site=site)
+        _url_single_url_contract_failure(
+            code,
+            message,
+            site=site,
+            public_exception=public_exception,
+        )
     )
 
 
@@ -477,17 +557,95 @@ def build_url_single_url_profiles() -> Annotated[
     )
 
 
+def _build_url_single_url_legacy_contract_version(
+    contract: OperationContract,
+) -> UrlSingleUrlContractVersion[LegacyUrlSingleUrlRequest, LegacyUrlSingleUrlOutcome]:
+    return UrlSingleUrlContractVersion(
+        contract=contract,
+        request_type=URL_SINGLE_URL_LEGACY_REQUEST_TYPE,
+        request_codec=build_url_single_url_legacy_request_codec(contract.ref),
+        outcome_type=URL_SINGLE_URL_LEGACY_OUTCOME_TYPE,
+        outcome_codec=build_url_single_url_legacy_outcome_codec(contract.ref),
+        historical=True,
+    )
+
+
+def _build_url_single_url_current_contract_version(
+    contract: OperationContract,
+) -> UrlSingleUrlContractVersion[UrlSingleUrlRequest, UrlSingleUrlOutcome]:
+    return UrlSingleUrlContractVersion(
+        contract=contract,
+        request_type=URL_SINGLE_URL_REQUEST_TYPE,
+        request_codec=build_url_single_url_request_codec(contract.ref),
+        outcome_type=URL_SINGLE_URL_OUTCOME_TYPE,
+        outcome_codec=build_url_single_url_outcome_codec(contract.ref),
+        historical=False,
+    )
+
+
+def build_url_single_url_contract_versions() -> Annotated[
+    tuple[
+        UrlSingleUrlContractVersion[LegacyUrlSingleUrlRequest, LegacyUrlSingleUrlOutcome],
+        UrlSingleUrlContractVersion[LegacyUrlSingleUrlRequest, LegacyUrlSingleUrlOutcome],
+        UrlSingleUrlContractVersion[UrlSingleUrlRequest, UrlSingleUrlOutcome],
+    ],
+    "kit:non-authoritative derived_as=view "
+    "fact_source=frozen_URL_single_url_contracts+exact_request_outcome_codecs "
+    "witness=test:test_single_url_contract_versions_preserve_legacy_identity",
+]:
+    """Return exact v1.0/v1.1/v2.0 contract and codec associations in version order."""
+
+    return (
+        _build_url_single_url_legacy_contract_version(
+            build_url_single_url_legacy_contract()
+        ),
+        _build_url_single_url_legacy_contract_version(
+            build_url_single_url_readback_legacy_contract()
+        ),
+        _build_url_single_url_current_contract_version(
+            build_url_single_url_contract()
+        ),
+    )
+
+
+def build_url_single_url_contract_version(
+    contract_ref: OperationContractRef,
+) -> Annotated[
+    (
+        UrlSingleUrlContractVersion[
+            LegacyUrlSingleUrlRequest, LegacyUrlSingleUrlOutcome
+        ]
+        | UrlSingleUrlContractVersion[UrlSingleUrlRequest, UrlSingleUrlOutcome]
+    ),
+    "kit:non-authoritative derived_as=view "
+    "fact_source=URL_single_url_contract_versions+exact_contract_ref "
+    "witness=test:test_single_url_contract_versions_preserve_legacy_identity",
+]:
+    """Resolve one exact contract ref to its native request/outcome codecs."""
+
+    for version in build_url_single_url_contract_versions():
+        if contract_ref == version.contract.ref:
+            return version
+    _reject_url_single_url_contract(
+        "codec_contract_invalid",
+        "URL runtime input has an unknown exact operation contract ref",
+        site="build_url_single_url_contract_version.contract_ref",
+    )
+
+
 def build_url_single_url_contracts() -> Annotated[
     tuple[OperationContract, OperationContract, OperationContract],
-    "kit:non-authoritative derived_as=view fact_source=frozen_URL_single_url_contracts "
+    "kit:non-authoritative derived_as=view "
+    "fact_source=URL_single_url_contract_versions "
     "witness=test:test_single_url_contract_versions_preserve_legacy_identity",
 ]:
     """Return both frozen historical contracts and current v2 in version order."""
 
+    versions = build_url_single_url_contract_versions()
     return (
-        build_url_single_url_legacy_contract(),
-        build_url_single_url_readback_legacy_contract(),
-        build_url_single_url_contract(),
+        versions[0].contract,
+        versions[1].contract,
+        versions[2].contract,
     )
 
 
@@ -770,6 +928,9 @@ __all__ = [
     "UrlSingleUrlRequest",
     "UrlSingleUrlOutcome",
     "UrlSingleUrlProgram",
+    "UrlSingleUrlContractVersion",
+    "build_url_single_url_contract_version",
+    "build_url_single_url_contract_versions",
     "build_url_single_url_contract",
     "build_url_single_url_contracts",
     "build_url_single_url_legacy_contract",

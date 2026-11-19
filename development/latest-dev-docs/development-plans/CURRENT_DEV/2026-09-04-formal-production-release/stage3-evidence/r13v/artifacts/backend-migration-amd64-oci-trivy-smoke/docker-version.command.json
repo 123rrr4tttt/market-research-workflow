@@ -1,9 +1,0 @@
-{
-  "argv": [
-    "docker",
-    "version",
-    "--format",
-    "{{json .}}"
-  ],
-  "cwd": null
-}

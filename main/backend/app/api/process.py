@@ -1242,7 +1242,7 @@ def _db_job_to_task_info(task_id: str, job: EtlJobRun) -> dict[str, Any]:
     finished_at = job.finished_at
     retry_count = job.retry_count
     status_raw = str(job_status or "running").strip().lower()
-    ready = status_raw in {"completed", "failed", "cancelled", "canceled"}
+    ready = status_raw in {"completed", "partial", "failed", "cancelled", "canceled"}
     is_external = bool(str(external_provider or "").strip())
     params_payload = _as_dict(job.params)
     result_payload = None
@@ -1392,7 +1392,7 @@ def _runtime_run_task_info(
         "task_id": run_ref,
         "runtime_run_ref": run_ref,
         "run_id": run_id,
-        "name": str(run.get("program_id") or "successor_runtime_program"),
+        "name": str(run.get("program_id") or "research_runtime_program"),
         "status": state.value,
         "ready": terminal,
         "successful": state is RunState.COMPLETED if terminal else None,
@@ -1403,7 +1403,7 @@ def _runtime_run_task_info(
         "traceback": None,
         "started_at": run.get("created_at"),
         "ended_at": run.get("finished_at"),
-        "source": "successor_runtime",
+        "source": "research_runtime",
         "events": [
             {
                 "seq": event.get("seq"),

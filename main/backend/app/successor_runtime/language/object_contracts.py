@@ -31,7 +31,7 @@ class _FailureFamilyFactory(Protocol):
 def _load_language_failures() -> _FailureFamilyLike:
     import importlib
 
-    module = importlib.import_module("mrw_functorial_kit.core.w07_semantics")
+    module = importlib.import_module("mrw_functorial_kit.core.workflow_research_failure_semantics")
     factory: object = getattr(module, "define_failure_family", None)
     if not isinstance(factory, _FailureFamilyFactory):
         # kit:boundary owner=successor.language.failure_family class=PROGRAMMER_DEFECT failure_family=none witness=test:test_language_failure_family_loader_rejects_missing_factory
@@ -44,7 +44,7 @@ def _load_language_failures() -> _FailureFamilyLike:
 
 
 _LANGUAGE_FAILURES = _load_language_failures()
-_LANGUAGE_FAILURE_WITNESS = "test:test_w07_language_research_failure_boundary"
+_LANGUAGE_FAILURE_WITNESS = "test:test_language_and_research_failures_are_closed_values"
 
 
 def language_failure(
@@ -84,13 +84,13 @@ def raise_language_failure(
         or context.get("public_exception") != exception_type.__name__
         or not context.get("public_message")
     ):
-        # kit:boundary owner=successor.language.failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_language_research_failure_boundary
+        # kit:boundary owner=successor.language.failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_language_and_research_failures_are_closed_values
         raise TypeError("language failure lift context is incomplete")
-    # kit:boundary owner=successor.language.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.language.failure witness=test:test_w07_language_research_failure_boundary
+    # kit:boundary owner=successor.language.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.language.failure witness=test:test_language_and_research_failures_are_closed_values
     if cause is None:
-        # kit:boundary owner=successor.language.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.language.failure witness=test:test_w07_language_research_failure_boundary
+        # kit:boundary owner=successor.language.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.language.failure witness=test:test_language_and_research_failures_are_closed_values
         raise exception_type(context.get("public_argument", context["public_message"]))
-    # kit:boundary owner=successor.language.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.language.failure witness=test:test_w07_language_research_failure_boundary
+    # kit:boundary owner=successor.language.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.language.failure witness=test:test_language_and_research_failures_are_closed_values
     raise exception_type(context.get("public_argument", context["public_message"])) from cause
 
 def _failure(
@@ -278,7 +278,7 @@ def build_frozen_base_return_contract_registry() -> Annotated[
     ReturnContractRegistry,
     "kit:non-authoritative derived_as=view "
     "fact_source=successor_runtime.language.object_contracts.FROZEN_BASE_RETURN_CONTRACT_REFS "
-    "witness=test:test_w07_derived_metadata_is_exact_and_non_authoritative",
+    "witness=test:test_workflow_language_projections_do_not_claim_authority",
 ]:
     """Frozen six-ref base registry; order and contracts must never change."""
     # derived(view) is explicitly non-authoritative; the frozen refs remain the fact source.
@@ -300,7 +300,7 @@ def build_first_specimen_return_contract_registry() -> Annotated[
     ReturnContractRegistry,
     "kit:non-authoritative derived_as=view "
     "fact_source=successor_runtime.language.object_contracts.FROZEN_BASE_RETURN_CONTRACT_REFS "
-    "witness=test:test_w07_derived_metadata_is_exact_and_non_authoritative",
+    "witness=test:test_workflow_language_projections_do_not_claim_authority",
 ]:
     """Return the frozen first-specimen return vocabulary."""
     # derived(view) is explicitly non-authoritative; the frozen refs are the fact source.

@@ -4,7 +4,7 @@ React + TypeScript + Vite 前端，提供工作台、可视化与管理界面；
 
 ## 本地开发
 
-以下命令从仓库根目录进入前端目录执行。项目 Docker 构建和 Playwright 启动命令使用 pnpm。
+以下命令从仓库根目录进入前端目录执行。本机、CI、Docker 均使用 `pnpm-lock.yaml`；请先准备 Node.js 和 pnpm 11.22.0。启动脚本不会自动安装或重新解析依赖。
 
 ```bash
 cd main/frontend-modern

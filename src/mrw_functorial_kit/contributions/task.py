@@ -7,14 +7,14 @@ from functorial_kit.contributions import (
     ContributionSpec,
     define_contribution,
 )
-from mrw_functorial_kit.core.w05_capability_semantics import (
+from mrw_functorial_kit.core.capability_contract_failure_semantics import (
     successor_capability_contract_failures,
 )
-from mrw_functorial_kit.core.w06_semantics import (
+from mrw_functorial_kit.core.source_and_capability_failure_semantics import (
     capability_primitive_contract_failures,
     projection_evidence_surface_failures,
 )
-from mrw_functorial_kit.core.w07_semantics import runtime_failures
+from mrw_functorial_kit.core.workflow_research_failure_semantics import runtime_failures
 
 
 task_contribution = define_contribution(

@@ -12,7 +12,7 @@ WORKER_LAUNCHD_LABEL="com.mrw.local-worker"
 
 usage() {
   cat <<USAGE
-Usage: $(basename "$0") {prepare|start|stop|restart|preflight|status|health} [extra args...]
+Usage: $(basename "$0") {prepare|start|stop|restart|preflight|status|health|release-cleanup} [extra args...]
 
 Commands:
   prepare    Prepare only Python/frontend/WebUI dependencies in this source root
@@ -22,6 +22,7 @@ Commands:
   preflight  Validate local commands/files/ports and write structured evidence
   status     Show local process status (backend/frontend/worker)
   health     Check local backend health endpoints
+  release-cleanup  Audit old reproducible releases; add --apply to quarantine safe candidates
 
 Examples:
   local-deploy.sh prepare
@@ -31,6 +32,88 @@ Examples:
   local-deploy.sh start --provision
   local-deploy.sh stop --local-only
 USAGE
+}
+
+release_cleanup() {
+  local apply=0
+  local keep_latest=1
+  local allow_evidence=0
+  local min_age_hours="${MRW_RELEASE_MIN_AGE_HOURS:-24}"
+  local release_root="${MRW_RELEASE_ROOT:-${HOME}/.local/share/mrw/releases}"
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --apply) apply=1 ;;
+      --all-old) keep_latest=0 ;;
+      --allow-evidence) allow_evidence=1 ;;
+      --min-age-hours) shift; min_age_hours="${1:?missing value for --min-age-hours}" ;;
+      --root) shift; release_root="${1:?missing value for --root}" ;;
+      -h|--help)
+        echo "Usage: $(basename "$0") release-cleanup [--apply] [--min-age-hours N] [--root DIR]"
+        echo "Default mode audits only. --apply moves safe candidates to DIR/.quarantine; it does not delete them."
+        return 0
+        ;;
+      *) echo "Unknown release-cleanup option: $1" >&2; return 2 ;;
+    esac
+    shift
+  done
+  [[ "$min_age_hours" =~ ^[0-9]+$ ]] || { echo "min age must be an integer" >&2; return 2; }
+  [[ -d "$release_root" ]] || { echo "release root not found: $release_root" >&2; return 1; }
+  local now cutoff candidate manifest latest_candidate=""
+  now="$(date +%s)"
+  cutoff=$((now - min_age_hours * 3600))
+  if [[ "$keep_latest" -eq 1 ]]; then
+    latest_candidate="$(find "$release_root" -mindepth 1 -maxdepth 1 -type d ! -name .quarantine -print0 | while IFS= read -r -d '' path; do printf '%s %s\n' "$(stat -f %m "$path")" "$path"; done | sort -nr | head -1 | cut -d' ' -f2-)"
+  fi
+  echo "Release root: $release_root"
+  echo "Minimum age: ${min_age_hours}h"
+  echo "Mode: $([[ "$apply" -eq 1 ]] && echo quarantine || echo audit)"
+  while IFS= read -r -d '' candidate; do
+    manifest="${candidate}/LOCAL_RELEASE_MANIFEST.json"
+    [[ -f "$manifest" ]] || continue
+    [[ "$candidate" == "$latest_candidate" ]] && { echo "KEEP latest: $candidate"; continue; }
+    local newest=0 path_epoch size
+    path_epoch="$(stat -f %m "$candidate" 2>/dev/null || echo 0)"
+    newest="$path_epoch"
+    (( newest > cutoff )) && continue
+    local open_handles=""
+    open_handles="$(lsof +d "$candidate" 2>/dev/null | tail -n +2 || true)"
+    if [[ -n "$open_handles" ]]; then
+      echo "KEEP active: $candidate"
+      continue
+    fi
+    if find "$candidate" -maxdepth 1 -type d \( -name archives -o -name evidence -o -name backup -o -name backups \) -print -quit | grep -q .; then
+      if [[ "$allow_evidence" -ne 1 ]]; then
+        echo "KEEP evidence-or-backup: $candidate"
+        continue
+      fi
+      local commit=""
+      if command -v python3 >/dev/null 2>&1; then
+        commit="$(python3 - "$manifest" <<'PY'
+import json, sys
+from pathlib import Path
+try:
+    value = json.loads(Path(sys.argv[1]).read_text(encoding='utf-8')).get('commit', '')
+except Exception:
+    value = ''
+print(value)
+PY
+)"
+      fi
+      if [[ -z "$commit" ]] || ! git -C "$ROOT_DIR" cat-file -e "${commit}^{commit}" 2>/dev/null; then
+        echo "KEEP evidence-unverified-commit: $candidate"
+        continue
+      fi
+    fi
+    size="$(du -sh "$candidate" 2>/dev/null | awk '{print $1}')"
+    if [[ "$apply" -eq 0 ]]; then
+      echo "CANDIDATE $size: $candidate"
+    else
+      local quarantine="${release_root}/.quarantine/$(basename "$candidate")-$(date +%Y%m%d%H%M%S)"
+      mkdir -p "$(dirname "$quarantine")"
+      mv "$candidate" "$quarantine"
+      echo "QUARANTINED $size: $candidate -> $quarantine"
+    fi
+  done < <(find "$release_root" -mindepth 1 -maxdepth 1 -type d ! -name .quarantine -print0 | sort -z)
 }
 
 require_backend_dir() {
@@ -47,8 +130,6 @@ resolve_backend_python() {
     printf '%s\n' "${BACKEND_DIR}/.venv311/bin/python"
   elif [[ -x "${BACKEND_DIR}/.venv/bin/python" ]]; then
     printf '%s\n' "${BACKEND_DIR}/.venv/bin/python"
-  elif [[ -x "/Users/wangyiliang/.local/bin/python3.11" ]]; then
-    printf '%s\n' "/Users/wangyiliang/.local/bin/python3.11"
   elif command -v python3.11 >/dev/null 2>&1; then
     command -v python3.11
   else
@@ -335,9 +416,14 @@ shift
 ENHANCEMENT_ARGS=()
 START_LOCAL_ARGS=()
 STOP_LOCAL_ARGS=()
+RELEASE_CLEANUP_ARGS=()
 LOCAL_STOP_ONLY=0
 HELP_REQUESTED=0
 for arg in "$@"; do
+  if [[ "$cmd" == "release-cleanup" ]]; then
+    RELEASE_CLEANUP_ARGS+=("$arg")
+    continue
+  fi
   case "$arg" in
     -h|--help)
       HELP_REQUESTED=1
@@ -471,6 +557,9 @@ case "$cmd" in
     echo
     curl -fsS http://localhost:8000/api/v1/health/deep
     echo
+    ;;
+  release-cleanup)
+    release_cleanup "${RELEASE_CLEANUP_ARGS[@]}"
     ;;
   -h|--help)
     usage

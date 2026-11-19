@@ -89,7 +89,7 @@ def build_relevance_review_queue(
     source_surface: str = "resource_pool.unified_search",
 ) -> Annotated[
     dict[str, Any],
-    "kit:non-authoritative derived_as=view fact_source=source_library.review_candidates witness=test:test_w01_meta",
+    "kit:non-authoritative derived_as=view fact_source=source_library.review_candidates witness=test:test_derived_service_annotations_match_fact_sources",
 ]:
     """Build a fail-closed review queue for low-confidence selected candidates.
 
@@ -216,7 +216,7 @@ def build_taxonomy_review_readiness(
     source_surface: str = "source_library.taxonomy_review_readiness",
 ) -> Annotated[
     dict[str, Any],
-    "kit:non-authoritative derived_as=preflight fact_source=source_library.taxonomy_review witness=test:test_w01_meta",
+    "kit:non-authoritative derived_as=preflight fact_source=source_library.taxonomy_review witness=test:test_derived_service_annotations_match_fact_sources",
 ]:
     """Summarize deterministic taxonomy readiness without claiming review closure."""
 

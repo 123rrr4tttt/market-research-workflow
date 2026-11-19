@@ -62,12 +62,16 @@ class _FakeResult:
 class _FakeSession:
     def __init__(self, docs):
         self._docs = docs
+        self.queries = []
+        self.commits = []
         self.rollbacks = 0
 
     def execute(self, _query):  # noqa: ANN001
+        self.queries.append(_query)
         return _FakeResult(self._docs)
 
     def commit(self):
+        self.commits.append(True)
         return None
 
     def rollback(self):
@@ -184,12 +188,12 @@ class AdminGraphStandardizationIntegrationTestCase(unittest.TestCase):
         cls.client = TestClient(backend_app)
         cls.headers = {"X-Project-Key": "demo_proj", "X-Request-Id": "admin-graph-std"}
 
-    def _patch_common(self):
+    def _patch_common(self, session=None):
         docs = [_ok_doc(1)]
         return [
-            patch("app.services.document_admin.SessionLocal", return_value=_FakeSession(docs)),
+            patch("app.services.document_admin.SessionLocal", return_value=session or _FakeSession(docs)),
             patch("app.services.document_admin.bind_project", return_value=_FakeBindProject()),
-            patch("app.services.graph.adapters.normalize_document", side_effect=lambda doc: SimpleNamespace(doc_id=doc.id)),
+            patch("app.services.graph.adapters.normalize_material", side_effect=lambda doc: SimpleNamespace(doc_id=doc.id)),
             patch("app.services.graph.builder.build_graph", side_effect=lambda posts: _social_graph()),
             patch("app.services.graph.builder.build_topic_subgraph", side_effect=lambda g, _topic: g),
             patch("app.services.graph.adapters.market.MarketAdapter", return_value=_FakeMarketAdapter()),
@@ -231,11 +235,16 @@ class AdminGraphStandardizationIntegrationTestCase(unittest.TestCase):
         assert isinstance(data["nodes"], list)
         assert isinstance(data["edges"], list)
 
-    def _call(self, path: str):
-        patches = self._patch_common()
+    def _call(self, path: str, session=None):
+        patches = self._patch_common(session)
         with patch("app.api.admin._augment_market_graph_with_topic_structured", side_effect=self._fake_augment):
             with patches[0], patches[1], patches[2], patches[3], patches[4], patches[5], patches[6], patches[7], patches[8]:
                 return self.client.get(path, headers=self.headers)
+
+    @staticmethod
+    def _material_query_evidence(query):
+        compiled = query.compile()
+        return str(compiled), compiled.params
 
     def test_admin_graph_endpoints_response_contract_stable(self):
         for path in (
@@ -326,72 +335,62 @@ class AdminGraphStandardizationIntegrationTestCase(unittest.TestCase):
                 self.assertIn(from_key, node_index, msg=f"path={path} missing from={from_key}")
                 self.assertIn(to_key, node_index, msg=f"path={path} missing to={to_key}")
 
-    def test_admin_graph_shadow_write_calls_writer(self):
-        with patch("app.settings.config.settings.graph_node_projection_write_mode", "shadow"), patch(
-            "app.settings.config.settings.graph_node_projection_read_mode", "a_only"
-        ), patch("app.services.graph.persistence.graph_node_writer.GraphNodeWriter.persist_graph_nodes") as persist_mock:
-            persist_mock.return_value = SimpleNamespace(
-                attempted=1, inserted_or_updated=1, aliases_written=1, edges_written=1, skipped=0
-            )
-            resp = self._call("/api/v1/admin/content-graph?limit=20")
-            self.assertEqual(resp.status_code, 200, msg=resp.text)
-            self._assert_contract(resp.json())
-            self.assertTrue(persist_mock.called)
+    def test_admin_graph_get_does_not_write_or_read_projection_storage(self):
+        session = _FakeSession([_ok_doc(1)])
+        with patch(
+            "app.services.graph.persistence.graph_node_writer.GraphNodeWriter.persist_graph_nodes"
+        ) as persist_mock, patch(
+            "app.services.graph.persistence.graph_node_reader.GraphNodeReader.load_graph"
+        ) as load_mock:
+            resp = self._call("/api/v1/admin/content-graph?limit=20", session=session)
 
-    def test_admin_graph_b_canary_reads_projection_nodes(self):
+        self.assertEqual(resp.status_code, 200, msg=resp.text)
+        self._assert_contract(resp.json())
+        persist_mock.assert_not_called()
+        load_mock.assert_not_called()
+        self.assertEqual(session.commits, [])
+
+    def test_admin_graph_filters_only_current_material_query(self):
+        session = _FakeSession([_ok_doc(1)])
+        path = (
+            "/api/v1/admin/market-graph"
+            "?start_date=2025-01-01&end_date=2025-01-31&state=CA&game=smart%20meters&limit=20"
+        )
+        resp = self._call(path, session=session)
+
+        self.assertEqual(resp.status_code, 200, msg=resp.text)
+        self._assert_contract(resp.json())
+        self.assertEqual(len(session.queries), 1)
+        sql, params = self._material_query_evidence(session.queries[0])
+        self.assertIn("material", sql.lower())
+        self.assertIn("state", sql.lower())
+        self.assertIn("extracted_data", sql.lower())
+        self.assertIn("like lower(", sql.lower())
+        self.assertIn("publish_date", sql.lower())
+        self.assertIn("created_at", sql.lower())
+        values = set(params.values())
+        self.assertIn("CA", values)
+        self.assertIn("%smart meters%", values)
+        self.assertIn(20, values)
+
+    def test_admin_graph_persistent_projection_nodes_do_not_leak(self):
         canary_graph = Graph(
             nodes={"Post:canary-1": GraphNode(type="Post", id="canary-1", properties={"label": "canary"})},
             edges=[],
             schema_version="v1",
         )
-        with patch("app.settings.config.settings.graph_node_projection_write_mode", "off"), patch(
-            "app.settings.config.settings.graph_node_projection_read_mode", "b_canary"
-        ), patch(
-            "app.settings.config.settings.graph_node_projection_canary_projects", "demo_proj"
-        ), patch(
+        with patch(
             "app.services.graph.persistence.graph_node_reader.GraphNodeReader.load_graph",
             return_value=canary_graph,
-        ):
+        ) as load_mock:
             resp = self._call("/api/v1/admin/content-graph?limit=20")
             self.assertEqual(resp.status_code, 200, msg=resp.text)
             body = resp.json()
             self._assert_contract(body)
             node_ids = {str(n.get("id")) for n in body["data"]["nodes"]}
-            self.assertIn("canary-1", node_ids)
-            self.assertEqual(len(body["data"]["edges"]), 0)
-
-    def test_admin_graph_shadow_write_failure_keeps_a_path_response(self):
-        with patch("app.settings.config.settings.graph_node_projection_write_mode", "shadow"), patch(
-            "app.settings.config.settings.graph_node_projection_read_mode", "a_only"
-        ), patch(
-            "app.services.graph.persistence.graph_node_writer.GraphNodeWriter.persist_graph_nodes",
-            side_effect=RuntimeError("projection write failed"),
-        ):
-            resp = self._call("/api/v1/admin/content-graph?limit=20")
-
-        self.assertEqual(resp.status_code, 200, msg=resp.text)
-        body = resp.json()
-        self._assert_contract(body)
-        node_ids = {str(n.get("id")) for n in body["data"]["nodes"]}
-        self.assertIn("1", node_ids)
-
-    def test_admin_graph_b_canary_read_failure_falls_back_to_a_path_response(self):
-        with patch("app.settings.config.settings.graph_node_projection_write_mode", "off"), patch(
-            "app.settings.config.settings.graph_node_projection_read_mode", "b_canary"
-        ), patch(
-            "app.settings.config.settings.graph_node_projection_canary_projects", "demo_proj"
-        ), patch(
-            "app.services.graph.persistence.graph_node_reader.GraphNodeReader.load_graph",
-            side_effect=RuntimeError("projection read failed"),
-        ):
-            resp = self._call("/api/v1/admin/content-graph?limit=20")
-
-        self.assertEqual(resp.status_code, 200, msg=resp.text)
-        body = resp.json()
-        self._assert_contract(body)
-        node_ids = {str(n.get("id")) for n in body["data"]["nodes"]}
         self.assertIn("1", node_ids)
         self.assertNotIn("canary-1", node_ids)
+        load_mock.assert_not_called()
 
     def test_admin_content_graph_build_failure_returns_error_envelope(self):
         patches = self._patch_common()

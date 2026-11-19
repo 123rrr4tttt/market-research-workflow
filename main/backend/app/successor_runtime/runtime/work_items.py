@@ -19,7 +19,7 @@ from pydantic import Field, TypeAdapter, model_validator
 from .assignments import AssignmentKind, FrozenContract, RuntimeAssignment
 
 WORK_ITEM_SCHEMA_VERSION = "mrw.runtime.work_item.v1"
-_RUNTIME_CONTRACT_WITNESS = "test:test_w07_runtime_non_start_proof_negative"
+_RUNTIME_CONTRACT_WITNESS = "test:test_runtime_non_start_proof_negative"
 
 
 class WorkItemState(StrEnum):
@@ -73,22 +73,22 @@ class WorkItemRoot(FrozenContract, Generic[AssignmentKindT]):
     @model_validator(mode="after")
     def validate_assignment_identity(self) -> "WorkItemRoot[AssignmentKindT]":
         if self.work_item_id != self.assignment.work_item_id:
-            # kit:boundary owner=successor.runtime.work_items.identity class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_runtime_non_start_proof_negative
+            # kit:boundary owner=successor.runtime.work_items.identity class=PROGRAMMER_DEFECT failure_family=none witness=test:test_runtime_non_start_proof_negative
             raise ValueError("work item id does not match assignment")
         if self.project_key != self.assignment.project_key:
-            # kit:boundary owner=successor.runtime.work_items.identity class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_runtime_non_start_proof_negative
+            # kit:boundary owner=successor.runtime.work_items.identity class=PROGRAMMER_DEFECT failure_family=none witness=test:test_runtime_non_start_proof_negative
             raise ValueError("work item project scope does not match assignment")
         if self.run_id != self.assignment.run_id:
-            # kit:boundary owner=successor.runtime.work_items.identity class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_runtime_non_start_proof_negative
+            # kit:boundary owner=successor.runtime.work_items.identity class=PROGRAMMER_DEFECT failure_family=none witness=test:test_runtime_non_start_proof_negative
             raise ValueError("work item run does not match assignment")
         if self.step_id != self.assignment.step_id:
-            # kit:boundary owner=successor.runtime.work_items.identity class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_runtime_non_start_proof_negative
+            # kit:boundary owner=successor.runtime.work_items.identity class=PROGRAMMER_DEFECT failure_family=none witness=test:test_runtime_non_start_proof_negative
             raise ValueError("work item step does not match assignment")
         if self.assignment_kind != self.assignment.assignment_kind:
-            # kit:boundary owner=successor.runtime.work_items.identity class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_runtime_non_start_proof_negative
+            # kit:boundary owner=successor.runtime.work_items.identity class=PROGRAMMER_DEFECT failure_family=none witness=test:test_runtime_non_start_proof_negative
             raise ValueError("work item kind does not match assignment")
         if self.state is WorkItemState.WAITING and self.wait_reason is None:
-            # kit:boundary owner=successor.runtime.work_items.waiting_state class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_runtime_non_start_proof_negative
+            # kit:boundary owner=successor.runtime.work_items.waiting_state class=PROGRAMMER_DEFECT failure_family=none witness=test:test_runtime_non_start_proof_negative
             raise ValueError("WAITING work item requires wait_reason")
         return self
 

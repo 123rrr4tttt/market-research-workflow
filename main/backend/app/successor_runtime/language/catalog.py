@@ -108,7 +108,7 @@ class OperationContractCatalogSnapshot:
     def __post_init__(self) -> None:
         refs = tuple(entry[:3] for entry in self.entries)
         if len(refs) != len(set(refs)):
-            # kit:boundary owner=successor.language.catalog.constructor class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_language_a
+            # kit:boundary owner=successor.language.catalog.constructor class=PROGRAMMER_DEFECT failure_family=none witness=test:test_atom_node_rejects_malformed_object_types_as_typed_failure
             raise ValueError("duplicate operation contract ref in catalog")
         finalize_digest(self, "catalog_digest")
 
@@ -140,7 +140,7 @@ class OperationContractCatalogSnapshot:
         else:
             matches = tuple(item for item in self.entries if item[0] == ref_or_kind)
             if len(matches) > 1:
-                # kit:boundary owner=successor.language.catalog.domain class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_language_a
+                # kit:boundary owner=successor.language.catalog.domain class=PROGRAMMER_DEFECT failure_family=none witness=test:test_atom_node_rejects_malformed_object_types_as_typed_failure
                 raise ValueError(
                     f"ambiguous operation contract kind: {ref_or_kind}; exact ref required"
                 )
@@ -177,7 +177,7 @@ class OperationContractCatalogSnapshot:
         """Return the immutable index entry for compatibility with validators."""
         matches = tuple(entry for entry in self.entries if entry[0] == kind)
         if len(matches) > 1:
-            # kit:boundary owner=successor.language.catalog.domain class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_language_a
+            # kit:boundary owner=successor.language.catalog.domain class=PROGRAMMER_DEFECT failure_family=none witness=test:test_atom_node_rejects_malformed_object_types_as_typed_failure
             raise ValueError(
                 f"ambiguous operation contract kind: {kind}; exact ref required"
             )
@@ -214,13 +214,13 @@ class OperationContractRegistry:
                 contract.ref.contract_digest,
             )
             if key in by_ref:
-                # kit:boundary owner=successor.language.catalog.constructor class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_language_a
+                # kit:boundary owner=successor.language.catalog.constructor class=PROGRAMMER_DEFECT failure_family=none witness=test:test_atom_node_rejects_malformed_object_types_as_typed_failure
                 raise ValueError(
                     f"duplicate operation contract ref: {contract.ref.kind}@{contract.ref.contract_version}"
                 )
             entry = self.catalog.lookup(contract.ref)
             if entry is None:
-                # kit:boundary owner=successor.language.catalog.constructor class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_language_a
+                # kit:boundary owner=successor.language.catalog.constructor class=PROGRAMMER_DEFECT failure_family=none witness=test:test_atom_node_rejects_malformed_object_types_as_typed_failure
                 raise ValueError(
                     f"exact operation contract {contract.ref.kind}@{contract.ref.contract_version} missing from catalog"
                 )
@@ -252,7 +252,7 @@ class OperationContractRegistry:
     def _resolve_required(self, ref: OperationContractRef) -> OperationContract:
         contract = self.resolve(ref)
         if contract is None:
-            # kit:boundary owner=successor.language.catalog.domain class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_language_a
+            # kit:boundary owner=successor.language.catalog.domain class=PROGRAMMER_DEFECT failure_family=none witness=test:test_atom_node_rejects_malformed_object_types_as_typed_failure
             raise KeyError(
                 f"unresolved operation contract: {ref.kind}@{ref.contract_version}"
             )
@@ -374,7 +374,7 @@ def build_first_specimen_object_contracts() -> Annotated[
     tuple[ObjectContract, ...],
     "kit:non-authoritative derived_as=view "
     "fact_source=successor_runtime.language.catalog._OBJECT_CONTRACT_SPEC "
-    "witness=test:test_w07_derived_metadata_is_exact_and_non_authoritative",
+    "witness=test:test_workflow_language_projections_do_not_claim_authority",
 ]:
     outcome = try_build_first_specimen_object_contracts()
     if isinstance(outcome, Failure):
@@ -411,7 +411,7 @@ def build_first_specimen_domain_snapshot() -> Annotated[
     DomainContractSnapshot,
     "kit:non-authoritative derived_as=view "
     "fact_source=successor_runtime.language.catalog.first_specimen_frozen_refs "
-    "witness=test:test_w07_derived_metadata_is_exact_and_non_authoritative",
+    "witness=test:test_workflow_language_projections_do_not_claim_authority",
 ]:
     outcome = try_build_first_specimen_domain_snapshot()
     if isinstance(outcome, Failure):

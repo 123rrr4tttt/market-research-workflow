@@ -794,14 +794,18 @@ async def request_validation_exception_handler(
     request: Request,
     exc: RequestValidationError,
 ) -> JSONResponse:
+    errors = [
+        {"type": error["type"], "loc": error["loc"], "msg": error["msg"]}
+        for error in exc.errors()
+    ]
     if not _is_contract_api_path(request.url.path):
-        return JSONResponse(status_code=422, content={"detail": exc.errors()})
+        return JSONResponse(status_code=422, content={"detail": errors})
     payload = _with_legacy_detail_alias(
         _build_error_payload(
             request,
             ErrorCode.INVALID_INPUT,
             "Request validation failed",
-            details={"errors": exc.errors()},
+            details={"errors": errors},
         )
     )
     return JSONResponse(

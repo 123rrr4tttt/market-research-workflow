@@ -98,23 +98,23 @@ _RUNTIME_PARAM_ALIASES_BY_CHANNEL = {
 def raise_legacy_agent_batch_failure(failure: Failure) -> NoReturn:
     """Lift one closed core failure into the legacy public exception ABI."""
     if not agent_batch_failures.matches(failure):
-        # kit:boundary owner=agent_batch.public_abi class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w02_abi_lift_rejects_non_agent_batch_failure_as_programmer_defect
+        # kit:boundary owner=agent_batch.public_abi class=PROGRAMMER_DEFECT failure_family=none witness=test:test_abi_lift_rejects_non_agent_batch_failure_as_programmer_defect
         raise TypeError("agent batch ABI lift requires an agent.batch.failure")
 
     message = failure.message
     if failure.code == "approval_not_found":
-        # kit:boundary owner=agent_batch.public_abi class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=agent.batch.failure witness=test:test_w02_legacy_lift_preserves_public_exception_observation
+        # kit:boundary owner=agent_batch.public_abi class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=agent.batch.failure witness=test:test_agent_batch_failure_preserves_public_exception
         raise KeyError("approval_token_not_found")
     if failure.code == "approval_expired":
-        # kit:boundary owner=agent_batch.public_abi class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=agent.batch.failure witness=test:test_w02_legacy_lift_preserves_public_exception_observation
+        # kit:boundary owner=agent_batch.public_abi class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=agent.batch.failure witness=test:test_agent_batch_failure_preserves_public_exception
         raise ValueError("approval_token_expired")
     if failure.code == "approval_token_required":
-        # kit:boundary owner=agent_batch.public_abi class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=agent.batch.failure witness=test:test_w02_legacy_lift_preserves_public_exception_observation
+        # kit:boundary owner=agent_batch.public_abi class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=agent.batch.failure witness=test:test_agent_batch_failure_preserves_public_exception
         raise ValueError("approval_token is required")
     if failure.code in {"channel_unknown", "lane_invalid"}:
-        # kit:boundary owner=agent_batch.public_abi class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=agent.batch.failure witness=test:test_w02_legacy_lift_preserves_public_exception_observation
+        # kit:boundary owner=agent_batch.public_abi class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=agent.batch.failure witness=test:test_agent_batch_failure_preserves_public_exception
         raise (KeyError(message) if failure.code == "channel_unknown" else ValueError(message))
-    # kit:boundary owner=agent_batch.public_abi class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w02_abi_lift_rejects_non_agent_batch_failure_as_programmer_defect
+    # kit:boundary owner=agent_batch.public_abi class=PROGRAMMER_DEFECT failure_family=none witness=test:test_abi_lift_rejects_non_agent_batch_failure_as_programmer_defect
     raise TypeError(f"unsupported agent batch failure code: {failure.code}")
 
 
@@ -635,7 +635,7 @@ def _clone_channel_spec(spec: dict[str, Any], *, include_internal: bool) -> dict
 def build_search_brief_schema() -> Annotated[
     dict[str, Any],
     "kit:non-authoritative derived_as=view fact_source=task_contract_constants "
-    "witness=test:test_w02_agent_authority_metadata"
+    "witness=test:test_agent_results_declare_sources_and_effect_authority"
 ]:
     return deepcopy(_SEARCH_BRIEF_SCHEMA)
 
@@ -643,7 +643,7 @@ def build_search_brief_schema() -> Annotated[
 def build_search_critic_schema() -> Annotated[
     dict[str, Any],
     "kit:non-authoritative derived_as=view fact_source=task_contract_constants "
-    "witness=test:test_w02_agent_authority_metadata"
+    "witness=test:test_agent_results_declare_sources_and_effect_authority"
 ]:
     return deepcopy(_SEARCH_CRITIC_SCHEMA)
 
@@ -651,7 +651,7 @@ def build_search_critic_schema() -> Annotated[
 def build_search_quality_replay_schema() -> Annotated[
     dict[str, Any],
     "kit:non-authoritative derived_as=view fact_source=task_contract_constants "
-    "witness=test:test_w02_agent_authority_metadata"
+    "witness=test:test_agent_results_declare_sources_and_effect_authority"
 ]:
     return deepcopy(_SEARCH_QUALITY_REPLAY_SCHEMA)
 
@@ -659,7 +659,7 @@ def build_search_quality_replay_schema() -> Annotated[
 def build_provider_quality_readiness_schema() -> Annotated[
     dict[str, Any],
     "kit:non-authoritative derived_as=view fact_source=task_contract_constants "
-    "witness=test:test_w02_agent_authority_metadata"
+    "witness=test:test_agent_results_declare_sources_and_effect_authority"
 ]:
     return deepcopy(_PROVIDER_QUALITY_READINESS_SCHEMA)
 
@@ -667,7 +667,7 @@ def build_provider_quality_readiness_schema() -> Annotated[
 def build_live_quality_threshold_schema() -> Annotated[
     dict[str, Any],
     "kit:non-authoritative derived_as=view fact_source=task_contract_constants "
-    "witness=test:test_w02_agent_authority_metadata"
+    "witness=test:test_agent_results_declare_sources_and_effect_authority"
 ]:
     return deepcopy(_LIVE_QUALITY_THRESHOLD_SCHEMA)
 
@@ -675,7 +675,7 @@ def build_live_quality_threshold_schema() -> Annotated[
 def build_quality_promotion_readback_schema() -> Annotated[
     dict[str, Any],
     "kit:non-authoritative derived_as=view fact_source=task_contract_constants "
-    "witness=test:test_w02_agent_authority_metadata"
+    "witness=test:test_agent_results_declare_sources_and_effect_authority"
 ]:
     return deepcopy(_QUALITY_PROMOTION_READBACK_SCHEMA)
 
@@ -683,7 +683,7 @@ def build_quality_promotion_readback_schema() -> Annotated[
 def build_retry_action_schema() -> Annotated[
     dict[str, Any],
     "kit:non-authoritative derived_as=view fact_source=task_contract_constants "
-    "witness=test:test_w02_agent_authority_metadata"
+    "witness=test:test_agent_results_declare_sources_and_effect_authority"
 ]:
     return deepcopy(_RETRY_ACTION_SCHEMA)
 
@@ -809,7 +809,7 @@ def list_search_policy_event_names() -> list[str]:
 def build_search_policy_contract() -> Annotated[
     dict[str, Any],
     "kit:non-authoritative derived_as=view fact_source=task_contract_policy_sources "
-    "witness=test:test_w02_agent_authority_metadata"
+    "witness=test:test_agent_results_declare_sources_and_effect_authority"
 ]:
     return {
         "contract_version": AGENT_BATCH_SEARCH_POLICY_CONTRACT_VERSION,
@@ -845,7 +845,7 @@ def get_agent_batch_known_channels() -> set[str]:
 def build_agent_batch_tasks_schema() -> Annotated[
     dict[str, Any],
     "kit:non-authoritative derived_as=view fact_source=task_contract_constants "
-    "witness=test:test_w02_agent_authority_metadata"
+    "witness=test:test_agent_results_declare_sources_and_effect_authority"
 ]:
     return {
         "required_keys": ["channel"],
@@ -856,7 +856,7 @@ def build_agent_batch_tasks_schema() -> Annotated[
 def build_agent_batch_manifest_entry(channel: str) -> Annotated[
     dict[str, Any],
     "kit:non-authoritative derived_as=view fact_source=task_contract_policy_sources "
-    "witness=test:test_w02_agent_authority_metadata"
+    "witness=test:test_agent_results_declare_sources_and_effect_authority"
 ]:
     spec = get_agent_batch_task_contract_spec(channel, include_internal=False)
     if spec is None:
@@ -1272,7 +1272,7 @@ def _apply_retry_action(
 def build_agent_batch_submit_item_data(task: dict[str, Any], *, idx: int, default_language: str) -> Annotated[
     dict[str, Any],
     "kit:non-authoritative derived_as=view fact_source=normalized_task_input "
-    "witness=test:test_w02_agent_authority_metadata"
+    "witness=test:test_agent_results_declare_sources_and_effect_authority"
 ]:
     normalized = normalize_agent_batch_task(task, idx=idx, default_language=default_language)
     if not normalized:
@@ -1348,7 +1348,7 @@ def resolve_agent_batch_lane(channel: str, priority: int | None) -> str:
 def build_agent_batch_dispatch_payload(channel: str, payload: dict[str, Any]) -> Annotated[
     dict[str, Any],
     "kit:prepared-command effect_boundary=task_contract "
-    "witness=test:test_w02_agent_authority_metadata"
+    "witness=test:test_agent_results_declare_sources_and_effect_authority"
 ]:
     spec = get_agent_batch_task_contract_spec(channel, include_internal=True)
     if spec is None:
@@ -1370,7 +1370,7 @@ def build_agent_batch_dispatch_payload(channel: str, payload: dict[str, Any]) ->
 def build_agent_batch_dispatch_invocation(channel: str, payload: dict[str, Any], *, trace_id: str | None) -> Annotated[
     dict[str, Any],
     "kit:prepared-command effect_boundary=task_contract "
-    "witness=test:test_w02_agent_authority_metadata"
+    "witness=test:test_agent_results_declare_sources_and_effect_authority"
 ]:
     spec = get_agent_batch_task_contract_spec(channel, include_internal=True)
     if spec is None:
@@ -1404,7 +1404,7 @@ def build_agent_batch_dispatch_invocation(channel: str, payload: dict[str, Any],
 def build_agent_batch_approval_argv(channel: str, payload: dict[str, Any]) -> Annotated[
     list[str],
     "kit:prepared-command effect_boundary=task_contract "
-    "witness=test:test_w02_agent_authority_metadata"
+    "witness=test:test_agent_results_declare_sources_and_effect_authority"
 ]:
     spec = get_agent_batch_task_contract_spec(channel, include_internal=True)
     if spec is None:
@@ -1429,7 +1429,7 @@ def build_agent_batch_approval_argv(channel: str, payload: dict[str, Any]) -> An
 def build_business_override_params(channel: str, task: dict[str, Any], *, workflow_run_id: str | None) -> Annotated[
     dict[str, Any],
     "kit:non-authoritative derived_as=view fact_source=task+workflow_run_id "
-    "witness=test:test_w02_agent_authority_metadata"
+    "witness=test:test_agent_results_declare_sources_and_effect_authority"
 ]:
     normalized_channel = str(channel or "").strip().lower()
     override_params = dict(task.get("override_params") or {})
@@ -1475,7 +1475,7 @@ def build_business_override_params(channel: str, task: dict[str, Any], *, workfl
 def build_source_library_override_params(task: dict[str, Any], *, workflow_run_id: str | None) -> Annotated[
     dict[str, Any],
     "kit:non-authoritative derived_as=view fact_source=business_override+workflow_run_id "
-    "witness=test:test_w02_agent_authority_metadata"
+    "witness=test:test_agent_results_declare_sources_and_effect_authority"
 ]:
     return build_business_override_params("source_library", task, workflow_run_id=workflow_run_id)
 

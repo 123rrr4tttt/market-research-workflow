@@ -4,6 +4,7 @@ import sys
 import unittest
 import uuid
 import zipfile
+from functools import partial
 from io import BytesIO
 from pathlib import Path
 from unittest.mock import patch
@@ -17,6 +18,7 @@ pytestmark = pytest.mark.integration
 try:
     from fastapi.testclient import TestClient
 
+    from app.services.llm_report_source_enrichment import ReportSourceFailure, ReportSourceResolution
     from app.contracts.errors import ErrorCode
     from app.main import app as backend_app
     from app.services.llm_report_export import build_llm_report_export_artifact, reset_llm_report_export_token_state
@@ -32,6 +34,16 @@ class _AuthenticatedActorStateApp:
         self._actor_id = actor_id
 
     async def __call__(self, scope, receive, send):
+        if scope.get("type") == "lifespan":
+            # These tests own isolated report storage and actor middleware,
+            # rather than the application's production schema startup.
+            while True:
+                message = await receive()
+                if message["type"] == "lifespan.startup":
+                    await send({"type": "lifespan.startup.complete"})
+                elif message["type"] == "lifespan.shutdown":
+                    await send({"type": "lifespan.shutdown.complete"})
+                    return
         if scope.get("type") == "http":
             state = scope.setdefault("state", {})
             actor = {
@@ -54,12 +66,50 @@ class LlmReportApiIntegrationTestCase(unittest.TestCase):
         cls.headers = {"X-Project-Key": "demo_proj", "X-Request-Id": "llm-report-integration"}
 
     def setUp(self):
+        from sqlalchemy import JSON, BigInteger, Integer, MetaData, create_engine
+        from sqlalchemy.dialects.postgresql import JSONB
+        from sqlalchemy.orm import sessionmaker
+        from sqlalchemy.pool import StaticPool
+
+        from app.models.base import run_with_session_retry
+        from app.models.entities import EtlJobRun
+        from app.models.llm_report_export_audit import LlmReportExportAuditEvent
+        from app.models.llm_report_export_token_state import LlmReportExportTokenState
+        from app.models.llm_report_trends import LlmReportQualityTrend
         from app.services import llm_report_export_audit
         from app.services import llm_report_trends
+
+        # Clone the original mapped tables into the same SQLite test carrier
+        # used by raw-import tests; production metadata stays untouched.
+        engine = create_engine(
+            "sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool,
+        )
+        self.addCleanup(engine.dispose)
+        metadata = MetaData()
+        for model in (LlmReportExportAuditEvent, LlmReportExportTokenState, LlmReportQualityTrend, EtlJobRun):
+            table = model.__table__.to_metadata(metadata)
+            for column in table.columns:
+                if isinstance(column.type, JSONB):
+                    column.type = JSON()
+                elif isinstance(column.type, BigInteger):
+                    column.type = Integer()
+        metadata.create_all(engine)
+        sessions = sessionmaker(bind=engine, expire_on_commit=False)
+        isolated_retry = partial(run_with_session_retry, session_factory=sessions)
+        for service_name in ("llm_report_export_audit", "llm_report_export_token_state", "llm_report_trends", "job_logger"):
+            isolated = patch(f"app.services.{service_name}.run_with_session_retry", isolated_retry)
+            isolated.start()
+            self.addCleanup(isolated.stop)
+        jobs = patch("app.services.job_logger.SessionLocal", sessions)
+        jobs.start()
+        self.addCleanup(jobs.stop)
 
         llm_report_export_audit.clear_llm_report_export_audit_memory()
         llm_report_trends.clear_quality_trend_memory()
         reset_llm_report_export_token_state()
+        self.addCleanup(llm_report_export_audit.clear_llm_report_export_audit_memory)
+        self.addCleanup(llm_report_trends.clear_quality_trend_memory)
+        self.addCleanup(reset_llm_report_export_token_state)
 
     def _authenticated_client(self, *, actor_id: str):
         return TestClient(_AuthenticatedActorStateApp(backend_app, actor_id=actor_id))
@@ -138,7 +188,7 @@ class LlmReportApiIntegrationTestCase(unittest.TestCase):
         with (
             patch("app.api.llm_report.start_job", return_value=2001),
             patch("app.api.llm_report.complete_job"),
-            patch("app.api.llm_report.resolve_report_sources", return_value=auto_sources) as mocked_resolve,
+            patch("app.api.llm_report.resolve_report_sources", return_value=ReportSourceResolution(auto_sources)) as mocked_resolve,
             patch("app.api.llm_report.settings.llm_report_enabled", True),
             patch("app.api.llm_report.settings.llm_report_gate_mode", "warn"),
             patch("app.api.llm_report.settings.llm_report_auto_source_enabled", True),
@@ -151,6 +201,7 @@ class LlmReportApiIntegrationTestCase(unittest.TestCase):
         self.assertEqual(body["status"], "ok")
         self.assertEqual(body["data"]["report"]["sources"][0]["id"], "RAG1")
         self.assertEqual(body["data"]["capability_truth"]["implementation_kind"], "structured_template_report")
+        self.assertEqual(body["data"]["capability_truth"]["source_resolution_kind"], "auto_enriched")
         self.assertTrue(body["data"]["export_contract"]["markdown_exportable"])
         self.assertTrue(body["data"]["export_contract"]["export_allowed"])
         self.assertTrue(body["data"]["export_contract"]["file_exportable"])
@@ -173,6 +224,9 @@ class LlmReportApiIntegrationTestCase(unittest.TestCase):
         self.assertEqual(body["data"]["quality_gate_trend_record"], trend)
         mocked_resolve.assert_called_once()
 
+        from app.services.llm_report_trends import clear_quality_trend_memory
+
+        clear_quality_trend_memory()
         trends_resp = self.client.get(
             "/api/v1/llm-report/quality-trends",
             params={"project_key": "demo_proj", "decision": trend["decision"], "limit": 5},
@@ -187,6 +241,8 @@ class LlmReportApiIntegrationTestCase(unittest.TestCase):
         self.assertEqual(trends["records"][0]["record_source"], "generate")
         self.assertEqual(trends["filters"]["project_key"], "demo_proj")
         self.assertIn("avg_citation_coverage", trends["summary"])
+        self.assertEqual(trends["storage"]["memory_count"], 0)
+        self.assertGreaterEqual(trends["storage"]["database_count"], 1)
 
     def test_generate_prefers_authenticated_actor_context_over_spoofed_header_actor(self):
         payload = {"topic": "market growth", "sources": []}
@@ -203,7 +259,7 @@ class LlmReportApiIntegrationTestCase(unittest.TestCase):
             self._authenticated_client(actor_id="auth-session-actor") as client,
             patch("app.api.llm_report.start_job", return_value=2101),
             patch("app.api.llm_report.complete_job"),
-            patch("app.api.llm_report.resolve_report_sources", return_value=auto_sources),
+            patch("app.api.llm_report.resolve_report_sources", return_value=ReportSourceResolution(auto_sources)),
             patch("app.api.llm_report.settings.llm_report_enabled", True),
             patch("app.api.llm_report.settings.llm_report_gate_mode", "warn"),
             patch("app.api.llm_report.settings.llm_report_auto_source_enabled", True),
@@ -234,7 +290,7 @@ class LlmReportApiIntegrationTestCase(unittest.TestCase):
         with (
             patch("app.api.llm_report.start_job", return_value=2102),
             patch("app.api.llm_report.complete_job"),
-            patch("app.api.llm_report.resolve_report_sources", return_value=auto_sources),
+            patch("app.api.llm_report.resolve_report_sources", return_value=ReportSourceResolution(auto_sources)),
             patch("app.api.llm_report.settings.llm_report_enabled", True),
             patch("app.api.llm_report.settings.llm_report_gate_mode", "warn"),
             patch("app.api.llm_report.settings.llm_report_auto_source_enabled", True),
@@ -251,12 +307,45 @@ class LlmReportApiIntegrationTestCase(unittest.TestCase):
         self.assertEqual(data["export_artifact"]["actor_id"], "legacy-header-actor")
         self.assertEqual(data["export_contract"]["artifact"]["actor_id"], "legacy-header-actor")
 
+    def test_source_resolution_is_preserved_in_drafts_and_persisted_job_result(self):
+        from app.models.entities import EtlJobRun
+        from app.services.job_logger import SessionLocal
+
+        failure = ReportSourceFailure("report_sources.web", "timeout", "Web search did not complete", "ddg")
+        source = {"id": "RAG1", "title": "Local source", "url": "https://example.com/report", "evidence": "Evidence"}
+        for expected, sources, failures in (
+            ("auto_empty", [], ()),
+            ("auto_failed", [], (failure,)),
+            ("auto_partial", [source], (failure,)),
+        ):
+            with (
+                self.subTest(expected=expected),
+                patch("app.api.llm_report.resolve_report_sources", return_value=ReportSourceResolution(sources, failures)),
+                patch("app.api.llm_report.settings.llm_report_enabled", True),
+                patch("app.api.llm_report.settings.llm_report_gate_mode", "warn"),
+            ):
+                resp = self.client.post("/api/v1/llm-report/generate", json={"topic": "market growth"}, headers=self.headers)
+
+                self.assertEqual(resp.status_code, 200)
+                data = resp.json()["data"]
+                capability = data["capability_truth"]
+                self.assertEqual(capability["source_resolution_kind"], expected)
+                self.assertEqual(capability["source_resolution_failures"], [item.to_payload() for item in failures])
+                self.assertEqual(data["observability"]["audit"]["degraded"], bool(failures))
+                self.assertEqual(len(data["report"]["sources"]), len(sources))
+                if not sources:
+                    self.assertEqual(data["export_readiness"]["readiness"], "review_required")
+
+                with SessionLocal() as session:
+                    job = session.get(EtlJobRun, data["observability"]["job_id"])
+                    self.assertEqual(job.params["capability_truth"], capability)
+
     def test_generate_topic_only_auto_source_disabled_strict_blocks(self):
         payload = {"topic": "market growth", "sources": []}
         with (
             patch("app.api.llm_report.start_job", return_value=2002),
             patch("app.api.llm_report.complete_job"),
-            patch("app.api.llm_report.resolve_report_sources") as mocked_resolve,
+            patch("app.services.llm_report_source_enrichment._collect_from_rag_documents") as mocked_rag,
             patch("app.api.llm_report.settings.llm_report_enabled", True),
             patch("app.api.llm_report.settings.llm_report_gate_mode", "strict"),
             patch("app.api.llm_report.settings.llm_report_auto_source_enabled", False),
@@ -282,7 +371,7 @@ class LlmReportApiIntegrationTestCase(unittest.TestCase):
         self.assertGreater(details["report_quality_trend_metric"]["missing_items_count"], 0)
         self.assertGreater(details["report_quality_trend_metric"]["hard_failure_count"], 0)
         self.assertEqual(details["quality_gate_trend_record"], details["report_quality_trend_metric"])
-        mocked_resolve.assert_not_called()
+        mocked_rag.assert_not_called()
 
         trends_resp = self.client.get(
             "/api/v1/llm-report/quality-trends",
@@ -399,8 +488,12 @@ class LlmReportApiIntegrationTestCase(unittest.TestCase):
         export_events = trends_resp.json()["data"]["summary"]["export_events"]
         self.assertGreaterEqual(export_events["success"], 1)
         self.assertGreaterEqual(export_events["by_format"]["pdf"], 1)
-        from app.services.llm_report_export_audit import list_recent_llm_report_export_audit_events
+        from app.services.llm_report_export_audit import (
+            clear_llm_report_export_audit_memory,
+            list_recent_llm_report_export_audit_events,
+        )
 
+        clear_llm_report_export_audit_memory()
         audit_events = list_recent_llm_report_export_audit_events(limit=5, project_key="demo_proj")
         self.assertEqual(audit_events[0]["event_type"], "llm_report_export")
         self.assertEqual(audit_events[0]["record_source"], "export_audit")
@@ -824,6 +917,7 @@ class LlmReportApiIntegrationTestCase(unittest.TestCase):
         }
 
         first_resp = self.client.post("/api/v1/llm-report/export/pdf", json=payload)
+        reset_llm_report_export_token_state()
         second_resp = self.client.post("/api/v1/llm-report/export/pdf", json=payload)
 
         self.assertEqual(first_resp.status_code, 200)
@@ -932,7 +1026,7 @@ class LlmReportApiIntegrationTestCase(unittest.TestCase):
         with (
             patch("app.api.llm_report.start_job", return_value=2003),
             patch("app.api.llm_report.fail_job"),
-            patch("app.api.llm_report.resolve_report_sources", return_value=[]),
+            patch("app.api.llm_report.resolve_report_sources", return_value=ReportSourceResolution([])),
             patch("app.api.llm_report.build_structured_report", side_effect=RuntimeError("boom")),
             patch("app.api.llm_report.settings.llm_report_enabled", True),
             patch("app.api.llm_report.settings.llm_report_gate_mode", "warn"),

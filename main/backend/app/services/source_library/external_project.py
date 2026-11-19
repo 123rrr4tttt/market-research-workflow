@@ -3,26 +3,21 @@ from __future__ import annotations
 from collections.abc import Mapping
 from ipaddress import ip_address, ip_network
 import socket
-from typing import Annotated, NoReturn
+from typing import Annotated, NoReturn, get_args
 from typing import TypeGuard
 from urllib.parse import quote_plus, urlsplit
 
 from functorial_kit import Failure
+from pydantic import ValidationError
 from mrw_functorial_kit.core.application_failure_semantics import source_library_contract_failures
 
 from .external_project_registry import resolve_external_project_provider_binding
+from .external_integration import ExecutionMode, INTEGRATION_MANIFEST_VERSION, IntegrationConfiguration, IntegrationSpec
 
 EXTERNAL_PROJECT_CHANNEL_KEY = "external_project.manifest"
 EXTERNAL_PROJECT_MANIFEST_KEY = "external_project_manifest"
 EXTERNAL_PROJECT_MANIFEST_CONTRACT_VERSION = "external_item.manifest.v1"
-SUPPORTED_EXECUTION_MODES = {
-    "rss_feed",
-    "sitemap",
-    "http_api",
-    "article_extractor",
-    "python_library",
-    "cli_or_container",
-}
+SUPPORTED_EXECUTION_MODES = set(get_args(ExecutionMode))
 
 _CAPABILITY_KEYS = (
     "candidate_urls",
@@ -58,7 +53,7 @@ _BLOCKED_RUNTIME_HEADER_KEYS = {
     "forwarded",
 }
 
-_FAILURE_WITNESS = "test:test_w01_source_export_failures"
+_FAILURE_WITNESS = "test:test_source_configuration_and_report_export_failures"
 
 
 def _is_object(value: object) -> TypeGuard[dict[str, object]]:
@@ -108,13 +103,13 @@ def _raise_manifest_failure(
         or context.get("public_exception") != exception_type.__name__
         or context.get("public_message") != failure.message
     ):
-        # kit:boundary owner=source_library.external_project.failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w01_source_export_failures
+        # kit:boundary owner=source_library.external_project.failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_source_configuration_and_report_export_failures
         raise TypeError("source-library manifest failure lift context is incomplete or inconsistent")
     message = str(context["public_message"])
     if cause is None:
-        # kit:boundary owner=source_library.external_project.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=source_library.contract_failure witness=test:test_w01_source_export_failures
+        # kit:boundary owner=source_library.external_project.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=source_library.contract_failure witness=test:test_source_configuration_and_report_export_failures
         raise exception_type(message)
-    # kit:boundary owner=source_library.external_project.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=source_library.contract_failure witness=test:test_w01_source_export_failures
+    # kit:boundary owner=source_library.external_project.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=source_library.contract_failure witness=test:test_source_configuration_and_report_export_failures
     raise exception_type(message) from cause
 
 
@@ -139,6 +134,7 @@ def normalize_external_project_extra(
     item_key: str | None,
     display_name: str | None,
     channel_key: str | None,
+    project_key: str | None = None,
 ) -> dict[str, object]:
     normalized = dict(extra or {})
     has_manifest = isinstance(normalized.get(EXTERNAL_PROJECT_MANIFEST_KEY), dict)
@@ -165,6 +161,14 @@ def normalize_external_project_extra(
             item_key=item_key,
             display_name=display_name,
         )
+        manifest = _object(normalized[EXTERNAL_PROJECT_MANIFEST_KEY])
+        if manifest.get("contract_version") == INTEGRATION_MANIFEST_VERSION and project_key is not None:
+            binding = _object(_object(manifest.get("integration")).get("bindings"))
+            if binding.get("project_key") != project_key:
+                _raise_manifest_failure(_manifest_failure(
+                    "external_project_manifest_invalid", "integration project binding does not match target project",
+                    site="normalize_external_project_extra.project_binding",
+                ))
     return normalized
 
 
@@ -190,14 +194,29 @@ def normalize_external_project_manifest(
 ) -> dict[str, object]:
     payload = dict(manifest or {})
     contract_version = str(payload.get("contract_version") or "").strip()
-    if contract_version != EXTERNAL_PROJECT_MANIFEST_CONTRACT_VERSION:
+    if contract_version not in {EXTERNAL_PROJECT_MANIFEST_CONTRACT_VERSION, INTEGRATION_MANIFEST_VERSION}:
         _raise_manifest_failure(
             _manifest_failure(
                 "external_project_manifest_invalid",
-                f"external project manifest contract_version must be {EXTERNAL_PROJECT_MANIFEST_CONTRACT_VERSION}",
+                "external project manifest contract_version must be external_item.manifest.v1 or external_item.manifest.v2",
                 site="normalize_external_project_manifest.contract_version",
             )
         )
+
+    integration = None
+    if contract_version == INTEGRATION_MANIFEST_VERSION:
+        try:
+            integration = IntegrationConfiguration.model_validate(payload.get("integration"))
+        except ValidationError:
+            _raise_manifest_failure(_manifest_failure(
+                "external_project_manifest_invalid", "external project integration specification is invalid",
+                site="normalize_external_project_manifest.integration",
+            ))
+    elif "integration" in payload:
+        _raise_manifest_failure(_manifest_failure(
+            "external_project_manifest_invalid", "integration specifications require external_item.manifest.v2",
+            site="normalize_external_project_manifest.integration_version",
+        ))
 
     resolved_item_key = str(payload.get("item_key") or item_key or "").strip()
     if not resolved_item_key:
@@ -237,8 +256,27 @@ def normalize_external_project_manifest(
             )
         )
 
+    if integration is not None:
+        try:
+            IntegrationSpec.model_validate({
+                "item_key": resolved_item_key, "name": resolved_display_name,
+                "project_link": payload.get("project_link"), "source_scope": payload.get("source_scope"),
+                "execution_mode": execution_mode, "runner_ref": payload.get("runner_ref"),
+                "integration": integration.model_dump(mode="json"),
+            })
+        except ValidationError:
+            _raise_manifest_failure(_manifest_failure(
+                "external_project_manifest_invalid", "external project integration interface is invalid",
+                site="normalize_external_project_manifest.integration_interface",
+            ))
+        if payload.get("runtime_config") or payload.get("runtime"):
+            _raise_manifest_failure(_manifest_failure(
+                "external_project_manifest_invalid", "v2 parameters must use declared integration bindings",
+                site="normalize_external_project_manifest.integration_runtime",
+            ))
+
     normalized: dict[str, object] = {
-        "contract_version": EXTERNAL_PROJECT_MANIFEST_CONTRACT_VERSION,
+        "contract_version": contract_version,
         "item_key": resolved_item_key,
         "display_name": resolved_display_name,
         "project_link": _normalize_remote_http_url(payload.get("project_link"), field_name="project_link"),
@@ -268,8 +306,10 @@ def normalize_external_project_manifest(
     runtime = _object(payload.get("runtime"))
     if runtime:
         runtime_config = {**runtime_config, **runtime}
-    normalized["runtime_config"] = _normalize_runtime_config(runtime_config)
+    normalized["runtime_config"] = {} if integration is not None else _normalize_runtime_config(runtime_config)
     normalized["provider_binding"] = resolve_external_project_provider_binding(normalized)
+    if integration is not None:
+        normalized["integration"] = integration.model_dump(mode="json")
 
     capabilities = _object(normalized["capabilities"])
     if not any(bool(capabilities.get(key)) for key in _CAPABILITY_KEYS):
@@ -286,7 +326,7 @@ def normalize_external_project_manifest(
 
 def build_external_project_summary(manifest: dict[str, object] | None) -> Annotated[
     dict[str, object] | None,
-    "kit:non-authoritative derived_as=view fact_source=source_library.manifest witness=test:test_w01_meta",
+    "kit:non-authoritative derived_as=view fact_source=source_library.manifest witness=test:test_derived_service_annotations_match_fact_sources",
 ]:
     if not isinstance(manifest, dict):
         return None
@@ -305,6 +345,9 @@ def build_external_project_summary(manifest: dict[str, object] | None) -> Annota
         "accepted_inputs": _object(normalized.get("accepted_inputs")),
         "normalization": _object(normalized.get("normalization")),
         "provider_binding": _object(normalized.get("provider_binding")),
+        **({"integration": normalized["integration"],
+            "integration_readiness": IntegrationConfiguration.model_validate(normalized["integration"]).readiness()}
+           if normalized.get("contract_version") == INTEGRATION_MANIFEST_VERSION else {}),
     }
 
 

@@ -10,7 +10,7 @@ from mrw_functorial_kit.core.application_failure_semantics import source_library
 from ..item_resolver import ExecutionPayload, ExecutionRequest, channel_default_params, item_mapping_fields, terminal_output_params
 from ..types import SourceChannelExecutor
 
-_FAILURE_WITNESS = "test:test_w01_source_export_failures"
+_FAILURE_WITNESS = "test:test_source_configuration_and_report_export_failures"
 
 
 def _orchestrator_failure(code: str, message: str, *, site: str) -> Failure:
@@ -41,9 +41,9 @@ def _raise_orchestrator_failure(failure: Failure) -> NoReturn:
         or context.get("public_exception") != "ValueError"
         or context.get("public_message") != failure.message
     ):
-        # kit:boundary owner=source_library.single_channel_orchestrator.failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w01_source_export_failures
+        # kit:boundary owner=source_library.single_channel_orchestrator.failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_source_configuration_and_report_export_failures
         raise TypeError("single-channel failure lift context is incomplete or inconsistent")
-    # kit:boundary owner=source_library.single_channel_orchestrator.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=source_library.contract_failure witness=test:test_w01_source_export_failures
+    # kit:boundary owner=source_library.single_channel_orchestrator.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=source_library.contract_failure witness=test:test_source_configuration_and_report_export_failures
     raise ValueError(str(context["public_message"]))
 
 

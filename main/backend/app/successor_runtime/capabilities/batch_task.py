@@ -17,7 +17,7 @@ from typing import (
 
 from functorial_kit import Failure
 
-from mrw_functorial_kit.core.w05_capability_semantics import (
+from mrw_functorial_kit.core.capability_contract_failure_semantics import (
     successor_capability_contract_failures,
 )
 
@@ -94,7 +94,7 @@ BATCH_TASK_BUDGET_PROFILE = "mrw.batch.task.budget.v2"
 BATCH_TASK_DEADLINE_POLICY = "mrw.batch.task.deadline.v2"
 
 _BATCH_TASK_CONTRACT_WITNESS = (
-    "test:test_w06_retained_failure_lifts_preserve_public_abi"
+    "test:test_capability_failure_preserves_public_errors"
 )
 _BATCH_TASK_CONTRACT_CONTEXT_KEYS = frozenset(
     {"capability", "public_exception", "public_message", "site", "witness"}
@@ -134,9 +134,9 @@ def _raise_contract_failure(
         or _BATCH_TASK_CONTRACT_CONTEXT_KEYS - set(context)
         or context.get("public_exception") != exception_type.__name__
     ):
-        # kit:boundary owner=batch.task.v2 class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w06_retained_failure_lifts_preserve_public_abi
+        # kit:boundary owner=batch.task.v2 class=PROGRAMMER_DEFECT failure_family=none witness=test:test_capability_failure_preserves_public_errors
         raise TypeError("contract lift context is incomplete or inconsistent")
-    # kit:boundary owner=batch.task.v2 class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.capability.contract_failure witness=test:test_w06_retained_failure_lifts_preserve_public_abi
+    # kit:boundary owner=batch.task.v2 class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.capability.contract_failure witness=test:test_capability_failure_preserves_public_errors
     raise exception_type(str(context["public_message"]))
 
 

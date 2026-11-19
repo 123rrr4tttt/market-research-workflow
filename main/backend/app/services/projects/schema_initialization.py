@@ -141,9 +141,9 @@ def initialize_default_project_schema(
         raise
     except Exception as exc:  # noqa: BLE001
         classification = classify_db_exception(exc)
+        message = "db startup blocked: %s " if must_fail_closed else "db bootstrap skipped: %s "
         target_logger.warning(
-            "db bootstrap skipped: %s "
-            "(schema=%s production=%s category=%s retriable=%s sqlstate=%s exception_type=%s)",
+            message + "(schema=%s production=%s category=%s retriable=%s sqlstate=%s exception_type=%s)",
             exc,
             schema_name,
             is_production_environment(target_settings),

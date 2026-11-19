@@ -6,7 +6,7 @@ from typing import Annotated, Any, Final, Mapping, NoReturn, TypeGuard
 
 from functorial_kit import Failure
 
-from mrw_functorial_kit.core.w04_service_semantics import typed_knowledge_contract_failures
+from mrw_functorial_kit.core.service_failure_semantics import typed_knowledge_contract_failures
 
 REVIEW_STATE_DRAFT_CANDIDATE = "draft_candidate"
 REVIEW_STATE_HUMAN_CONFIRMED = "human_confirmed"
@@ -572,7 +572,7 @@ def build_downstream_contract_draft(
     DownstreamKnowledgeContractDraft,
     "kit:non-authoritative derived_as=view "
     "fact_source=validated_knowledge_item "
-    "witness=test:test_w04_authority_metadata",
+    "witness=test:test_service_results_declare_sources_and_effect_authority",
 ]:
     validate_knowledge_item(item)
     visibility_scope = REVIEW_STATE_VISIBILITY_SCOPE[item.review_state]
@@ -626,7 +626,7 @@ def build_writing_knowledge_handoff(
     WritingKnowledgeHandoff,
     "kit:non-authoritative derived_as=view "
     "fact_source=validated_downstream_contract+selection_inputs "
-    "witness=test:test_w04_authority_metadata",
+    "witness=test:test_service_results_declare_sources_and_effect_authority",
 ]:
     validate_downstream_contract_draft(contract)
     if contract.visibility_scope != VISIBILITY_SCOPE_DOWNSTREAM_READY:
@@ -768,7 +768,7 @@ def build_writing_knowledge_context_envelope(
     dict[str, object],
     "kit:non-authoritative derived_as=view "
     "fact_source=validated_writing_handoffs "
-    "witness=test:test_w04_authority_metadata",
+    "witness=test:test_service_results_declare_sources_and_effect_authority",
 ]:
     if not handoffs:
         raise_typed_knowledge_legacy(_contract_failure("writing_context_contract_invalid", "writing_context_envelope_missing_handoffs", owner="typed_knowledge.contracts.writing_context", field="handoffs"))

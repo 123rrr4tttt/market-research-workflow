@@ -112,7 +112,7 @@ def _article_content(run_id: str) -> str:
     return " ".join(
         [
             (
-                f"Wave55 robotics operations evidence {idx} for {run_id} covers warehouse safety, "
+                f"Robotics operations evidence {idx} for {run_id} covers warehouse safety, "
                 "field service adoption, enterprise procurement, and measurable implementation detail."
             )
             for idx in range(36)
@@ -124,7 +124,7 @@ def _search_shell_content(run_id: str) -> str:
     return " ".join(
         [
             (
-                f"Wave55 search shell fixture {idx} for {run_id} lists navigational snippets and "
+                f"Search shell fixture {idx} for {run_id} lists navigational snippets and "
                 "should be blocked by the pre-fetch URL gate before any document write."
             )
             for idx in range(10)
@@ -171,9 +171,9 @@ def _fake_routing(*, run_id: str):
             "records": [
                 {
                     "url": url,
-                    "title": "Wave55 search shell" if is_search else "Wave55 production-like guardrail article",
+                    "title": "Search shell" if is_search else "Production-like guardrail article",
                     "content_text": _search_shell_content(run_id) if is_search else _article_content(run_id),
-                    "summary": "Wave55 guardrail canary fixture",
+                    "summary": "Guardrail canary fixture",
                     "source_label": "url_pool",
                     "record_meta": {"http_status": 200},
                 }
@@ -242,7 +242,7 @@ def build_production_like_handoff_evidence(
     db_readback: _MaterialReadback,
 ) -> Annotated[
     dict[str, object],
-    "kit:non-authoritative derived_as=generated_evidence fact_source=repo_local_api_responses+db_readback witness=test:test_w03_ingest_ports_authority_metadata",
+    "kit:non-authoritative derived_as=generated_evidence fact_source=repo_local_api_responses+db_readback witness=test:test_ingest_ports_declare_sources_and_effect_authority",
 ]:
     accepted_handoff = _handoff_from_result(accepted_result)
     rejected_handoff = _handoff_from_result(rejected_result)
@@ -326,8 +326,8 @@ def validate_production_like_handoff_evidence(evidence: Mapping[str, object]) ->
 def run_repo_local_production_like_handoff_canary(*, project_key: str | None = None) -> dict[str, object]:
     run_id = uuid4().hex[:10]
     resolved_project_key = str(project_key or f"wave55_ingest_canary_{run_id}").strip().lower()
-    accepted_url = f"https://example.com/wave55-production-like-{run_id}"
-    rejected_url = f"https://example.com/search?q=wave55-{run_id}"
+    accepted_url = f"https://example.com/production-like-{run_id}"
+    rejected_url = f"https://example.com/search?q=search-shell-{run_id}"
     schema_name = _prepare_project_schema(resolved_project_key)
     cleanup: dict[str, object] = {"schema_name": schema_name, "performed": False, "error": None}
     result: dict[str, object] | None = None

@@ -189,7 +189,7 @@ def _failure(
         "public_exception": public_exception,
         "public_message": message,
         "site": "app.services.crawlers.durable_effect_bridge",
-        "witness": "test:test_w03_crawler_failure_lifts",
+        "witness": "test:test_crawler_failure_lifts",
     }
     context.update(details)
     return crawler_runtime_failures.fail(code, message, context)
@@ -200,7 +200,7 @@ def _raise_contract_failure(failure: Failure, *, cause: BaseException | None = N
 
     context = failure.context or {}
     message = str(context.get("public_message", failure.message))
-    # kit:boundary owner=crawlers.durable_effect_bridge.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=crawler.runtime.failure witness=test:test_w03_crawler_failure_lifts
+    # kit:boundary owner=crawlers.durable_effect_bridge.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=crawler.runtime.failure witness=test:test_crawler_failure_lifts
     raise ValueError(message) from cause
 
 

@@ -157,7 +157,7 @@ def _freeze_json_value(value: object) -> FrozenJsonValue:
         return value
     if value is None or isinstance(value, (bool, int, float, str)):
         if isinstance(value, float) and not math.isfinite(value):
-            # kit:boundary owner=successor.language.algebra.domain class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_language_a
+            # kit:boundary owner=successor.language.algebra.domain class=PROGRAMMER_DEFECT failure_family=none witness=test:test_atom_node_rejects_malformed_object_types_as_typed_failure
             raise ValueError("non-finite float is not a frozen JSON value")
         return value
     if _is_mapping(value):
@@ -172,10 +172,10 @@ def _freeze_json_value(value: object) -> FrozenJsonValue:
     if _is_set(value):
         items = [item for item in value]
         if not all(isinstance(item, str) for item in items):
-            # kit:boundary owner=successor.language.algebra.domain class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_language_a
+            # kit:boundary owner=successor.language.algebra.domain class=PROGRAMMER_DEFECT failure_family=none witness=test:test_atom_node_rejects_malformed_object_types_as_typed_failure
             raise ValueError("frozenset members must be strings")
         return frozenset(item for item in items if isinstance(item, str))
-    # kit:boundary owner=successor.language.algebra.domain class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_language_a
+    # kit:boundary owner=successor.language.algebra.domain class=PROGRAMMER_DEFECT failure_family=none witness=test:test_atom_node_rejects_malformed_object_types_as_typed_failure
     raise TypeError(f"unsupported JSON value type: {type(value)!r}")
 
 def _failure_argument(error: Exception) -> object:
@@ -271,7 +271,7 @@ class _PlainEncodable(Protocol):
 def _encode_value(value: object, tag_map: "dict[type[object], str]") -> object:
     if value is None or isinstance(value, (bool, int, float, str)):
         if isinstance(value, float) and not math.isfinite(value):
-            # kit:boundary owner=successor.language.algebra.domain class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_language_a
+            # kit:boundary owner=successor.language.algebra.domain class=PROGRAMMER_DEFECT failure_family=none witness=test:test_atom_node_rejects_malformed_object_types_as_typed_failure
             raise ValueError("non-finite float cannot be canonically encoded")
         return value
     if _is_set(value):
@@ -293,7 +293,7 @@ def _encode_value(value: object, tag_map: "dict[type[object], str]") -> object:
     tag = tag_map.get(type(value))
     if tag is not None:
         return {tag: _encode_dataclass_fields(value, tag_map)}
-    # kit:boundary owner=successor.language.algebra.domain class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_language_a
+    # kit:boundary owner=successor.language.algebra.domain class=PROGRAMMER_DEFECT failure_family=none witness=test:test_atom_node_rejects_malformed_object_types_as_typed_failure
     raise TypeError(f"cannot canonically encode value of type {type(value)!r}")
 
 
@@ -363,7 +363,7 @@ def build_catalog_snapshot(
     catalog_id: str,
     catalog_version: str,
     contracts: "tuple[OperationContract, ...]",
-) -> Annotated[OperationContractCatalogSnapshot, "kit:non-authoritative derived_as=view fact_source=successor_runtime.language.object_contracts.OperationContract witness=test:test_w07_derived_metadata_is_exact_and_non_authoritative"]:
+) -> Annotated[OperationContractCatalogSnapshot, "kit:non-authoritative derived_as=view fact_source=successor_runtime.language.object_contracts.OperationContract witness=test:test_workflow_language_projections_do_not_claim_authority"]:
     outcome = try_build_catalog_snapshot(catalog_id, catalog_version, contracts)
     if isinstance(outcome, Failure):
         _lift_algebra_failure(outcome)

@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from typing import NoReturn, Protocol
 
 from functorial_kit import Failure
-from mrw_functorial_kit.core.w04_service_semantics import graph_backfill_failures
+from mrw_functorial_kit.core.service_failure_semantics import graph_backfill_failures
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -63,9 +63,9 @@ def _raise_transaction_failure(failure: Failure) -> NoReturn:
         or failure.code != "transaction_failed"
         or not isinstance(cause, BaseException)
     ):
-        # kit:boundary owner=graph.backfill.failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w04_graph_backfill_failure_rolls_back_and_keeps_cause
+        # kit:boundary owner=graph.backfill.failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_graph_backfill_failure_rolls_back_and_keeps_cause
         raise TypeError("graph backfill failure context is incomplete or inconsistent")
-    # kit:boundary owner=graph.backfill.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=graph.backfill.failure witness=test:test_w04_graph_backfill_failure_rolls_back_and_keeps_cause
+    # kit:boundary owner=graph.backfill.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=graph.backfill.failure witness=test:test_graph_backfill_failure_rolls_back_and_keeps_cause
     raise cause from cause
 
 

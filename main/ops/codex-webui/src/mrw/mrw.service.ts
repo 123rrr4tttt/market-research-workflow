@@ -16,10 +16,24 @@ import type {
   MrwPreparedEnvironment,
   MrwSkillDescriptor,
   MrwTurnSkillInput,
+  MrwTurnAdmission,
   MrwRequestCredentials,
+  MrwTurnAttachment,
 } from './mrw.types';
 
 const TURN_INPUT_WAIT_MS = 30_000;
+const SYSTEM_INSTRUCTIONS_BUDGET = 600;
+
+function canonical(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(canonical).join(',')}]`;
+  if (value && typeof value === 'object') {
+    return `{${Object.entries(value)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([key, item]) => `${JSON.stringify(key)}:${canonical(item)}`)
+      .join(',')}}`;
+  }
+  return JSON.stringify(value);
+}
 
 /**
  * Orchestrates the WebUI side of the macro host transport: prepares/binds
@@ -30,11 +44,20 @@ const TURN_INPUT_WAIT_MS = 30_000;
 export class MrwService {
   private readonly logger = new Logger(MrwService.name);
   private readonly preparedSkills = new Map<string, MrwSkillDescriptor[]>();
+  private readonly preparedTools = new Map<string, string>();
+  private readonly preparedSystemInstructions = new Map<string, string>();
   private readonly threadSkills = new Map<string, MrwSkillDescriptor[]>();
   private readonly boundThreads = new Map<
     string,
-    { turnId?: string; credentials?: MrwRequestCredentials }
+    {
+      tools: string;
+      systemInstructions: string;
+      admissionId?: string;
+      turnId?: string;
+      credentials?: MrwRequestCredentials;
+    }
   >();
+  private readonly preparingTurns = new Map<string, object>();
   private readonly activeSkillRoots = new Set<string>();
   private readonly threadInputReadiness = new Map<
     string,
@@ -56,8 +79,34 @@ export class MrwService {
     private readonly events: MrwEventBus,
   ) {}
 
-  prepareThread(projectKey: string): Promise<MrwPreparedEnvironment> {
-    return this.backend.prepare(projectKey);
+  private assertSystemInstructions(value: string): string {
+    if (typeof value !== 'string' || value.trim().length === 0) {
+      throw new HttpException(
+        'MRW backend returned empty systemInstructions',
+        HttpStatus.BAD_GATEWAY,
+      );
+    }
+    if (value.length > SYSTEM_INSTRUCTIONS_BUDGET) {
+      throw new HttpException(
+        'MRW backend systemInstructions exceeds its wire budget',
+        HttpStatus.BAD_GATEWAY,
+      );
+    }
+    return value;
+  }
+
+  async prepareThread(projectKey: string): Promise<MrwPreparedEnvironment> {
+    const prepared = await this.backend.prepare(projectKey);
+    this.assertSystemInstructions(prepared.systemInstructions);
+    this.preparedTools.set(
+      prepared.bindingId,
+      canonical(prepared.dynamicTools),
+    );
+    this.preparedSystemInstructions.set(
+      prepared.bindingId,
+      prepared.systemInstructions,
+    );
+    return prepared;
   }
 
   async bindThread(
@@ -65,9 +114,32 @@ export class MrwService {
     threadId: string,
   ): Promise<MrwBindResult> {
     const result = await this.backend.bind(bindingId, threadId);
+    const preparedInstructions = this.preparedSystemInstructions.get(bindingId);
+    if (preparedInstructions === undefined) {
+      throw new HttpException(
+        'native_rebind_required: prepared system instructions are missing',
+        HttpStatus.CONFLICT,
+      );
+    }
+    const systemInstructions = this.assertSystemInstructions(
+      result.systemInstructions,
+    );
+    if (systemInstructions !== preparedInstructions) {
+      throw new HttpException(
+        'native_rebind_required: system instructions changed during bind',
+        HttpStatus.CONFLICT,
+      );
+    }
     this.threadSkills.set(threadId, this.preparedSkills.get(bindingId) ?? []);
-    this.boundThreads.set(threadId, {});
+    this.boundThreads.set(threadId, {
+      tools:
+        this.preparedTools.get(bindingId) ??
+        canonical(result.dynamicTools ?? []),
+      systemInstructions,
+    });
     this.preparedSkills.delete(bindingId);
+    this.preparedTools.delete(bindingId);
+    this.preparedSystemInstructions.delete(bindingId);
     return result;
   }
 
@@ -77,7 +149,9 @@ export class MrwService {
    * a container absolute path, so the trusted MRW_SKILL_SOURCE_ROOT resolves the
    * real host location instead of substituting a guessed prefix.
    */
-  async mountSkillEnvironment(prepared: MrwPreparedEnvironment): Promise<void> {
+  async mountSkillEnvironment(
+    prepared: Pick<MrwPreparedEnvironment, 'bindingId' | 'skills'>,
+  ): Promise<void> {
     const skills = prepared.skills ?? [];
     if (skills.length === 0) {
       this.preparedSkills.set(prepared.bindingId, []);
@@ -112,14 +186,18 @@ export class MrwService {
     });
     const observed = (await this.codex.request('skills/list', {
       forceReload: true,
-    })) as { data?: Array<{ skills?: Array<{ path?: string }> }> };
-    const observedPaths = new Set(
+    })) as {
+      data?: Array<{ skills?: Array<{ name?: string; path?: string }> }>;
+    };
+    const observedSkills = new Set(
       (observed.data ?? []).flatMap((entry) =>
-        (entry.skills ?? []).map((skill) => skill.path ?? ''),
+        (entry.skills ?? []).map(
+          (skill) => `${skill.name ?? ''}\u0000${skill.path ?? ''}`,
+        ),
       ),
     );
     for (const [name, realPath] of resolved) {
-      if (!observedPaths.has(realPath)) {
+      if (!observedSkills.has(`${name}\u0000${realPath}`)) {
         throw new HttpException(
           `skill ${name} is not mounted at ${realPath}`,
           HttpStatus.NOT_FOUND,
@@ -133,6 +211,101 @@ export class MrwService {
         path: resolved.get(skill.name) ?? skill.path,
       })),
     );
+  }
+
+  async prepareTurn(threadId: string): Promise<MrwTurnAdmission> {
+    const binding = this.boundThreads.get(threadId);
+    if (!binding)
+      throw new HttpException(
+        'MRW thread requires rebind',
+        HttpStatus.CONFLICT,
+      );
+    if (binding.admissionId || this.preparingTurns.has(threadId)) {
+      throw new HttpException(
+        'MRW thread already has a pending or active turn admission',
+        HttpStatus.CONFLICT,
+      );
+    }
+    this.preparingTurns.set(threadId, binding);
+    try {
+      const admission = await this.backend.prepareTurn(threadId);
+      if (
+        admission.threadId !== threadId ||
+        admission.environmentStatus !== 'configured'
+      ) {
+        throw new HttpException(
+          'MRW turn environment is not ready',
+          HttpStatus.CONFLICT,
+        );
+      }
+      if (canonical(admission.dynamicTools) !== binding.tools) {
+        throw new HttpException(
+          'native_rebind_required: dynamic tool mount changed',
+          HttpStatus.CONFLICT,
+        );
+      }
+      const systemInstructions = this.assertSystemInstructions(
+        admission.systemInstructions,
+      );
+      if (systemInstructions !== binding.systemInstructions) {
+        throw new HttpException(
+          'native_rebind_required: system instructions changed',
+          HttpStatus.CONFLICT,
+        );
+      }
+      if (admission.skills.some((skill) => !skill.contentDigest)) {
+        throw new HttpException(
+          'MRW turn skill digest is missing',
+          HttpStatus.CONFLICT,
+        );
+      }
+      await this.mountSkillEnvironment({
+        bindingId: admission.admissionId,
+        skills: admission.skills,
+      });
+      const expiresAt = Date.parse(admission.expiresAt);
+      if (!Number.isFinite(expiresAt) || expiresAt <= Date.now()) {
+        this.preparedSkills.delete(admission.admissionId);
+        throw new HttpException(
+          'MRW turn admission expired before native start',
+          HttpStatus.CONFLICT,
+        );
+      }
+      const mounted = this.preparedSkills.get(admission.admissionId) ?? [];
+      this.preparedSkills.delete(admission.admissionId);
+      if (
+        this.boundThreads.get(threadId) !== binding ||
+        this.preparingTurns.get(threadId) !== binding
+      ) {
+        throw new HttpException(
+          'MRW turn admission was cancelled before native start',
+          HttpStatus.CONFLICT,
+        );
+      }
+      this.threadSkills.set(threadId, mounted);
+      this.boundThreads.set(threadId, {
+        ...binding,
+        admissionId: admission.admissionId,
+        turnId: undefined,
+      });
+      return admission;
+    } finally {
+      if (this.preparingTurns.get(threadId) === binding)
+        this.preparingTurns.delete(threadId);
+    }
+  }
+
+  abortTurnInput(threadId: string): void {
+    this.preparingTurns.delete(threadId);
+    const binding = this.boundThreads.get(threadId);
+    if (binding)
+      this.boundThreads.set(threadId, {
+        tools: binding.tools,
+        systemInstructions: binding.systemInstructions,
+      });
+    const readiness = this.threadInputReadiness.get(threadId);
+    this.threadInputReadiness.delete(threadId);
+    readiness?.reject(new Error('MRW turn input aborted'));
   }
 
   listPending(threadId: string): MrwPendingAction[] {
@@ -201,27 +374,46 @@ export class MrwService {
     turnId: string,
     content: string,
     credentials?: MrwRequestCredentials,
+    attachments: MrwTurnAttachment[] = [],
   ): Promise<unknown> {
     const readiness = this.threadInputReadiness.get(threadId);
     const binding = this.boundThreads.get(threadId);
+    if (
+      !binding?.admissionId ||
+      (binding.turnId && binding.turnId !== turnId)
+    ) {
+      throw new HttpException(
+        'MRW turn admission is missing or mismatched',
+        HttpStatus.CONFLICT,
+      );
+    }
     const promise = this.backend.recordInput(
       threadId,
       turnId,
       content,
+      binding.admissionId,
       credentials,
+      attachments,
     );
     void promise.then(
       () => {
         if (binding && this.boundThreads.get(threadId) === binding)
-          this.boundThreads.set(threadId, { turnId, credentials });
+          this.boundThreads.set(threadId, { ...binding, turnId, credentials });
         readiness?.resolve();
-        this.threadInputReadiness.delete(threadId);
+        if (this.threadInputReadiness.get(threadId) === readiness)
+          this.threadInputReadiness.delete(threadId);
       },
       (error: unknown) => {
+        if (this.boundThreads.get(threadId) === binding)
+          this.boundThreads.set(threadId, {
+            tools: binding.tools,
+            systemInstructions: binding.systemInstructions,
+          });
         readiness?.reject(
           error instanceof Error ? error : new Error(String(error)),
         );
-        this.threadInputReadiness.delete(threadId);
+        if (this.threadInputReadiness.get(threadId) === readiness)
+          this.threadInputReadiness.delete(threadId);
       },
     );
     return promise;
@@ -240,6 +432,8 @@ export class MrwService {
    */
   cancelForThread(threadId: string): void {
     this.boundThreads.delete(threadId);
+    this.threadSkills.delete(threadId);
+    this.abortTurnInput(threadId);
     for (const record of this.registry.getForThread(threadId)) {
       this.respond(record.requestId, {
         success: false,
@@ -253,9 +447,13 @@ export class MrwService {
   }
 
   cancelForTurn(threadId: string, turnId: string): void {
+    this.preparingTurns.delete(threadId);
     const binding = this.boundThreads.get(threadId);
     if (binding && (!binding.turnId || binding.turnId === turnId))
-      this.boundThreads.set(threadId, {});
+      this.boundThreads.set(threadId, {
+        tools: binding.tools,
+        systemInstructions: binding.systemInstructions,
+      });
     for (const record of this.registry.getForThread(threadId)) {
       if (record.turnId !== turnId) continue;
       this.respond(record.requestId, {
@@ -270,16 +468,22 @@ export class MrwService {
   }
 
   endTurn(threadId: string, turnId: string): Promise<unknown> {
+    this.preparingTurns.delete(threadId);
     const binding = this.boundThreads.get(threadId);
     if (binding && (!binding.turnId || binding.turnId === turnId))
-      this.boundThreads.set(threadId, {});
+      this.boundThreads.set(threadId, {
+        tools: binding.tools,
+        systemInstructions: binding.systemInstructions,
+      });
     return this.backend.endTurn(threadId, turnId);
   }
 
   /** Clears all pending actions after an app-server restart invalidates them. */
   expireAll(): void {
     for (const threadId of this.boundThreads.keys())
-      this.boundThreads.set(threadId, {});
+      this.abortTurnInput(threadId);
+    this.boundThreads.clear();
+    this.threadSkills.clear();
     for (const record of this.registry.getAll()) {
       this.respond(record.requestId, {
         success: false,

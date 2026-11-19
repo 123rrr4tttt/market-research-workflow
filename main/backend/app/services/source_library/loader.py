@@ -10,7 +10,7 @@ from functorial_kit import Failure
 from mrw_functorial_kit.core.application_failure_semantics import source_library_loader_failures
 
 logger = logging.getLogger(__name__)
-_FAILURE_WITNESS = "test:test_w01_source_export_failures"
+_FAILURE_WITNESS = "test:test_source_configuration_and_report_export_failures"
 
 
 @runtime_checkable
@@ -52,12 +52,12 @@ def _raise_loader_failure(failure: Failure, *, cause: BaseException | None = Non
         or context.get("public_exception") != "RuntimeError"
         or context.get("public_message") != failure.message
     ):
-        # kit:boundary owner=source_library.loader.failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w01_source_export_failures
+        # kit:boundary owner=source_library.loader.failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_source_configuration_and_report_export_failures
         raise TypeError("source-library loader failure lift context is incomplete or inconsistent")
     if cause is None:
-        # kit:boundary owner=source_library.loader.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=source_library.loader.failure witness=test:test_w01_source_export_failures
+        # kit:boundary owner=source_library.loader.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=source_library.loader.failure witness=test:test_source_configuration_and_report_export_failures
         raise RuntimeError(str(context["public_message"]))
-    # kit:boundary owner=source_library.loader.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=source_library.loader.failure witness=test:test_w01_source_export_failures
+    # kit:boundary owner=source_library.loader.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=source_library.loader.failure witness=test:test_source_configuration_and_report_export_failures
     raise RuntimeError(str(context["public_message"])) from cause
 
 

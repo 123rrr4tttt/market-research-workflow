@@ -1,3 +1,7 @@
+import { createHash } from 'node:crypto';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { Test, TestingModule } from '@nestjs/testing';
 import { ThreadsService } from './threads.service';
 import { CodexService } from '../codex/codex.service';
@@ -21,6 +25,9 @@ function localBranchState(threadId: string) {
     knownTreeThreadIds: [threadId],
   };
 }
+
+const mrwSystemInstructions =
+  'You are the MRW native Agent. Follow the mounted system navigation.';
 
 describe('ThreadsService', () => {
   let service: ThreadsService;
@@ -63,6 +70,8 @@ describe('ThreadsService', () => {
     prepareThread: vi.fn(),
     bindThread: vi.fn(),
     mountSkillEnvironment: vi.fn(),
+    prepareTurn: vi.fn().mockResolvedValue(undefined),
+    abortTurnInput: vi.fn(),
     turnSkillInputs: vi.fn().mockReturnValue([]),
     isBound: vi.fn().mockReturnValue(false),
     recordInput: vi.fn().mockResolvedValue(undefined),
@@ -109,6 +118,9 @@ describe('ThreadsService', () => {
     mockMrw.bindThread.mockReset();
     mockMrw.mountSkillEnvironment.mockReset();
     mockMrw.mountSkillEnvironment.mockResolvedValue(undefined);
+    mockMrw.prepareTurn.mockReset();
+    mockMrw.prepareTurn.mockResolvedValue(undefined);
+    mockMrw.abortTurnInput.mockReset();
     mockMrw.turnSkillInputs.mockReset();
     mockMrw.turnSkillInputs.mockReturnValue([]);
     mockMrw.isBound.mockReset();
@@ -174,6 +186,7 @@ describe('ThreadsService', () => {
         { type: 'function', name: 'read', description: 'd', inputSchema: {} },
       ],
       skills: [],
+      systemInstructions: mrwSystemInstructions,
     });
     mockMrw.bindThread.mockResolvedValue({ threadId: 't1' });
 
@@ -184,12 +197,63 @@ describe('ThreadsService', () => {
       dynamicTools: [
         { type: 'function', name: 'read', description: 'd', inputSchema: {} },
       ],
+      developerInstructions: mrwSystemInstructions,
     });
     expect(mockMrw.prepareThread).toHaveBeenCalledWith(
       'hk_water_investigation',
     );
     expect(mockMrw.mountSkillEnvironment).toHaveBeenCalled();
     expect(mockMrw.bindThread).toHaveBeenCalledWith('b1', 't1');
+  });
+
+  it('appends MRW navigation while preserving developer and base instructions', async () => {
+    mockCodex.request.mockResolvedValue({
+      thread: { id: 't1', historyMode: 'paginated' },
+    });
+    mockMrw.prepareThread.mockResolvedValue({
+      bindingId: 'b1',
+      dynamicTools: [],
+      skills: [],
+      systemInstructions: mrwSystemInstructions,
+    });
+
+    await service.startThread({
+      baseInstructions: 'original base',
+      developerInstructions: 'original developer',
+      mrwProjectKey: 'hk_water_investigation',
+    });
+
+    expect(mockCodex.request).toHaveBeenCalledWith('thread/start', {
+      historyMode: 'paginated',
+      dynamicTools: [],
+      baseInstructions: 'original base',
+      developerInstructions:
+        'original developer\n\n--- MRW system navigation ---\n\n' +
+        mrwSystemInstructions,
+    });
+  });
+
+  it('uses MRW navigation directly when developer instructions are empty', async () => {
+    mockCodex.request.mockResolvedValue({
+      thread: { id: 't1', historyMode: 'paginated' },
+    });
+    mockMrw.prepareThread.mockResolvedValue({
+      bindingId: 'b1',
+      dynamicTools: [],
+      skills: [],
+      systemInstructions: mrwSystemInstructions,
+    });
+
+    await service.startThread({
+      developerInstructions: null,
+      mrwProjectKey: 'hk_water_investigation',
+    });
+
+    expect(mockCodex.request).toHaveBeenCalledWith('thread/start', {
+      historyMode: 'paginated',
+      dynamicTools: [],
+      developerInstructions: mrwSystemInstructions,
+    });
   });
 
   it('deletes the untracked thread when MRW bind fails', async () => {
@@ -200,6 +264,7 @@ describe('ThreadsService', () => {
       bindingId: 'b1',
       dynamicTools: [],
       skills: [],
+      systemInstructions: mrwSystemInstructions,
     });
     mockMrw.bindThread.mockRejectedValue(new Error('stale'));
 
@@ -398,7 +463,43 @@ describe('ThreadsService', () => {
       'turn1',
       'hello',
       credentials,
+      [],
     );
+  });
+
+  it('records an image-only turn as durable attachment metadata', async () => {
+    mockCodex.request.mockResolvedValue({ turn: { id: 'turn1' } });
+    mockMrw.isBound.mockReturnValue(true);
+    const directory = await mkdtemp(join(tmpdir(), 'mrw-attachment-'));
+    const imagePath = join(directory, 'evidence.png');
+    const bytes = Buffer.from('image');
+    await writeFile(imagePath, bytes);
+
+    try {
+      await service.startTurn({
+        threadId: 't1',
+        input: [{ type: 'localImage', path: imagePath }] as never,
+      });
+
+      const sha256 = createHash('sha256').update(bytes).digest('hex');
+      expect(mockMrw.recordInput).toHaveBeenCalledWith(
+        't1',
+        'turn1',
+        '附件 ×1',
+        undefined,
+        [
+          {
+            kind: 'local_image',
+            attachmentId: sha256,
+            filename: 'evidence.png',
+            size: bytes.length,
+            sha256,
+          },
+        ],
+      );
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
   });
 
   it('keeps an unbound turn input unchanged and skips record input', async () => {
@@ -429,7 +530,7 @@ describe('ThreadsService', () => {
 
   it('rejects a bound turn on a stale environment before any codex RPC', async () => {
     mockMrw.isBound.mockReturnValue(true);
-    mockMrw.checkEnvironmentFresh.mockRejectedValue(new Error('stale'));
+    mockMrw.prepareTurn.mockRejectedValue(new Error('stale'));
 
     await expect(
       service.startTurn({
@@ -452,7 +553,7 @@ describe('ThreadsService', () => {
       }),
     ).rejects.toThrow('rpc down');
 
-    expect(mockMrw.releaseTurnInput).toHaveBeenCalledWith('t1');
+    expect(mockMrw.abortTurnInput).toHaveBeenCalledWith('t1');
   });
 
   it('should call turn/steer', async () => {
@@ -490,7 +591,28 @@ describe('ThreadsService', () => {
       'turn1',
       'keep going',
       credentials,
+      [],
     );
+    expect(mockMrw.prepareTurn).not.toHaveBeenCalled();
+  });
+
+  it('interrupts a steered turn when host input recording fails', async () => {
+    mockCodex.request.mockResolvedValue({ turnId: 'turn1' });
+    mockMrw.isBound.mockReturnValue(true);
+    mockMrw.recordInput.mockRejectedValue(new Error('admission expired'));
+
+    await expect(
+      service.steerTurn({
+        threadId: 't1',
+        expectedTurnId: 'turn1',
+        input: [{ type: 'text', text: 'continue' }] as never,
+      }),
+    ).rejects.toThrow('admission expired');
+    expect(mockMrw.abortTurnInput).toHaveBeenCalledWith('t1');
+    expect(mockCodex.request).toHaveBeenCalledWith('turn/interrupt', {
+      threadId: 't1',
+      turnId: 'turn1',
+    });
   });
 
   it('should call turn/interrupt', async () => {

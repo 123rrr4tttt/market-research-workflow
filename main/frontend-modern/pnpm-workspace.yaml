@@ -1,3 +1,6 @@
+# Running a script must not implicitly install or re-resolve dependencies.
+verifyDepsBeforeRun: error
+
 allowBuilds:
   esbuild: true
 

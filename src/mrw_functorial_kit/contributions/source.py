@@ -8,7 +8,7 @@ from functorial_kit.contributions import (
     define_contribution,
 )
 from mrw_functorial_kit.core.source_semantics import source_contract_failures
-from mrw_functorial_kit.core.w06_semantics import (
+from mrw_functorial_kit.core.source_and_capability_failure_semantics import (
     source_provider_acquisition_failures,
     source_runtime_binding_failures,
     source_single_source_guard_failures,

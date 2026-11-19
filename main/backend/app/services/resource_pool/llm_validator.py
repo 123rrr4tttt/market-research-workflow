@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import re
 from typing import Any, TypeGuard, cast
-from urllib.parse import urlparse
 
 from .url_utils import domain_from_url
 
@@ -59,15 +58,8 @@ def validate_llm_recommendation(raw: object, site_url: str) -> dict[str, Any] | 
     if entry_type == "search_template":
         if not template or "{{q}}" not in template:
             return None
-        try:
-            parsed = urlparse(template)
-            if not parsed.netloc:
-                return None
-            tpl_domain = (parsed.netloc or "").lower().lstrip("www.")
-            site_domain = domain_from_url(site_url) or ""
-            if tpl_domain and site_domain and tpl_domain != site_domain:
-                return None
-        except Exception:
+        template_domain = domain_from_url(template)
+        if template_domain is None or template_domain != domain_from_url(site_url):
             return None
 
     if symbol_suggestion and not _SYMBOL_PATTERN.match(symbol_suggestion):

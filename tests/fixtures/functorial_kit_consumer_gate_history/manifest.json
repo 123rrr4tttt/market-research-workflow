@@ -1,8 +1,0 @@
-{
-  "schema": "mrw.test.historical-source.v1",
-  "revision": "5a742be1ebbacb50390a20c35d7bd8526abcdffd",
-  "original_path": "pyproject.toml",
-  "fixture": "pyproject.toml.source",
-  "bytes": 792,
-  "sha256": "7ccf1271004a858ed27191946b5f303eca43bd097ecca658d8071953b28a5159"
-}

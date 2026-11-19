@@ -9,10 +9,6 @@
       "name": "shared.family.generator.p4_fragment"
     },
     {
-      "discriminant": "scheduled_automation_artifact_evidence.v1",
-      "name": "scheduled.automation.evidence.report"
-    },
-    {
       "discriminant": "CandidateSearchRequest.v1",
       "name": "retrieval.candidate.discover.v1.request.v1"
     },

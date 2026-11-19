@@ -6,6 +6,8 @@ import type {
   MrwDynamicToolCallParams,
   MrwPreparedEnvironment,
   MrwRequestCredentials,
+  MrwTurnAttachment,
+  MrwTurnAdmission,
 } from './mrw.types';
 
 const HEADER_API_KEY = 'X-MRW-Server-API-Key';
@@ -55,6 +57,10 @@ export class MrwBackendClient {
     return this.post<MrwBindResult>('/bind', { bindingId, threadId });
   }
 
+  async prepareTurn(threadId: string): Promise<MrwTurnAdmission> {
+    return this.post<MrwTurnAdmission>('/prepare-turn', { threadId });
+  }
+
   async dispatch(
     params: MrwDynamicToolCallParams,
     credentials?: MrwRequestCredentials,
@@ -70,11 +76,13 @@ export class MrwBackendClient {
     threadId: string,
     turnId: string,
     content: string,
+    admissionId: string,
     credentials?: MrwRequestCredentials,
+    attachments: MrwTurnAttachment[] = [],
   ): Promise<unknown> {
     return this.post<unknown>(
       '/record-input',
-      { threadId, turnId, content },
+      { threadId, turnId, content, admissionId, attachments },
       credentials,
     );
   }

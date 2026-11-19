@@ -74,7 +74,7 @@ def build_writing_conflict_details(
     dict[str, Any],
     "kit:non-authoritative derived_as=view "
     "fact_source=writing_document_row+expected_version "
-    "witness=test:test_w04_authority_metadata",
+    "witness=test:test_service_results_declare_sources_and_effect_authority",
 ]:
     serialized = serialize_writing_document(row)
     return {

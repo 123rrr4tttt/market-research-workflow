@@ -1,7 +1,8 @@
 from __future__ import annotations
+from dataclasses import asdict
 from app.services.document_queries.contracts import coerce_material_query_result_row
 from .structured_data_search import StructuredRecord
-from typing import Protocol
+from typing import Protocol, Callable, cast
 from functorial_kit import Failure
 from dataclasses import dataclass
 from functools import partial
@@ -38,6 +39,35 @@ from .structured_data_search import (
     read_project_structured_data_items,
 )
 from .tool_pool import AgentToolPoolAssembler, ToolPoolRequest, default_agent_runtime_feature_flags
+from .system_projection_contracts import (
+    SYSTEM_INSPECT_DESCRIPTION,
+    SYSTEM_INSPECT_TOOL_NAME,
+    system_inspect_input_schema,
+)
+from .system_projection import (
+    SystemProjection,
+    SystemProjectionError,
+    inspect_system_projection_with_budget,
+)
+
+
+_SOURCE_LIBRARY_DISPATCH_ARTIFACT_NAME = "ingest.source_library_dispatches.json"
+_SOURCE_LIBRARY_DISPATCH_CONTRACT = "ingest.source_library.dispatch_state.v1"
+_SOURCE_LIBRARY_DISPATCH_SKILL = "ingest.dispatch.source_library_item"
+_SOURCE_LIBRARY_TASK_READ_LIMIT = 5
+_SOURCE_LIBRARY_RECORD_BODY_BUDGET = 4000
+
+
+class _AsyncResultView(Protocol):
+    @property
+    def status(self) -> object: ...
+
+    @property
+    def result(self) -> object: ...
+
+    def ready(self) -> bool: ...
+
+    def successful(self) -> bool: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -45,6 +75,7 @@ class ReadOnlyToolContext:
     service: AgentSessionService
     source_library_lister: SourceLibraryLister | None
     structured_data_searcher: StructuredDataSearcher
+    system_projection_provider: Callable[[], SystemProjection] | None = None
 
 
 class ReadToolOperation(Protocol):
@@ -54,10 +85,17 @@ class ReadToolOperation(Protocol):
 
 
 def _read_tool_declaration(
-    context: ReadOnlyToolContext, operation: ReadToolOperation, *, name: str, description: str, input_schema: JSONObject
+    context: ReadOnlyToolContext,
+    operation: ReadToolOperation,
+    *,
+    name: str,
+    description: str,
+    input_schema: JSONObject,
+    result_budget: int = 4000,
 ) -> tuple[JSONObject, ProjectToolOperation]:
     return project_tool_declaration(
         name=name, description=description, input_schema=input_schema, operation=partial(operation, context=context)
+        , result_budget=result_budget
     )
 
 
@@ -197,7 +235,7 @@ def _compact_workflow_graph(record: JSONObject) -> JSONObject:
 
 
 def _read_tool_declarations(context: ReadOnlyToolContext) -> tuple[tuple[JSONObject, ProjectToolOperation], ...]:
-    return (
+    declarations = (
         _read_tool_declaration(
             context,
             capability_catalog,
@@ -245,9 +283,14 @@ def _read_tool_declarations(context: ReadOnlyToolContext) -> tuple[tuple[JSONObj
             input_schema={
                 "type": "object",
                 "properties": {
+                    "mode": {
+                        "type": "string",
+                        "enum": ["search", "inventory"],
+                        "description": "Use inventory to read dataset totals without search text; search preserves optional query text.",
+                    },
                     "query": {
                         "type": "string",
-                        "description": "Optional search text. Leave empty for a project data inventory.",
+                        "description": "Optional search text in search mode. Set mode=inventory to ignore search text and read dataset totals.",
                     },
                     "limit": {"type": "integer", "minimum": 1, "maximum": 50},
                     "datasets": {
@@ -426,11 +469,27 @@ def _read_tool_declarations(context: ReadOnlyToolContext) -> tuple[tuple[JSONObj
             description="Read recent ingest and source-library job status without starting new collection.",
             input_schema={
                 "type": "object",
-                "properties": {"limit": {"type": "integer", "minimum": 1, "maximum": 50}},
+                "properties": {
+                    "limit": {"type": "integer", "minimum": 1, "maximum": 50},
+                    "task_id": {
+                        "oneOf": [
+                            {"type": "string", "minLength": 1},
+                            {
+                                "type": "array",
+                                "items": {"type": "string", "minLength": 1},
+                                "minItems": 1,
+                                "maxItems": 5,
+                            },
+                        ],
+                        "description": "Optional Celery task ids already recorded in this session's source-library dispatch artifact.",
+                    },
+                },
                 "additionalProperties": False,
             },
+            result_budget=24000,
         ),
     )
+    return declarations
 
 
 def read_only_project_tool_sources(
@@ -438,9 +497,13 @@ def read_only_project_tool_sources(
     service: AgentSessionService,
     source_library_lister: SourceLibraryLister | None = None,
     structured_data_searcher: StructuredDataSearcher | None = None,
+    system_projection_provider: Callable[[], SystemProjection] | None = None,
 ) -> tuple[ProjectToolAuthorSource, ...]:
     context = ReadOnlyToolContext(
-        service, source_library_lister, structured_data_searcher or query_project_structured_data
+        service,
+        source_library_lister,
+        structured_data_searcher or query_project_structured_data,
+        system_projection_provider,
     )
     return project_tool_sources(
         _read_tool_declarations(context),
@@ -448,6 +511,104 @@ def read_only_project_tool_sources(
         permission_source="CoreToolSpec.permission and original read-only service boundaries",
         failure_family="original read-only observation status, dataset errors, and exceptions",
         readback_semantics="compact projection of already-stored data; no dispatch or writer",
+    )
+
+
+def system_projection_project_tool_source(
+    *,
+    service: AgentSessionService,
+    system_projection_provider: Callable[[], SystemProjection],
+) -> ProjectToolAuthorSource:
+    context = ReadOnlyToolContext(
+        service,
+        None,
+        query_project_structured_data,
+        system_projection_provider,
+    )
+    return project_tool_sources(
+        (
+            _read_tool_declaration(
+                context,
+                system_projection_inspect,
+                name=SYSTEM_INSPECT_TOOL_NAME,
+                description=SYSTEM_INSPECT_DESCRIPTION,
+                input_schema=system_inspect_input_schema(),
+            ),
+        ),
+        scope_source="read-only MRW system semantic projection; project_key is observation context only",
+        permission_source="CoreToolSpec.permission plus original read-only projection boundary",
+        failure_family="system_projection_input_invalid, system_ref_not_found, stale_projection, and item budget failures",
+        readback_semantics="one bounded immutable system projection page; referenced tools remain owned by their original registry handlers",
+    )[0]
+
+def _core_envelope_bytes(result: JSONObject, *, call_id: str, summary: str) -> int:
+    envelope = CoreToolResult(
+        call_id=call_id,
+        tool_name=SYSTEM_INSPECT_TOOL_NAME,
+        status="completed",
+        model_summary=summary,
+        ui_summary=summary,
+        structured_content={"result": result},
+    )
+    return len(json.dumps(asdict(envelope), ensure_ascii=False, separators=(",", ":")).encode("utf-8"))
+
+
+def _core_failure_bytes(result: CoreToolResult) -> int:
+    return len(json.dumps(asdict(result), ensure_ascii=False, separators=(",", ":")).encode("utf-8"))
+
+
+def system_projection_inspect(
+    tool_call: CoreToolCall, request: AgentCoreRequest, *, context: ReadOnlyToolContext
+) -> CoreToolResult:
+    provider = context.system_projection_provider
+    if provider is None:
+        return CoreToolResult(
+            call_id=tool_call.call_id,
+            tool_name=tool_call.tool_name,
+            status="failed",
+            model_summary="System projection provider is not configured.",
+            error={"code": "system_projection_unavailable", "message": "System projection provider is not configured."},
+        )
+    try:
+        result = inspect_system_projection_with_budget(
+            provider(),
+            tool_call.arguments,
+            request.project_key,
+            byte_budget=8192 if tool_call.arguments.get("limit", 8) == 8 else 16384,
+            measure=lambda value: _core_envelope_bytes(
+                value,
+                call_id=tool_call.call_id,
+                summary="read MRW system projection",
+            ),
+        )
+    except SystemProjectionError as exc:
+        failure = CoreToolResult(
+            call_id=tool_call.call_id,
+            tool_name=tool_call.tool_name,
+            status="failed",
+            model_summary=str(exc),
+            error={"code": exc.code, "message": str(exc)},
+        )
+        budget = 8192 if tool_call.arguments.get("limit", 8) == 8 else 16384
+        if exc.code == "system_projection_item_too_large" and _core_failure_bytes(failure) > budget:
+            return CoreToolResult(
+                call_id=tool_call.call_id,
+                tool_name=tool_call.tool_name,
+                status="failed",
+                model_summary="System projection caller identity exceeds the transport envelope budget.",
+                error={
+                    "code": "system_projection_transport_too_large",
+                    "message": "caller identity exceeds the transport envelope budget",
+                },
+            )
+        return failure
+    return CoreToolResult(
+        call_id=tool_call.call_id,
+        tool_name=tool_call.tool_name,
+        status="completed",
+        model_summary="read MRW system projection",
+        ui_summary="read MRW system projection",
+        structured_content={"result": result},
     )
 
 
@@ -465,6 +626,11 @@ def capability_catalog(
         }
         for item in list_interactive_agent_capabilities()
     ]
+    if context.system_projection_provider is not None:
+        projection = context.system_projection_provider()
+        for item in items:
+            identity = str(item.get("tool_name") or item.get("capability_id") or item.get("name") or "")
+            item["system_refs"] = list(projection.system_refs_for_tool(identity))
     return _read_result(
         tool_call,
         status=core_status("completed"),
@@ -502,6 +668,13 @@ def tool_search(tool_call: CoreToolCall, request: AgentCoreRequest, *, context: 
         ),
         limit=limit,
     )
+    if context.system_projection_provider is not None:
+        projection = context.system_projection_provider()
+        projected_items = _objects(result.get("items"))
+        for item in projected_items:
+            identity = str(item.get("tool_name") or item.get("capability_id") or item.get("name") or "")
+            item["system_refs"] = list(projection.system_refs_for_tool(identity))
+        result["items"] = projected_items
     return _read_result(
         tool_call,
         status=core_status("completed"),
@@ -656,10 +829,14 @@ def _search_structured_data(
 def project_structured_data_search(
     tool_call: CoreToolCall, request: AgentCoreRequest, *, context: ReadOnlyToolContext
 ) -> CoreToolResult:
+    mode = _as_text(tool_call.arguments.get("mode")) or "search"
+    query = _as_text(tool_call.arguments.get("query")) or request.message
+    if mode == "inventory":
+        query = None
     observation = _search_structured_data(
         context,
         project_key=request.project_key,
-        query=_as_text(tool_call.arguments.get("query")) or request.message,
+        query=query,
         limit=_limit(tool_call, 12),
         datasets=_datasets(tool_call.arguments.get("datasets")),
     )
@@ -1244,6 +1421,15 @@ def ingest_status_read(
 ) -> CoreToolResult:
     session_id = request.session_id
     limit = _limit(tool_call, 12)
+    explicit_task_ids = _source_library_task_ids(tool_call.arguments.get("task_id"))
+    if explicit_task_ids is None:
+        return _read_result(
+            tool_call,
+            status=core_status("failed"),
+            summary="task_id must be a task id string or array of task id strings",
+            result={"session_id": session_id},
+            error={"type": "invalid_task_id", "message": "task_id must be a string or array of strings"},
+        )
     try:
         from app.services.job_logger import list_jobs
 
@@ -1262,6 +1448,14 @@ def ingest_status_read(
     bundle = _session_bundle(context, session_id)
     if isinstance(bundle, Failure):
         return runtime_failure_result(tool_call, bundle)
+    dispatch_error: JSONObject | None = None
+    dispatched_tasks: list[JSONObject] = []
+    dispatched_tasks, dispatch_error = _read_source_library_dispatch_tasks(
+        context=context,
+        request=request,
+        bundle=bundle,
+        requested_task_ids=explicit_task_ids,
+    )
     recent_tasks = [
         task
         for task in _objects(bundle.get("tasks"))
@@ -1273,19 +1467,271 @@ def ingest_status_read(
     for job in jobs:
         status = _as_text(job.get("status")) or "unknown"
         status_counts[status] = status_counts.get(status, 0) + 1
-    status = "completed" if job_error is None else "failed"
+    status = "completed"
+    if (not explicit_task_ids and job_error is not None) or dispatch_error is not None:
+        status = "failed"
     return _read_result(
         tool_call,
         status=core_status(status),
-        summary=f"read ingest status: recent_jobs={len(jobs[:limit])}, session_tasks={len(recent_tasks)}",
+        summary=(
+            f"read ingest status: recent_jobs={len(jobs[:limit])}, session_tasks={len(recent_tasks)}, "
+            f"dispatched_tasks={len(dispatched_tasks)}"
+        ),
         result={
             "recent_jobs": jobs[: max(1, limit)],
             "job_status_counts": status_counts,
             "recent_session_tasks": recent_tasks,
+            "dispatched_tasks": dispatched_tasks,
+            "recent_jobs_error": job_error,
             "session_id": session_id,
         },
-        error=json_object(job_error) or None,
+        error=json_object(dispatch_error or (job_error if not explicit_task_ids else None)) or None,
     )
+
+
+def _source_library_task_ids(value: object) -> list[str] | None:
+    if value is None:
+        return []
+    values: list[object] | None = [value] if isinstance(value, str) else (
+        cast(list[object], value) if isinstance(value, list) else None
+    )
+    if values is None:
+        return None
+    task_ids: list[str] = []
+    if len(values) > _SOURCE_LIBRARY_TASK_READ_LIMIT:
+        return None
+    for item in values:
+        if not isinstance(item, str) or not item.strip():
+            return None
+        task_id = item.strip()
+        if task_id not in task_ids:
+            task_ids.append(task_id)
+    return task_ids
+
+
+def _authorized_source_library_dispatches(
+    bundle: JSONObject, *, session_id: str, project_key: str | None
+) -> dict[str, JSONObject]:
+    authorized: dict[str, JSONObject] = {}
+    artifacts = [
+        item
+        for item in _objects(bundle.get("artifacts"))
+        if _as_text(item.get("name")) == _SOURCE_LIBRARY_DISPATCH_ARTIFACT_NAME
+    ]
+    requested_project = _as_text(project_key)
+    for artifact in reversed(artifacts):
+        metadata = json_object(artifact.get("metadata"))
+        content = json_object(artifact.get("content_json"))
+        if (
+            _as_text(artifact.get("session_id")) != session_id
+            or _as_text(content.get("session_id")) != session_id
+            or _as_text(content.get("project_key")) != requested_project
+            or _as_text(metadata.get("project_key")) != requested_project
+            or _as_text(content.get("contract_version")) != _SOURCE_LIBRARY_DISPATCH_CONTRACT
+        ):
+            continue
+        for record_value in reversed(json_list(content.get("dispatches"))):
+            record = json_object(record_value)
+            if (
+                _as_text(record.get("session_id")) != session_id
+                or _as_text(record.get("project_key")) != requested_project
+            ):
+                continue
+            for item_value in reversed(json_list(record.get("items"))):
+                item = json_object(item_value)
+                task_id = _as_text(item.get("task_id"))
+                item_key = _as_text(item.get("item_key"))
+                if not task_id or not item_key or _as_text(item.get("skill_id")) != _SOURCE_LIBRARY_DISPATCH_SKILL:
+                    continue
+                authorized.setdefault(
+                    task_id,
+                    {"task_id": task_id, "item_key": item_key, "project_key": requested_project},
+                )
+    return authorized
+
+
+def _read_source_library_dispatch_tasks(
+    *,
+    context: ReadOnlyToolContext,
+    request: AgentCoreRequest,
+    bundle: JSONObject,
+    requested_task_ids: list[str],
+) -> tuple[list[JSONObject], JSONObject | None]:
+    project_key = _as_text(request.project_key)
+    if not project_key and requested_task_ids:
+        return [], {"type": "task_not_in_session", "message": "project_key is required to read a session dispatch"}
+    if not project_key:
+        return [], None
+    authorized = _authorized_source_library_dispatches(
+        bundle, session_id=request.session_id, project_key=project_key
+    )
+    for task_id in requested_task_ids:
+        if task_id not in authorized:
+            return [], {
+                "type": "task_not_in_session",
+                "message": f"task_id {task_id} is not an authorized dispatch item in this session/project",
+            }
+    task_ids = requested_task_ids or list(authorized)[:_SOURCE_LIBRARY_TASK_READ_LIMIT]
+    if not task_ids:
+        return [], None
+    from app.celery_app import celery_app
+
+    try:
+        return [
+            _source_library_task_readback(celery_app.AsyncResult, authorized[task_id])
+            for task_id in task_ids
+        ], None
+    except Exception as exc:
+        return [], {"type": exc.__class__.__name__, "message": str(exc)}
+
+
+def _source_library_task_readback(
+    read_result: Callable[[str], _AsyncResultView], dispatch: JSONObject
+) -> JSONObject:
+    from app.successor_runtime.runtime.process_observation import normalize_observed_status
+
+    result = read_result(_as_text(dispatch.get("task_id")))
+    raw_state = _as_text(getattr(result, "status", None)) or "UNKNOWN"
+    ready = bool(result.ready())
+    raw_state_lower = raw_state.lower()
+    state_observed = ready or raw_state_lower not in {"pending", "unknown"}
+    status = "unknown"
+    if state_observed:
+        status = normalize_observed_status(raw_state).lower()
+    successful = bool(result.successful()) if ready else None
+    readback: JSONObject = {
+        **dispatch,
+        "state": raw_state,
+        "status": status,
+        "state_observed": state_observed,
+        "ready": ready,
+        "successful": successful,
+    }
+    if not ready:
+        return readback
+    if successful:
+        payload = json_object(result.result)
+        terminal = json_object(payload.get("terminal_output"))
+        if not terminal:
+            from app.services.source_library.terminal_output import to_terminal_output_dto
+
+            raw_payload: dict[str, object] = dict(payload)
+            terminal = json_object(to_terminal_output_dto(raw_payload))
+        if not _source_library_result_identity_matches(payload, terminal, dispatch):
+            raise ValueError("source-library task result project/item does not match its dispatch record")
+        readback["terminal_output"] = _bounded_source_library_terminal_output(
+            terminal, _source_library_original_result(payload)
+        )
+    else:
+        failure = result.result
+        readback["error"] = (
+            {"type": failure.__class__.__name__, "message": str(failure)}
+            if isinstance(failure, BaseException)
+            else {"type": "task_failed", "message": str(failure or "task failed")}
+        )
+    return readback
+
+
+def _source_library_original_result(payload: JSONObject) -> JSONObject:
+    for value in (
+        payload.get("result"),
+        json_object(payload.get("legacy_result")).get("result"),
+        json_object(json_object(payload.get("terminal_output")).get("raw_snapshot")).get("result"),
+    ):
+        candidate = json_object(value)
+        if candidate and ("candidate_pipeline" in candidate or "query_contract" in candidate):
+            return candidate
+    return {}
+
+
+def _source_library_result_identity_matches(
+    payload: JSONObject, terminal: JSONObject, dispatch: JSONObject
+) -> bool:
+    expected_project = _as_text(dispatch.get("project_key"))
+    expected_item = _as_text(dispatch.get("item_key"))
+    request = json_object(terminal.get("request"))
+    terminal_item = json_object(terminal.get("item"))
+    original_result = _source_library_original_result(payload)
+    execution_request = json_object(original_result.get("execution_request"))
+    if not execution_request:
+        execution_request = json_object(
+            json_object(json_object(payload.get("legacy_result")).get("result")).get("execution_request")
+        )
+    observed_project = [
+        _as_text(payload.get("project_key")),
+        _as_text(request.get("project_key")),
+        _as_text(execution_request.get("project_key")),
+    ]
+    observed_item = [
+        _as_text(payload.get("item_key")),
+        _as_text(terminal_item.get("item_key")),
+        _as_text(execution_request.get("item_key")),
+    ]
+    project_values = [value for value in observed_project if value]
+    item_values = [value for value in observed_item if value]
+    return (
+        bool(project_values)
+        and all(value == expected_project for value in project_values)
+        and bool(item_values)
+        and all(value == expected_item for value in item_values)
+    )
+
+
+def _bounded_source_library_terminal_output(terminal: JSONObject, original_result: JSONObject) -> JSONObject:
+    results = json_object(terminal.get("results"))
+    records = [json_object(item) for item in json_list(results.get("records"))]
+    pipeline = json_object(
+        original_result.get("candidate_pipeline")
+        or json_object(terminal.get("raw_snapshot")).get("candidate_pipeline")
+        or terminal.get("candidate_pipeline")
+    )
+    query_contract = json_object(pipeline.get("query_contract"))
+    if not query_contract:
+        query_contract = json_object(original_result.get("query_contract"))
+    bounded_pipeline: JSONObject = {
+        key: pipeline[key]
+        for key in ("detail_fetch", "search_route")
+        if key in pipeline
+    }
+    bounded_pipeline["query_contract"] = {
+        "statuses": query_contract.get("statuses"),
+        "reason_codes": query_contract.get("reason_codes"),
+        "discovery_budget": json_object(query_contract.get("discovery_budget")),
+        "exploration_requests": [
+            json_object(item)
+            for item in json_list(query_contract.get("exploration_requests"))[:_SOURCE_LIBRARY_TASK_READ_LIMIT]
+        ],
+        "exploration_attempts": [
+            json_object(item)
+            for item in json_list(query_contract.get("exploration_attempts"))[:_SOURCE_LIBRARY_TASK_READ_LIMIT]
+        ],
+    }
+    return {
+        "status": terminal.get("status"),
+        "source_mode": terminal.get("source_mode"),
+        "item": json_object(terminal.get("item")),
+        "request": json_object(terminal.get("request")),
+        "results": {
+            "records": [
+                _bounded_source_library_record(item)
+                for item in records[:_SOURCE_LIBRARY_TASK_READ_LIMIT]
+            ],
+            "record_count": len(records),
+            "stats": json_object(results.get("stats")),
+        },
+        "errors": [json_object(item) for item in json_list(terminal.get("errors"))[:_SOURCE_LIBRARY_TASK_READ_LIMIT]],
+        "candidate_pipeline": bounded_pipeline,
+    }
+
+
+def _bounded_source_library_record(record: JSONObject) -> JSONObject:
+    bounded = dict(record)
+    for field in ("content_text", "summary"):
+        value = _as_text(record.get(field))
+        if value and len(value) > _SOURCE_LIBRARY_RECORD_BODY_BUDGET:
+            bounded[field] = value[:_SOURCE_LIBRARY_RECORD_BODY_BUDGET]
+            bounded[f"{field}_truncated"] = True
+    return bounded
 
 
 def _list_writing_documents(*, project_key: str | None, limit: int) -> JSONObject:
@@ -1380,6 +1826,25 @@ def _compact_result_for_core(tool_name: str, result: JSONObject) -> JSONObject:
     """Keep tool results useful for the model/UI without replaying legacy envelopes."""
     name = str(tool_name or "").strip()
     payload = result
+    if name == "agent_runtime.tool.search":
+        raw_items = _objects(payload.get("items"))
+        compact_items = [
+            json_object(compact_json_value(item, max_items=20, max_depth=4))
+            for item in raw_items[:12]
+        ]
+        if len(raw_items) > 12:
+            compact_items.append({"_truncated": True, "_omitted_count": len(raw_items) - 12})
+        for raw_item, compact_item in zip(raw_items[:12], compact_items):
+            compact_item["system_refs"] = list(
+                value for value in json_list(raw_item.get("system_refs"))
+            )
+        return {
+            "query": payload.get("query"),
+            "items": compact_items,
+            "total": payload.get("total"),
+            "source_total": payload.get("source_total"),
+            "project_key": payload.get("project_key"),
+        }
     if name == "project.summary.read":
         session = json_object(payload.get("session"))
         return {
@@ -1492,6 +1957,7 @@ def _compact_result_for_core(tool_name: str, result: JSONObject) -> JSONObject:
             "job_status_counts": json_object(payload.get("job_status_counts")),
             "recent_jobs": [_compact_job(json_object(item)) for item in json_list(payload.get("recent_jobs"))[:8]],
             "recent_session_tasks": compact_json_value(payload.get("recent_session_tasks"), max_items=5, max_depth=3),
+            "dispatched_tasks": payload.get("dispatched_tasks"),
         }
     return json_object(compact_json_value(payload, max_items=20, max_depth=4))
 

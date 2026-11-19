@@ -39,23 +39,12 @@ from mrw_functorial_kit.core.provider_port_failures import (
     resource_pool_official_access_failures,
     source_library_crawler_provider_resolution_failures,
 )
-from mrw_functorial_kit.core.scheduled_automation_semantics import (
-    identity_warning_severities,
-    matrix_valid_statuses,
-    schedule_source_keys,
-    schedule_source_values,
-    scheduled_automation_blocker_classifications,
-    scheduled_automation_classifications,
-    scheduled_automation_failures,
-    scheduled_automation_report_codec,
-    scheduled_automation_statuses,
-)
 from mrw_functorial_kit.core.shared_family_generator_semantics import (
     shared_family_generator_failures,
     shared_family_p3_fragment_codec,
     shared_family_p4_fragment_codec,
 )
-from mrw_functorial_kit.core.w04_service_semantics import (
+from mrw_functorial_kit.core.service_failure_semantics import (
     clue_chain_failures,
     material_query_failures,
     graph_backfill_failures,
@@ -64,10 +53,10 @@ from mrw_functorial_kit.core.w04_service_semantics import (
     workflow_graph_failures,
     writing_failures,
 )
-from mrw_functorial_kit.core.w05_capability_semantics import (
+from mrw_functorial_kit.core.capability_contract_failure_semantics import (
     successor_capability_contract_failures,
 )
-from mrw_functorial_kit.core.w06_semantics import (
+from mrw_functorial_kit.core.source_and_capability_failure_semantics import (
     c1_capability_failures,
     capability_primitive_contract_failures,
     first_specimen_capability_failures,
@@ -78,7 +67,7 @@ from mrw_functorial_kit.core.w06_semantics import (
     source_runtime_binding_failures,
     source_single_source_guard_failures,
 )
-from mrw_functorial_kit.core.w07_semantics import (
+from mrw_functorial_kit.core.workflow_research_failure_semantics import (
     language_failures,
     ops_surface_failures,
     research_failures,
@@ -111,8 +100,6 @@ __all__ = [
     "ingest_policy_failures",
     "ingest_reddit_failures",
     "indexer_policy_failures",
-    "identity_warning_severities",
-    "matrix_valid_statuses",
     "job_history_failures",
     "keyword_memory_contract_failures",
     "language_failures",
@@ -129,13 +116,6 @@ __all__ = [
     "source_library_resolver_failures",
     "research_failures",
     "resource_pool_contract_failures",
-    "schedule_source_keys",
-    "schedule_source_values",
-    "scheduled_automation_blocker_classifications",
-    "scheduled_automation_classifications",
-    "scheduled_automation_failures",
-    "scheduled_automation_report_codec",
-    "scheduled_automation_statuses",
     "resource_pool_http_fetch_failures",
     "resource_pool_official_access_failures",
     "runtime_failures",

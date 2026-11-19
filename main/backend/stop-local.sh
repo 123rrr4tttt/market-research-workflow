@@ -106,7 +106,7 @@ stop_launchd_backend() {
             fi
             sleep 0.1
         done
-        echo "✅ 本机后端 LaunchAgent 已停止（$BACKEND_LAUNCHD_LABEL）"
+        echo "✅ 本机后端 LaunchAgent 已停止（${BACKEND_LAUNCHD_LABEL}）"
         return 0
     fi
     return 1
@@ -117,7 +117,7 @@ stop_launchd_service() {
     local description="$2"
     if [ "$OSTYPE" = darwin ] && launchctl print "$GUI_DOMAIN/$label" >/dev/null 2>&1; then
         launchctl bootout "$GUI_DOMAIN/$label" >/dev/null 2>&1 || true
-        echo "✅ 本机${description} LaunchAgent 已停止（$label）"
+        echo "✅ 本机${description} LaunchAgent 已停止（${label}）"
         return 0
     fi
     return 1
@@ -163,7 +163,7 @@ if stop_launchd_service "$FRONTEND_LAUNCHD_LABEL" "modern 前端"; then
 elif [ -f "$FRONTEND_PID_FILE" ]; then
     FRONTEND_PID="$(cat "$FRONTEND_PID_FILE" 2>/dev/null || true)"
     if [ -n "${FRONTEND_PID:-}" ] && kill -0 "$FRONTEND_PID" >/dev/null 2>&1; then
-        echo "停止 modern 前端（PID $FRONTEND_PID）..."
+        echo "停止 modern 前端（PID ${FRONTEND_PID}）..."
         kill "$FRONTEND_PID" 2>/dev/null || true
         sleep 1
     fi
@@ -171,7 +171,7 @@ elif [ -f "$FRONTEND_PID_FILE" ]; then
 fi
 
 if lsof -nP -iTCP:"$FRONTEND_PORT" -sTCP:LISTEN -t >/dev/null 2>&1; then
-    echo "停止 modern 前端（端口$FRONTEND_PORT）..."
+    echo "停止 modern 前端（端口${FRONTEND_PORT}）..."
     if stop_owned_port_listener "$FRONTEND_PORT" "$FRONTEND_DIR" "vite"; then
         echo "✅ modern 前端已停止"
     else
@@ -188,7 +188,7 @@ if [ "$WITH_LOCAL_WORKER" = "1" ]; then
     elif [ -f "$WORKER_PID_FILE" ]; then
         WORKER_PID="$(cat "$WORKER_PID_FILE" 2>/dev/null || true)"
         if [ -n "${WORKER_PID:-}" ] && kill -0 "$WORKER_PID" >/dev/null 2>&1; then
-            echo "停止本机 Celery worker（PID $WORKER_PID）..."
+            echo "停止本机 Celery worker（PID ${WORKER_PID}）..."
             kill "$WORKER_PID" 2>/dev/null || true
             sleep 1
         fi

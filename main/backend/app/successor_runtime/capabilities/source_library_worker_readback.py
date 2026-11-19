@@ -13,7 +13,7 @@ from typing import Any, Literal, NoReturn, NotRequired, TypedDict
 
 from functorial_kit import Failure
 
-from mrw_functorial_kit.core.w06_semantics import (
+from mrw_functorial_kit.core.source_and_capability_failure_semantics import (
     projection_evidence_surface_failures,
 )
 from app.successor_runtime.research.codec import runtime_value
@@ -35,7 +35,7 @@ DECISION_OWNER = (
 )
 GuardDecision = Literal["admitted", "rejected", "missing"]
 _CREDENTIAL_MARKERS = ("secret", "token", "password", "api_key", "apikey")
-_FAILURE_WITNESS = "test:test_w06_projection_total_core_failure_lifts"
+_FAILURE_WITNESS = "test:test_worker_readback_rejects_unknown_plan_mode"
 
 
 class SourceLibraryWorkerObservationContent(TypedDict):
@@ -75,9 +75,9 @@ def _raise_contract_failure(
         failure.family != projection_evidence_surface_failures.name
         or context.get("public_exception") != exception_type.__name__
     ):
-        # kit:boundary owner=source_library_worker_readback.py class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w06_projection_total_core_failure_lifts
+        # kit:boundary owner=source_library_worker_readback.py class=PROGRAMMER_DEFECT failure_family=none witness=test:test_worker_readback_rejects_unknown_plan_mode
         raise TypeError("source-library worker readback failure lift context is incomplete")
-    # kit:boundary owner=source_library_worker_readback.py class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=projection.evidence-surface.failure witness=test:test_w06_projection_total_core_failure_lifts
+    # kit:boundary owner=source_library_worker_readback.py class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=projection.evidence-surface.failure witness=test:test_worker_readback_rejects_unknown_plan_mode
     raise exception_type(str(context.get("public_message", failure.message)))
 
 

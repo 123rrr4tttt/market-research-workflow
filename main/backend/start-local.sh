@@ -39,8 +39,6 @@ else
 fi
 DB_HOST="${DB_HOST:-localhost}"
 DB_PORT="${DB_PORT:-5432}"
-REDIS_HOST="${REDIS_HOST:-localhost}"
-REDIS_PORT="${REDIS_PORT:-6379}"
 VENV_DIR=".venv311"
 REQ_FILE="requirements.txt"
 OPTIONAL_REQ_FILE="requirements-optional-enhancements.txt"
@@ -89,12 +87,13 @@ Options:
   --prepare-dependencies
                         仅在当前源码根准备 Python/frontend/WebUI 依赖后退出
   --no-provision        仅使用现有环境与数据（默认）
-  --no-auto-install     不自动安装缺失依赖（Homebrew/Node/PostgreSQL/Redis/pgvector）
+  --no-auto-install     不自动安装缺失依赖（Homebrew/PostgreSQL/pgvector）
   --with-lancedb        安装并启用 LanceDB 本地索引增强（可选依赖）
   -h, --help            显示帮助
 
-默认仅使用现有环境与数据；使用 --provision 时才安装 Python/Node/PostgreSQL 依赖、
-复制 .env、执行数据库迁移并导入演示数据。
+默认仅使用现有环境与数据；使用 --provision 时才安装项目依赖、
+复制 .env、执行数据库迁移并导入演示数据。前端所需的 Node.js 和 pnpm 由使用者准备；
+本机 Redis 由使用者按需启动，Redis 不可用时不启动本机任务 worker。
 
 依赖准备不会读取或创建 .env，不启动服务、Docker 或 Homebrew，也不迁移或导入数据。
 若需复用另一份相同源码的运行依赖，可设置 MRW_DEPENDENCY_SOURCE_ROOT 为其绝对根目录；
@@ -184,64 +183,58 @@ fi
 
 ensure_modern_frontend_running() {
     if [ ! -d "$FRONTEND_DIR" ]; then
-        if [ "$PROVISION" != "1" ]; then
-            echo "❌ 未找到 modern 前端目录：$FRONTEND_DIR"
-            return 1
-        fi
-        echo "⚠️  未找到 modern 前端目录，跳过前端启动：$FRONTEND_DIR"
-        return
+        echo "❌ 未找到 modern 前端目录：$FRONTEND_DIR"
+        return 1
     fi
 
     if [[ -n "$(lsof -nP -iTCP:"$FRONTEND_PORT" -sTCP:LISTEN -t 2>/dev/null || true)" ]]; then
         if port_has_only_owned_listener "$FRONTEND_PORT" "$FRONTEND_DIR" "vite"; then
-            echo "✅ modern 前端已运行（端口$FRONTEND_PORT）"
+            echo "✅ modern 前端已运行（端口${FRONTEND_PORT}）"
             return 0
         fi
         echo "❌ 前端端口$FRONTEND_PORT 被非本仓库进程占用"
         return 1
     fi
 
-    if ! command -v npm >/dev/null 2>&1; then
-        echo "⚠️  未检测到 npm，跳过 modern 前端启动"
-        return
+    if ! command -v pnpm >/dev/null 2>&1; then
+        echo "❌ 未检测到 pnpm；请先准备 Node.js 和 pnpm"
+        return 1
     fi
 
     echo ""
-    echo "🎨 启动 modern 前端（端口$FRONTEND_PORT）..."
+    echo "🎨 启动 modern 前端（端口${FRONTEND_PORT}）..."
     cd "$FRONTEND_DIR"
 
-    if [ "$PROVISION" != "1" ] && [ ! -d "node_modules" ]; then
-        echo "❌ modern 前端依赖缺失；使用 --provision 安装"
-        return 1
+    if [ ! -x "node_modules/.bin/vite" ]; then
+        if [ "$PROVISION" != "1" ]; then
+            echo "❌ modern 前端依赖缺失；先运行 scripts/local-deploy.sh prepare"
+            return 1
+        fi
+        echo "📦 按 pnpm-lock.yaml 准备 frontend-modern 依赖..."
+        pnpm install --frozen-lockfile || return 1
     fi
     if [ "$FRONTEND_MODE" = "preview" ] && [ ! -f "dist/index.html" ]; then
         echo "❌ modern 前端静态产物缺失；先完成构建或显式 FRONTEND_MODE=dev"
         return 1
     fi
-    if [ ! -d "node_modules" ]; then
-        echo "📦 安装 frontend-modern 依赖..."
-        npm install
-    fi
 
-    VITE_API_PROXY_TARGET="http://localhost:8000" nohup npm run "$FRONTEND_MODE" -- --host "$FRONTEND_HOST" --port "$FRONTEND_PORT" --strictPort >"$FRONTEND_LOG_FILE" 2>&1 &
+    VITE_API_PROXY_TARGET="http://localhost:8000" nohup pnpm run "$FRONTEND_MODE" --host "$FRONTEND_HOST" --port "$FRONTEND_PORT" --strictPort >"$FRONTEND_LOG_FILE" 2>&1 &
     FRONTEND_PID=$!
     echo "$FRONTEND_PID" >"$FRONTEND_PID_FILE"
 
     for _ in $(seq 1 60); do
-        if lsof -Pi :"$FRONTEND_PORT" -sTCP:LISTEN -t >/dev/null 2>&1; then
+        if lsof -Pi :"$FRONTEND_PORT" -sTCP:LISTEN -t >/dev/null 2>&1 || ! kill -0 "$FRONTEND_PID" 2>/dev/null; then
             break
         fi
         sleep 0.5
     done
 
-    if lsof -Pi :"$FRONTEND_PORT" -sTCP:LISTEN -t >/dev/null 2>&1; then
+    if lsof -Pi :"$FRONTEND_PORT" -sTCP:LISTEN -t >/dev/null 2>&1 && port_has_only_owned_listener "$FRONTEND_PORT" "$FRONTEND_DIR" "vite"; then
         echo "✅ modern 前端已启动：http://$FRONTEND_HOST:$FRONTEND_PORT"
         echo "📝 前端日志：$FRONTEND_LOG_FILE"
-    elif grep -q "VITE v" "$FRONTEND_LOG_FILE" 2>/dev/null; then
-        echo "✅ modern 前端已启动（日志就绪）：http://$FRONTEND_HOST:$FRONTEND_PORT"
-        echo "📝 前端日志：$FRONTEND_LOG_FILE"
     else
-        echo "⚠️  modern 前端启动超时，请检查日志：$FRONTEND_LOG_FILE"
+        echo "❌ modern 前端未就绪，请检查日志：$FRONTEND_LOG_FILE"
+        return 1
     fi
 
     cd "$SCRIPT_DIR"
@@ -272,7 +265,7 @@ ensure_homebrew_available() {
     fi
 
     if [[ "$OSTYPE" != darwin* ]] && [[ "$OSTYPE" != linux* ]]; then
-        echo "⚠️  当前系统不支持自动安装 Homebrew（OSTYPE=$OSTYPE）"
+        echo "⚠️  当前系统不支持自动安装 Homebrew（OSTYPE=${OSTYPE}）"
         return 1
     fi
 
@@ -350,61 +343,17 @@ try_start_brew_postgres() {
     return 1
 }
 
-try_start_brew_redis() {
-    if ! ensure_homebrew_available; then
-        return 1
-    fi
-
-    local svcs=()
-    while IFS= read -r line; do
-        [ -n "$line" ] && svcs+=("$line")
-    done < <(brew services list 2>/dev/null | awk '/^redis(@[0-9]+)?[[:space:]]/ {print $1}' | sort -rV)
-
-    if [ ${#svcs[@]} -eq 0 ]; then
-        while IFS= read -r formula; do
-            [ -n "$formula" ] && svcs+=("$formula")
-        done < <(brew list --formula 2>/dev/null | awk '/^redis(@[0-9]+)?$/ {print $1}' | sort -rV)
-    fi
-
-    # Auto-install redis when Homebrew exists but redis formula/service is missing.
-    if [ ${#svcs[@]} -eq 0 ]; then
-        echo "📦 未检测到 Redis，尝试使用 Homebrew 自动安装 redis..."
-        if brew install redis >/dev/null 2>&1; then
-            while IFS= read -r formula; do
-                [ -n "$formula" ] && svcs+=("$formula")
-            done < <(brew list --formula 2>/dev/null | awk '/^redis(@[0-9]+)?$/ {print $1}' | sort -rV)
-        fi
-    fi
-
-    if [ ${#svcs[@]} -eq 0 ]; then
-        return 1
-    fi
-
-    local svc
-    for svc in "${svcs[@]}"; do
-        echo "🔧 尝试启动本机 Redis 服务：$svc"
-        brew services start "$svc" >/dev/null 2>&1 || brew services restart "$svc" >/dev/null 2>&1 || true
-        for _ in $(seq 1 8); do
-            if is_tcp_open "$REDIS_HOST" "$REDIS_PORT"; then
-                return 0
-            fi
-            sleep 1
-        done
-    done
-    return 1
-}
-
 ensure_local_postgres_running() {
     if is_tcp_open "$DB_HOST" "$DB_PORT"; then
-        echo "✅ PostgreSQL 已运行（$DB_HOST:$DB_PORT）"
+        echo "✅ PostgreSQL 已运行（$DB_HOST:${DB_PORT}）"
         return 0
     fi
 
-    echo "⚠️  PostgreSQL 未监听（$DB_HOST:$DB_PORT），尝试自动启动..."
+    echo "⚠️  PostgreSQL 未监听（$DB_HOST:${DB_PORT}），尝试自动启动..."
     if try_start_brew_postgres; then
         for _ in $(seq 1 30); do
             if is_tcp_open "$DB_HOST" "$DB_PORT"; then
-                echo "✅ PostgreSQL 已自动启动（$DB_HOST:$DB_PORT）"
+                echo "✅ PostgreSQL 已自动启动（$DB_HOST:${DB_PORT}）"
                 return 0
             fi
             sleep 1
@@ -455,33 +404,6 @@ stop_conflicting_docker_deps_for_local_mode() {
     echo "✅ 已停止 Docker db/es/redis，切换为纯本机依赖模式"
 }
 
-ensure_local_redis_running() {
-    if is_tcp_open "$REDIS_HOST" "$REDIS_PORT"; then
-        echo "✅ Redis 已运行（$REDIS_HOST:$REDIS_PORT）"
-        return 0
-    fi
-
-    echo "⚠️  Redis 未监听（$REDIS_HOST:$REDIS_PORT），尝试自动启动..."
-    if try_start_brew_redis; then
-        for _ in $(seq 1 30); do
-            if is_tcp_open "$REDIS_HOST" "$REDIS_PORT"; then
-                echo "✅ Redis 已自动启动（$REDIS_HOST:$REDIS_PORT）"
-                return 0
-            fi
-            sleep 1
-        done
-    fi
-
-    echo "❌ Redis 启动失败或未安装。"
-    echo "请先确保本机 Redis 可用：$REDIS_HOST:$REDIS_PORT"
-    echo "可选：brew services restart redis"
-    if command -v brew >/dev/null 2>&1; then
-        echo "当前 brew services 状态："
-        brew services list 2>/dev/null | awk '/^redis(@[0-9]+)?[[:space:]]/ {print "  - "$0}'
-    fi
-    return 1
-}
-
 ensure_local_elasticsearch_running() {
     local es_url="${ES_URL:-http://localhost:9200}"
     local es_hostport="${es_url#*://}"
@@ -500,7 +422,7 @@ ensure_local_elasticsearch_running() {
         localhost|127.0.0.1)
             ;;
         *)
-            echo "ℹ️  ES_URL 指向远程地址（$es_url），跳过本机 Elasticsearch 启动"
+            echo "ℹ️  ES_URL 指向远程地址（${es_url}），跳过本机 Elasticsearch 启动"
             return 0
             ;;
     esac
@@ -557,7 +479,7 @@ ensure_backend_venv() {
     }
 
     if [ ! -d "$VENV_DIR" ]; then
-        echo "📦 创建后端虚拟环境：$VENV_DIR（$pycmd）"
+        echo "📦 创建后端虚拟环境：${VENV_DIR}（${pycmd}）"
         "$pycmd" -m venv "$VENV_DIR"
     fi
 
@@ -565,7 +487,7 @@ ensure_backend_venv() {
     source "${VENV_DIR}/bin/activate"
 
     if [ ! -f "$REQ_FILE" ]; then
-        echo "⚠️  未找到 $REQ_FILE，跳过依赖安装"
+        echo "⚠️  未找到 ${REQ_FILE}，跳过依赖安装"
         return 0
     fi
 
@@ -577,7 +499,7 @@ ensure_backend_venv() {
     fi
 
     if [ "$cur_hash" != "$old_hash" ]; then
-        echo "📦 安装后端 Python 依赖（$REQ_FILE）..."
+        echo "📦 安装后端 Python 依赖（${REQ_FILE}）..."
         if ! python -m pip install -r "$REQ_FILE"; then
             echo "❌ 后端依赖安装失败。"
             echo "请检查网络或私有源配置后重试：pip install -r $REQ_FILE"
@@ -590,7 +512,7 @@ ensure_backend_venv() {
 
     if [ "$WITH_LANCEDB" -eq 1 ]; then
         if [ ! -f "$OPTIONAL_REQ_FILE" ]; then
-            echo "⚠️  未找到 $OPTIONAL_REQ_FILE，跳过 LanceDB 可选依赖安装"
+            echo "⚠️  未找到 ${OPTIONAL_REQ_FILE}，跳过 LanceDB 可选依赖安装"
             return 0
         fi
         local optional_hash
@@ -604,7 +526,7 @@ import lancedb
 PY
             echo "✅ LanceDB 本地索引增强已安装"
         else
-            echo "📦 安装 LanceDB 本地索引增强（$OPTIONAL_REQ_FILE）..."
+            echo "📦 安装 LanceDB 本地索引增强（${OPTIONAL_REQ_FILE}）..."
             if ! python -m pip install -r "$OPTIONAL_REQ_FILE"; then
                 echo "❌ LanceDB 可选依赖安装失败。"
                 return 1
@@ -626,22 +548,22 @@ reuse_dependency_tree() {
     local target="$3"
     local source_real target_real
     source_real="$(canonical_existing_dir "$source")" || {
-        echo "❌ 复用依赖缺失（$label）：$source"
+        echo "❌ 复用依赖缺失（${label}）：$source"
         return 1
     }
     if [ -e "$target" ] || [ -L "$target" ]; then
         target_real="$(canonical_existing_dir "$target")" || {
-            echo "❌ 现有依赖路径不可用（$label）：$target"
+            echo "❌ 现有依赖路径不可用（${label}）：$target"
             return 1
         }
         if [ "$target_real" != "$source_real" ]; then
-            echo "❌ 当前根已有不同依赖目录（$label）：$target_real"
+            echo "❌ 当前根已有不同依赖目录（${label}）：$target_real"
             return 1
         fi
     else
         ln -s "$source_real" "$target" || return 1
     fi
-    echo "✅ 复用 $label：$source_real"
+    echo "✅ 复用 ${label}：$source_real"
 }
 
 prepare_reused_dependencies() {
@@ -666,8 +588,8 @@ prepare_reused_dependencies() {
         echo "❌ 依赖来源 requirements.txt 与当前候选不一致"
         return 1
     }
-    cmp -s "$FRONTEND_DIR/package-lock.json" "$source_frontend/package-lock.json" || {
-        echo "❌ 依赖来源 frontend package-lock.json 与当前候选不一致"
+    cmp -s "$FRONTEND_DIR/pnpm-lock.yaml" "$source_frontend/pnpm-lock.yaml" || {
+        echo "❌ 依赖来源 frontend pnpm-lock.yaml 与当前候选不一致"
         return 1
     }
     cmp -s "$WEBUI_DIR/pnpm-lock.yaml" "$source_webui/pnpm-lock.yaml" || {
@@ -742,19 +664,15 @@ prepare_dependencies_only() {
             echo "❌ fresh dependency prepare requires an explicit python3.11 interpreter"
             return 1
         fi
-        ensure_backend_venv || return 1
-        command -v npm >/dev/null 2>&1 || {
-            echo "❌ npm 不可用；依赖准备不会自动安装 Node/Homebrew"
-            return 1
-        }
         command -v pnpm >/dev/null 2>&1 || {
-            echo "❌ pnpm 不可用；依赖准备不会自动安装 pnpm/Homebrew"
+            echo "❌ pnpm 不可用；依赖准备不会自动安装 Node.js 或 pnpm"
             return 1
         }
-        echo "📦 按 package-lock.json 准备 frontend-modern 依赖..."
-        (cd "$FRONTEND_DIR" && npm ci)
+        ensure_backend_venv || return 1
+        echo "📦 按 pnpm-lock.yaml 准备 frontend-modern 依赖..."
+        (cd "$FRONTEND_DIR" && pnpm install --frozen-lockfile) || return 1
         echo "📦 按 pnpm-lock.yaml 准备 Codex WebUI 依赖..."
-        (cd "$WEBUI_DIR" && pnpm install --frozen-lockfile)
+        (cd "$WEBUI_DIR" && pnpm install --frozen-lockfile) || return 1
     fi
 
     [ -x "$VENV_DIR/bin/python" ] && [ -x "$VENV_DIR/bin/uvicorn" ] || {
@@ -906,38 +824,38 @@ ensure_pgvector_available() {
     return 0
 }
 
-ensure_node_available() {
-    if command -v npm >/dev/null 2>&1; then
-        return 0
-    fi
-    echo "⚠️  未检测到 npm，尝试通过 Homebrew 安装 Node.js..."
-    if ! ensure_homebrew_available; then
-        echo "⚠️  未找到 Homebrew，跳过 modern 前端启动"
-        return 1
-    fi
-    if brew install node 2>/dev/null; then
-        echo "✅ Node.js 已安装"
-        eval "$(brew shellenv 2>/dev/null)" || true
-        return 0
-    fi
-    return 1
-}
-
 ensure_local_worker_running() {
     if [ "$WITH_LOCAL_WORKER" != "1" ]; then
         return 0
     fi
 
     if [ ! -x "${VENV_DIR}/bin/celery" ]; then
-        echo "❌ 未找到 celery 命令，请确认依赖安装成功"
-        return 1
+        echo "⚠️  未找到 celery 命令；跳过本机 Celery worker"
+        return 0
+    fi
+
+    # Check the configured Redis connection, not a separate host/port or a PID.
+    # Never print connection arguments or raw connection errors.
+    if ! python - <<'PYTHON' >/dev/null 2>&1
+import os
+
+from redis import Redis
+from app.settings.config import settings
+
+url = os.getenv("CELERY_BROKER_READ_URL") or os.getenv("CELERY_BROKER_URL") or settings.redis_url
+with Redis.from_url(url, socket_connect_timeout=1, socket_timeout=1) as client:
+    raise SystemExit(0 if client.ping() else 1)
+PYTHON
+    then
+        echo "⚠️  Redis 连接未通过；跳过本机 Celery worker。请检查任务队列配置和 Redis 服务。"
+        return 0
     fi
 
     if [ -f "$WORKER_PID_FILE" ]; then
         local worker_pid
         worker_pid="$(cat "$WORKER_PID_FILE" 2>/dev/null || true)"
         if [ -n "${worker_pid:-}" ] && kill -0 "$worker_pid" >/dev/null 2>&1; then
-            echo "✅ 本机 Celery worker 已运行（PID $worker_pid）"
+            echo "ℹ️  本机 Celery worker 进程已存在（PID ${worker_pid}）；未验证任务消费"
             return 0
         fi
         rm -f "$WORKER_PID_FILE"
@@ -960,14 +878,19 @@ ensure_local_worker_running() {
         --queues="${CELERY_QUEUES}" \
         >"$WORKER_LOG_FILE" 2>&1 &
     local worker_pid=$!
-    echo "$worker_pid" >"$WORKER_PID_FILE"
+    if ! echo "$worker_pid" >"$WORKER_PID_FILE"; then
+        echo "⚠️  无法记录本轮 worker PID；取消本次 worker 启动"
+        kill -TERM "$worker_pid" 2>/dev/null || true
+        return 1
+    fi
     sleep 1
     if kill -0 "$worker_pid" >/dev/null 2>&1; then
-        echo "✅ 本机 Celery worker 已启动（PID $worker_pid）"
+        echo "ℹ️  本机 Celery worker 进程已启动（PID ${worker_pid}）；未验证任务消费"
         echo "📝 Worker 日志：$WORKER_LOG_FILE"
         return 0
     fi
-    echo "❌ 本机 Celery worker 启动失败，请检查日志：$WORKER_LOG_FILE"
+    rm -f "$WORKER_PID_FILE"
+    echo "⚠️  本机 Celery worker 启动失败，请检查日志：$WORKER_LOG_FILE"
     return 1
 }
 
@@ -1035,15 +958,10 @@ port_has_only_owned_listener() {
 
 ensure_runtime_dependencies_ready() {
     if ! is_tcp_open "$DB_HOST" "$DB_PORT"; then
-        echo "❌ PostgreSQL 未监听（$DB_HOST:$DB_PORT）；现有运行模式不自动启动"
+        echo "❌ PostgreSQL 未监听（$DB_HOST:${DB_PORT}）；现有运行模式不自动启动"
         return 1
     fi
-    echo "✅ PostgreSQL 已运行（$DB_HOST:$DB_PORT）"
-    if ! is_tcp_open "$REDIS_HOST" "$REDIS_PORT"; then
-        echo "❌ Redis 未监听（$REDIS_HOST:$REDIS_PORT）；现有运行模式不自动启动"
-        return 1
-    fi
-    echo "✅ Redis 已运行（$REDIS_HOST:$REDIS_PORT）"
+    echo "✅ PostgreSQL 已运行（$DB_HOST:${DB_PORT}）"
     if command -v curl >/dev/null 2>&1 && curl -fsS "${ES_URL:-http://localhost:9200}" >/dev/null 2>&1; then
         echo "✅ Elasticsearch 已运行"
     else
@@ -1077,10 +995,10 @@ elif [ "$PROVISION" != "1" ]; then
     # shellcheck source=/dev/null
     source ".env"
     set +a
-    if [[ -n "${DATABASE_URL:-}" ]] && [[ "$DATABASE_URL" =~ postgresql[^:]*://([^:]+):([^@]*)@([^:]+):([0-9]+)/([^?]*) ]]; then
-        DB_HOST="${BASH_REMATCH[3]}"
-        DB_PORT="${BASH_REMATCH[4]}"
-    fi
+fi
+if [[ -n "${DATABASE_URL:-}" ]] && [[ "$DATABASE_URL" =~ postgresql[^:]*://([^:]+):([^@]*)@([^:]+):([0-9]+)/([^?]*) ]]; then
+    DB_HOST="${BASH_REMATCH[3]}"
+    DB_PORT="${BASH_REMATCH[4]}"
 fi
 
 if [ "$USE_DOCKER_DEPS" = "1" ]; then
@@ -1105,7 +1023,8 @@ if [ "$USE_DOCKER_DEPS" = "1" ]; then
 
             if [ "$DB_RUNNING" -eq 0 ] || [ "$ES_RUNNING" -eq 0 ] || [ "$REDIS_RUNNING" -eq 0 ]; then
                 echo "🚀 启动数据库服务（db, es, redis）..."
-                compose up -d db es redis
+                compose up -d db
+                compose up -d es redis || echo "⚠️  容器 Redis 或 Elasticsearch 启动失败；相关能力可能不可用"
 
                 echo "⏳ 等待数据库服务就绪..."
                 sleep 3
@@ -1125,7 +1044,6 @@ else
         stop_conflicting_docker_deps_for_local_mode
         ensure_local_postgres_running || exit 1
         ensure_postgres_user_ready || exit 1
-        ensure_local_redis_running || exit 1
         ensure_local_elasticsearch_running || true
         ensure_pgvector_available || true
     else
@@ -1140,17 +1058,17 @@ ensure_db_migrated_and_seeded() {
     local migrated=0
     local last_err=""
     for attempt in 1 2 3 4 5; do
-        last_err=$(alembic upgrade head 2>&1) && migrated=1 && break
+        last_err=$(python -m alembic upgrade head 2>&1) && migrated=1 && break
         if [ "$attempt" -lt 5 ]; then
             echo "⏳ 迁移失败，${attempt}秒后重试 ($attempt/5)..."
             sleep "$attempt"
         fi
     done
     if [ "$migrated" != "1" ]; then
-        echo "⚠️  数据库迁移失败"
+        echo "❌ 数据库迁移失败，未启动服务"
         echo "$last_err" | tail -15
         echo "💡 若数据库状态不一致，可新建空库: createdb market_intel_dev 并修改 .env 中 DATABASE_URL 的数据库名"
-        return 0
+        return 1
     fi
     # Check if demo_proj exists; if not, load seed
     if python -c "
@@ -1193,7 +1111,7 @@ if lsof -Pi :8000 -sTCP:LISTEN -t >/dev/null; then
     fi
 
     if [ -n "$DOCKER_CONTAINER" ]; then
-        echo "检测到Docker容器正在使用8000端口（容器ID: $DOCKER_CONTAINER）"
+        echo "检测到Docker容器正在使用8000端口（容器ID: ${DOCKER_CONTAINER}）"
         echo "💡 提示：如果要在本地运行，请先停止Docker容器："
         echo "   cd $OPS_DIR && docker compose stop backend"
         if [ "$FORCE" = "1" ]; then
@@ -1239,16 +1157,8 @@ if lsof -Pi :8000 -sTCP:LISTEN -t >/dev/null; then
 fi
 
 if [ "$BACKEND_ONLY" != "1" ]; then
-    if [ "$PROVISION" = "1" ]; then
-        ensure_node_available || true
-    else
-        command -v npm >/dev/null 2>&1 || {
-            echo "❌ 未检测到 npm；现有运行模式不自动安装"
-            exit 1
-        }
-    fi
-    ensure_modern_frontend_running || exit 1
-    ensure_local_worker_running || exit 1
+    ensure_modern_frontend_running || echo "⚠️  业务界面未就绪；API 继续启动"
+    ensure_local_worker_running || echo "⚠️  本机任务 worker 未启动；API 继续启动"
 fi
 
 echo ""
@@ -1265,9 +1175,6 @@ echo "🌐 API文档：http://localhost:8000/docs（本机）"
 echo "🌐 局域网访问：http://$(ipconfig getifaddr en0 2>/dev/null || ifconfig | grep 'inet ' | grep -v 127.0.0.1 | awk '{print $2}' | head -1):8000/docs"
 echo "📊 健康检查：http://localhost:8000/api/v1/health"
 echo "🎨 modern 前端：http://$FRONTEND_HOST:$FRONTEND_PORT"
-if [ "$WITH_LOCAL_WORKER" = "1" ]; then
-    echo "🧵 本机 Celery worker：已启用（日志 $WORKER_LOG_FILE）"
-fi
 echo ""
 echo "按 Ctrl+C 停止服务"
 echo ""

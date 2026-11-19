@@ -105,7 +105,7 @@ class IngestFrontdoorContextUnitTestCase(unittest.TestCase):
         captured: dict = {}
 
         def _fake_route(**kwargs):
-            captured["item"] = dict(kwargs["item"])
+            captured["protocol"] = kwargs["protocol"]
             captured["params"] = dict(kwargs["params"])
             captured["execution_layer"] = kwargs["execution_layer"]
             return {
@@ -130,13 +130,13 @@ class IngestFrontdoorContextUnitTestCase(unittest.TestCase):
                 "status": "ok",
                 "data": {
                     "admission": "accept",
-                    "writer_result": {"doc_id": 42, "inserted": 1, "skipped": 0},
+                    "writer_result": {"material_id": 42, "inserted": 1, "skipped": 0},
                 },
                 "meta": {"reason_code": "ok"},
             }
 
         with patch("app.services.source_library.resolver.list_effective_channels", return_value=[{"channel_key": "url_pool"}]), patch(
-            "app.services.source_library.resolver.run_item_with_url_routing",
+            "app.services.source_library.orchestrators.url_execution.fetch_routed_targets",
             side_effect=_fake_route,
         ), patch(
             "app.services.ingest.postprocess_frontdoor.run_postprocess_frontdoor",
@@ -151,9 +151,11 @@ class IngestFrontdoorContextUnitTestCase(unittest.TestCase):
                 enable_extraction=False,
             )
 
-        self.assertEqual(captured["item"]["item_key"], "url_pool.single_url_compat")
-        self.assertEqual(captured["item"]["channel_key"], "url_pool")
-        self.assertEqual(captured["item"]["extra"]["managed_by"], "single_url_compat")
+        protocol = captured["protocol"]
+        self.assertEqual(protocol.item_key, "url_pool")
+        self.assertEqual(protocol.item_channel_key, "url_pool")
+        self.assertEqual(protocol.candidate_urls, ["https://example.com/article"])
+        self.assertNotIn("single_url_compat", protocol.to_dict())
         self.assertEqual(captured["execution_layer"], "terminal_output_only")
         self.assertEqual(captured["params"]["urls"], ["https://example.com/article"])
         self.assertEqual(captured["params"]["query_terms"], ["market"])
@@ -171,14 +173,14 @@ class IngestFrontdoorContextUnitTestCase(unittest.TestCase):
         self.assertEqual(ingress["source_ref"]["domain"], "example.com")
         self.assertEqual(ingress["source_ref"]["ingress_type"], "source_library")
         self.assertEqual(ingress["source_ref"]["source_mode"], "url_execution")
-        self.assertEqual(ingress["collection_payload"]["document_candidate"]["uri"], "https://example.com/article")
+        self.assertEqual(ingress["collection_payload"]["material_candidate"]["uri"], "https://example.com/article")
         self.assertEqual(ingress["collection_payload"]["terminal_context"]["strict_mode"], True)
         self.assertEqual(ingress["collection_payload"]["extraction_plan"]["enabled"], False)
         self.assertEqual(captured["run_writer"], True)
 
         self.assertEqual(result["status"], "success")
         self.assertEqual(result["inserted_valid"], 1)
-        self.assertEqual(result["document_id"], 42)
+        self.assertEqual(result["material_id"], 42)
         self.assertEqual(result["single_write_workflow"], "source_library_frontdoor")
         self.assertEqual(result["source_library_collect_only"], True)
 

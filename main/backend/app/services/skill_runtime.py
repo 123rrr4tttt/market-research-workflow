@@ -78,7 +78,7 @@ class _LoopGuardState(TypedDict):
 _ALLOWED_ACTOR_ROLES = frozenset({"orchestration_runtime", "business_capability_wrapper", "user_facing_assistant"})
 _ALLOWED_CONCURRENCY_CLASSES = frozenset({"read_only", "write_shared", "write_external", "privileged"})
 _ALLOWED_APPROVAL_DEFAULTS = frozenset({"required", "optional"})
-_SKILL_FAILURE_WITNESS = "test:test_w02_skill_runtime_failure_lifts"
+_SKILL_FAILURE_WITNESS = "test:test_skill_failure_producer_and_legacy_lift_preserve_permission_abi"
 _SKILL_FAILURE_CONTEXT_KEYS = frozenset(
     {"operation", "public_exception", "public_message", "site", "witness"}
 )
@@ -117,12 +117,12 @@ def _raise_skill_failure(
         or _SKILL_FAILURE_CONTEXT_KEYS - set(context)
         or context.get("public_exception") != exception_type.__name__
     ):
-        # kit:boundary owner=skill_runtime.failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w02_skill_runtime_failure_lifts
+        # kit:boundary owner=skill_runtime.failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_skill_failure_producer_and_legacy_lift_preserve_permission_abi
         raise TypeError("skill failure lift context is incomplete")
     if cause is None:
-        # kit:boundary owner=skill_runtime.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=agent.skill_runtime.failure witness=test:test_w02_skill_runtime_failure_lifts
+        # kit:boundary owner=skill_runtime.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=agent.skill_runtime.failure witness=test:test_skill_failure_producer_and_legacy_lift_preserve_permission_abi
         raise exception_type(str(context["public_message"]))
-    # kit:boundary owner=skill_runtime.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=agent.skill_runtime.failure witness=test:test_w02_skill_runtime_failure_lifts
+    # kit:boundary owner=skill_runtime.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=agent.skill_runtime.failure witness=test:test_skill_failure_producer_and_legacy_lift_preserve_permission_abi
     raise exception_type(str(context["public_message"])) from cause
 
 
@@ -131,7 +131,7 @@ def _raise_skill_runtime_defect(
     exception_type: type[Exception] = RuntimeError,
 ) -> NoReturn:
     """Keep deployment wiring defects outside the closed invocation vocabulary."""
-    # kit:boundary owner=skill_runtime.bootstrap class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w02_skill_runtime_failure_lifts
+    # kit:boundary owner=skill_runtime.bootstrap class=PROGRAMMER_DEFECT failure_family=none witness=test:test_skill_failure_producer_and_legacy_lift_preserve_permission_abi
     raise exception_type(message)
 
 

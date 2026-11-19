@@ -45,7 +45,7 @@ def build_terminal_material_payload(
     terminal_context: dict[str, object] | None = None,
 ) -> Annotated[
     dict[str, object],
-    "kit:non-authoritative derived_as=view fact_source=material_candidate+ingress_envelope+extraction_outcome+terminal_context witness=test:test_w03_ingest_ports_authority_metadata",
+    "kit:non-authoritative derived_as=view fact_source=material_candidate+ingress_envelope+extraction_outcome+terminal_context witness=test:test_ingest_ports_declare_sources_and_effect_authority",
 ]:
     candidate = dict(material_candidate or {})
     ingress = dict(ingress_envelope or {})

@@ -23,7 +23,7 @@ from typing import Any, Protocol, Self
 from sqlalchemy import MetaData, select, update
 from sqlalchemy.engine import Connection, Engine, RowMapping
 
-from app.successor_runtime.runtime.assignments import AssignmentKind, canonical_digest
+from app.successor_runtime.runtime.assignments import AssignmentKind, RuntimeAssignment, canonical_digest
 from app.successor_runtime.runtime.claims import ClaimBinding
 from app.successor_runtime.runtime.node import (
     DeploymentBinding,
@@ -194,6 +194,10 @@ RuntimeFailureRepositoryFactory = Callable[
 
 class TerminalCommitHook(Protocol):
     """Capability-local work enlisted in the exact terminal UoW."""
+
+    def validate_assignment(self, assignment: RuntimeAssignment) -> None:
+        """Reject assignments unsupported by this terminal composition before effects."""
+        ...
 
     def prepare_terminal(
         self,

@@ -144,7 +144,7 @@ class _IndexerSession:
         self.rollbacks = 0
 
     def query(self, model: type):  # type: ignore[no-untyped-def]
-        if model is policy_module.Document:
+        if model is policy_module.Material:
             return _IndexerQuery([self.document])
         return _IndexerQuery(
             [],
@@ -232,7 +232,7 @@ class _IndexEffectObservations:
 def _document(project_key: str) -> SimpleNamespace:
     return SimpleNamespace(
         id=17,
-        doc_type="policy",
+        material_type="policy",
         content="shared policy body",
         summary=None,
         state="published",
@@ -331,8 +331,8 @@ def test_policy_es_identity_and_delete_are_project_scoped(monkeypatch: pytest.Mo
     assert [
         query["body"]["query"]["bool"]["filter"] for query in es.delete_queries
     ] == [
-        [{"term": {"project_key": "project-a"}}, {"terms": {"document_id": [17]}}],
-        [{"term": {"project_key": "project-b"}}, {"terms": {"document_id": [17]}}],
+        [{"term": {"project_key": "project-a"}}, {"terms": {"material_id": [17]}}],
+        [{"term": {"project_key": "project-b"}}, {"terms": {"material_id": [17]}}],
     ]
 
 

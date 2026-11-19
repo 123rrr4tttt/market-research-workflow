@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, NoReturn
+from typing import Any, Literal, NoReturn
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from pydantic import BaseModel, ConfigDict, Field
@@ -45,12 +45,30 @@ class EnvironmentQuery(BaseModel):
     threadId: str | None = Field(default=None, min_length=1, max_length=128)
 
 
+class RecordInputAttachment(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Literal["local_image"]
+    attachmentId: str = Field(min_length=1, max_length=128, pattern=r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
+    filename: str = Field(min_length=1, max_length=255, pattern=r"^[^/\\\x00]+$")
+    size: int = Field(ge=0)
+    sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
 class RecordInputRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     threadId: str = Field(min_length=1, max_length=128)
     turnId: str = Field(min_length=1, max_length=128)
-    content: str = Field(min_length=1, max_length=16000)
+    content: str = Field(default="", max_length=16000)
+    admissionId: str = Field(min_length=1, max_length=80)
+    attachments: list[RecordInputAttachment] = Field(default_factory=list, max_length=8)
+
+
+class PrepareTurnRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    threadId: str = Field(min_length=1, max_length=128)
 
 
 class ConfirmRequest(BaseModel):
@@ -202,6 +220,20 @@ def record_macro_input(payload: RecordInputRequest, request: Request) -> dict[st
             thread_id=payload.threadId,
             turn_id=payload.turnId,
             content=payload.content,
+            admission_id=payload.admissionId,
+            attachments=[item.model_dump() for item in payload.attachments],
+            actor_context=_authenticated_actor(request),
+        )
+    except MacroHostError as exc:
+        _raise_host_error(exc)
+
+
+@router.post("/prepare-turn", dependencies=[Depends(require_webui_server)])
+def prepare_macro_turn(payload: PrepareTurnRequest, request: Request) -> dict[str, Any]:
+    service = get_agent_macro_host_service()
+    try:
+        return service.prepare_turn(
+            thread_id=payload.threadId,
             actor_context=_authenticated_actor(request),
         )
     except MacroHostError as exc:

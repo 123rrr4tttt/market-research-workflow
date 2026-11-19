@@ -279,7 +279,7 @@ def _indexer_failure(
 
 
 def _raise_indexer_failure(failure: Failure, exception_type: type[Exception] = ValueError) -> NoReturn:
-    # kit:boundary owner=indexer.policy.contract_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=indexer.policy.failure witness=test:test_w03_indexer_contract_failures
+    # kit:boundary owner=indexer.policy.contract_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=indexer.policy.failure witness=test:test_indexer_contract_failures
     raise exception_type(failure.message)
 
 
@@ -508,7 +508,7 @@ def index_policy_documents(
         except Exception as exc:
             session.rollback()
             fail_job(job_id, str(exc))
-            # kit:boundary owner=indexer.policy.execution class=SHELL_BOUNDARY_EXCEPTION failure_family=indexer.policy.failure witness=test:test_w03_effect_boundaries
+            # kit:boundary owner=indexer.policy.execution class=SHELL_BOUNDARY_EXCEPTION failure_family=indexer.policy.failure witness=test:test_collection_effect_boundaries
             raise
 
         result = {"indexed": len(es_actions), "materials": len({chunk.document.id for chunk in chunks})}

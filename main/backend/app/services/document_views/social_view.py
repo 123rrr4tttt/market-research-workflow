@@ -75,7 +75,7 @@ def build_social_data_item(
     dict[str, Any],
     "kit:non-authoritative derived_as=view "
     "fact_source=social_document_extracted_data "
-    "witness=test:test_w04_authority_metadata",
+    "witness=test:test_service_results_declare_sources_and_effect_authority",
 ]:
     extracted = get_extracted_data(doc)
     sentiment = get_social_sentiment(doc)

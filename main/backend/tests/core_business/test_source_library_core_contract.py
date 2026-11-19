@@ -1026,20 +1026,6 @@ def test_source_library_write_routes_require_project_key_with_standard_error_env
     assert body["error"]["code"] == ErrorCode.PROJECT_KEY_REQUIRED.value
 
 
-def test_source_library_legacy_item_run_returns_explicit_deprecation_contract(client):
-    resp = client.post("/api/v1/source_library/items/demo.item/run", headers=HEADERS)
-
-    assert resp.status_code == 410
-    assert resp.headers.get("x-error-code") == ErrorCode.INVALID_INPUT.value
-    body = resp.json()
-    assert body["status"] == "error"
-    assert body["error"]["code"] == ErrorCode.INVALID_INPUT.value
-    assert body["meta"]["deprecated"] == "source_library.legacy_item_run.v1"
-    assert body["detail"]["error"]["details"]["deprecated_endpoint"] == "/api/v1/source_library/items/{item_key}/run"
-    assert body["detail"]["error"]["details"]["replacement_endpoint"] == "/api/v1/ingest/source-library/run"
-    assert body["detail"]["error"]["details"]["legacy_status"] == "410_gone"
-
-
 def test_source_library_sync_shared_from_files_requires_project_key_with_standard_error_envelope(
     client,
     monkeypatch: pytest.MonkeyPatch,

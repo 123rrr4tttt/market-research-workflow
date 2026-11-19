@@ -122,7 +122,7 @@ def test_third_facet_uses_same_search_material_constructor_and_keeps_occurrences
     assert result.inserted == 1
     assert [item.facet_ref for item in result.bundle.occurrences] == ["technical@v1"] * 2
     assert writes[0]["project_key"] == "project-a"
-    assert writes[0]["collection_payload"]["document_candidate"]["content"] == "Actual acquired body"
+    assert writes[0]["collection_payload"]["material_candidate"]["content"] == "Actual acquired body"
     assert writes[0]["collection_payload"]["extraction_plan"]["include_market"] is True
 
 
@@ -240,6 +240,6 @@ def test_policy_facet_is_data_and_uses_policy_delivery_with_explicit_retention()
 
     assert result.bundle.request.facet_ref == "policy@v1"
     assert retained == ["https://example.org/report"]
-    assert writes[0]["collection_payload"]["document_candidate"]["content"] == "Fetched regulation text"
-    assert writes[0]["collection_payload"]["document_candidate"]["doc_type"] == "policy_regulation"
+    assert writes[0]["collection_payload"]["material_candidate"]["content"] == "Fetched regulation text"
+    assert writes[0]["collection_payload"]["material_candidate"]["material_type"] == "policy_regulation"
     assert writes[0]["collection_payload"]["extraction_plan"]["include_policy"] is True

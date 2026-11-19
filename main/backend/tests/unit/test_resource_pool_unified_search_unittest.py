@@ -117,6 +117,7 @@ class ResourcePoolUnifiedSearchUnitTestCase(unittest.TestCase):
                     ],
                     used_term_fallback=False,
                     errors=[],
+                    diagnostics={"candidate_filter_state": "selected"},
                 ),
             ),
         ):
@@ -165,6 +166,7 @@ class ResourcePoolUnifiedSearchUnitTestCase(unittest.TestCase):
                     ],
                     used_term_fallback=False,
                     errors=[],
+                    diagnostics={"candidate_filter_state": "selected"},
                 ),
             ) as execute,
         ):
@@ -212,6 +214,7 @@ class ResourcePoolUnifiedSearchUnitTestCase(unittest.TestCase):
                     ],
                     used_term_fallback=False,
                     errors=[],
+                    diagnostics={"candidate_filter_state": "selected"},
                 ),
             ),
             patch("app.services.resource_pool.unified_search.append_url", return_value=True) as append,
@@ -360,6 +363,7 @@ class ResourcePoolUnifiedSearchUnitTestCase(unittest.TestCase):
                     ],
                     used_term_fallback=False,
                     errors=[],
+                    diagnostics={"candidate_filter_state": "selected"},
                 ),
             ),
             patch(
@@ -372,6 +376,7 @@ class ResourcePoolUnifiedSearchUnitTestCase(unittest.TestCase):
                     ],
                     used_term_fallback=False,
                     errors=[],
+                    diagnostics={"candidate_filter_state": "selected"},
                 ),
             ),
         ):
@@ -521,6 +526,7 @@ class ResourcePoolUnifiedSearchUnitTestCase(unittest.TestCase):
                     ],
                     used_term_fallback=False,
                     errors=[],
+                    diagnostics={"candidate_filter_state": "selected"},
                 ),
             ),
             patch(
@@ -533,6 +539,7 @@ class ResourcePoolUnifiedSearchUnitTestCase(unittest.TestCase):
                     ],
                     used_term_fallback=False,
                     errors=[],
+                    diagnostics={"candidate_filter_state": "selected"},
                 ),
             ),
         ):
@@ -620,6 +627,7 @@ class ResourcePoolUnifiedSearchUnitTestCase(unittest.TestCase):
                     ],
                     used_term_fallback=False,
                     errors=[],
+                    diagnostics={"candidate_filter_state": "selected"},
                 ),
             ),
             patch(
@@ -631,6 +639,7 @@ class ResourcePoolUnifiedSearchUnitTestCase(unittest.TestCase):
                     ],
                     used_term_fallback=False,
                     errors=[],
+                    diagnostics={"candidate_filter_state": "selected"},
                 ),
             ),
         ):
@@ -796,6 +805,7 @@ class ResourcePoolUnifiedSearchUnitTestCase(unittest.TestCase):
                     ],
                     used_term_fallback=False,
                     errors=[],
+                    diagnostics={"candidate_filter_state": "selected"},
                 ),
             ) as execute,
         ):
@@ -1874,6 +1884,7 @@ class ResourcePoolUnifiedSearchUnitTestCase(unittest.TestCase):
                     ],
                     used_term_fallback=False,
                     errors=[],
+                    diagnostics={"candidate_filter_state": "selected"},
                 ),
             ) as execute,
         ):
@@ -1920,6 +1931,7 @@ class ResourcePoolUnifiedSearchUnitTestCase(unittest.TestCase):
                     ],
                     used_term_fallback=False,
                     errors=[],
+                    diagnostics={"candidate_filter_state": "selected"},
                 ),
             ) as execute,
         ):

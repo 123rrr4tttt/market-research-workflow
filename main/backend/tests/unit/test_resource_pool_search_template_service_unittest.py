@@ -126,9 +126,9 @@ class SearchTemplateServiceUnitTestCase(unittest.TestCase):
             )
 
         self.assertEqual(result.selected_candidates, [])
-        self.assertTrue(result.used_term_fallback)
+        self.assertFalse(result.used_term_fallback)
         self.assertFalse(result.diagnostics["fallback_allowed"])
-        self.assertTrue(result.diagnostics["used_term_fallback"])
+        self.assertFalse(result.diagnostics["used_term_fallback"])
         self.assertEqual(result.diagnostics["candidate_filter_state"], "term_filter_empty_no_fallback")
 
     def test_execute_search_template_reports_filter_fallback_used(self) -> None:

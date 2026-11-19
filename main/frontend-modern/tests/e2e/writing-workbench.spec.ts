@@ -17,7 +17,7 @@ type ApiEnvelope<T> = {
 }
 
 type WritingDocument = {
-  id: number
+  doc_id: number
   title: string
   body_md: string
   version: number
@@ -39,7 +39,7 @@ async function createWritingDocument(
   expect(response.ok()).toBeTruthy()
   const body = (await response.json()) as ApiEnvelope<WritingDocument>
   expect(body.status).toBe('ok')
-  createdDocumentIds.add(body.data.id)
+  createdDocumentIds.add(body.data.doc_id)
   return body.data
 }
 
@@ -107,7 +107,7 @@ test.describe('writing workbench user interaction', () => {
     const body = (await response.json()) as ApiEnvelope<WritingDocument>
 
     expect(body.status).toBe('ok')
-    createdDocumentIds.add(body.data.id)
+    createdDocumentIds.add(body.data.doc_id)
     expect(body.data.title).toBe(title)
     await expect(page.getByTestId('writing-title-input')).toHaveValue(title)
     await expect(page.getByText(/文档已创建|正文已保存/)).toBeVisible()
@@ -158,7 +158,7 @@ test.describe('writing workbench user interaction', () => {
     })
 
     await openWritingWorkbench(page)
-    await selectDocument(page, document.id)
+    await selectDocument(page, document.doc_id)
     await expect(page.getByTestId('writing-title-input')).toHaveValue(document.title)
 
     const anchorCard = page.getByTestId('writing-agent-anchor-card')
@@ -198,13 +198,13 @@ test.describe('writing workbench user interaction', () => {
     }).toBe(insertedText)
 
     const patchResponse = page.waitForResponse((response) => {
-      return response.url().includes(`/api/v1/writing/documents/${document.id}`) && response.request().method() === 'PATCH' && response.status() === 200
+      return response.url().includes(`/api/v1/writing/documents/${document.doc_id}`) && response.request().method() === 'PATCH' && response.status() === 200
     })
     await page.getByTestId('writing-agent-update-accept').click()
     await patchResponse
 
     await expect(updateCard).toContainText('已采纳')
-    const refreshed = await getWritingDocument(request, document.id)
+    const refreshed = await getWritingDocument(request, document.doc_id)
     const updates = refreshed.metadata_json?.agent_updates as Array<Record<string, unknown>>
     expect(updates?.[0]?.review_status).toBe('accepted')
   })
@@ -252,7 +252,7 @@ test.describe('writing workbench user interaction', () => {
     })
 
     await openWritingWorkbench(page)
-    await selectDocument(page, document.id)
+    await selectDocument(page, document.doc_id)
 
     await page.getByTestId('writing-agent-anchor-locate').click()
     await expect.poll(async () => {

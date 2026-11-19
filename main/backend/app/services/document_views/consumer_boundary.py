@@ -5,7 +5,7 @@ from typing import Any
 from .common_view import get_extracted_data
 
 
-CONSUMER_FACADE_CONTRACT_VERSION = "consumer.facade_boundary.wave9.v1"
+CONSUMER_FACADE_CONTRACT_VERSION = "consumer.facade_boundary.v1"
 CONSUMER_FACADE_BOUNDARY_RULE = (
     "Python consumer surfaces read structured document fields through document_views; "
     "SQL JSON predicates and sort expressions stay in document_queries or documented query-only bridges."

@@ -102,17 +102,17 @@ def nearest_rank(samples: Iterable[float], percentile: float) -> float:
     if isinstance(percentile_value, bool) or not isinstance(
         percentile_value, (int, float)
     ):
-        # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
+        # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_runtime_failure_lift_context
         raise CapacityContractError("percentile must be a number between 0 and 100")
     if not math.isfinite(float(percentile)) or not 0 <= float(percentile) <= 100:
-        # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
+        # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_runtime_failure_lift_context
         raise CapacityContractError("percentile must be between 0 and 100")
     ordered = sorted(float(sample) for sample in samples)
     if not ordered:
-        # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
+        # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_runtime_failure_lift_context
         raise CapacityContractError("nearest-rank requires at least one sample")
     if any(not math.isfinite(sample) or sample < 0 for sample in ordered):
-        # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
+        # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_runtime_failure_lift_context
         raise CapacityContractError(
             "capacity latency samples must be finite and non-negative"
         )
@@ -142,20 +142,20 @@ class LatencyPercentiles:
             self.maximum_ms,
         )
         if self.sample_count <= 0:
-            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
+            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_runtime_failure_lift_context
             raise CapacityContractError("latency summary requires samples")
         if any(not math.isfinite(value) or value < 0 for value in values):
-            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
+            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_runtime_failure_lift_context
             raise CapacityContractError("latencies must be finite and non-negative")
         if tuple(sorted(values)) != values:
-            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
+            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_runtime_failure_lift_context
             raise CapacityContractError("latency percentiles must be monotone")
 
     @classmethod
     def from_samples(cls, samples: Iterable[float]) -> LatencyPercentiles:
         values = tuple(float(sample) for sample in samples)
         if not values:
-            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
+            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_runtime_failure_lift_context
             raise CapacityContractError("latency summary requires samples")
         return cls(
             sample_count=len(values),
@@ -194,10 +194,10 @@ class LockObservation:
             )
             < 0
         ):
-            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
+            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_runtime_failure_lift_context
             raise CapacityContractError("lock observations cannot be negative")
         if self.ungranted_locks > self.total_locks:
-            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
+            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_runtime_failure_lift_context
             raise CapacityContractError("ungranted locks cannot exceed total locks")
 
     def as_payload(self) -> dict[str, int]:
@@ -225,15 +225,15 @@ class ConnectionObservation:
             self.max_connections_setting,
         )
         if min(values) < 0 or self.max_connections_setting == 0:
-            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
+            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_runtime_failure_lift_context
             raise CapacityContractError("connection observations are invalid")
         if self.active_connections > self.database_connections:
-            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
+            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_runtime_failure_lift_context
             raise CapacityContractError(
                 "active connections cannot exceed database connections"
             )
         if self.idle_in_transaction_connections > self.database_connections:
-            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
+            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_runtime_failure_lift_context
             raise CapacityContractError(
                 "idle-in-transaction connections cannot exceed database connections"
             )
@@ -254,12 +254,12 @@ def _require_metric(value: CapacityMetric, name: str) -> None:
     if value == UNSUPPORTED_CAPACITY:
         return
     if isinstance(value, bool) or not isinstance(value, (int, float)):
-        # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
+        # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_runtime_failure_lift_context
         raise CapacityContractError(
             f"{name} must be non-negative or {UNSUPPORTED_CAPACITY}"
         )
     if not math.isfinite(float(value)) or value < 0:
-        # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
+        # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_runtime_failure_lift_context
         raise CapacityContractError(
             f"{name} must be non-negative or {UNSUPPORTED_CAPACITY}"
         )
@@ -317,17 +317,17 @@ class CapacityEnvelope:
 
     def __post_init__(self) -> None:
         if self.schema_version != CAPACITY_ENVELOPE_SCHEMA_VERSION:
-            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
+            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_runtime_failure_lift_context
             raise CapacityContractError(
                 f"schema_version must be {CAPACITY_ENVELOPE_SCHEMA_VERSION}"
             )
         if self.measurement_scope != BOUNDED_TWO_NODE_SCOPE:
-            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
+            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_runtime_failure_lift_context
             raise CapacityContractError(
                 f"measurement_scope must be {BOUNDED_TWO_NODE_SCOPE}"
             )
         if self.observed_at.tzinfo is None:
-            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
+            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_runtime_failure_lift_context
             raise CapacityContractError("observed_at must be timezone-aware")
         object.__setattr__(
             self,
@@ -344,10 +344,10 @@ class CapacityEnvelope:
             "archive_policy",
         ):
             if not getattr(self, name):
-                # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
+                # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_runtime_failure_lift_context
                 raise CapacityContractError(f"{name} must be non-empty")
         if self.database_transport != "unix_socket":
-            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
+            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_runtime_failure_lift_context
             raise CapacityContractError(
                 "bounded capacity evidence requires unix_socket"
             )
@@ -358,7 +358,7 @@ class CapacityEnvelope:
             }
         )
         if not frozen_settings:
-            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
+            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_runtime_failure_lift_context
             raise CapacityContractError("postgres_settings must be measured")
         object.__setattr__(self, "postgres_settings", frozen_settings)
         object.__setattr__(self, "node_ids", tuple(self.node_ids))
@@ -397,12 +397,12 @@ class CapacityEnvelope:
         )
         object.__setattr__(self, "measurement_notes", tuple(self.measurement_notes))
         if len(self.node_ids) != 2 or len(set(self.node_ids)) != 2:
-            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
+            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_runtime_failure_lift_context
             raise CapacityContractError(
                 "bounded baseline requires exactly two distinct RuntimeNode identities"
             )
         if len(self.node_profile_digests) != 1:
-            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
+            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_runtime_failure_lift_context
             raise CapacityContractError(
                 "two-node baseline requires one exact homologous node profile"
             )
@@ -419,15 +419,15 @@ class CapacityEnvelope:
             )
             < 0
         ):
-            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
+            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_runtime_failure_lift_context
             raise CapacityContractError("row and project census cannot be negative")
         if min(self.project_count, self.capability_count, self.eligible_row_count) == 0:
-            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
+            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_runtime_failure_lift_context
             raise CapacityContractError(
                 "two-node baseline requires a non-empty project/capability workload"
             )
         if self.claim_batch_size <= 0 or self.concurrency != 2:
-            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
+            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_runtime_failure_lift_context
             raise CapacityContractError(
                 "two-node baseline requires positive claim batch and concurrency=2"
             )
@@ -451,12 +451,12 @@ class CapacityEnvelope:
                 or len(value) != 64
                 or any(char not in "0123456789abcdef" for char in value)
             ):
-                # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
+                # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_runtime_failure_lift_context
                 raise CapacityContractError(f"{name} must be a SHA-256 digest")
         if not policy_parameters or any(
             value < 0 for value in policy_parameters.values()
         ):
-            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
+            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_runtime_failure_lift_context
             raise CapacityContractError("fair-share policy parameters are invalid")
         expected_policy_digest = sha256_hex(
             {"policy_type": "FairSharePolicy", "parameters": dict(policy_parameters)}
@@ -464,20 +464,20 @@ class CapacityEnvelope:
         if dict(policy_parameters) != fair_share_policy_payload(
             CAPACITY_FAIR_SHARE_POLICY
         ):
-            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
+            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_runtime_failure_lift_context
             raise CapacityContractError(
                 "capacity evidence must bind the frozen FairSharePolicy"
             )
         if self.fair_share_policy_digest != expected_policy_digest:
-            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
+            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_runtime_failure_lift_context
             raise CapacityContractError("fair-share policy digest mismatch")
         if self.observed_claimed_count != self.eligible_row_count:
-            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
+            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_runtime_failure_lift_context
             raise CapacityContractError(
                 "observed claimed count must cover the initial eligible set"
             )
         if self.initial_eligible_ids_digest != self.observed_claimed_ids_digest:
-            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
+            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_runtime_failure_lift_context
             raise CapacityContractError(
                 "observed claimed IDs must exactly equal the initial eligible IDs"
             )
@@ -486,7 +486,7 @@ class CapacityEnvelope:
             or sum(project_claim_counts.values()) != self.observed_claimed_count
             or min(project_claim_counts.values(), default=0) <= 0
         ):
-            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
+            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_runtime_failure_lift_context
             raise CapacityContractError(
                 "project claim counts do not cover the workload"
             )
@@ -495,7 +495,7 @@ class CapacityEnvelope:
             or sum(capability_claim_counts.values()) != self.observed_claimed_count
             or min(capability_claim_counts.values(), default=0) <= 0
         ):
-            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
+            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_runtime_failure_lift_context
             raise CapacityContractError(
                 "capability claim counts do not cover the workload"
             )
@@ -505,22 +505,22 @@ class CapacityEnvelope:
         ):
             value = getattr(self, name)
             if not math.isfinite(value) or value < 0:
-                # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
+                # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_runtime_failure_lift_context
                 raise CapacityContractError(f"{name} must be finite and non-negative")
         if self.analytical_max_selection_rounds <= 0:
-            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
+            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_runtime_failure_lift_context
             raise CapacityContractError("analytical selection rounds must be positive")
         if (
             not 1
             <= self.measured_max_selection_round
             <= self.analytical_max_selection_rounds
         ):
-            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
+            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_runtime_failure_lift_context
             raise CapacityContractError(
                 "measured selection round exceeds analytical bound"
             )
         if self.max_starvation_seconds != self.analytical_starvation_bound_seconds:
-            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
+            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_runtime_failure_lift_context
             raise CapacityContractError(
                 "max_starvation_seconds must be derived from the analytical bound"
             )
@@ -528,18 +528,18 @@ class CapacityEnvelope:
             self.measured_max_selection_seconds
             > self.analytical_starvation_bound_seconds
         ):
-            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
+            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_runtime_failure_lift_context
             raise CapacityContractError(
                 "measured selection time exceeds starvation bound"
             )
         if self.violations != 0:
-            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
+            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_runtime_failure_lift_context
             raise CapacityContractError("capacity evidence requires violations=0")
         if (
             not self.work_item_table_unchanged
             or self.work_item_table_before_digest != self.work_item_table_after_digest
         ):
-            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
+            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_runtime_failure_lift_context
             raise CapacityContractError(
                 "rollback-only observation must leave runtime_work_items unchanged"
             )
@@ -558,7 +558,7 @@ class CapacityEnvelope:
         }
         declared = set(self.unsupported_capacity)
         if unsupported_fields != declared:
-            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
+            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_runtime_failure_lift_context
             raise CapacityContractError(
                 "unsupported_capacity must exactly name every required field marked "
                 f"{UNSUPPORTED_CAPACITY}; observed {sorted(declared)}, "
@@ -568,7 +568,7 @@ class CapacityEnvelope:
         if self.envelope_digest is None:
             object.__setattr__(self, "envelope_digest", expected)
         elif self.envelope_digest != expected:
-            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
+            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_runtime_failure_lift_context
             raise CapacityContractError("CapacityEnvelope envelope_digest mismatch")
 
     @property

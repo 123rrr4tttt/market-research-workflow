@@ -35,7 +35,7 @@ from ..services.llm_report_export import (
 )
 from ..services.llm_report_export_audit import record_llm_report_export_audit_event
 from ..services.llm_report_export_token_state import claim_llm_report_export_token_use
-from ..services.llm_report_source_enrichment import resolve_report_sources
+from ..services.llm_report_source_enrichment import ReportSourceResolution, resolve_report_sources
 from ..services.llm_report_trends import (
     build_export_trend_metric,
     build_quality_trend_metric,
@@ -649,23 +649,24 @@ def generate_llm_report(payload: GenerateReportRequest, request: Request) -> dic
     source_count_requested = len(requested_sources)
     job_id: int | None = None
     job_finalized = False
+    source_resolution: ReportSourceResolution | None = None
     try:
         auto_source_enabled = bool(getattr(settings, "llm_report_auto_source_enabled", True))
         auto_source_target_count = _resolve_auto_source_target_count(
             getattr(settings, "llm_report_auto_source_target_count", 6)
         )
-        if requested_sources or not auto_source_enabled:
-            resolved_sources = requested_sources
-        else:
-            resolved_sources = resolve_report_sources(
-                payload.topic,
-                requested_sources,
-                target_count=auto_source_target_count,
-            )
+        source_resolution = resolve_report_sources(
+            payload.topic,
+            requested_sources,
+            target_count=auto_source_target_count,
+            auto_source_enabled=auto_source_enabled,
+        )
+        resolved_sources = source_resolution.sources
         source_count_resolved = len(resolved_sources)
+        source_resolution_degraded = bool(source_resolution.failures)
         capability_truth = build_report_capability_truth(
             route_kind=routing.route_kind,
-            auto_source_enabled=auto_source_enabled,
+            source_resolution=source_resolution,
         )
         job_id = start_job(
             _LLM_REPORT_JOB_TYPE,
@@ -754,6 +755,7 @@ def generate_llm_report(payload: GenerateReportRequest, request: Request) -> dic
 
         gate_result = {
             **quality_gate_metrics,
+            "capability_truth": capability_truth,
             "trace_id": trace_id,
             "request_id": identity.request_id,
             "project_key": identity.project_key,
@@ -813,7 +815,7 @@ def generate_llm_report(payload: GenerateReportRequest, request: Request) -> dic
                             identity=identity,
                             routing=routing,
                             status="blocked",
-                            degraded=False,
+                            degraded=source_resolution_degraded,
                             error_code="QUALITY_GATE_BLOCKED",
                         ),
                     },
@@ -852,7 +854,7 @@ def generate_llm_report(payload: GenerateReportRequest, request: Request) -> dic
                         identity=identity,
                         routing=routing,
                         status="succeeded",
-                        degraded=False,
+                        degraded=source_resolution_degraded,
                     ),
                 },
             }
@@ -877,14 +879,14 @@ def generate_llm_report(payload: GenerateReportRequest, request: Request) -> dic
                 "job_id": job_id,
                 "capability_truth": build_report_capability_truth(
                     route_kind=routing.route_kind,
-                    auto_source_enabled=bool(getattr(settings, "llm_report_auto_source_enabled", True)),
+                    source_resolution=source_resolution,
                 ),
                 "routing": routing.to_observability(),
                 "audit": build_trace_audit_record(
                     identity=identity,
                     routing=routing,
                     status="failed",
-                    degraded=False,
+                    degraded=source_resolution is not None and bool(source_resolution.failures),
                     error_code="LLM_REPORT_INTERNAL_ERROR",
                     error_detail=str(exc),
                 ),

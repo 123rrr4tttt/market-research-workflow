@@ -52,7 +52,7 @@ class IngestCanaryHandoffLiveUnitTestCase(unittest.TestCase):
         evidence = build_production_like_handoff_evidence(
             project_key="wave55_canary",
             accepted_url="https://example.com/article",
-            rejected_url="https://example.com/search?q=wave55",
+            rejected_url="https://example.com/search?q=search-shell",
             accepted_status_code=200,
             rejected_status_code=200,
             accepted_result={
@@ -82,7 +82,7 @@ class IngestCanaryHandoffLiveUnitTestCase(unittest.TestCase):
         common = {
             "project_key": "wave55_canary",
             "accepted_url": "https://example.com/article",
-            "rejected_url": "https://example.com/search?q=wave55",
+            "rejected_url": "https://example.com/search?q=search-shell",
             "accepted_status_code": 200,
             "rejected_status_code": 200,
             "accepted_result": {
@@ -111,7 +111,7 @@ class IngestCanaryHandoffLiveUnitTestCase(unittest.TestCase):
         evidence = build_production_like_handoff_evidence(
             project_key="wave55_canary",
             accepted_url="https://example.com/article",
-            rejected_url="https://example.com/search?q=wave55",
+            rejected_url="https://example.com/search?q=search-shell",
             accepted_status_code=200,
             rejected_status_code=200,
             accepted_result={
@@ -166,7 +166,7 @@ class IngestCanaryHandoffLiveUnitTestCase(unittest.TestCase):
                     },
                 },
             },
-            "meta": {"trace_id": "trace-wave55", "reason_code": "ok"},
+            "meta": {"trace_id": "trace-canary", "reason_code": "ok"},
         }
         handoff = build_single_url_canary_handoff(
             ingress_envelope={

@@ -594,6 +594,14 @@ def _bootstrap_demo_seed_if_needed(source_key: str) -> None:
     ensure_project_schema_ready(source_key, name="Demo Project")
 
     with engine.begin() as conn:
+        # A template can be read after archive, but lazy seeding would write
+        # to it. Hold the registry row through the seed transaction.
+        enabled = conn.execute(
+            text("SELECT enabled FROM public.projects WHERE project_key = :project_key FOR UPDATE"),
+            {"project_key": source_key},
+        ).scalar_one_or_none()
+        if enabled is not True:
+            return
         conn.execute(text(f'CREATE SCHEMA IF NOT EXISTS "{source_schema}"'))
         _execute_seed_sql(conn, filtered_sql)
 
@@ -913,11 +921,18 @@ def inject_initial_project(payload: InjectInitialProjectPayload) -> ProjectJsonO
             if src_project is None:
                 _raise_not_found(f"source project not found: {source_key}")
 
-            existed = session.execute(select(Project).where(Project.project_key == target_key)).scalar_one_or_none()
+            existed = session.execute(
+                select(Project).where(Project.project_key == target_key).with_for_update()
+            ).scalar_one_or_none()
             if existed and not payload.overwrite:
                 _raise_invalid_input("project_key already exists (set overwrite=true)", status_code=409)
 
             if existed and payload.overwrite:
+                if not _project_bool(existed, "enabled"):
+                    _raise_invalid_input(
+                        "target project is archived/disabled; restore it before overwrite",
+                        status_code=409,
+                    )
                 session.delete(existed)
                 session.commit()
                 with engine.begin() as conn:

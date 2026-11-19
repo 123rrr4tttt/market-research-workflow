@@ -11,7 +11,7 @@ from typing import Any, Callable, Mapping, NoReturn, SupportsFloat, SupportsInde
 from app.services.projects import current_project_key
 from functorial_kit import Failure
 
-from mrw_functorial_kit.core.w04_service_semantics import clue_chain_failures
+from mrw_functorial_kit.core.service_failure_semantics import clue_chain_failures
 
 from .contracts import (
     CANDIDATE_STATUSES,
@@ -945,7 +945,7 @@ def _sorted_records(raw: object, timestamp_field: str) -> list[dict[str, object]
     for value in (mapping or {}).values():
         item = _string_object_mapping(value)
         if item is None:
-            # kit:boundary owner=clue_chain.service.persisted_record class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w04_owned_core_raise_sites_are_only_lifts
+            # kit:boundary owner=clue_chain.service.persisted_record class=PROGRAMMER_DEFECT failure_family=none witness=test:test_owned_core_raise_sites_are_only_lifts
             raise TypeError("persisted clue chain record must be a string-keyed mapping")
         records.append(item)
     records.sort(key=lambda item: str(item.get(timestamp_field) or ""))
@@ -983,7 +983,7 @@ def _bounded_int(value: object, *, default: int, minimum: int = 0, maximum: int 
     else:
         try:
             if not _is_int_convertible(value):
-                # kit:boundary owner=clue_chain.service.bounded_int_conversion class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=clue_chain.failure witness=test:test_w04_owned_core_raise_sites_are_only_lifts
+                # kit:boundary owner=clue_chain.service.bounded_int_conversion class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=clue_chain.failure witness=test:test_owned_core_raise_sites_are_only_lifts
                 raise TypeError("integer field is not convertible")
             result = int(value)
         except Exception as exc:  # noqa: BLE001
@@ -996,7 +996,7 @@ def _optional_float(value: object) -> float | None:
         return None
     try:
         if not _is_float_convertible(value):
-            # kit:boundary owner=clue_chain.service.optional_float_conversion class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=clue_chain.failure witness=test:test_w04_owned_core_raise_sites_are_only_lifts
+            # kit:boundary owner=clue_chain.service.optional_float_conversion class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=clue_chain.failure witness=test:test_owned_core_raise_sites_are_only_lifts
             raise TypeError("float field is not convertible")
         return float(value)
     except Exception as exc:  # noqa: BLE001

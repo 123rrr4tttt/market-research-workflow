@@ -70,7 +70,7 @@ def normalize_light_filter_options(raw: dict[str, object] | None) -> dict[str, o
 
 def build_light_filter_not_run(reason: str = "not_evaluated") -> Annotated[
     dict[str, object],
-    "kit:non-authoritative derived_as=view fact_source=filter_reason_input+light_filter_defaults witness=test:test_w03_ingest_ports_authority_metadata",
+    "kit:non-authoritative derived_as=view fact_source=filter_reason_input+light_filter_defaults witness=test:test_ingest_ports_declare_sources_and_effect_authority",
 ]:
     return {
         "filter_decision": "not_run",

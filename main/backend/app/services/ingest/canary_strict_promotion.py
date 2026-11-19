@@ -433,7 +433,7 @@ def build_strict_promotion_readiness(
     closure_claim: bool = False,
 ) -> Annotated[
     StrictPromotionReadiness,
-    "kit:non-authoritative derived_as=preflight fact_source=live_canary_evidence+metrics_artifacts+ops_promotion_evidence+contract_constants witness=test:test_w03_ingest_ports_authority_metadata",
+    "kit:non-authoritative derived_as=preflight fact_source=live_canary_evidence+metrics_artifacts+ops_promotion_evidence+contract_constants witness=test:test_ingest_ports_declare_sources_and_effect_authority",
 ]:
     live_boundary = _live_canary_boundary(live_canary_evidence)
     metric_boundary = _metric_24h_shape_boundary(

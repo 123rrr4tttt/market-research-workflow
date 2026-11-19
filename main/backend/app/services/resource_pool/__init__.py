@@ -13,7 +13,6 @@ from .site_entry_discovery import (
     list_discovery_domains,
     write_discovered_site_entries,
 )
-from .unified_search import unified_search_by_item, unified_search_by_item_payload
 
 __all__ = [
     "classify_site_entry",
@@ -32,8 +31,6 @@ __all__ = [
     "list_open_source_preset_packs",
     "list_site_entries",
     "simplify_site_entries",
-    "unified_search_by_item",
-    "unified_search_by_item_payload",
     "upsert_site_entry",
     "upsert_capture_config",
     "write_discovered_site_entries",

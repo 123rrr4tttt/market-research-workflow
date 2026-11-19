@@ -103,7 +103,7 @@ def collect_official_news_updates(
     except Exception as exc:  # noqa: BLE001
         logger.exception("collect_official_news_updates failed")
         fail_job(job_id, str(exc))
-        # kit:boundary owner=ingest.official_news class=SHELL_BOUNDARY_EXCEPTION failure_family=ingest.operation.failure witness=test:test_latest_service_a_ingest_shell_boundaries_reraise_original_errors
+        # kit:boundary owner=ingest.official_news class=SHELL_BOUNDARY_EXCEPTION failure_family=ingest.operation.failure witness=test:test_ingest_shell_boundaries_reraise_original_errors
         raise
 
 
@@ -156,7 +156,7 @@ def collect_reddit_discussions(
     except Exception as exc:  # noqa: BLE001
         logger.exception("collect_reddit_discussions failed")
         fail_job(job_id, str(exc))
-        # kit:boundary owner=ingest.reddit class=SHELL_BOUNDARY_EXCEPTION failure_family=ingest.reddit.failure witness=test:test_latest_service_a_ingest_shell_boundaries_reraise_original_errors
+        # kit:boundary owner=ingest.reddit class=SHELL_BOUNDARY_EXCEPTION failure_family=ingest.reddit.failure witness=test:test_ingest_shell_boundaries_reraise_original_errors
         raise
 
 
@@ -532,7 +532,7 @@ def collect_google_news(keywords: List[str], limit: int = 20) -> ResultRecord:
     except Exception as exc:  # noqa: BLE001
         logger.exception("collect_google_news failed")
         fail_job(job_id, str(exc))
-        # kit:boundary owner=ingest.google_news class=SHELL_BOUNDARY_EXCEPTION failure_family=ingest.google_news.failure witness=test:test_latest_service_a_ingest_shell_boundaries_reraise_original_errors
+        # kit:boundary owner=ingest.google_news class=SHELL_BOUNDARY_EXCEPTION failure_family=ingest.google_news.failure witness=test:test_ingest_shell_boundaries_reraise_original_errors
         raise
 
 

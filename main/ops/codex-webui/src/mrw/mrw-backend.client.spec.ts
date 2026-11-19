@@ -30,18 +30,17 @@ describe('MrwBackendClient', () => {
       authorization: 'Bearer webui-jwt',
       'x-codex-auth': 'mrw-token',
     });
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValue({
-        ok: true,
-        status: 200,
-        json: async () => ({ status: 'ok', data: {} }),
-      });
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ status: 'ok', data: {} }),
+    });
     vi.stubGlobal('fetch', fetchMock);
     await new MrwBackendClient().recordInput(
       't1',
       'turn1',
       'read',
+      'admission-1',
       credentials,
     );
     expect(fetchMock.mock.calls[0][1].headers).toEqual({
@@ -49,6 +48,13 @@ describe('MrwBackendClient', () => {
       'X-MRW-Server-API-Key': 'server-secret',
       Cookie: 'custom_mrw_session=mrw-session',
       'X-Codex-Auth': 'mrw-token',
+    });
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({
+      threadId: 't1',
+      turnId: 'turn1',
+      content: 'read',
+      admissionId: 'admission-1',
+      attachments: [],
     });
     expect(
       readMrwRequestCredentials({ authorization: 'Bearer webui-jwt' }),

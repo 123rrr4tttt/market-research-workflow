@@ -286,7 +286,7 @@ def test_codecs_round_trip_all_first_specimen_payloads(first_specimen_bundle):
         assert codec.contract_ref.kind == kind
 
 
-def test_effect_profiles_enforce_p0a_limits(first_specimen_bundle):
+def test_effect_profiles_enforce_limits(first_specimen_bundle):
     for kind in FIRST_SPECIMEN_OPERATION_KINDS:
         contract = first_specimen_bundle.operation_by_kind(kind)
         effect_ref = contract.effect_profile_ref

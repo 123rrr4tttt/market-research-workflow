@@ -43,7 +43,13 @@ export default defineConfig({
   },
   projects: [
     {
-      name: 'chromium',
+      name: 'component',
+      grepInvert: /@live/,
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
+      name: 'live',
+      grep: /@live/,
       use: { ...devices['Desktop Chrome'] },
     },
   ],

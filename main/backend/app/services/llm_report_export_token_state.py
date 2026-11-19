@@ -14,7 +14,7 @@ from ..models.llm_report_export_token_state import LlmReportExportTokenState
 
 _LLM_REPORT_EXPORT_TOKEN_STATES: dict[str, dict[str, Any]] = {}
 _LLM_REPORT_EXPORT_TOKEN_STATE_LOCK = RLock()
-_FAILURE_WITNESS = "test:test_w01_request_failures"
+_FAILURE_WITNESS = "test:test_invalid_service_requests_preserve_public_errors"
 _FAILURE_CONTEXT_KEYS = frozenset(
     {"owner", "operation", "failure_family", "public_exception", "public_message", "witness"}
 )
@@ -39,9 +39,9 @@ def _request_failure(code: str, message: str, *, operation: str, **details: Any)
 def _raise_request_failure(failure: Failure) -> NoReturn:
     context = failure.context or {}
     if not llm_report_request_failures.matches(failure) or _FAILURE_CONTEXT_KEYS - set(context):
-        # kit:boundary owner=llm_report_export_token_state.failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w01_request_failures
+        # kit:boundary owner=llm_report_export_token_state.failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_invalid_service_requests_preserve_public_errors
         raise TypeError("llm report request failure lift context is incomplete or inconsistent")
-    # kit:boundary owner=llm_report_export_token_state.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=llm.report.request.failure witness=test:test_w01_request_failures
+    # kit:boundary owner=llm_report_export_token_state.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=llm.report.request.failure witness=test:test_invalid_service_requests_preserve_public_errors
     raise ValueError(str(context["public_message"]))
 
 

@@ -15,5 +15,5 @@ receivers:
         send_resolved: true
 
 # The webhook receiver above writes alerts to a local file owned by the
-# operator (see /Users/wangyiliang/.codex/rollback/production-monitoring/).
+# operator instructions are deployment-specific and are not stored in this repository.
 # External channels (email/Slack/PagerDuty) are NOT configured; documented gap.

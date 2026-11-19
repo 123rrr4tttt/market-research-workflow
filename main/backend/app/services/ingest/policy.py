@@ -446,7 +446,7 @@ def ingest_policy_documents(
         except Exception as exc:  # noqa: BLE001
             session.rollback()
             fail_job(job_id, str(exc))
-            # kit:boundary owner=ingest.policy.persistence class=SHELL_BOUNDARY_EXCEPTION failure_family=ingest.policy.failure witness=test:test_latest_service_a_ingest_shell_boundaries_reraise_original_errors
+            # kit:boundary owner=ingest.policy.persistence class=SHELL_BOUNDARY_EXCEPTION failure_family=ingest.policy.failure witness=test:test_ingest_shell_boundaries_reraise_original_errors
             raise
 
     try:
@@ -521,5 +521,5 @@ def ingest_policy_documents(
         return result
     except Exception as exc:  # noqa: BLE001
         fail_job(job_id, str(exc))
-        # kit:boundary owner=ingest.policy.indexing class=SHELL_BOUNDARY_EXCEPTION failure_family=ingest.policy.failure witness=test:test_latest_service_a_ingest_shell_boundaries_reraise_original_errors
+        # kit:boundary owner=ingest.policy.indexing class=SHELL_BOUNDARY_EXCEPTION failure_family=ingest.policy.failure witness=test:test_ingest_shell_boundaries_reraise_original_errors
         raise

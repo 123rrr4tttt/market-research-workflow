@@ -21,9 +21,10 @@ from ..document_queries import (
     MaterialQueryJsonObject,
     MaterialQueryRow,
     coerce_material_query_result_row,
-    query_hybrid_material_rows,
-    query_report_source_rows,
+    query_hybrid_material_observation,
+    query_report_source_envelope,
     query_source_library_material_rows,
+    rows_for_material_views,
 )
 from ..document_views import (
     build_keyword_card_from_graph_node,
@@ -32,7 +33,7 @@ from ..document_views import (
     build_keyword_card_from_source_row,
     build_keyword_card_from_typed_knowledge_handoff,
 )
-from ..search.hybrid import get_last_used_backends
+from ..search.hybrid import SearchInvocationObservation, search_failure_payload
 from ..typed_knowledge.contracts import parse_writing_knowledge_context_envelope
 from .document_service import raise_writing_legacy, writing_failure
 
@@ -49,8 +50,6 @@ CardWithRaw: TypeAlias = tuple[KeywordCardItem, MaterialQueryRow]
 
 
 _CARD_CACHE: dict[str, CardCacheEntry] = {}
-_SELECTION_CACHE: dict[str, KeywordCardListResponse] = {}
-_CACHE_TTL_MS = 10_000
 _QUERY_SPLIT_RE = re.compile(r"\s+")
 
 
@@ -80,24 +79,30 @@ def _remember_card(item: KeywordCardItem, *, normalized_query: str, raw: Materia
     )
 
 
-def _cards_from_hybrid(query: str, limit: int) -> list[CardWithRaw]:
+def _cards_from_hybrid(
+    query: str,
+    limit: int,
+) -> tuple[list[CardWithRaw], SearchInvocationObservation]:
     normalized_query = normalize_and_rewrite_query(query)
-    rows = query_hybrid_material_rows(query, limit=limit)
+    envelope, observation = query_hybrid_material_observation(query, limit=limit)
+    rows = rows_for_material_views(envelope)
     cards: list[CardWithRaw] = []
     for row in rows:
         card = build_keyword_card_from_hybrid_row(row, normalized_query=normalized_query)
         cards.append((card, row))
-    return cards
+    return cards, observation
 
 
-def _cards_from_sources(query: str, limit: int) -> list[CardWithRaw]:
+def _cards_from_sources(query: str, limit: int) -> tuple[list[CardWithRaw], list[MaterialQueryJsonObject]]:
     normalized_query = normalize_and_rewrite_query(query)
-    rows = query_report_source_rows(query, limit=limit)
+    envelope = query_report_source_envelope(query, limit=limit)
+    rows = rows_for_material_views(envelope)
     cards: list[CardWithRaw] = []
     for row in rows:
         card = build_keyword_card_from_source_row(row, normalized_query=normalized_query)
         cards.append((card, row))
-    return cards
+    failures = envelope["meta"].get("search_failures")
+    return cards, [item for item in failures if isinstance(item, dict)] if isinstance(failures, list) else []
 
 
 def _cards_from_source_library(project_key: str, query: str, limit: int) -> list[CardWithRaw]:
@@ -177,16 +182,11 @@ def dedupe_and_score(
     graph_context_attached: bool = False,
     accepted_citation_count: int = 0,
     typed_knowledge_context_count: int = 0,
-    source_filter: tuple[str, ...] = (),
+    search_observations: tuple[SearchInvocationObservation, ...] = (),
+    source_search_failures: tuple[MaterialQueryJsonObject, ...] = (),
 ) -> KeywordCardListResponse:
     normalized_query = normalize_and_rewrite_query(query)
     selection_hash = _selection_hash(project_key, query)
-    cache_key = f"{selection_hash}:{int(graph_context_attached)}:{int(accepted_citation_count)}:{typed_knowledge_context_count}:{','.join(source_filter)}"
-    if cache_key in _SELECTION_CACHE:
-        cached = _SELECTION_CACHE[cache_key]
-        cached.cache_hit = True
-        return cached
-
     deduped: list[KeywordCardItem] = []
     seen: set[str] = set()
     score_snapshot: MaterialQueryJsonObject = {}
@@ -203,7 +203,19 @@ def dedupe_and_score(
         cards=deduped,
         selection_hash=selection_hash,
         suggested_queries=[normalized_query] if normalized_query else [],
-        search_backends_used=[str(item) for item in get_last_used_backends()],
+        search_backends_used=[
+            backend
+            for observation in search_observations
+            for backend in observation.used_backends
+        ],
+        search_failures=[
+            *(
+                search_failure_payload(failure)
+                for observation in search_observations
+                for failure in observation.failures
+            ),
+            *source_search_failures,
+        ],
         source_count={
             "material": sum(1 for item in deduped if item.source_type == "material"),
             "resource": sum(1 for item in deduped if item.source_type == "resource"),
@@ -243,9 +255,8 @@ def dedupe_and_score(
             },
         },
         cache_hit=False,
-        cache_ttl_ms=_CACHE_TTL_MS,
+        cache_ttl_ms=0,
     )
-    _SELECTION_CACHE[cache_key] = response
     return response
 
 
@@ -267,10 +278,15 @@ def aggregate_cards(payload: KeywordCardRequest) -> KeywordCardListResponse:
     if not requested_sources or "resource" in requested_sources:
         typed_knowledge_cards = _cards_from_typed_knowledge_context(payload, payload.limit)
         cards.extend(typed_knowledge_cards)
+    hybrid_observations: list[SearchInvocationObservation] = []
     if not requested_sources or "material" in requested_sources:
-        cards.extend(_cards_from_hybrid(query, payload.limit))
+        hybrid_cards, observation = _cards_from_hybrid(query, payload.limit)
+        cards.extend(hybrid_cards)
+        hybrid_observations.append(observation)
+    source_search_failures: list[MaterialQueryJsonObject] = []
     if not requested_sources or bool({"resource", "graph"} & requested_sources):
-        cards.extend(_cards_from_sources(query, payload.limit))
+        source_cards, source_search_failures = _cards_from_sources(query, payload.limit)
+        cards.extend(source_cards)
     if (not requested_sources or "resource" in requested_sources) and payload.project_key is not None:
         cards.extend(_cards_from_source_library(payload.project_key, query, payload.limit))
     if requested_sources:
@@ -282,7 +298,8 @@ def aggregate_cards(payload: KeywordCardRequest) -> KeywordCardListResponse:
         graph_context_attached=graph_context_attached,
         accepted_citation_count=accepted_citation_count,
         typed_knowledge_context_count=len(typed_knowledge_cards),
-        source_filter=tuple(sorted(requested_sources)),
+        search_observations=tuple(hybrid_observations),
+        source_search_failures=tuple(source_search_failures),
     )
 
 

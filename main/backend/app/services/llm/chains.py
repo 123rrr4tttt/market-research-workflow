@@ -35,7 +35,7 @@ def _retrying_chat_runnable(
 
 def build_policy_classification_chain() -> Annotated[
     Runnable[dict[str, Any], PolicyClassification],
-    "kit:prepared-command effect_boundary=llm.chains witness=test:test_w01_meta",
+    "kit:prepared-command effect_boundary=llm.chains witness=test:test_derived_service_annotations_match_fact_sources",
 ]:
     parser = PydanticOutputParser(pydantic_object=PolicyClassification)
 
@@ -71,7 +71,7 @@ def build_policy_classification_chain() -> Annotated[
 
 def build_policy_summary_chain() -> Annotated[
     Runnable[dict[str, Any], str],
-    "kit:prepared-command effect_boundary=llm.chains witness=test:test_w01_meta",
+    "kit:prepared-command effect_boundary=llm.chains witness=test:test_derived_service_annotations_match_fact_sources",
 ]:
     # 尝试从数据库读取配置
     config = get_llm_config("policy_summary")

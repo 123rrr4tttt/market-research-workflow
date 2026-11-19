@@ -14,7 +14,7 @@ from typing import (
 )
 
 from functorial_kit import Failure
-from mrw_functorial_kit.core.w04_service_semantics import workflow_graph_failures
+from mrw_functorial_kit.core.service_failure_semantics import workflow_graph_failures
 from app.successor_runtime.capabilities.workflow_common import (
     WorkflowJsonAtom as WorkflowJsonAtom,
     WorkflowJsonObject,
@@ -297,7 +297,7 @@ def build_workflow_graph_integrity_report(
     WorkflowGraphIntegrityReport,
     "kit:non-authoritative derived_as=preflight "
     "fact_source=node_ids+edges+topo_order "
-    "witness=test:test_w04_authority_metadata",
+    "witness=test:test_service_results_declare_sources_and_effect_authority",
 ]:
     normalized_node_ids = [str(node_id or "").strip() for node_id in node_ids if str(node_id or "").strip()]
     node_id_set = set(normalized_node_ids)

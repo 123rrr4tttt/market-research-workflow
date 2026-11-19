@@ -14,7 +14,17 @@ from app.services.agent_runtime.external_tool_status import (
     list_external_service_statuses,
     mark_mcp_tool_mounted,
 )
-from app.services.agent_runtime.read_only_tools import read_only_project_tool_sources
+from app.services.agent_runtime.read_only_tools import (
+    read_only_project_tool_sources,
+    system_projection_project_tool_source,
+)
+from app.services.agent_runtime.system_projection import (
+    SystemProjection,
+    build_system_projection,
+)
+from app.services.agent_runtime.system_sources_host import SYSTEM_OBJECTS as HOST_SYSTEM_OBJECTS
+from app.services.agent_runtime.system_sources_materials import SYSTEM_OBJECTS as MATERIAL_SYSTEM_OBJECTS
+from app.services.agent_runtime.system_sources_work import SYSTEM_OBJECTS as WORK_SYSTEM_OBJECTS
 from app.services.agent_sessions.store import InMemoryAgentSessionStore
 from app.services.agent_sessions.service import AgentSessionService
 from app.services.skill_runtime import invoke_skill, list_registered_skills
@@ -39,7 +49,12 @@ from .authoring_tools import (
 )
 from .query_tools import query_project_tool_sources
 from .registry import CoreToolRegistry
-from .tool_contribution import ProjectToolAuthorSource, register_project_tool_contributions
+from .tool_contribution import (
+    ProjectToolAssemblyContext,
+    ProjectToolAuthorSource,
+    compile_project_tool_native,
+    register_project_tool_contributions,
+)
 from .tool_support import (
     JSONValue,
     JSONObject,
@@ -66,6 +81,12 @@ MountedMcpToolHandler = Callable[[JSONObject, AgentCoreRequest], JSONObject]
 _MOUNTED_MCP_TOOLS: dict[str, tuple[JSONObject, MountedMcpToolHandler]] = {}
 
 
+def _default_source_library_lister(project_key: str | None) -> list[JSONObject]:
+    from app.services.source_library import list_effective_items
+
+    return [json_object(item) for item in list_effective_items(scope="effective", project_key=project_key)]
+
+
 def register_agent_core_mcp_tool(
     *,
     service_id: str,
@@ -83,7 +104,7 @@ def register_agent_core_mcp_tool(
 
     normalized_tool_name = str(tool_name or "").strip()
     if not normalized_tool_name:
-        # kit:boundary owner=project_tools.py class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w02_programmer_defect_boundary
+        # kit:boundary owner=project_tools.py class=PROGRAMMER_DEFECT failure_family=none witness=test:test_agent_catalog_and_project_tools_classify_programmer_defects
         raise ValueError("tool_name is required")
     _MOUNTED_MCP_TOOLS[normalized_tool_name] = (
         {
@@ -115,7 +136,7 @@ def build_project_core_tool_registry(
 ) -> Annotated[
     CoreToolRegistry,
     "kit:non-authoritative derived_as=view fact_source=project_core_tool_specs "
-    "witness=test:test_w02_agent_authority_metadata",
+    "witness=test:test_agent_results_declare_sources_and_effect_authority",
 ]:
     """Project tool projection for the model-owned core.
 
@@ -124,13 +145,22 @@ def build_project_core_tool_registry(
     """
 
     projection_service = service if service is not None else AgentSessionService(store=InMemoryAgentSessionStore())
+    effective_source_library_lister = source_library_lister or _default_source_library_lister
+    system_projection: SystemProjection | None = None
+
+    def current_system_projection() -> SystemProjection:
+        if system_projection is None:
+            raise RuntimeError("system projection is fixed only after project tool registration completes")
+        return system_projection
+
     registry = CoreToolRegistry()
     contribution_failure = register_project_tool_contributions(
         registry,
         (*read_only_project_tool_sources(
             service=projection_service,
-            source_library_lister=source_library_lister,
+            source_library_lister=effective_source_library_lister,
             structured_data_searcher=structured_data_searcher,
+            system_projection_provider=current_system_projection,
         ), *control_project_tool_sources(service=projection_service)),
     )
     if isinstance(contribution_failure, Failure):
@@ -140,7 +170,7 @@ def build_project_core_tool_registry(
     _register_deepening_tools(
         registry=registry,
         service=projection_service,
-        source_library_lister=source_library_lister,
+        source_library_lister=effective_source_library_lister,
         structured_data_searcher=structured_data_searcher,
     )
     _register_agent_macro_facilities(registry, projection_service)
@@ -267,6 +297,30 @@ def build_project_core_tool_registry(
             registry.register(spec, handler)
             registered.add(spec.name)
 
+    inspect_native = compile_project_tool_native(
+        system_projection_project_tool_source(
+            service=projection_service,
+            system_projection_provider=current_system_projection,
+        )
+    )
+    if isinstance(inspect_native, Failure):
+        raise ValueError(
+            f"system projection tool contribution is invalid: {inspect_native.message}"
+        )
+    inspect_binding = inspect_native.assemble(ProjectToolAssemblyContext())
+    if isinstance(inspect_binding, Failure):
+        raise ValueError(
+            f"system projection tool binding is invalid: {inspect_binding.message}"
+        )
+    registration_failure = registry.register(inspect_binding.spec, inspect_binding.handler)
+    if isinstance(registration_failure, Failure):
+        raise ValueError(
+            f"system projection tool registration failed: {registration_failure.message}"
+        )
+    system_projection = build_system_projection(
+        (*MATERIAL_SYSTEM_OBJECTS, *WORK_SYSTEM_OBJECTS, *HOST_SYSTEM_OBJECTS),
+        registry.list_specs(),
+    )
     return registry
 
 
@@ -337,11 +391,22 @@ def _register_deepening_tools(
 
 
 def _source_library_run_spec(capability_value: Mapping[str, object]) -> CoreToolSpec:
+    from app.services.resource_pool.search_contract_discovery import query_discovery_parameter_schema
+
     capability = json_object(capability_value)
     capability_id = str(capability.get("capability_id") or "").strip()
     approval_level = str(capability.get("approval_level") or "none").strip()
     concurrency_class = str(capability.get("concurrency_class") or "read_only").strip()
     risks = normalize_string_list(capability.get("risks"))
+    override_schema: JSONObject = {
+        "type": "object",
+        "properties": json_object(query_discovery_parameter_schema()),
+        "additionalProperties": True,
+        "description": (
+            "Runtime parameters only. Discovery request/time budgets are shared across this item's sources. "
+            "Agent search templates are unverified same-origin proposals, not saved source definitions."
+        ),
+    }
     input_schema: JSONObject = {
         "type": "object",
         "required": ["items", "project_key"],
@@ -357,7 +422,7 @@ def _source_library_run_spec(capability_value: Mapping[str, object]) -> CoreTool
                             "properties": {
                                 "item_key": {"type": "string"},
                                 "handler_key": {"type": "string"},
-                                "override_params": {"type": "object", "additionalProperties": True},
+                                "override_params": override_schema,
                             },
                             "additionalProperties": True,
                         },
@@ -365,16 +430,29 @@ def _source_library_run_spec(capability_value: Mapping[str, object]) -> CoreTool
                 },
             },
             "project_key": {"type": "string"},
-            "override_params": {"type": "object", "additionalProperties": True},
+            "override_params": override_schema,
             "max_items": {"type": "integer", "minimum": 1, "maximum": 100},
-            "async_mode": {"type": "boolean", "description": "Prefer true for user-facing collection requests."},
+            "async_mode": {
+                "type": "boolean",
+                "description": "Compatibility field. This native tool dispatches tasks; read ingest.status.read with each returned task_id for terminal results.",
+            },
         },
         "additionalProperties": True,
     }
     return CoreToolSpec(
         name=capability_id,
         title=str(capability.get("name") or capability_id),
-        description_for_model=str(capability.get("description") or capability_id),
+        description_for_model=(
+            str(capability.get("description") or capability_id)
+            + " Dispatch is not collection completion; read the original task's terminal result with "
+            "ingest.status.read and its returned task_id. "
+            "If it returns an exploration_request, continue through this project-bound Cell's mounted "
+            "source.discovery.plan and source.web.search tools. Try supported alternative queries or "
+            "evidence sources after a mechanical no-hit. Submit observed same-origin interface candidates "
+            "as agent_search_templates only within the returned remaining discovery budget and existing "
+            "authorization; do not reset budgets or persist guesses. Report binding, permission or "
+            "capability failures explicitly. Never bypass Cell with direct model/provider calls."
+        ),
         input_schema=input_schema,
         source="project",
         risk=risk_from_metadata(
@@ -424,6 +502,14 @@ def _source_library_run_handler_factory(
                 error={"code": "missing_item_key", "message": "item_key is required"},
             )
 
+        item_overrides: dict[str, JSONObject] = {}
+        for item_value in json_list(tool_call.arguments.get("items")):
+            if not isinstance(item_value, dict):
+                continue
+            item_key = str(item_value.get("item_key") or item_value.get("key") or "").strip()
+            if item_key and item_key not in item_overrides:
+                item_overrides[item_key] = json_object(item_value.get("override_params"))
+
         dispatches: list[JSONObject] = []
         skipped_due_to_abort: list[str] = []
         for item_key in item_keys:
@@ -445,12 +531,15 @@ def _source_library_run_handler_factory(
                     )
                 )
                 break
+            item_params: JSONObject = {**override_params, **item_overrides.get(item_key, {})}
+            # Semantic exploration belongs to the calling Cell, not a worker-side model.
+            item_params["allow_candidate_semantic_llm"] = False
             invoked = invoke_skill(
                 skill_id="ingest.dispatch.source_library_item",
                 payload={
                     "item_key": item_key,
                     "project_key": project_key,
-                    "override_params": override_params,
+                    "override_params": item_params,
                     "lane": "subagent",
                 },
                 context={
@@ -469,6 +558,7 @@ def _source_library_run_handler_factory(
                     "item_key": item_key,
                     "task_id": str(result.get("task_id") or "").strip(),
                     "skill_id": "ingest.dispatch.source_library_item",
+                    "override_params": item_params,
                 }
             )
             if session_abort_requested(service=service, session_id=request.session_id):
@@ -541,6 +631,9 @@ def _source_library_run_handler_factory(
                 "override_params": override_params,
                 "dispatch_artifact_id": dispatch_artifact.get("artifact_id"),
                 "next_read_tools": ["ingest.status.read", "agent_session.resume_bundle"],
+                "next_read_arguments": [
+                    {"task_id": task_id} for task_id in task_ids
+                ],
             },
             artifact_refs=(str(dispatch_artifact.get("artifact_id") or "ingest.source_library_dispatches.json"),),
         )

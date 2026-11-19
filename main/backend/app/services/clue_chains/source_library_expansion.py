@@ -7,7 +7,7 @@ from typing import Any, Callable, Iterable, Mapping, NoReturn, TypeGuard
 
 from functorial_kit import Failure
 
-from mrw_functorial_kit.core.w04_service_semantics import clue_chain_failures
+from mrw_functorial_kit.core.service_failure_semantics import clue_chain_failures
 
 from ..document_queries.writing_material_queries import query_source_library_material_rows
 from ..resource_pool.url_utils import domain_from_url

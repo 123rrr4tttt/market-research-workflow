@@ -82,7 +82,7 @@ assertIncludesAll('backend deterministic card readback', backendReadbackTest, [
   'get_card_detail',
   'KeywordCardPreviewRequest',
   'KeywordCardDetailRequest',
-  'wave16-worker5-readback',
+  'typed-fetch-readback',
 ])
 
 assertIncludesAll('backend typed context cache source', backendKeywordService, [
@@ -95,7 +95,7 @@ assertIncludesAll('backend typed context cache source', backendKeywordService, [
 const deterministicRequest = {
   project_key: 'demo_proj',
   query: 'robotics investment',
-  selection_hash: 'sel_wave16',
+  selection_hash: 'sel_typed_fetch',
   sources: ['material', 'resource', 'graph'],
   context: {
     contract_version: 'writing.context_boundary.e3.v1',
@@ -117,7 +117,7 @@ const deterministicRequest = {
           locale: 'en',
           evidence_refs: ['doc:robotics:42'],
           visibility_scope: 'downstream_ready',
-          selection_hash: 'sel_wave16',
+          selection_hash: 'sel_typed_fetch',
           selection_text: 'robotics investment',
           facets: {
             consumer_boundary: {
@@ -146,7 +146,7 @@ if (!deterministicRequest.sources.includes('resource')) {
 
 const summary = {
   status: failures.length === 0 ? 'ok' : 'failed',
-  contract_version: 'writing_workbench_typed_fetch.wave16.worker5.v1',
+  contract_version: 'writing_workbench_typed_fetch.v1',
   checked_files: Object.values(files),
   deterministic_fixture: {
     consumer: deterministicRequest.context.typed_knowledge_context.consumer,
@@ -155,8 +155,6 @@ const summary = {
   },
   live_closure_claimed: false,
   remaining_live_conditions: [
-    'public_typed_knowledge_api_route_not_implemented',
-    'live_db_persistence_not_implemented',
     'persisted_typed_knowledge_cards_live_readback_not_verified',
   ],
   failures,

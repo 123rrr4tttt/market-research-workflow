@@ -12,6 +12,7 @@ if TYPE_CHECKING:
 
 
 SourceMode = Literal["protocol_search", "provider_harvest", "site_search", "url_execution"]
+ExecutionLayer = Literal["execute", "terminal_output_only"]
 TerminalStatus = Literal["ok", "partial", "error", "accepted", "completed", "failed", "cancelled"]
 
 
@@ -585,7 +586,7 @@ def build_source_concurrency_plan(
     total_url_tasks: int,
 ) -> Annotated[
     SourceConcurrencyPlan,
-    "kit:prepared-command effect_boundary=source_library.concurrency witness=test:test_w01_meta",
+    "kit:prepared-command effect_boundary=source_library.concurrency witness=test:test_derived_service_annotations_match_fact_sources",
 ]:
     raw = dict(params or {})
     batch_size = _clamp_int(

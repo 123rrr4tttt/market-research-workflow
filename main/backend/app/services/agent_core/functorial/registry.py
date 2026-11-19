@@ -17,7 +17,7 @@ from mrw_functorial_kit.core.agent_service_semantics import (
 )
 
 _COLLECTIONS = ("operators", "motifs", "workflows")
-_FAILURE_WITNESS = "test:test_w02_functorial_projection_failure_lifts"
+_FAILURE_WITNESS = "test:test_functorial_projection_failure_lifts"
 ProjectionFailure: TypeAlias = Failure
 
 
@@ -43,9 +43,9 @@ def _projection_failure(code: str, message: str, *, collection: str | None = Non
 
 def _raise_projection_failure(value: Failure, exception_type: type[Exception]) -> NoReturn:
     if not agent_functorial_projection_failures.matches(value):
-        # kit:boundary owner=registry.py class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w02_functorial_projection_failure_lifts
+        # kit:boundary owner=registry.py class=PROGRAMMER_DEFECT failure_family=none witness=test:test_functorial_projection_failure_lifts
         raise TypeError("invalid functorial projection failure")  # noqa: TRY003
-    # kit:boundary owner=registry.py class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=agent.functorial_projection.failure witness=test:test_w02_functorial_projection_failure_lifts
+    # kit:boundary owner=registry.py class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=agent.functorial_projection.failure witness=test:test_functorial_projection_failure_lifts
     raise exception_type(value.message)
 
 

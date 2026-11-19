@@ -6,6 +6,7 @@ from urllib.parse import urlparse, parse_qs
 from typing import TypeGuard
 
 from ..ingest_config.service import get_config
+from ..resource_pool.url_utils import domain_from_url
 
 
 _DEFAULT_CHANNEL = "url_pool"
@@ -25,20 +26,6 @@ def _object(value: object) -> dict[str, object]:
 
 def _object_list(value: object) -> list[object]:
     return list(value) if _is_object_list(value) else []
-
-
-def _domain_from_url(url: str) -> str:
-    """Extract domain from URL (lowercase, without www). Returns empty string if invalid."""
-    if not url:
-        return ""
-    try:
-        parsed = urlparse(url)
-        netloc = parsed.netloc or ""
-        if not netloc:
-            return ""
-        return netloc.lower().lstrip("www.")
-    except Exception:
-        return ""
 
 
 def _path_from_url(url: str) -> str:
@@ -161,7 +148,7 @@ def resolve_channel_for_url(url: str, project_key: str | None, *, has_query_term
     if not rules:
         return kw_aware or guessed or _DEFAULT_CHANNEL
 
-    domain = _domain_from_url(url)
+    domain = domain_from_url(url) or ""
     for raw_rule in rules:
         rule = _object(raw_rule)
         pattern = rule.get("pattern")

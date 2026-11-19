@@ -5,7 +5,7 @@ import json
 import sys
 from collections.abc import Iterator
 from pathlib import Path
-from typing import Any
+from typing import cast
 
 import pytest
 from functorial_kit import Failure
@@ -43,21 +43,21 @@ _FAMILIES = {
 
 
 @pytest.fixture(scope="module", autouse=True)
-def _isolate_llm_cache_effect(tmp_path_factory: pytest.TempPathFactory) -> Iterator[None]:
+def isolate_llm_cache_effect(tmp_path_factory: pytest.TempPathFactory) -> Iterator[None]:
     """Keep import-time LLM cache initialization inside the test temp root."""
     from app.settings.config import settings
     from langchain_core.globals import get_llm_cache, set_llm_cache
 
     previous_cache = get_llm_cache()
     previous_env = settings.env
+    previous_cache_path = settings.llm_cache_path
     settings.env = "prod"
     try:
         from app.services.llm import cache as llm_cache
     finally:
         settings.env = previous_env
 
-    previous_cache_file = llm_cache._CACHE_FILE
-    llm_cache._CACHE_FILE = (
+    settings.llm_cache_path = str(
         tmp_path_factory.mktemp("provider-port-llm-cache") / "langchain-cache.db"
     )
     try:
@@ -65,7 +65,7 @@ def _isolate_llm_cache_effect(tmp_path_factory: pytest.TempPathFactory) -> Itera
         yield
     finally:
         set_llm_cache(previous_cache)
-        llm_cache._CACHE_FILE = previous_cache_file
+        settings.llm_cache_path = previous_cache_path
         settings.env = previous_env
 
 
@@ -165,7 +165,7 @@ class _ExplodingIterable:
         raise RuntimeError("provider iteration failed")
 
 
-def _unexpected_job_start(*_args: Any, **_kwargs: Any) -> None:
+def _unexpected_job_start(*_args: object) -> None:
     raise AssertionError("job started before provider iteration completed")
 
 
@@ -179,7 +179,10 @@ def test_FAILURE_PRESERVED__policy_iteration_failure_precedes_job_and_persistenc
         def fetch_documents() -> _ExplodingIterable:
             return _ExplodingIterable()
 
-    monkeypatch.setattr(policy, "get_policy_adapter", lambda *_args, **_kwargs: _Adapter())
+    def get_adapter(_country: str, _source_hint: str | None) -> _Adapter:
+        return _Adapter()
+
+    monkeypatch.setattr(policy, "get_policy_adapter", get_adapter)
     monkeypatch.setattr(policy, "start_job", _unexpected_job_start)
 
     with pytest.raises(RuntimeError, match="provider iteration failed"):
@@ -189,7 +192,7 @@ def test_FAILURE_PRESERVED__policy_iteration_failure_precedes_job_and_persistenc
 def test_FAILURE_PRESERVED__reddit_business_methods_are_best_effort_total() -> None:
     from app.services.ingest.adapters.social_reddit import RedditAdapter
 
-    def fail_fetch(*_args: Any, **_kwargs: Any) -> None:
+    def fail_fetch(*_args: object) -> None:
         raise RuntimeError("external fetch failed")
 
     adapter = RedditAdapter()
@@ -197,7 +200,10 @@ def test_FAILURE_PRESERVED__reddit_business_methods_are_best_effort_total() -> N
         monkeypatch.setattr(
             "app.services.ingest.adapters.social_reddit._request_html", fail_fetch
         )
-        monkeypatch.setattr("time.sleep", lambda *_args: None)
+        def sleep(_seconds: float) -> None:
+            return None
+
+        monkeypatch.setattr("time.sleep", sleep)
         assert list(adapter.fetch_posts("stocks", ["ai"], 2)) == []
         assert list(adapter.search_multiple_subreddits(["stocks"], ["ai"], 2)) == []
         assert set(
@@ -208,7 +214,7 @@ def test_FAILURE_PRESERVED__reddit_business_methods_are_best_effort_total() -> N
 def test_FAILURE_PRESERVED__google_news_business_methods_are_best_effort_total() -> None:
     from app.services.ingest.adapters.news_google import GoogleNewsAdapter
 
-    def fail_fetch(*_args: Any, **_kwargs: Any) -> None:
+    def fail_fetch(*_args: object) -> None:
         raise RuntimeError("external fetch failed")
 
     adapter = GoogleNewsAdapter()
@@ -224,11 +230,18 @@ def test_FAILURE_PRESERVED__collect_registration_contracts_fail_closed(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     from app.services.collect_runtime import runtime
+    from app.services.collect_runtime.contracts import (
+        CollectEffectGateway,
+        SourceLibraryCompatProjector,
+    )
+
+    invalid_projector = cast(SourceLibraryCompatProjector, object())
+    invalid_gateway = cast(CollectEffectGateway, object())
 
     with pytest.raises(TypeError, match="projector must be callable"):
-        runtime.register_source_library_compat_projector(object())
+        runtime.register_source_library_compat_projector(invalid_projector)
     with pytest.raises(TypeError, match="gateway must be callable"):
-        runtime.register_successor_collect_effect_gateway(object())
+        runtime.register_successor_collect_effect_gateway(invalid_gateway)
 
     class _ClassifiedFailure(Exception):
         def __init__(self, failure: object) -> None:
@@ -240,11 +253,11 @@ def test_FAILURE_PRESERVED__collect_registration_contracts_fail_closed(
     monkeypatch.setattr(runtime, "_raise_collect_contract", capture_failure)
     classified_cases = (
         (
-            lambda: runtime.register_source_library_compat_projector(object()),
+            lambda: runtime.register_source_library_compat_projector(invalid_projector),
             "compat_projector_contract_invalid",
         ),
         (
-            lambda: runtime.register_successor_collect_effect_gateway(object()),
+            lambda: runtime.register_successor_collect_effect_gateway(invalid_gateway),
             "successor_effect_gateway_invalid",
         ),
     )

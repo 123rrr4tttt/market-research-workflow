@@ -165,6 +165,32 @@ test('resource page keeps current tables compact and reviews the visible page it
   expect(documentWidth).toBeLessThanOrEqual(1440)
 })
 
+test('project management keeps the current project until activation succeeds', async ({ page }) => {
+  await mockAdminShell(page, [])
+  await page.route('**/api/v1/projects?**', (route) => fulfillJson(route, [
+    stableProject,
+    { project_key: 'project_b', name: 'Project B', enabled: true },
+  ]))
+  let attempts = 0
+  await page.route('**/api/v1/projects/project_b/activate?**', (route) => {
+    if (++attempts === 1) return route.fulfill({ status: 409, json: { detail: 'project is archived/disabled' } })
+    return fulfillJson(route, { active_project_key: 'project_b' })
+  })
+
+  await page.goto('/#/admin/projects')
+  const switchButton = page.getByTestId('projects-list').getByRole('row', { name: /Project B/ }).getByRole('button', { name: '切换', exact: true })
+  const firstActivation = page.waitForResponse((response) =>
+    new URL(response.url()).pathname === '/api/v1/projects/project_b/activate',
+  )
+  await switchButton.click()
+  expect((await firstActivation).status()).toBe(409)
+  await expect(switchButton).toBeEnabled()
+  expect(await page.evaluate(() => localStorage.getItem('market_project_key'))).toBe('resource_e2e')
+
+  await switchButton.click()
+  await expect.poll(() => page.evaluate(() => localStorage.getItem('market_project_key'))).toBe('project_b')
+})
+
 test('switching projects cancels the remaining current-page review work', async ({ page }) => {
   const captured: CapturedRequest[] = []
   let releaseFirstPatch: (() => void) | null = null

@@ -5,7 +5,6 @@ import {
   createDashboardReportFromFilter,
   exportLlmReportFile,
   exportWritingMarkdown,
-  getBusinessLineEvidenceMatrix,
   getDashboardLlmReportDetail,
   getDashboardStats,
   type LlmReportExportFormat,
@@ -37,7 +36,6 @@ import {
 } from '../lib/dashboardDiagnostics'
 import { queryKeys } from '../lib/queryKeys'
 import type {
-  BusinessLineEvidenceMatrix,
   DashboardLlmReportQualityRecord,
   DashboardPendingAction,
   DashboardReportFromFilterPayload,
@@ -102,80 +100,6 @@ function sampleRowColumns(rows: Array<Record<string, unknown>>) {
   return columns.slice(0, 8)
 }
 
-function asRecord(value: unknown) {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return null
-  return value as Record<string, unknown>
-}
-
-function textValue(value: unknown) {
-  return typeof value === 'string' && value ? value : ''
-}
-
-function dashboardResetTelemetryBoundaryLines(matrix: BusinessLineEvidenceMatrix | undefined) {
-  const uiBoundary = asRecord(matrix?.ui_boundary)
-  const metadata = asRecord(uiBoundary?.reset_telemetry)
-  const filterTransition = asRecord(metadata?.filter_transition)
-
-  const eventName = textValue(metadata?.event_name)
-  const eventScope = textValue(metadata?.event_scope)
-  const filterFrom = textValue(filterTransition?.from)
-  const filterTo = textValue(filterTransition?.to)
-  const sortBehavior = textValue(metadata?.sort_behavior)
-  const apiPayloadBehavior = textValue(metadata?.api_payload_behavior)
-  const scheduledEvidenceWrite = textValue(metadata?.scheduled_evidence_write)
-  const scheduledCompletionProof = metadata?.scheduled_completion_proof
-  const scheduledEvidenceController = textValue(metadata?.scheduled_evidence_controller)
-
-  if (
-    eventName !== 'reset_empty_warning_view'
-    || eventScope !== 'ui_event_log_only'
-    || filterFrom !== 'warning_only'
-    || filterTo !== 'all'
-    || sortBehavior !== 'unchanged'
-    || apiPayloadBehavior !== 'unchanged'
-    || scheduledEvidenceWrite !== 'none'
-    || scheduledCompletionProof !== false
-    || scheduledEvidenceController !== 'scheduled_run_evidence'
-  ) {
-    return [
-      'reset telemetry metadata unavailable',
-      'fallback boundary: not scheduled_run_evidence proof',
-      'fallback boundary: scheduled_evidence_write=none',
-      'fallback boundary: scheduled_completion_proof unchanged',
-    ]
-  }
-
-  return [
-    eventName,
-    eventScope,
-    `filter=${filterFrom}->${filterTo}`,
-    `sort=${sortBehavior}`,
-    `api_payload=${apiPayloadBehavior}`,
-    `scheduled_evidence_write=${scheduledEvidenceWrite}`,
-    `scheduled_completion_proof=${scheduledCompletionProof}`,
-    `scheduled_evidence_controller=${scheduledEvidenceController}`,
-    'scheduled_completion_proof unchanged',
-    'not scheduled_run_evidence proof',
-  ]
-}
-
-type ResetTelemetryBoundaryContext = {
-  scope: 'ui_read_only_evidence_context'
-  source: 'business_lines.evidence_matrix.ui_boundary.reset_telemetry'
-  lines: string[]
-  not_report_proof: true
-  not_scheduled_run_evidence_proof: true
-  scheduled_evidence_write: 'none'
-  scheduled_completion_proof: 'unchanged'
-}
-
-type DashboardReportDashboardPayload = DashboardReportFromFilterPayload['dashboard'] & {
-  reset_telemetry_boundary_context: ResetTelemetryBoundaryContext
-}
-
-type DashboardLlmReportFileExportPayload = LlmReportFileExportPayload & {
-  reset_telemetry_boundary_context: ResetTelemetryBoundaryContext
-}
 
 type DashboardLlmReportExportAuditRecord = DashboardLlmReportQualityRecord & {
   ui_read_only_context_included?: boolean | null
@@ -215,11 +139,6 @@ export default function DashboardPage({ projectKey, variant = 'dashboard' }: Das
   const dashboardStats = useQuery({
     queryKey: queryKeys.dashboard.stats(projectKey),
     queryFn: getDashboardStats,
-    enabled: Boolean(projectKey),
-  })
-  const businessLineEvidenceMatrix = useQuery({
-    queryKey: ['dashboard-business-line-evidence-matrix', projectKey],
-    queryFn: getBusinessLineEvidenceMatrix,
     enabled: Boolean(projectKey),
   })
   const dashboardDrilldown = useQuery({
@@ -304,19 +223,6 @@ export default function DashboardPage({ projectKey, variant = 'dashboard' }: Das
   ]
   const sampleRows = dashboardDrilldown.data?.sample_rows || EMPTY_SAMPLE_ROWS
   const sampleColumns = useMemo(() => sampleRowColumns(sampleRows), [sampleRows])
-  const resetTelemetryBoundaryLines = useMemo(
-    () => dashboardResetTelemetryBoundaryLines(businessLineEvidenceMatrix.data),
-    [businessLineEvidenceMatrix.data],
-  )
-  const resetTelemetryBoundaryContext = useMemo<ResetTelemetryBoundaryContext>(() => ({
-    scope: 'ui_read_only_evidence_context',
-    source: 'business_lines.evidence_matrix.ui_boundary.reset_telemetry',
-    lines: resetTelemetryBoundaryLines,
-    not_report_proof: true,
-    not_scheduled_run_evidence_proof: true,
-    scheduled_evidence_write: 'none',
-    scheduled_completion_proof: 'unchanged',
-  }), [resetTelemetryBoundaryLines])
   const reportPayload = useMemo<DashboardReportFromFilterPayload>(() => {
     const drilldownFilters = dashboardDrilldown.data?.filters || {}
     const actionFilters = drilldownSelection?.filters || {}
@@ -325,7 +231,7 @@ export default function DashboardPage({ projectKey, variant = 'dashboard' }: Das
       : drilldownSelection?.sourceRef
         ? [{ id: drilldownSelection.sourceRef }]
         : []
-    const dashboardPayload: DashboardReportDashboardPayload = {
+    const dashboardPayload: DashboardReportFromFilterPayload['dashboard'] = {
       variant,
       selected_label: drilldownSelection?.label || null,
       selected_metric: dashboardDrilldown.data?.metric || drilldownSelection?.metric || null,
@@ -341,7 +247,6 @@ export default function DashboardPage({ projectKey, variant = 'dashboard' }: Das
       source_refs: sourceRefs,
       sample_rows: sampleRows,
       sample_row_count: dashboardDrilldown.data?.row_count || 0,
-      reset_telemetry_boundary_context: resetTelemetryBoundaryContext,
     }
     return {
       request_type: 'report_from_dashboard_filter',
@@ -349,11 +254,10 @@ export default function DashboardPage({ projectKey, variant = 'dashboard' }: Das
       dashboard: dashboardPayload,
       report_options: {
         include_dashboard_sample_rows: true,
-        include_reset_telemetry_boundary_context: true,
         preserve_source_refs: true,
       },
     }
-  }, [dashboardDrilldown.data, drilldownSelection, projectKey, resetTelemetryBoundaryContext, sampleRows, variant])
+  }, [dashboardDrilldown.data, drilldownSelection, projectKey, sampleRows, variant])
   const reportPayloadText = stringifyJson(reportPayload)
   const reportSourceRefs = reportPayload.dashboard.source_refs || []
   const llmReportQuality = dashboardStats.data?.llm_report_quality
@@ -393,7 +297,7 @@ export default function DashboardPage({ projectKey, variant = 'dashboard' }: Das
       const docId = dashboardReportDocumentId(reportFromFilter.data)
       const artifact = dashboardReportExportArtifact(reportFromFilter.data)
       const exported = await exportWritingMarkdown(docId, projectKey)
-      const exportPayload: DashboardLlmReportFileExportPayload = {
+      const exportPayload: LlmReportFileExportPayload = {
         markdown: exported.markdown,
         quality_gate: dashboardQualityGateForExport(reportFromFilter.data),
         quality_gate_mode: dashboardQualityGateModeForExport(reportFromFilter.data),
@@ -401,7 +305,6 @@ export default function DashboardPage({ projectKey, variant = 'dashboard' }: Das
         project_key: projectKey,
         artifact_token: artifact.artifact_token,
         artifact_sha256: artifact.artifact_sha256 || null,
-        reset_telemetry_boundary_context: resetTelemetryBoundaryContext,
       }
       return exportLlmReportFile(format, exportPayload)
     },
@@ -565,20 +468,6 @@ export default function DashboardPage({ projectKey, variant = 'dashboard' }: Das
           ))}
         </div>
         {dashboardStats.isError ? <p className="status-line">{t('dashboardPage.error.loadFailed')}</p> : null}
-      </section>
-
-      <section className="kpi-grid">
-        <article
-          className="kpi-card"
-          data-testid="dashboard-scheduled-artifact-reset-telemetry-boundary"
-        >
-          <span>{t('dashboardPage.section.scheduledArtifactResetTelemetryBoundary')}</span>
-          <ul className="compact-list">
-            {resetTelemetryBoundaryLines.map((item) => (
-              <li key={item}>{item}</li>
-            ))}
-          </ul>
-        </article>
       </section>
 
       <section className="panel">
@@ -793,17 +682,6 @@ export default function DashboardPage({ projectKey, variant = 'dashboard' }: Das
         </div>
         {llmReportDetail.data ? (
           <div className="status-line" data-testid="dashboard-report-detail-panel">
-            <article
-              className="kpi-card"
-              data-testid="dashboard-report-detail-reset-telemetry-boundary"
-            >
-              <span>{t('dashboardPage.section.reportDetailResetTelemetryBoundary')}</span>
-              <ul className="compact-list">
-                {resetTelemetryBoundaryLines.map((item) => (
-                  <li key={item}>{item}</li>
-                ))}
-              </ul>
-            </article>
             <p>
               <strong>{t('dashboardPage.field.found')}</strong>: {llmReportDetail.data.found == null ? '-' : String(llmReportDetail.data.found)}
             </p>

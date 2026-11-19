@@ -49,10 +49,6 @@ import type {
   AgentBatchSubmitResult,
   AutoCreateProjectPayload,
   AutoCreateProjectResult,
-  BusinessLineScheduledArtifactDrilldown,
-  BusinessLineEvidenceMatrix,
-  BusinessLineScheduledArtifactSummaries,
-  BusinessLineScheduledMatrixArtifactSummary,
   CrawlerDeployRunItem,
   CrawlerProjectDeployPayload,
   CrawlerProjectImportPayload,
@@ -296,6 +292,7 @@ export {
   listWritingDocuments,
   listWritingTemplates,
   previewWritingKeywordCard,
+  readWritingDocumentConflict,
   readTypedKnowledgeWritingContext,
   readTypedKnowledgeWritingContextFromDocument,
   seedTypedKnowledgeLiveSample,
@@ -319,6 +316,7 @@ export type WritingCardDetailParams = import('./api/domains/writing').WritingCar
 export type WritingCitation = import('./api/domains/writing').WritingCitation
 export type WritingContextEnvelope = import('./api/domains/writing').WritingContextEnvelope
 export type WritingDocument = import('./api/domains/writing').WritingDocument
+export type WritingDocumentConflict = import('./api/domains/writing').WritingDocumentConflict
 export type WritingDraft = import('./api/domains/writing').WritingDraft
 export type WritingKeywordCard = import('./api/domains/writing').WritingKeywordCard
 export type WritingKeywordCardDetail = import('./api/domains/writing').WritingKeywordCardDetail
@@ -459,22 +457,6 @@ export async function ingestSingleUrl(payload: IngestSingleUrlPayload) {
 
 export async function getSearchRetrievalRun(retrievalRunId: string) {
   return get<SearchRetrievalRunReadback>(endpoints.search.retrievalRun(retrievalRunId))
-}
-
-export async function getBusinessLineEvidenceMatrix() {
-  return get<BusinessLineEvidenceMatrix>(endpoints.businessLines.evidenceMatrix)
-}
-
-export async function getBusinessLineScheduledMatrixArtifactSummary() {
-  return get<BusinessLineScheduledMatrixArtifactSummary>(endpoints.businessLines.scheduledMatrixArtifactSummary)
-}
-
-export async function getBusinessLineScheduledArtifactSummaries() {
-  return get<BusinessLineScheduledArtifactSummaries>(endpoints.businessLines.scheduledArtifactSummaries)
-}
-
-export async function getBusinessLineScheduledArtifactDrilldown() {
-  return get<BusinessLineScheduledArtifactDrilldown>(endpoints.businessLines.scheduledArtifactDrilldown)
 }
 
 export async function ingestDataApi(payload: Record<string, unknown>) {

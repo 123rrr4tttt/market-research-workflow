@@ -1,28 +1,19 @@
-# 市场研究工作流
+# 市场研究工作流（MRW）
 
-面向研究与信息处理的通用平台，提供项目管理、来源采集、文档导入、检索、信息图谱、写作和任务运维。Agent 执行使用 Codex Core，交互使用 Codex WebUI。
+MRW 是本机单用户研究工作台：按项目整理来源和资料，开展搜索与专题调查，再将可回溯的证据用于分析、写作和报告。业务界面嵌入 Codex WebUI；Agent 通过 Cell 调用获准的领域操作，材料、文档与任务结果仍由对应服务写入。
 
 ## 开始使用
 
-本机入口：业务界面 <http://127.0.0.1:5173>，Codex WebUI <http://127.0.0.1:8172>，API <http://127.0.0.1:8000/docs>。
-
-```bash
-./scripts/local-deploy.sh status
-./scripts/local-deploy.sh health
-```
-
-启停、宿主 OAuth、容器模式和故障定位统一见[使用说明](docs/usage.md)。具体能力和运行边界见该说明。
+从干净的 checkout 开始，按[本机使用说明](docs/usage.md#首次运行)准备依赖、初始化数据库、构建界面并启动服务。默认业务入口是 <http://127.0.0.1:5173>。启动后先创建或选择项目，导入一份材料，在任务页查看处理结果，再搜索并打开原文核对。
 
 ## 文档
 
-从[文档导航](docs/README.md)进入：
-
 | 要做的事 | 阅读入口 |
 | --- | --- |
-| 运行与使用 | [使用说明](docs/usage.md) |
-| 理解模块和数据归属 | [架构说明](docs/architecture/README.md) |
+| 安装、启动与日常使用 | [使用说明](docs/usage.md) |
+| 理解对象、职责与设计取舍 | [总体设计](docs/architecture/README.md) |
 | 修改代码与验证 | [开发指南](docs/development/README.md) |
-| 查找已完成方案和旧证据 | [历史资料](docs/history/README.md) |
+| 定位接口与各领域专题 | [后端接口与专题](main/backend/docs/README.md) |
 
 ## 源码
 

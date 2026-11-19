@@ -9,15 +9,6 @@ from fastapi.routing import APIRoute
 
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
-REPO_ROOT = Path(__file__).resolve().parents[3]
-DEFAULT_DOC_PATH = (
-    REPO_ROOT
-    / "development"
-    / "latest-dev-docs"
-    / "backend-docs"
-    / "B_API"
-    / "API_SCHEMA_INVENTORY_2026-05-22.md"
-)
 HTTP_METHODS = ("DELETE", "GET", "PATCH", "POST", "PUT")
 
 
@@ -125,7 +116,7 @@ def _status_codes(operation: dict[str, Any]) -> str:
 def build_inventory(app: Any) -> Annotated[
     dict[str, Any],
     "kit:non-authoritative derived_as=generated_evidence "
-    "fact_source=fastapi.openapi.routes witness=test:test_w10_cli_generator_derived_metadata_preserves_abi",
+    "fact_source=fastapi.openapi.routes witness=test:test_all_v1_openapi_operations_are_covered_with_typed_success_schemas",
 ]:
     schema = app.openapi()
     routes = _route_index(app)
@@ -256,16 +247,12 @@ def render_markdown(inventory: dict[str, Any]) -> str:
     )
     return f"""# Backend API Schema Inventory (Current)
 
-> Status: CURRENT as of 2026-05-22. Generated from the running FastAPI app OpenAPI surface by `main/backend/scripts/generate_api_schema_inventory.py`.
->
-> Scope: every `/api/v1` OpenAPI operation exposed by `app.main.app`, including the {summary["api_router_operations"]} router operations covered by `API_ROUTE_MAP_2026-05-22.md` plus {summary["app_level_operations"]} non-`app.api` operations (`/api/v1/health`, `/api/v1/health/deep`, `/api/v1/maps/usa`).
->
-> Drift guard: `main/backend/tests/contract/test_api_schema_inventory_contract_unittest.py` regenerates this document from the current FastAPI OpenAPI schema and compares it byte-for-byte.
+> Generated from the current FastAPI application. The inventory covers the `/api/v1` operations advertised by OpenAPI.
 
 ## Summary
 
 - OpenAPI `/api/v1` operations: **{summary["api_v1_operations"]}**.
-- API router operations also covered by `API_ROUTE_MAP_2026-05-22.md`: **{summary["api_router_operations"]}**.
+- API router operations: **{summary["api_router_operations"]}**.
 - App-level `/api/v1` operations outside `main/backend/app/api/*.py`: **{summary["app_level_operations"]}**.
 - Component schemas advertised by OpenAPI: **{summary["component_schemas"]}**.
 - Method distribution: {method_counts}.
@@ -296,8 +283,7 @@ def main() -> None:
     from app.main import app
 
     inventory = build_inventory(app)
-    DEFAULT_DOC_PATH.write_text(render_markdown(inventory), encoding="utf-8")
-    print(f"wrote {DEFAULT_DOC_PATH}")
+    print(render_markdown(inventory), end="")
 
 
 if __name__ == "__main__":

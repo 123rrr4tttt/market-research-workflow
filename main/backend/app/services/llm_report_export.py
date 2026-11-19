@@ -39,7 +39,7 @@ class LlmReportExportTokenError(ValueError):
     """Raised when a caller supplied report export token cannot be trusted."""
 
 
-_FAILURE_WITNESS = "test:test_w01_report_export_token_failure_is_typed_before_abi_lift"
+_FAILURE_WITNESS = "test:test_report_export_token_failure_is_typed_before_abi_lift"
 
 
 def _report_export_failure(code: str, message: str, *, site: str, **details: Any) -> Failure:
@@ -73,12 +73,12 @@ def _raise_report_export_failure(
         or context.get("public_exception") != exception_type.__name__
         or context.get("public_message") != failure.message
     ):
-        # kit:boundary owner=llm.report_export.failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w01_report_export_token_failure_is_typed_before_abi_lift
+        # kit:boundary owner=llm.report_export.failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_report_export_token_failure_is_typed_before_abi_lift
         raise TypeError("LLM report export failure lift context is incomplete or inconsistent")
     if cause is None:
-        # kit:boundary owner=llm.report_export.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=llm.report.request.failure witness=test:test_w01_report_export_token_failure_is_typed_before_abi_lift
+        # kit:boundary owner=llm.report_export.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=llm.report.request.failure witness=test:test_report_export_token_failure_is_typed_before_abi_lift
         raise exception_type(str(context["public_message"]))
-    # kit:boundary owner=llm.report_export.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=llm.report.request.failure witness=test:test_w01_report_export_token_failure_is_typed_before_abi_lift
+    # kit:boundary owner=llm.report_export.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=llm.report.request.failure witness=test:test_report_export_token_failure_is_typed_before_abi_lift
     raise exception_type(str(context["public_message"])) from cause
 
 
@@ -183,7 +183,7 @@ def build_llm_report_export_artifact(
     one_time_use: bool = True,
 ) -> Annotated[
     dict[str, Any],
-    "kit:non-authoritative derived_as=generated_evidence fact_source=llm.report_export witness=test:test_w01_meta",
+    "kit:non-authoritative derived_as=generated_evidence fact_source=llm.report_export witness=test:test_derived_service_annotations_match_fact_sources",
 ]:
     digest = markdown_sha256(markdown)
     hard_failures_value = gate.get("hard_failures")

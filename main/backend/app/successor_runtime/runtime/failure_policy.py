@@ -18,7 +18,7 @@ from typing import TYPE_CHECKING, Literal, NoReturn, Protocol, TypeGuard, runtim
 
 from functorial_kit import Failure
 
-from mrw_functorial_kit.core.w07_semantics import runtime_failures
+from mrw_functorial_kit.core.workflow_research_failure_semantics import runtime_failures
 from pydantic import BaseModel
 
 from app.successor_runtime.research.codec import sha256_hex
@@ -125,7 +125,7 @@ def _policy_failure(message: object, *, site: str) -> Failure:
     )
 
 
-_RUNTIME_FAILURE_WITNESS = "test:test_w07_runtime_failure_lift_context"
+_RUNTIME_FAILURE_WITNESS = "test:test_runtime_failure_lift_context"
 _RUNTIME_FAILURE_CONTEXT_KEYS = frozenset(
     {
         "public_exception",
@@ -220,9 +220,9 @@ def _raise_legacy_exception(
     """Single compatibility boundary for the retained exception ABI."""
 
     if cause is None:
-        # kit:boundary owner=successor.runtime.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
+        # kit:boundary owner=successor.runtime.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_runtime_failure_lift_context
         raise exception_type(argument)
-    # kit:boundary owner=successor.runtime.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
+    # kit:boundary owner=successor.runtime.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_runtime_failure_lift_context
     raise exception_type(argument) from cause
 
 
@@ -232,9 +232,9 @@ def _raise_programmer_type_error(
     """Reject malformed ABI inputs at the programmer-defect boundary."""
 
     if cause is None:
-        # kit:boundary owner=successor.runtime.failure_lift.validation class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_runtime_failure_lift_context
+        # kit:boundary owner=successor.runtime.failure_lift.validation class=PROGRAMMER_DEFECT failure_family=none witness=test:test_runtime_failure_lift_context
         raise TypeError(argument)
-    # kit:boundary owner=successor.runtime.failure_lift.validation class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_runtime_failure_lift_context
+    # kit:boundary owner=successor.runtime.failure_lift.validation class=PROGRAMMER_DEFECT failure_family=none witness=test:test_runtime_failure_lift_context
     raise TypeError(argument) from cause
 
 

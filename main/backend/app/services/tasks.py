@@ -17,7 +17,7 @@ from ..composition.raw_material_import_task import (
 )
 from ..models.base import SessionLocal
 from ..models.entities import EtlJobRun
-from .job_logger import complete_job, fail_job, start_job
+from .job_logger import complete_job, fail_job, start_job, update_job_tracking
 from .projects import bind_project
 
 if TYPE_CHECKING:
@@ -254,16 +254,18 @@ def _build_task_runtime_readback(
     )
 
 
-def _attach_completed_runtime_readback(
+def _attach_task_runtime_readback(
     result: TaskResult,
     runtime_readback: TaskResult,
+    *,
+    status: str = "completed",
 ) -> TaskObject:
     payload = dict(result or {})
     payload["runtime_readback"] = merge_runtime_readback_payload(
         dict(runtime_readback or {}),
         runtime_readback,
-        status="completed",
-        event="completed",
+        status=status,
+        event=status,
         event_source="celery_worker",
     )
     return payload
@@ -274,15 +276,17 @@ def _start_resource_pool_job(
     job_type: str,
     task_request: TaskRequest | None,
     params: TaskResult,
+    line_key: str = "resource_source_library",
 ) -> int:
     runtime_readback = _build_task_runtime_readback(
-        line_key="resource_source_library",
+        line_key=line_key,
         task_request=task_request,
         source_payload=params,
         fallback_worker_name="celery",
         fallback_queue="celery",
     )
-    runtime_readback["project_key"] = str(params["project_key"])
+    if params.get("project_key") is not None:
+        runtime_readback["project_key"] = str(params["project_key"])
     return start_job(
         job_type,
         {
@@ -298,9 +302,21 @@ def _finish_resource_pool_job(
     job_id: int,
     task_request: TaskRequest | None,
     result: TaskResult,
+    status: str = "completed",
 ) -> None:
+    if status in {"accepted", "unknown"}:
+        if job_id <= 0:
+            return
+        update_job_tracking(
+            job_id,
+            status=status,
+            result=dict(result),
+            external_job_id=str(getattr(task_request, "id", None) or "").strip() or None,
+        )
+        return
     complete_job(
         job_id,
+        status=status,
         result=dict(result),
         external_job_id=str(getattr(task_request, "id", None) or "").strip() or None,
     )
@@ -504,7 +520,7 @@ def task_ingest_market(
         raw = _collect_json_object((cr.meta or {}).get("raw"))
         if not raw:
             raw = {"inserted": cr.inserted, "updated": cr.updated, "skipped": cr.skipped}
-        return _attach_completed_runtime_readback(raw, runtime_readback)
+        return _attach_task_runtime_readback(raw, runtime_readback)
 
 
 @celery_app.task
@@ -990,17 +1006,50 @@ def task_run_source_library_item(
         fallback_worker_name="local.task_run_source_library_item",
         fallback_queue=queue or "local.resource_source_library",
     )
-    result = run_source_library_item_compat(
-        item_key=item_key,
-        project_key=project_key,
-        override_params=_collect_json_object({
-            **(override_params or {}),
-            **({"workflow_run_id": str(workflow_run_id)} if str(workflow_run_id or "").strip() else {}),
-            **({"trace_id": str(trace_id)} if str(trace_id or "").strip() else {}),
-            "runtime_readback": runtime_readback,
-        }),
-    )
-    return _attach_completed_runtime_readback(result, runtime_readback)
+    ctx = bind_project(project_key) if project_key else nullcontext()
+    with ctx:
+        job_id = _start_resource_pool_job(
+            job_type="source_item_task",
+            task_request=getattr(self, "request", None),
+            line_key=line_key or "resource_source_library",
+            params={
+                "project_key": project_key,
+                "item_key": item_key,
+                "override_params": dict(override_params or {}),
+                "task_name": "app.services.tasks.task_run_source_library_item",
+                "runtime_readback": runtime_readback,
+            },
+        )
+        try:
+            result = run_source_library_item_compat(
+                item_key=item_key,
+                project_key=project_key,
+                override_params=_collect_json_object({
+                    **(override_params or {}),
+                    **({"workflow_run_id": str(workflow_run_id)} if str(workflow_run_id or "").strip() else {}),
+                    **({"trace_id": str(trace_id)} if str(trace_id or "").strip() else {}),
+                    "runtime_readback": runtime_readback,
+                }),
+            )
+        except Exception as exc:
+            _fail_resource_pool_job(
+                job_id=job_id,
+                task_request=getattr(self, "request", None),
+                error=exc,
+            )
+            raise
+        terminal_output = _task_object(result.get("terminal_output"))
+        terminal_status = str(terminal_output.get("status") or result.get("status") or "unknown")
+        # Project the existing terminal wire, retaining ACK and partial states.
+        status = {"ok": "completed", "error": "failed"}.get(terminal_status, terminal_status)
+        observed = _attach_task_runtime_readback(result, runtime_readback, status=status)
+        _finish_resource_pool_job(
+            job_id=job_id,
+            task_request=getattr(self, "request", None),
+            result=observed,
+            status=status,
+        )
+        return observed
 
 
 @celery_app.task

@@ -42,13 +42,31 @@ class WritingApiIntegrationTestCase(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         body = response.json()
         self.assertEqual(body["status"], "ok")
-        self.assertEqual(body["data"]["id"], 101)
+        self.assertEqual(body["data"]["doc_id"], 101)
 
     def test_patch_document_conflict(self):
         conflict = WritingVersionConflictError(
             expected_version=1,
             current_version=2,
-            server_snapshot={"conflict_code": "VERSION_CONFLICT", "current_version": 2},
+            server_snapshot={
+                "id": 101,
+                "project_key": "demo_proj",
+                "title": "Draft",
+                "body_md": "server body",
+                "version": 2,
+                "etag": "etag-2",
+                "conflict_code": "VERSION_CONFLICT",
+                "expected_version": 1,
+                "current_version": 2,
+                "server_snapshot": {
+                    "id": 101,
+                    "project_key": "demo_proj",
+                    "title": "Draft",
+                    "body_md": "server body",
+                    "version": 2,
+                    "etag": "etag-2",
+                },
+            },
         )
         with patch("app.api.writing.save_document_with_conflict", side_effect=conflict):
             response = self.client.patch(
@@ -59,6 +77,12 @@ class WritingApiIntegrationTestCase(unittest.TestCase):
 
         self.assertEqual(response.status_code, 409)
         self.assertEqual(response.headers.get("x-error-code"), "INVALID_INPUT")
+        details = response.json()["detail"]["error"]["details"]
+        self.assertEqual(details["expected_version"], 1)
+        self.assertEqual(details["current_version"], 2)
+        self.assertEqual(details["server_snapshot"]["doc_id"], 101)
+        self.assertEqual(details["server_snapshot"]["version"], 2)
+        self.assertNotIn("id", details["server_snapshot"])
 
     def test_export_markdown_success(self):
         with (
@@ -101,6 +125,7 @@ class WritingApiIntegrationTestCase(unittest.TestCase):
         self.assertEqual(body["status"], "ok")
         self.assertTrue(body["data"]["deleted"])
         self.assertEqual(body["data"]["document"]["status"], "archived")
+        self.assertEqual(body["data"]["document"]["doc_id"], 101)
         mocked_delete.assert_called_once_with(doc_id=101, project_key="demo_proj", updated_by_user_id=None)
 
     def test_autosave_not_found_returns_structured_error(self):

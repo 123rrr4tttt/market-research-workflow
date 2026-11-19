@@ -3,9 +3,8 @@ import type { APIRequestContext } from '@playwright/test'
 export const SKIP_BACKEND_CHECK = 'FRONTEND_E2E_SKIP_BACKEND_CHECK'
 export const RUNTIME_MODE_ENV = 'FRONTEND_E2E_RUNTIME_MODE'
 const DEFAULT_READINESS_PATHS = ['/api/v1/health/deep', '/api/v1/health']
-const REPO_ROOT = '/Users/wangyiliang/market-research-workflow'
-const LOCAL_BACKEND_COMMAND = `cd ${REPO_ROOT} && ./scripts/local-deploy.sh start && ./scripts/local-deploy.sh health`
-const DOCKER_BACKEND_COMMAND = `cd ${REPO_ROOT} && ./scripts/docker-deploy.sh preflight && ./scripts/docker-deploy.sh start --profile modern-ui && ./scripts/docker-deploy.sh health`
+const LOCAL_BACKEND_COMMAND = './scripts/local-deploy.sh start && ./scripts/local-deploy.sh health'
+const DOCKER_BACKEND_COMMAND = './scripts/platform-macos.sh docker-app-start'
 
 export type FrontendE2ERuntimeMode = 'local' | 'docker'
 

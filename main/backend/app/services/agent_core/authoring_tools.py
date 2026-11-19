@@ -11,30 +11,26 @@ from __future__ import annotations
 from collections import deque
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
-from datetime import UTC, datetime
-import difflib
 import json
-from typing import TYPE_CHECKING, TypeGuard
-
-from sqlalchemy import select
+from typing import TYPE_CHECKING
 
 from functorial_kit import Failure
 
-from app.models.base import SessionLocal
-from app.models.entities import Material, Source
+from app.composition.url_pool_readback import (
+    UrlPoolReadbackLocator, UrlPoolRuntimeEvidence, read_url_pool_evidence,
+)
 from app.services.agent_sessions.service import AgentSessionService
 from app.services.projects import bind_project
 from app.services.skill_runtime import invoke_skill
 from app.services.agent_runtime.structured_data_search import query_project_structured_data
 from app.services.writing import (
-    WritingVersionConflictError,
     create_document,
     get_document,
     list_citations,
     list_documents,
-    save_document_with_conflict,
     upsert_citations,
 )
+from app.services.writing.document_edit import EditDocumentCommand, edit_document, writing_edit_operation_schema
 from mrw_functorial_kit.core.agent_service_semantics import agent_runtime_failures
 
 from .contracts import AgentCoreRequest, CoreEvent, CoreToolCall, CoreToolResult, CoreToolSpec
@@ -64,37 +60,7 @@ from .tool_support import (
 from .tool_contribution import ProjectToolAuthorSource
 
 if TYPE_CHECKING:
-    from app.successor_runtime.capabilities.acquisition_url import (
-        LegacyUrlSingleUrlOutcome,
-        UrlSingleUrlOutcome,
-        UrlSingleUrlRequest,
-    )
-    from app.successor_runtime.capabilities.checksum import CanonicalJsonValue
-    from app.successor_runtime.language.object_contracts import OperationContractRef
-
-
-@dataclass(frozen=True, slots=True)
-class _UrlPoolRuntimeEvidence:
-    run: JSONObject
-    outcome: JSONObject | None = None
-    material: JSONObject | None = None
-    failure_rows: tuple[JSONObject, ...] = ()
-    error: JSONObject | None = None
-    pending: bool = False
-    verified: bool = False
-    historical: bool = False
-
-
-def _is_object_list(value: object) -> TypeGuard[list[object]]:
-    return isinstance(value, list)
-
-
-def _is_object_dict(value: object) -> TypeGuard[dict[object, object]]:
-    return isinstance(value, dict)
-
-
-def _is_string_key_dict(value: object) -> TypeGuard[dict[str, object]]:
-    return _is_object_dict(value) and all(isinstance(key, str) for key in value)
+    from app.successor_runtime.capabilities.acquisition_url import UrlSingleUrlRequest
 
 
 def _session_artifacts(service: AgentSessionService, session_id: str) -> list[JSONObject]:
@@ -1223,182 +1189,21 @@ def _ingest_url_pool_status_spec() -> CoreToolSpec:
     )
 
 
-def _url_pool_runtime_error(code: str, message: str, **details: JSONValue) -> _UrlPoolRuntimeEvidence:
-    return _UrlPoolRuntimeEvidence(
+def _url_pool_runtime_error(code: str, message: str, **details: JSONValue) -> UrlPoolRuntimeEvidence:
+    return UrlPoolRuntimeEvidence(
         run={},
         error=json_object({"code": code, "message": message, **details}),
     )
 
 
-def _canonical_json_value(value: object) -> CanonicalJsonValue:
-    if value is None or isinstance(value, bool | int | float | str):
-        return value
-    if _is_object_list(value):
-        return [_canonical_json_value(item) for item in value]
-    if _is_string_key_dict(value):
-        return {key: _canonical_json_value(item) for key, item in value.items()}
-    raise TypeError("runtime output is not canonical JSON")
-
-
-def _decode_url_outcome_bytes(
-    exact: bytes,
-    contract_ref: OperationContractRef,
-) -> LegacyUrlSingleUrlOutcome | UrlSingleUrlOutcome:
-    from app.successor_runtime.capabilities.acquisition_url import (
-        build_url_single_url_contract,
-        build_url_single_url_legacy_contract,
-        build_url_single_url_legacy_outcome_codec,
-        build_url_single_url_outcome_codec,
-        build_url_single_url_readback_legacy_contract,
-    )
-    from app.successor_runtime.capabilities.checksum import CanonicalJsonObject
-
-    raw_value: object = json.loads(exact)
-    canonical_root = _canonical_json_value(raw_value)
-    if not _is_string_key_dict(canonical_root):
-        raise TypeError("URL runtime output root is not an object")
-    payload: CanonicalJsonObject = {
-        key: _canonical_json_value(item) for key, item in canonical_root.items()
-    }
-    current_ref = build_url_single_url_contract().ref
-    legacy_refs = {
-        build_url_single_url_legacy_contract().ref,
-        build_url_single_url_readback_legacy_contract().ref,
-    }
-    if contract_ref == current_ref:
-        return build_url_single_url_outcome_codec(contract_ref).decode_payload(payload)
-    if contract_ref in legacy_refs:
-        return build_url_single_url_legacy_outcome_codec(contract_ref).decode_payload(payload)
-    raise ValueError("URL runtime output has an unknown exact operation contract ref")
-
-
-def _read_url_pool_material(project_key: str, material_id: int, url: str) -> JSONObject | None:
-    with bind_project(project_key), SessionLocal() as session:
-        row = session.execute(
-            select(Material.id, Material.uri, Material.extracted_data, Source.base_url)
-            .join(Source, Material.source_id == Source.id, isouter=True)
-            .where(Material.id == material_id)
-        ).first()
-    if row is None:
-        return None
-    material_url = str(row.uri or "").strip()
-    source_url = str(row.base_url or "").strip()
-    extracted_data = row.extracted_data if _is_string_key_dict(row.extracted_data) else {}
-    source_ref_value = extracted_data.get("source_ref")
-    source_ref = source_ref_value if _is_string_key_dict(source_ref_value) else {}
-    persisted_request_urls = {
-        str(source_ref.get(key) or "").strip()
-        for key in ("url", "locator")
-        if str(source_ref.get(key) or "").strip()
-    }
-    if url != material_url and url not in persisted_request_urls:
-        return None
-    match_kind = "material_uri" if url == material_url else "persisted_source_ref"
-    return {
-        "project_key": project_key,
-        "material_id": int(row.id),
-        "uri": material_url,
-        "source_base_url": source_url,
-        "matched_url": url,
-        "match_kind": match_kind,
-    }
-
-
-def _read_url_pool_runtime_url(
-    *,
-    runtime_engine: object,
-    project_key: str,
-    actor_id: str,
-    run_id: str,
-    contract_ref: OperationContractRef,
-) -> str:
-    from sqlalchemy.engine import Engine
-
-    from app.composition.production import read_installed_program_input_bindings
-    from app.successor_runtime.capabilities.acquisition_url import (
-        URL_SINGLE_URL_LEGACY_REQUEST_TYPE,
-        URL_SINGLE_URL_REQUEST_TYPE,
-        build_url_single_url_contract,
-        build_url_single_url_legacy_contract,
-        build_url_single_url_legacy_request_codec,
-        build_url_single_url_request_codec,
-        build_url_single_url_readback_legacy_contract,
-    )
-
-    if not isinstance(runtime_engine, Engine):
-        raise TypeError("URL runtime engine is unavailable")
-    current_ref = build_url_single_url_contract().ref
-    legacy_refs = {
-        build_url_single_url_legacy_contract().ref,
-        build_url_single_url_readback_legacy_contract().ref,
-    }
-    if contract_ref == current_ref:
-        request_type = URL_SINGLE_URL_REQUEST_TYPE
-    elif contract_ref in legacy_refs:
-        request_type = URL_SINGLE_URL_LEGACY_REQUEST_TYPE
-    else:
-        raise ValueError("URL runtime input has an unknown exact operation contract ref")
-    static_inputs, _started_inputs = read_installed_program_input_bindings(
-        engine=runtime_engine,
-        project_key=project_key,
-        actor_id=actor_id,
-        run_id=run_id,
-        static_input_type=request_type,
-    )
-    if len(static_inputs) != 1:
-        raise ValueError("URL runtime run does not have one exact request input")
-    _request_ref, exact = static_inputs[0]
-    raw_value: object = json.loads(exact)
-    canonical_root = _canonical_json_value(raw_value)
-    if not _is_string_key_dict(canonical_root):
-        raise TypeError("URL runtime request root is not an object")
-    payload = {key: _canonical_json_value(item) for key, item in canonical_root.items()}
-    request = (
-        build_url_single_url_request_codec(contract_ref).decode_payload(payload)
-        if contract_ref == current_ref
-        else build_url_single_url_legacy_request_codec(contract_ref).decode_payload(payload)
-    )
-    request_url = request.url.strip()
-    if request.project_key != project_key or not request_url:
-        raise ValueError("URL runtime request identity does not match the project")
-    return request_url
-
-
-def _url_pool_capability_grant_is_current(
-    *,
-    runtime_engine: object,
-    project_key: str,
-    actor_id: str,
-    capability_id: str,
-) -> bool:
-    from sqlalchemy.engine import Engine
-
-    from app.successor_runtime.runtime.ports import RuntimeScope
-    from app.successor_runtime.substrate.postgres.authority import AuthorityGrantRepository
-    from app.successor_runtime.substrate.postgres.session import ServerProjectScopeResolver
-
-    if not isinstance(runtime_engine, Engine):
-        return False
-    with runtime_engine.connect() as connection:
-        project_scope = ServerProjectScopeResolver(connection=connection).resolve(project_key)
-        scope = RuntimeScope(project_scope=project_scope, actor_id=actor_id)
-        return bool(
-            AuthorityGrantRepository(connection, scope).current_for(
-                actor_id=actor_id,
-                capability_id=capability_id,
-                at=datetime.now(UTC),
-            )
-        )
-
-
-def _url_pool_runtime_evidence(
+def _read_authorized_url_pool_evidence(
     *,
     submission: JSONObject,
     project_key: str,
     session_id: str,
     url: str,
     tool_name: str,
-) -> _UrlPoolRuntimeEvidence:
+) -> UrlPoolRuntimeEvidence:
     submission_project = str(submission.get("project_key") or "").strip()
     if submission_project and submission_project != project_key:
         return _url_pool_runtime_error(
@@ -1440,216 +1245,19 @@ def _url_pool_runtime_evidence(
     run_id = runtime_ref.removeprefix("runtime-run:")
 
     try:
-        from app.composition.production import (
-            read_installed_program,
-            read_installed_program_failures,
-            read_installed_program_outputs,
-        )
         from app.models.base import engine as runtime_engine
-        from app.successor_runtime.capabilities.acquisition_url import (
-            LegacyUrlSingleUrlOutcome,
-            URL_SINGLE_URL_KIND,
-            URL_SINGLE_URL_OWNER,
-        )
-        from app.successor_runtime.language.object_contracts import OperationContractRef
 
-        if not _url_pool_capability_grant_is_current(
-            runtime_engine=runtime_engine,
-            project_key=project_key,
-            actor_id=actor.actor_id,
-            capability_id=URL_SINGLE_URL_OWNER,
-        ):
-            return _url_pool_runtime_error(
-                "url_pool_runtime_capability_grant_required",
-                "URL-pool canonical runtime readback requires a current capability grant",
-                capability_id=URL_SINGLE_URL_OWNER,
-            )
-
-        run, steps, _events = read_installed_program(
+        return read_url_pool_evidence(
+            UrlPoolReadbackLocator(
+                project_key=project_key,
+                actor_id=actor.actor_id,
+                run_id=run_id,
+                submission_project_key=submission_project,
+                submission_runtime_run_ref=runtime_ref,
+                submitted_url=url,
+            ),
             engine=runtime_engine,
-            project_key=project_key,
-            actor_id=actor.actor_id,
-            run_id=run_id,
         )
-        run_view = json_object(run)
-        if str(run_view.get("run_id") or "") != run_id or str(run_view.get("project_key") or "") != project_key:
-            return _UrlPoolRuntimeEvidence(
-                run=run_view,
-                error=json_object({
-                    "code": "url_pool_runtime_identity_mismatch",
-                    "message": "canonical URL runtime run identity does not match the submission",
-                }),
-            )
-
-        url_steps = tuple(
-            step
-            for step in steps
-            if str(step.get("operation_kind") or "") == URL_SINGLE_URL_KIND
-        )
-        if len(url_steps) != 1:
-            return _UrlPoolRuntimeEvidence(
-                run=run_view,
-                error=json_object({
-                    "code": "url_pool_runtime_contract_identity_invalid",
-                    "message": "canonical URL runtime run does not have one exact URL contract ref",
-                    "url_step_count": len(url_steps),
-                }),
-            )
-        contract_ref_value = url_steps[0].get("operation_contract_ref")
-        if not isinstance(contract_ref_value, OperationContractRef):
-            return _UrlPoolRuntimeEvidence(
-                run=run_view,
-                error=json_object({
-                    "code": "url_pool_runtime_contract_identity_invalid",
-                    "message": "canonical URL runtime step lacks its exact operation contract ref",
-                }),
-            )
-        contract_ref = contract_ref_value
-        runtime_url = _read_url_pool_runtime_url(
-            runtime_engine=runtime_engine,
-            project_key=project_key,
-            actor_id=actor.actor_id,
-            run_id=run_id,
-            contract_ref=contract_ref,
-        )
-        if runtime_url != url:
-            return _UrlPoolRuntimeEvidence(
-                run=run_view,
-                error=json_object({
-                    "code": "url_pool_runtime_request_mismatch",
-                    "message": "canonical URL runtime request does not match the selected submission",
-                    "submission_url": url,
-                    "runtime_url": runtime_url,
-                }),
-            )
-
-        state = str(run_view.get("state") or "").strip().upper()
-        if state in {"READY", "RUNNING", "WAITING", "RECONCILING", "CANCELLING"}:
-            return _UrlPoolRuntimeEvidence(run=run_view, pending=True)
-        if state in {"FAILED", "CANCELLED", "SUPERSEDED"}:
-            failure_rows = tuple(
-                json_object({
-                    "sequence": sequence,
-                    "failure_family": row.domain_failure.family if row.domain_failure is not None else None,
-                    "failure_code": row.failure_code,
-                    "reason": row.domain_failure.message if row.domain_failure is not None else row.failure_code,
-                    "attempt_id": row.attempt_id,
-                    "failure_digest": row.failure_digest,
-                })
-                for sequence, row in read_installed_program_failures(
-                    engine=runtime_engine,
-                    project_key=project_key,
-                    actor_id=actor.actor_id,
-                    run_id=run_id,
-                )
-            )
-            if state == "FAILED" and not failure_rows:
-                return _UrlPoolRuntimeEvidence(
-                    run=run_view,
-                    failure_rows=failure_rows,
-                    error=json_object({
-                        "code": "url_pool_runtime_failure_rows_missing",
-                        "message": "failed canonical URL runtime run has no exact EffectFailed rows",
-                        "state": state,
-                    }),
-                )
-            return _UrlPoolRuntimeEvidence(
-                run=run_view,
-                failure_rows=failure_rows,
-                error=json_object({
-                    "code": {
-                        "FAILED": "url_pool_runtime_failed",
-                        "CANCELLED": "url_pool_runtime_cancelled",
-                        "SUPERSEDED": "url_pool_runtime_superseded",
-                    }[state],
-                    "message": f"canonical URL runtime run is {state}",
-                    "state": state,
-                    "failure_count": len(failure_rows),
-                }),
-            )
-        if state != "COMPLETED":
-            return _UrlPoolRuntimeEvidence(
-                run=run_view,
-                error=json_object({
-                    "code": "url_pool_runtime_state_unknown",
-                    "message": f"canonical URL runtime run has unverified state {state or 'UNKNOWN'}",
-                    "state": state or "UNKNOWN",
-                }),
-            )
-
-        outputs = read_installed_program_outputs(
-            engine=runtime_engine,
-            project_key=project_key,
-            actor_id=actor.actor_id,
-            run_id=run_id,
-        )
-        url_step_ids = {str(url_steps[0].get("step_id") or "")}
-        exact_outputs = [item for item in outputs if item[0] in url_step_ids]
-        if len(url_step_ids) != 1 or len(exact_outputs) != 1:
-            return _UrlPoolRuntimeEvidence(
-                run=run_view,
-                error=json_object({
-                    "code": "url_pool_runtime_output_identity_invalid",
-                    "message": "completed URL runtime run does not have one exact URL outcome",
-                    "url_step_count": len(url_step_ids),
-                    "output_count": len(exact_outputs),
-                }),
-            )
-
-        _step_id, _value_ref, exact = exact_outputs[0]
-        outcome = _decode_url_outcome_bytes(exact, contract_ref)
-        contract_identity = json_object({
-            "kind": contract_ref.kind,
-            "contract_version": contract_ref.contract_version,
-            "contract_digest": contract_ref.contract_digest,
-        })
-        if isinstance(outcome, LegacyUrlSingleUrlOutcome):
-            return _UrlPoolRuntimeEvidence(
-                run=run_view,
-                outcome=json_object({
-                    "status": outcome.status,
-                    "inserted": outcome.inserted,
-                    "updated": outcome.updated,
-                    "skipped": outcome.skipped,
-                    "error": outcome.error,
-                    "task_id": outcome.task_id,
-                    "operation_contract_ref": contract_identity,
-                    "historical": True,
-                }),
-                historical=True,
-            )
-        outcome_view = json_object({
-            "status": outcome.status,
-            "inserted": outcome.inserted,
-            "updated": outcome.updated,
-            "skipped": outcome.skipped,
-            "material_id": outcome.material_id,
-            "error": outcome.error,
-            "task_id": outcome.task_id,
-            "operation_contract_ref": contract_identity,
-        })
-        material_id = outcome_view.get("material_id")
-        if str(outcome_view.get("status") or "") != "completed" or not isinstance(material_id, int) or material_id <= 0:
-            return _UrlPoolRuntimeEvidence(
-                run=run_view,
-                outcome=outcome_view,
-                error=json_object({
-                    "code": "url_pool_runtime_output_incomplete",
-                    "message": "completed URL runtime run did not decode to a completed material outcome",
-                }),
-            )
-        material = _read_url_pool_material(project_key, material_id, url)
-        if material is None:
-            return _UrlPoolRuntimeEvidence(
-                run=run_view,
-                outcome=outcome_view,
-                error=json_object({
-                    "code": "url_pool_material_readback_mismatch",
-                    "message": "decoded URL material is absent or does not match the submitted project URL",
-                    "material_id": material_id,
-                }),
-            )
-        return _UrlPoolRuntimeEvidence(run=run_view, outcome=outcome_view, material=material, verified=True)
     except Exception as exc:  # noqa: BLE001
         return _url_pool_runtime_error(
             "url_pool_runtime_readback_failed",
@@ -1703,7 +1311,7 @@ def _ingest_url_pool_status_handler(
         runtime_ref = str(
             latest_submission.get("runtime_run_ref") or dispatch.get("runtime_run_ref") or ""
         ).strip()
-        runtime_evidence: _UrlPoolRuntimeEvidence | None = None
+        runtime_evidence: UrlPoolRuntimeEvidence | None = None
         if (explicit_url or explicit_task_id) and all_submissions and not submissions:
             runtime_evidence = _url_pool_runtime_error(
                 "url_pool_submission_not_found",
@@ -1718,7 +1326,7 @@ def _ingest_url_pool_status_handler(
                     "async URL-pool status readback requires the submitted URL",
                 )
             else:
-                runtime_evidence = _url_pool_runtime_evidence(
+                runtime_evidence = _read_authorized_url_pool_evidence(
                     submission=latest_submission,
                     project_key=project_key,
                     session_id=request.session_id,
@@ -2759,20 +2367,7 @@ def _writing_document_insert_paragraph_spec() -> CoreToolSpec:
                 "doc_id": {"type": "integer", "minimum": 1},
                 "title": {"type": "string"},
                 "content_md": {"type": "string"},
-                "operation": {
-                    "type": "string",
-                    "enum": [
-                        "append",
-                        "prepend",
-                        "after_heading",
-                        "replace_text",
-                        "replace_range",
-                        "insert_at_offset",
-                        "insert_after_text",
-                        "insert_before_text",
-                    ],
-                    "default": "append",
-                },
+                "operation": writing_edit_operation_schema(),
                 "anchor_heading": {"type": "string"},
                 "anchor_text": {"type": "string"},
                 "range_start": {"type": "integer", "minimum": 0},
@@ -2813,255 +2408,51 @@ def _writing_document_insert_paragraph_handler() -> Callable[
         project_key = resolve_project_key(tool_call, request)
         if not project_key:
             return missing_project_result(tool_call)
-        content_md = str(tool_call.arguments.get("content_md") or "").strip()
-        if not content_md:
-            return CoreToolResult(
-                call_id=tool_call.call_id,
-                tool_name=tool_call.tool_name,
-                status="failed",
-                model_summary="content_md is required for writing document insertion.",
-                error={"code": "missing_content", "message": "content_md is required"},
-            )
-        if len(content_md) > 20000:
-            return CoreToolResult(
-                call_id=tool_call.call_id,
-                tool_name=tool_call.tool_name,
-                status="failed",
-                model_summary="content_md is too large for one insert operation.",
-                error={"code": "content_too_large", "message": "content_md must be <= 20000 characters"},
-            )
-
-        doc_id = safe_int(tool_call.arguments.get("doc_id"))
-        operation = str(tool_call.arguments.get("operation") or "append").strip() or "append"
-        dry_run = bool(tool_call.arguments.get("dry_run"))
-        allow_latest = bool(tool_call.arguments.get("allow_latest"))
-        base_version = safe_int(tool_call.arguments.get("base_version"))
-        contract_version = str(tool_spec.metadata.get("contract_version") or "")
-        source_refs = normalize_string_list(tool_call.arguments.get("source_refs"))
-        provenance = json_object(tool_call.arguments.get("provenance"))
-        if_match = str(tool_call.arguments.get("if_match") or "").strip() or None
-        create_if_missing = bool(tool_call.arguments.get("create_if_missing"))
-        title = str(tool_call.arguments.get("title") or "").strip()
-        if not doc_id and title:
-            create_if_missing = True
-
-        try:
-            with bind_project(project_key):
-                if doc_id:
-                    current: JSONObject = json_object(get_document(doc_id=doc_id, project_key=project_key))
-                elif create_if_missing:
-                    current = json_object({
-                        "id": None,
-                        "title": title or "Untitled",
-                        "body_md": "",
-                        "version": 1,
-                        "etag": None,
-                    })
-                else:
-                    return CoreToolResult(
-                        call_id=tool_call.call_id,
-                        tool_name=tool_call.tool_name,
-                        status="failed",
-                        model_summary="doc_id is required unless create_if_missing=true.",
-                        error={"code": "missing_doc_id", "message": "doc_id is required unless create_if_missing=true"},
-                    )
-
-                old_body = str(current.get("body_md") or "")
-                replayed_update = _find_replayed_agent_writing_update(
-                    metadata=current.get("metadata_json"),
-                    tool_call=tool_call,
-                    current=current,
-                    content_md=content_md,
-                    operation=operation,
-                )
-                common_content: JSONObject = {
-                    "contract_version": contract_version,
-                    "project_key": project_key,
-                    "doc_id": doc_id or current.get("id"),
-                    "operation": operation,
-                    "source_refs": source_refs,
-                    "provenance": provenance,
-                }
-                if replayed_update is not None:
-                    return CoreToolResult(
-                        call_id=tool_call.call_id,
-                        tool_name=tool_call.tool_name,
-                        status="completed",
-                        model_summary=(
-                            f"Writing document edit already applied for idempotency key "
-                            f"{replayed_update.get('idempotency_key') or replayed_update.get('call_id')}; no duplicate paragraph inserted."
-                        ),
-                        ui_summary=f"Writing update already applied: {current.get('title') or doc_id or title}.",
-                        structured_content={
-                            **common_content,
-                            "document": _compact_writing_document(current, include_body=False),
-                            "replayed": True,
-                            "diff": {
-                                "added_lines": 0,
-                                "removed_lines": 0,
-                                "old_line_count": len(old_body.splitlines()),
-                                "new_line_count": len(old_body.splitlines()),
-                                "diff_excerpt": "",
-                                "diff_truncated": False,
-                            },
-                            "agent_update": replayed_update,
-                        },
-                    )
-                new_body = _apply_writing_body_operation(
-                    old_body,
-                    operation=operation,
-                    content_md=content_md,
-                    anchor_heading=str(tool_call.arguments.get("anchor_heading") or "").strip(),
-                    anchor_text=str(tool_call.arguments.get("anchor_text") or "").strip(),
-                    range_start=safe_nonnegative_int(tool_call.arguments.get("range_start")),
-                    range_end=safe_nonnegative_int(tool_call.arguments.get("range_end")),
-                    cursor_offset=safe_nonnegative_int(tool_call.arguments.get("cursor_offset")),
-                )
-                if isinstance(new_body, Failure):
-                    return runtime_failure_result(tool_call, new_body)
-                if len(new_body) > 50000:
-                    return CoreToolResult(
-                        call_id=tool_call.call_id,
-                        tool_name=tool_call.tool_name,
-                        status="failed",
-                        model_summary="The updated writing document would exceed the 50000 character limit.",
-                        error={
-                            "code": "document_too_large",
-                            "message": "updated document would exceed 50000 characters",
-                        },
-                    )
-
-                diff = _body_diff_summary(old_body, new_body)
-                agent_update = _build_agent_writing_update(
-                    tool_call=tool_call,
-                    current=current,
-                    new_body=new_body,
-                    operation=operation,
-                    content_md=content_md,
-                    diff=diff,
-                )
-                if dry_run:
-                    return CoreToolResult(
-                        call_id=tool_call.call_id,
-                        tool_name=tool_call.tool_name,
-                        status="completed",
-                        model_summary=f"Prepared writing document edit preview: +{diff['added_lines']} -{diff['removed_lines']} lines.",
-                        structured_content={
-                            **common_content,
-                            "dry_run": True,
-                            "diff": diff,
-                            "agent_update": agent_update,
-                        },
-                    )
-
-                if doc_id:
-                    current_version = safe_int(current.get("version")) or 1
-                    current_etag = str(current.get("etag") or "").strip() or None
-                    if not base_version and not if_match and not allow_latest:
-                        return CoreToolResult(
-                            call_id=tool_call.call_id,
-                            tool_name=tool_call.tool_name,
-                            status="failed",
-                            model_summary=(
-                                "Writing mutation needs base_version/if_match from writing.document.read, "
-                                "or allow_latest=true for an explicit latest-version edit."
-                            ),
-                            structured_content={
-                                "contract_version": contract_version,
-                                "project_key": project_key,
-                                "doc_id": doc_id,
-                                "current_version": current_version,
-                                "current_etag": current_etag,
-                                "retry_arguments": {
-                                    **dict(tool_call.arguments or {}),
-                                    "base_version": current_version,
-                                    "if_match": current_etag,
-                                },
-                            },
-                            error={"code": "version_lock_required", "message": "base_version or if_match required"},
-                            retry_hint="Call writing.document.read first, then retry with base_version and if_match.",
-                        )
-                    saved = save_document_with_conflict(
-                        doc_id=doc_id,
-                        project_key=project_key,
-                        body_md=new_body,
-                        title=str(tool_call.arguments.get("title") or "").strip() or None,
-                        base_version=base_version or (current_version if allow_latest else None),
-                        if_match=if_match or (current_etag if allow_latest else None),
-                        updated_by_user_id="agent_core",
-                        metadata_json=_append_agent_writing_update(
-                            current.get("metadata_json"),
-                            agent_update,
-                        ),
-                    )
-                else:
-                    metadata_json = _append_agent_writing_update(
-                        {
-                            "created_by": "agent_core",
-                            "agent_core_call_id": tool_call.call_id,
-                            "source_refs": source_refs,
-                            "provenance": provenance,
-                        },
-                        agent_update,
-                    )
-                    saved = create_document(
-                        project_key=project_key,
-                        title=str(tool_call.arguments.get("title") or current.get("title") or "Untitled").strip()
-                        or "Untitled",
-                        body_md=new_body,
-                        updated_by_user_id="agent_core",
-                        metadata_json=metadata_json,
-                    )
-                    doc_id = safe_int(saved.get("id")) or 0
-                    common_content["doc_id"] = doc_id
-        except WritingVersionConflictError as exc:
-            return CoreToolResult(
-                call_id=tool_call.call_id,
-                tool_name=tool_call.tool_name,
-                status="failed",
-                model_summary=f"Writing document version conflict: current version is {exc.current_version}.",
-                structured_content={"conflict": json_object(exc.server_snapshot)},
-                error={"code": "writing_version_conflict", "message": str(exc), "current_version": exc.current_version},
-                retry_hint="Read the document again and retry against the current version.",
-            )
-        except ValueError as exc:
-            return CoreToolResult(
-                call_id=tool_call.call_id,
-                tool_name=tool_call.tool_name,
-                status="failed",
-                model_summary=str(exc),
-                error={"code": "invalid_writing_operation", "message": str(exc)},
-            )
-        except Exception as exc:  # noqa: BLE001
-            return CoreToolResult(
-                call_id=tool_call.call_id,
-                tool_name=tool_call.tool_name,
-                status="failed",
-                model_summary=f"Failed to update writing document: {exc}",
-                error={"code": exc.__class__.__name__, "message": str(exc)},
-            )
-
-        document_title = str(
-            (saved or {}).get("title") or current.get("title") or tool_call.arguments.get("title") or "Untitled"
-        ).strip()
-        inserted_excerpt = " ".join(str(content_md or "").split())[:180]
-        source_ref_count = len(source_refs)
+        arguments = tool_call.arguments
+        observation = edit_document(EditDocumentCommand(
+            project_key=project_key,
+            call_id=tool_call.call_id,
+            tool_name=tool_call.tool_name,
+            contract_version=str(tool_spec.metadata.get("contract_version") or ""),
+            content_md=str(arguments.get("content_md") or "").strip(),
+            operation=str(arguments.get("operation") or "append").strip() or "append",
+            doc_id=safe_int(arguments.get("doc_id")),
+            title=str(arguments.get("title") or "").strip() or None,
+            anchor_heading=str(arguments.get("anchor_heading") or "").strip(),
+            anchor_text=str(arguments.get("anchor_text") or "").strip(),
+            range_start=safe_nonnegative_int(arguments.get("range_start")),
+            range_end=safe_nonnegative_int(arguments.get("range_end")),
+            cursor_offset=safe_nonnegative_int(arguments.get("cursor_offset")),
+            selection_snapshot=json_object(arguments.get("selection_snapshot")),
+            base_version=safe_int(arguments.get("base_version")),
+            if_match=str(arguments.get("if_match") or "").strip() or None,
+            allow_latest=bool(arguments.get("allow_latest")),
+            create_if_missing=bool(arguments.get("create_if_missing")),
+            dry_run=bool(arguments.get("dry_run")),
+            idempotency_key=str(arguments.get("idempotency_key") or "").strip() or None,
+            source_refs=tuple(normalize_string_list(arguments.get("source_refs"))),
+            provenance=json_object(arguments.get("provenance")),
+        ))
+        if isinstance(observation, Failure):
+            return runtime_failure_result(tool_call, observation)
+        content = dict(observation.structured_content)
+        if "document" in content:
+            content["document"] = _compact_writing_document(json_object(content["document"]), include_body=False)
+        if observation.error is not None and observation.error.get("code") == "version_lock_required":
+            content["retry_arguments"] = {
+                **dict(arguments),
+                "base_version": content.get("current_version"),
+                "if_match": content.get("current_etag"),
+            }
         return CoreToolResult(
             call_id=tool_call.call_id,
             tool_name=tool_call.tool_name,
-            status="completed",
-            model_summary=(
-                f"Updated writing document {doc_id} ({document_title}): operation={operation}, "
-                f"+{diff['added_lines']} -{diff['removed_lines']} lines, source_refs={source_ref_count}. "
-                f"Inserted excerpt: {inserted_excerpt}"
-            ),
-            ui_summary=f"Updated writing document {doc_id}: {document_title}.",
-            structured_content={
-                **common_content,
-                "document": _compact_writing_document(saved, include_body=False),
-                "diff": diff,
-                "agent_update": agent_update,
-            },
+            status=observation.status,
+            model_summary=observation.model_summary,
+            ui_summary=observation.ui_summary,
+            structured_content=content,
+            error=observation.error,
+            retry_hint=observation.retry_hint,
         )
 
     return handler
@@ -3959,359 +3350,30 @@ def _first_nonempty_line(value: str, *, max_chars: int = 240) -> str:
     return str(value or "").strip()[:max_chars]
 
 
-def _find_anchor_line(body_md: str, content_md: str) -> int | None:
-    body = str(body_md or "")
-    content = str(content_md or "").strip()
-    candidates = [content, _first_nonempty_line(content)]
-    for candidate in candidates:
-        if not candidate:
-            continue
-        offset = body.find(candidate)
-        if offset >= 0:
-            return body[:offset].count("\n") + 1
-    return None
 
 
-def _build_agent_writing_update(
-    *,
-    tool_call: CoreToolCall,
-    current: JSONObject,
-    new_body: str,
-    operation: str,
-    content_md: str,
-    diff: JSONObject,
-) -> JSONObject:
-    old_version = safe_int(current.get("version"))
-    old_body = str(current.get("body_md") or "")
-    selection_snapshot = _normalize_selection_snapshot(tool_call.arguments.get("selection_snapshot"))
-    selection_text = str(selection_snapshot.get("selected_text") or selection_snapshot.get("text") or "").strip()
-    explicit_anchor_text = str(tool_call.arguments.get("anchor_text") or "").strip()
-    anchor_text = selection_text or explicit_anchor_text or _first_nonempty_line(content_md)
-    content_hash = stable_hash({"content_md": content_md})
-    idempotency_key = _agent_writing_idempotency_key(
-        tool_call=tool_call, current=current, content_md=content_md, operation=operation
-    )
-    anchor_id = f"agent-{stable_hash({'idempotency_key': idempotency_key, 'content_hash': content_hash})}"
-    inserted_text = str(content_md or "").strip()
-    replaced_text = _extract_replaced_writing_text(
-        old_body,
-        operation=operation,
-        anchor_text=explicit_anchor_text or selection_text,
-        range_start=safe_nonnegative_int(tool_call.arguments.get("range_start")),
-        range_end=safe_nonnegative_int(tool_call.arguments.get("range_end")),
-    )
-    provenance = json_object(tool_call.arguments.get("provenance"))
-    if selection_snapshot:
-        provenance.setdefault("selection_snapshot", selection_snapshot)
-    return {
-        "id": anchor_id,
-        "anchor_id": anchor_id,
-        "call_id": tool_call.call_id,
-        "idempotency_key": idempotency_key,
-        "tool_name": tool_call.tool_name,
-        "actor": "agent_core",
-        "operation": operation,
-        "created_at": utcnow_iso(),
-        "doc_id": current.get("id"),
-        "title": current.get("title"),
-        "old_version": old_version,
-        "new_version": 1 if current.get("id") is None else ((old_version + 1) if old_version else None),
-        "content_hash": content_hash,
-        "inserted_text": inserted_text[:2000],
-        "inserted_text_truncated": len(inserted_text) > 2000,
-        "replaced_text": replaced_text[:2000],
-        "replaced_text_truncated": len(replaced_text) > 2000,
-        "summary": f"{operation} via AgentCore: +{diff.get('added_lines')} -{diff.get('removed_lines')} lines",
-        "diff": compact_json_value(diff, max_items=8, max_depth=3, max_string=1200),
-        "source_refs": normalize_string_list(tool_call.arguments.get("source_refs")),
-        "provenance": compact_json_value(provenance, max_items=20, max_depth=4),
-        "locator": {
-            "anchor_id": anchor_id,
-            "anchor_text": anchor_text,
-            "anchor_heading": str(tool_call.arguments.get("anchor_heading") or "").strip() or None,
-            "anchor_line": _find_anchor_line(new_body, content_md),
-            "range_start": safe_nonnegative_int(tool_call.arguments.get("range_start")),
-            "range_end": safe_nonnegative_int(tool_call.arguments.get("range_end")),
-            "cursor_offset": safe_nonnegative_int(tool_call.arguments.get("cursor_offset")),
-            "selection_snapshot": selection_snapshot or None,
-            "content_hash": content_hash,
-        },
-    }
 
 
-def _agent_writing_idempotency_key(
-    *,
-    tool_call: CoreToolCall,
-    current: JSONObject,
-    content_md: str,
-    operation: str,
-) -> str:
-    explicit = str(tool_call.arguments.get("idempotency_key") or "").strip()
-    provenance = json_object(tool_call.arguments.get("provenance"))
-    explicit = explicit or str(provenance.get("idempotency_key") or "").strip()
-    if explicit:
-        return explicit[:240]
-    selection_snapshot = _normalize_selection_snapshot(tool_call.arguments.get("selection_snapshot"))
-    return stable_hash(
-        {
-            "session_anchor": provenance.get("session_id") or provenance.get("message_id"),
-            "doc_id": current.get("id") or tool_call.arguments.get("doc_id") or tool_call.arguments.get("title"),
-            "operation": operation,
-            "anchor_heading": str(tool_call.arguments.get("anchor_heading") or "").strip(),
-            "anchor_text": str(tool_call.arguments.get("anchor_text") or "").strip(),
-            "range_start": safe_nonnegative_int(tool_call.arguments.get("range_start")),
-            "range_end": safe_nonnegative_int(tool_call.arguments.get("range_end")),
-            "cursor_offset": safe_nonnegative_int(tool_call.arguments.get("cursor_offset")),
-            "selection": selection_snapshot,
-            "content_hash": stable_hash({"content_md": content_md}),
-        }
-    )
 
 
-def _find_replayed_agent_writing_update(
-    *,
-    metadata: object,
-    tool_call: CoreToolCall,
-    current: JSONObject,
-    content_md: str,
-    operation: str,
-) -> JSONObject | None:
-    normalized_metadata = json_object(metadata)
-    idempotency_key = _agent_writing_idempotency_key(
-        tool_call=tool_call, current=current, content_md=content_md, operation=operation
-    )
-    entries = [json_object(entry) for entry in json_list(normalized_metadata.get("agent_updates")) if isinstance(entry, Mapping)]
-    for item in reversed(entries):
-        if str(item.get("call_id") or "") == tool_call.call_id:
-            return item
-        if idempotency_key and str(item.get("idempotency_key") or "") == idempotency_key:
-            return item
-    return None
 
 
-def _extract_replaced_writing_text(
-    body_md: str,
-    *,
-    operation: str,
-    anchor_text: str,
-    range_start: int | None,
-    range_end: int | None,
-) -> str:
-    body = str(body_md or "")
-    normalized_operation = str(operation or "").strip()
-    if normalized_operation == "replace_range" and range_start is not None and range_end is not None:
-        if 0 <= range_start <= range_end <= len(body):
-            return body[range_start:range_end]
-        return ""
-    if normalized_operation == "replace_text" and anchor_text:
-        index = body.find(anchor_text)
-        if index >= 0:
-            return body[index : index + len(anchor_text)]
-    return ""
 
 
-def _append_agent_writing_update(metadata: object, update: JSONObject, *, max_items: int = 30) -> JSONObject:
-    next_metadata = json_object(metadata)
-    existing = [json_object(item) for item in json_list(next_metadata.get("agent_updates")) if isinstance(item, Mapping)]
-    next_updates = [*existing, json_object(update)][-max_items:]
-    next_metadata["agent_updates"] = next_updates
-    next_metadata["last_agent_update"] = dict(update)
-    next_metadata["agent_update_count"] = len(next_updates)
-    return next_metadata
 
 
-def _apply_writing_body_operation(
-    body_md: str,
-    *,
-    operation: str,
-    content_md: str,
-    anchor_heading: str,
-    anchor_text: str,
-    range_start: int | None = None,
-    range_end: int | None = None,
-    cursor_offset: int | None = None,
-) -> str | Failure:
-    operation = str(operation or "append").strip()
-    content = str(content_md or "").strip()
-    body = str(body_md or "")
-    if operation == "append":
-        return _join_markdown_blocks(body, content)
-    if operation == "prepend":
-        return _join_markdown_blocks(content, body)
-    if operation == "after_heading":
-        if not anchor_heading:
-            return agent_runtime_failures.fail(
-                "writing_anchor_required",
-                "anchor_heading is required for after_heading",
-                {"operation": operation, "anchor": "heading"},
-            )
-        lines = body.splitlines()
-        for index, line in enumerate(lines):
-            if _heading_matches(line, anchor_heading):
-                insert_at = index + 1
-                while insert_at < len(lines) and not lines[insert_at].strip():
-                    insert_at += 1
-                updated = lines[:insert_at] + ["", content, ""] + lines[insert_at:]
-                return "\n".join(updated).strip() + "\n"
-        return agent_runtime_failures.fail(
-            "writing_anchor_not_found",
-            f"anchor heading not found: {anchor_heading}",
-            {"operation": operation, "anchor": "heading", "value": anchor_heading},
-        )
-    if operation == "replace_text":
-        if not anchor_text:
-            return agent_runtime_failures.fail(
-                "writing_anchor_required",
-                "anchor_text is required for replace_text",
-                {"operation": operation, "anchor": "text"},
-            )
-        if anchor_text not in body:
-            return agent_runtime_failures.fail(
-                "writing_anchor_not_found",
-                "anchor_text was not found in the document",
-                {"operation": operation, "anchor": "text"},
-            )
-        return body.replace(anchor_text, content, 1)
-    if operation == "replace_range":
-        if range_start is None or range_end is None:
-            return agent_runtime_failures.fail(
-                "writing_range_invalid",
-                "range_start and range_end are required for replace_range",
-                {"operation": operation},
-            )
-        range_failure = _validate_body_range(body, range_start, range_end)
-        if isinstance(range_failure, Failure):
-            return range_failure
-        return _splice_markdown_range(body, range_start, range_end, content)
-    if operation == "insert_at_offset":
-        if cursor_offset is None:
-            return agent_runtime_failures.fail(
-                "writing_cursor_offset_required",
-                "cursor_offset is required for insert_at_offset",
-                {"operation": operation},
-            )
-        range_failure = _validate_body_range(body, cursor_offset, cursor_offset)
-        if isinstance(range_failure, Failure):
-            return range_failure
-        return _splice_markdown_range(body, cursor_offset, cursor_offset, content)
-    if operation == "insert_after_text":
-        if not anchor_text:
-            return agent_runtime_failures.fail(
-                "writing_anchor_required",
-                "anchor_text is required for insert_after_text",
-                {"operation": operation, "anchor": "text"},
-            )
-        index = body.find(anchor_text)
-        if index < 0:
-            return agent_runtime_failures.fail(
-                "writing_anchor_not_found",
-                "anchor_text was not found in the document",
-                {"operation": operation, "anchor": "text"},
-            )
-        insert_at = index + len(anchor_text)
-        return _join_markdown_blocks(body[:insert_at], _join_markdown_blocks(content, body[insert_at:]))
-    if operation == "insert_before_text":
-        if not anchor_text:
-            return agent_runtime_failures.fail(
-                "writing_anchor_required",
-                "anchor_text is required for insert_before_text",
-                {"operation": operation, "anchor": "text"},
-            )
-        index = body.find(anchor_text)
-        if index < 0:
-            return agent_runtime_failures.fail(
-                "writing_anchor_not_found",
-                "anchor_text was not found in the document",
-                {"operation": operation, "anchor": "text"},
-            )
-        return _join_markdown_blocks(_join_markdown_blocks(body[:index], content), body[index:])
-    return agent_runtime_failures.fail(
-        "writing_operation_unsupported",
-        f"unsupported writing operation: {operation}",
-        {"operation": operation},
-    )
 
 
-def _validate_body_range(body: str, start: int, end: int) -> Failure | None:
-    if start < 0 or end < 0:
-        return agent_runtime_failures.fail(
-            "writing_range_invalid",
-            "range offsets must be >= 0",
-            {"start": start, "end": end},
-        )
-    if start > end:
-        return agent_runtime_failures.fail(
-            "writing_range_invalid",
-            "range_start must be <= range_end",
-            {"start": start, "end": end},
-        )
-    body_len = len(str(body or ""))
-    if end > body_len:
-        return agent_runtime_failures.fail(
-            "writing_range_invalid",
-            "range_end is outside the document",
-            {"start": start, "end": end, "body_length": body_len},
-        )
-    return None
 
 
-def _splice_markdown_range(body: str, start: int, end: int, content: str) -> str:
-    raw_body = str(body or "")
-    inserted = str(content or "").strip()
-    before = raw_body[:start]
-    after = raw_body[end:]
-    if not before:
-        return _join_markdown_blocks(inserted, after)
-    if not after:
-        return _join_markdown_blocks(before, inserted)
-    return _join_markdown_blocks(_join_markdown_blocks(before, inserted), after)
 
 
-def _normalize_selection_snapshot(value: object) -> JSONObject:
-    normalized = json_object(value)
-    out: JSONObject = {}
-    for key in ("text", "selected_text", "start", "end", "line", "active_heading", "before", "after"):
-        if key not in normalized:
-            continue
-        item = normalized.get(key)
-        if isinstance(item, str):
-            item = item[:1400]
-        out[key] = item
-    return out
 
 
-def _join_markdown_blocks(first: str, second: str) -> str:
-    left = str(first or "").strip()
-    right = str(second or "").strip()
-    if not left:
-        return f"{right}\n" if right else ""
-    if not right:
-        return f"{left}\n"
-    return f"{left}\n\n{right}\n"
 
 
-def _heading_matches(line: str, anchor_heading: str) -> bool:
-    left = str(line or "").strip().lstrip("#").strip().lower()
-    right = str(anchor_heading or "").strip().lstrip("#").strip().lower()
-    return bool(left and right and left == right)
 
 
-def _body_diff_summary(old_body: str, new_body: str) -> JSONObject:
-    old_lines = str(old_body or "").splitlines()
-    new_lines = str(new_body or "").splitlines()
-    diff_lines = list(
-        difflib.unified_diff(old_lines, new_lines, fromfile="before.md", tofile="after.md", lineterm="", n=3)
-    )
-    added = sum(1 for line in diff_lines if line.startswith("+") and not line.startswith("+++"))
-    removed = sum(1 for line in diff_lines if line.startswith("-") and not line.startswith("---"))
-    return {
-        "added_lines": added,
-        "removed_lines": removed,
-        "old_line_count": len(old_lines),
-        "new_line_count": len(new_lines),
-        "diff_excerpt": "\n".join(diff_lines[:120]),
-        "diff_truncated": len(diff_lines) > 120,
-    }
 
 
 def _run_agent_batch_submit_tool(

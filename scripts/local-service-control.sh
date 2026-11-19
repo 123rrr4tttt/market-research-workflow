@@ -173,20 +173,20 @@ start_frontend() {
     echo "❌ :$FRONTEND_PORT is not owned by this frontend; refusing to start"
     return 1
   fi
-  if ! command -v npm >/dev/null 2>&1; then
-    echo "❌ npm is required to start frontend"
+  if ! command -v pnpm >/dev/null 2>&1; then
+    echo "❌ pnpm is required to start frontend"
     return 1
   fi
   cd "$FRONTEND_DIR"
-  if [[ ! -d node_modules ]]; then
-    echo "❌ frontend dependencies missing; install them explicitly or use local-deploy start --provision"
+  if [[ ! -x node_modules/.bin/vite ]]; then
+    echo "❌ frontend dependencies missing; run scripts/local-deploy.sh prepare"
     return 1
   fi
   if [[ "$FRONTEND_MODE" == "preview" && ! -f dist/index.html ]]; then
     echo "❌ frontend dist/index.html missing; build it before preview mode"
     return 1
   fi
-  VITE_API_PROXY_TARGET="http://localhost:8000" nohup npm run "$FRONTEND_MODE" -- --host "$FRONTEND_HOST" --port "$FRONTEND_PORT" --strictPort >"$FRONTEND_LOG_FILE" 2>&1 &
+  VITE_API_PROXY_TARGET="http://localhost:8000" nohup pnpm run "$FRONTEND_MODE" --host "$FRONTEND_HOST" --port "$FRONTEND_PORT" --strictPort >"$FRONTEND_LOG_FILE" 2>&1 &
   echo "$!" >"$FRONTEND_PID_FILE"
   echo "✅ local frontend starting on :$FRONTEND_PORT"
 }

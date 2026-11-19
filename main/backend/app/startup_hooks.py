@@ -42,7 +42,7 @@ def register_startup_hooks(app: FastAPI) -> None:
     app.state.information_topology_service = build_topology_service()
 
     def _ensure_default_project_schema() -> None:
-        initialize_default_project_schema(logger_obj=logger)
+        initialize_default_project_schema(logger_obj=logger, fail_closed=True)
 
     # This must precede every other FastAPI startup callback, including callbacks
     # already registered by app.main before this module is composed.

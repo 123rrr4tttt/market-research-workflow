@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
+import xml.etree.ElementTree as ET
 from typing import Any, TypeGuard, cast
 from urllib.parse import parse_qsl, urlencode, urljoin, urlparse, urlunparse
 
@@ -16,7 +17,7 @@ from ..projects import bind_project, bind_schema
 from .auto_classify import classify_site_entries_batch, infer_keyword_capabilities
 from .http_port import HttpFetchError, fetch_html, make_html_parser
 from .site_entries import upsert_site_entry
-from .url_utils import normalize_url
+from .url_utils import normalize_domain, normalize_url
 
 _log = logging.getLogger(__name__)
 
@@ -181,8 +182,8 @@ def list_discovery_domains(
         url_scope = "effective"
     limit_domains = min(max(1, int(limit_domains)), 500)
 
-    allow_set = {str(x).strip().lower().lstrip("www.") for x in (allow_domains or []) if str(x).strip()}
-    deny_set = {str(x).strip().lower().lstrip("www.") for x in (deny_domains or []) if str(x).strip()}
+    allow_set = {normalize_domain(str(x)) for x in (allow_domains or []) if str(x).strip()}
+    deny_set = {normalize_domain(str(x)) for x in (deny_domains or []) if str(x).strip()}
 
     def _domain_allowed(d: str) -> bool:
         if deny_set and d in deny_set:
@@ -195,10 +196,10 @@ def list_discovery_domains(
     seen_domains: set[str] = set()
 
     def _add_domain(d: str | None) -> None:
-        dd = (d or "").strip().lower().lstrip("www.")
+        dd = normalize_domain(d or "")
         if not dd:
             return
-        if domain and dd != domain.strip().lower().lstrip("www."):
+        if domain and dd != normalize_domain(domain):
             return
         if not _domain_allowed(dd):
             return
@@ -212,7 +213,7 @@ def list_discovery_domains(
             with SessionLocal() as session:
                 q = select(ResourcePoolUrl.domain).where(ResourcePoolUrl.domain.is_not(None))
                 if domain:
-                    q = q.where(ResourcePoolUrl.domain == domain.strip().lower().lstrip("www."))
+                    q = q.where(ResourcePoolUrl.domain == normalize_domain(domain))
                 q = q.order_by(ResourcePoolUrl.created_at.desc()).limit(limit_domains * 20)
                 for (d,) in session.execute(q).all():
                     _add_domain(d)
@@ -222,7 +223,7 @@ def list_discovery_domains(
             with SessionLocal() as session:
                 q = select(SharedResourcePoolUrl.domain).where(SharedResourcePoolUrl.domain.is_not(None))
                 if domain:
-                    q = q.where(SharedResourcePoolUrl.domain == domain.strip().lower().lstrip("www."))
+                    q = q.where(SharedResourcePoolUrl.domain == normalize_domain(domain))
                 q = q.order_by(SharedResourcePoolUrl.created_at.desc()).limit(limit_domains * 20)
                 for (d,) in session.execute(q).all():
                     _add_domain(d)
@@ -239,8 +240,7 @@ def list_discovery_domains(
 
 
 def _best_effort_base_urls(domain: str) -> list[str]:
-    d = (domain or "").strip().lower()
-    d = d.lstrip("www.")
+    d = normalize_domain(domain)
     if not d:
         return []
     return [f"https://{d}/", f"http://{d}/"]
@@ -341,6 +341,61 @@ def _extract_search_templates_from_html(html: str, *, base_url: str) -> list[str
                 templates.append(tpl)
     except Exception:
         return templates
+    return templates
+
+
+def extract_homepage_query_contract_clues(html: str, *, base_url: str) -> list[dict[str, str]]:
+    """Extract deterministic GET-form, alternate-feed, and OpenSearch clues."""
+
+    clues: list[dict[str, str]] = []
+    seen: set[tuple[str, str]] = set()
+
+    def _push(kind: str, value: str, evidence: str) -> None:
+        key = (kind, value)
+        if not value or key in seen:
+            return
+        seen.add(key)
+        clues.append({"kind": kind, "value": value, "evidence": evidence})
+
+    for template in _extract_search_templates_from_html(html, base_url=base_url):
+        _push("search_template", template, "homepage_get_form")
+    for feed_url in _extract_link_alternate_feeds(html, base_url=base_url):
+        _push("rss", feed_url, "homepage_link_alternate")
+    try:
+        parser = make_html_parser(html)
+        for node in parser.css("link"):
+            rel = (node.attributes.get("rel") or "").lower()
+            typ = (node.attributes.get("type") or "").lower()
+            if "search" not in rel or "opensearchdescription" not in typ:
+                continue
+            href = (node.attributes.get("href") or "").strip()
+            if not href:
+                continue
+            _push("opensearch", urljoin(base_url, href), "homepage_link_opensearch")
+    except Exception:
+        pass
+    return clues
+
+
+def extract_opensearch_templates(xml_text: str, *, base_url: str) -> list[str]:
+    """Extract same-origin HTML query templates from an OpenSearch description."""
+
+    templates: list[str] = []
+    try:
+        root = ET.fromstring(xml_text)
+    except Exception:
+        return templates
+    for node in root.iter():
+        if str(node.tag).split("}", 1)[-1] != "Url":
+            continue
+        typ = str(node.attrib.get("type") or "").strip().lower()
+        raw_template = str(node.attrib.get("template") or "").strip()
+        if typ != "text/html" or "{searchterms}" not in raw_template.lower():
+            continue
+        absolute = urljoin(base_url, raw_template)
+        template = absolute.replace("{searchTerms}", "{{q}}").replace("{searchterms}", "{{q}}")
+        if "{{q}}" in template and template not in templates:
+            templates.append(template)
     return templates
 
 

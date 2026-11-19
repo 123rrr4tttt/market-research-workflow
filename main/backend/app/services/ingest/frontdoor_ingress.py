@@ -129,7 +129,7 @@ def build_frontdoor_ingress_envelope(
     reason_code: str = "ok",
 ) -> Annotated[
     FrontdoorIngressEnvelope,
-    "kit:non-authoritative derived_as=view fact_source=ingress_inputs+normalized_source_ref witness=test:test_w03_ingest_ports_authority_metadata",
+    "kit:non-authoritative derived_as=view fact_source=ingress_inputs+normalized_source_ref witness=test:test_ingest_ports_declare_sources_and_effect_authority",
 ]:
     normalized_type = str(ingress_type or "").strip().lower()
     if normalized_type not in _ALLOWED_INGRESS_TYPES:
@@ -186,7 +186,7 @@ def build_source_library_ingress_envelope(
     legacy_result: FrontdoorObject | None = None,
 ) -> Annotated[
     FrontdoorIngressEnvelope,
-    "kit:non-authoritative derived_as=view fact_source=terminal_output+legacy_result+frontdoor_route_inputs witness=test:test_w03_ingest_ports_authority_metadata",
+    "kit:non-authoritative derived_as=view fact_source=terminal_output+legacy_result+frontdoor_route_inputs witness=test:test_ingest_ports_declare_sources_and_effect_authority",
 ]:
     terminal_view = _object_view(terminal_output)
     item = _object_view(terminal_view.get("item"))
@@ -280,7 +280,7 @@ def build_raw_import_ingress_envelope(
     item: FrontdoorObject,
 ) -> Annotated[
     FrontdoorIngressEnvelope,
-    "kit:non-authoritative derived_as=view fact_source=raw_import_payload+item witness=test:test_w03_ingest_ports_authority_metadata",
+    "kit:non-authoritative derived_as=view fact_source=raw_import_payload+item witness=test:test_ingest_ports_declare_sources_and_effect_authority",
 ]:
     return build_frontdoor_ingress_envelope(
         ingress_type="raw_import",
@@ -299,7 +299,7 @@ def build_discovery_ingress_envelope(
     item: FrontdoorObject,
 ) -> Annotated[
     FrontdoorIngressEnvelope,
-    "kit:non-authoritative derived_as=view fact_source=discovery_item witness=test:test_w03_ingest_ports_authority_metadata",
+    "kit:non-authoritative derived_as=view fact_source=discovery_item witness=test:test_ingest_ports_declare_sources_and_effect_authority",
 ]:
     return build_frontdoor_ingress_envelope(
         ingress_type="discovery",

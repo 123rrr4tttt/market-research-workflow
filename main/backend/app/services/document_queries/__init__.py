@@ -64,10 +64,8 @@ from .writing_documents import (
     require_active_document,
 )
 from .writing_material_queries import (
-    query_hybrid_material_envelope,
-    query_hybrid_material_rows,
+    query_hybrid_material_observation,
     query_report_source_envelope,
-    query_report_source_rows,
     query_source_library_material_envelope,
     query_source_library_material_rows,
 )
@@ -146,10 +144,8 @@ __all__ = [
     "policy_type_condition",
     "policy_type_order_expr",
     "prompt_time_density_time_expr",
-    "query_hybrid_material_envelope",
-    "query_hybrid_material_rows",
+    "query_hybrid_material_observation",
     "query_report_source_envelope",
-    "query_report_source_rows",
     "query_source_library_material_envelope",
     "query_source_library_material_rows",
     "require_active_document",

@@ -44,7 +44,7 @@ def _codex_failure(
         "site": site,
         "public_exception": "RuntimeError",
         "public_message": message if public_message is None else public_message,
-        "witness": "test:test_w01_effect_failures",
+        "witness": "test:test_session_retry_effect_retains_original_exception_and_public_wrapper_reraises_it",
     }
     details.update(context)
     return codex_invocation_failures.fail(code, message, details)

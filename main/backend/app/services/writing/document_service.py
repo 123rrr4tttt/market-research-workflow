@@ -8,7 +8,7 @@ from typing import Any, NoReturn, SupportsIndex, SupportsInt, TypeGuard
 from functorial_kit import Failure
 from sqlalchemy.orm import Session
 
-from mrw_functorial_kit.core.w04_service_semantics import writing_failures
+from mrw_functorial_kit.core.service_failure_semantics import writing_failures
 
 from ...models.base import SessionLocal, run_with_session_retry
 from ...models.writing_entities import WritingDocument, WritingDocumentDraft
@@ -91,16 +91,16 @@ def _raise_writing_legacy(failure: Failure, *, cause: BaseException | None = Non
     """Lift a closed writing failure exactly once at the public service boundary."""
     context = failure.context or {}
     if not writing_failures.matches(failure) or not _WRITING_FAILURE_CONTEXT_KEYS <= set(context):
-        # kit:boundary owner=writing.document_service.failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w04_writing_failure_core
+        # kit:boundary owner=writing.document_service.failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_writing_failure_family_and_document_abi
         raise TypeError("writing failure lift context is incomplete or inconsistent")
 
     public_exception = str(context["public_exception"])
     message = str(context["public_message"])
     if public_exception == "KeyError":
         if cause is None:
-            # kit:boundary owner=writing.document_service.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=writing.failure witness=test:test_w04_writing_failure_core
+            # kit:boundary owner=writing.document_service.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=writing.failure witness=test:test_writing_failure_family_and_document_abi
             raise KeyError(message)
-        # kit:boundary owner=writing.document_service.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=writing.failure witness=test:test_w04_writing_failure_core
+        # kit:boundary owner=writing.document_service.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=writing.failure witness=test:test_writing_failure_family_and_document_abi
         raise KeyError(message) from cause
     if public_exception == "WritingVersionConflictError" and failure.code == "version_conflict":
         expected_ok, expected_version = _version_value(
@@ -110,7 +110,7 @@ def _raise_writing_legacy(failure: Failure, *, cause: BaseException | None = Non
         current_ok, current_version = _version_value(context.get("current_version", 0))
         snapshot_ok, server_snapshot = _snapshot_value(context.get("server_snapshot"))
         if not expected_ok or not current_ok or current_version is None or not snapshot_ok:
-            # kit:boundary owner=writing.document_service.failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w04_writing_failure_core
+            # kit:boundary owner=writing.document_service.failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_writing_failure_family_and_document_abi
             raise TypeError("writing failure version conflict context is invalid")
         conflict = WritingVersionConflictError(
             expected_version=expected_version,
@@ -118,14 +118,14 @@ def _raise_writing_legacy(failure: Failure, *, cause: BaseException | None = Non
             server_snapshot=server_snapshot,
         )
         if cause is None:
-            # kit:boundary owner=writing.document_service.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=writing.failure witness=test:test_w04_writing_failure_core
+            # kit:boundary owner=writing.document_service.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=writing.failure witness=test:test_writing_failure_family_and_document_abi
             raise conflict
-        # kit:boundary owner=writing.document_service.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=writing.failure witness=test:test_w04_writing_failure_core
+        # kit:boundary owner=writing.document_service.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=writing.failure witness=test:test_writing_failure_family_and_document_abi
         raise conflict from cause
     if failure.code == "action_execution_failed" and isinstance(cause, BaseException):
-        # kit:boundary owner=writing.document_service.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=writing.failure witness=test:test_w04_writing_failure_core
+        # kit:boundary owner=writing.document_service.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=writing.failure witness=test:test_writing_failure_family_and_document_abi
         raise cause
-    # kit:boundary owner=writing.document_service.failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w04_writing_failure_core
+    # kit:boundary owner=writing.document_service.failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_writing_failure_family_and_document_abi
     raise TypeError(f"unsupported writing failure code: {failure.code}")
 
 

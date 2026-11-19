@@ -7,7 +7,6 @@ from .agent_batch import router as agent_batch_router
 from .agent_macro_host import router as agent_macro_host_router
 from .agent_cell import router as agent_cell_router
 from .agent_sessions import router as agent_sessions_router
-from .business_lines import router as business_lines_router
 from .clue_chains import router as clue_chains_router
 from .codex_auth import bootstrap_router as codex_auth_bootstrap_router
 from .codex_auth import router as codex_auth_router
@@ -15,7 +14,6 @@ from .config import router as config_router
 from .crawler import router as crawler_router
 from .dashboard import router as dashboard_router
 from .discovery import router as discovery_router
-from .functorial import router as functorial_router
 from .governance import router as governance_router
 from .indexer import router as indexer_router
 from .ingest import router as ingest_router
@@ -47,11 +45,9 @@ router.include_router(ingest_router)
 router.include_router(information_topology_router)
 router.include_router(project_retrieval_router)
 router.include_router(discovery_router)
-router.include_router(functorial_router)
 router.include_router(indexer_router)
 router.include_router(admin_router)
 router.include_router(dashboard_router)
-router.include_router(business_lines_router)
 router.include_router(llm_config_router)
 router.include_router(process_router)
 router.include_router(topics_router)

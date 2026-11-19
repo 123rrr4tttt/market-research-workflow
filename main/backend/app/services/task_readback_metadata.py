@@ -44,7 +44,7 @@ LINE_REQUIRED_EVENTS: dict[str, tuple[str, ...]] = {
 LINE_ACCEPTED_EVENT: dict[str, str] = {
     line_key: events[0] for line_key, events in LINE_REQUIRED_EVENTS.items()
 }
-_FAILURE_WITNESS = "test:test_w01_request_failures"
+_FAILURE_WITNESS = "test:test_invalid_service_requests_preserve_public_errors"
 _FAILURE_CONTEXT_KEYS = frozenset(
     {"owner", "operation", "failure_family", "public_exception", "public_message", "witness"}
 )
@@ -68,9 +68,9 @@ def _task_readback_failure(message: str, *, operation: str) -> Failure:
 def _raise_task_readback_failure(failure: Failure) -> NoReturn:
     context = failure.context or {}
     if not task_readback_contract_failures.matches(failure) or _FAILURE_CONTEXT_KEYS - set(context):
-        # kit:boundary owner=task_readback_metadata.failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w01_request_failures
+        # kit:boundary owner=task_readback_metadata.failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_invalid_service_requests_preserve_public_errors
         raise TypeError("task readback failure lift context is incomplete or inconsistent")
-    # kit:boundary owner=task_readback_metadata.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=task.readback.contract_failure witness=test:test_w01_request_failures
+    # kit:boundary owner=task_readback_metadata.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=task.readback.contract_failure witness=test:test_invalid_service_requests_preserve_public_errors
     raise ValueError(str(context["public_message"]))
 
 
@@ -208,7 +208,7 @@ def build_runtime_readback_payload(
     event_source: str = "runtime",
 ) -> Annotated[
     dict[str, Any],
-    "kit:non-authoritative derived_as=view fact_source=task.runtime_readback witness=test:test_w01_meta",
+    "kit:non-authoritative derived_as=view fact_source=task.runtime_readback witness=test:test_derived_service_annotations_match_fact_sources",
 ]:
     normalized_line_key = normalize_line_key(line_key)
     if not normalized_line_key:

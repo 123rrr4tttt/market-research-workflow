@@ -19,7 +19,7 @@ from typing import Any
 
 import pytest
 
-from .p3_c4_fixture import ordered_dispatch_program
+from .single_dispatch_program_fixture import ordered_dispatch_program
 import sqlalchemy as sa
 from sqlalchemy.orm import sessionmaker
 
@@ -120,7 +120,7 @@ from app.successor_runtime.substrate.postgres.runtime_lifecycle import (
 )
 from app.successor_runtime.substrate.postgres import session as runtime_session
 
-from .test_p0b_postgres_integration import (
+from .test_runtime_substrate_postgres_integration import (
     LiveDatabase,
     PROJECT_KEY,
     PROJECT_SCHEMA,

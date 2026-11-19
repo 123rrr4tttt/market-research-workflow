@@ -516,16 +516,16 @@ def _build_first_specimen_program(
     if intent_type is not None:
         research_intent_type = intent_type
     if len(source_refs) != 2:
-        # kit:boundary owner=successor.language.combinators.domain class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_language_a
+        # kit:boundary owner=successor.language.combinators.domain class=PROGRAMMER_DEFECT failure_family=none witness=test:test_atom_node_rejects_malformed_object_types_as_typed_failure
         raise ValueError(
             "first specimen requires exactly two existing SourceRef inputs"
         )
     locator_identities = tuple(material_locator_identity(source.locator) for source in source_refs)
     if None in locator_identities:
-        # kit:boundary owner=successor.language.combinators.domain class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_language_a
+        # kit:boundary owner=successor.language.combinators.domain class=PROGRAMMER_DEFECT failure_family=none witness=test:test_atom_node_rejects_malformed_object_types_as_typed_failure
         raise ValueError("first specimen SourceRef must bind an existing material locator")
     if locator_identities[0] == locator_identities[1]:
-        # kit:boundary owner=successor.language.combinators.domain class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_language_a
+        # kit:boundary owner=successor.language.combinators.domain class=PROGRAMMER_DEFECT failure_family=none witness=test:test_atom_node_rejects_malformed_object_types_as_typed_failure
         raise ValueError("first specimen requires two distinct material locators")
 
     qualification_pair_merge_ref = registries.merges.register_merge(
@@ -944,13 +944,13 @@ def _materialize_first_specimen_gap_successor(
     """
 
     if not isinstance(_runtime_value(gap), Gap):
-        # kit:boundary owner=successor.language.combinators.domain class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_language_a
+        # kit:boundary owner=successor.language.combinators.domain class=PROGRAMMER_DEFECT failure_family=none witness=test:test_atom_node_rejects_malformed_object_types_as_typed_failure
         raise TypeError("first-specimen successor materializer requires a typed Gap")
     if not successor_intent_ref:
-        # kit:boundary owner=successor.language.combinators.domain class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_language_a
+        # kit:boundary owner=successor.language.combinators.domain class=PROGRAMMER_DEFECT failure_family=none witness=test:test_atom_node_rejects_malformed_object_types_as_typed_failure
         raise ValueError("successor Inquiry requires an admitted ResearchIntent ref")
     if source_value_ref.project_key != predecessor_program.project_key:
-        # kit:boundary owner=successor.language.combinators.domain class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_language_a
+        # kit:boundary owner=successor.language.combinators.domain class=PROGRAMMER_DEFECT failure_family=none witness=test:test_atom_node_rejects_malformed_object_types_as_typed_failure
         raise ValueError("source ValueRef and predecessor ProgramSpec project drift")
 
     source_value_ref_digest = canonical_digest(source_value_ref)
@@ -1229,7 +1229,7 @@ def _contract_ref(
 ) -> OperationContractRef:
     ref = catalog.lookup(kind)
     if ref is None:
-        # kit:boundary owner=successor.language.combinators.domain class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_language_a
+        # kit:boundary owner=successor.language.combinators.domain class=PROGRAMMER_DEFECT failure_family=none witness=test:test_atom_node_rejects_malformed_object_types_as_typed_failure
         raise ValueError(f"contract {kind} missing from catalog")
     return ref
 

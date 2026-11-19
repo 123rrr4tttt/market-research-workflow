@@ -21,7 +21,7 @@ _SCHEMA_VAR: ContextVar[str | None] = ContextVar("project_schema", default=None)
 logger = logging.getLogger(__name__)
 
 
-_PROJECT_FAILURE_WITNESS = "test:test_w01_project_identity_failures"
+_PROJECT_FAILURE_WITNESS = "test:test_project_context_and_workflow_lifts_preserve_public_messages"
 _PROJECT_FAILURE_CONTEXT_KEYS = frozenset(
     {
         "boundary_class",
@@ -75,13 +75,13 @@ def raise_project_failure(
         or _PROJECT_FAILURE_CONTEXT_KEYS - set(context)
         or context.get("public_exception") != exception_type.__name__
     ):
-        # kit:boundary owner=projects.failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w01_project_context_and_workflow_lifts_preserve_public_messages
+        # kit:boundary owner=projects.failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_project_context_and_workflow_lifts_preserve_public_messages
         raise TypeError("project operation failure lift context is incomplete")
     message = str(context["public_message"])
     if cause is None:
-        # kit:boundary owner=projects.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=project.operation.failure witness=test:test_w01_project_context_and_workflow_lifts_preserve_public_messages
+        # kit:boundary owner=projects.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=project.operation.failure witness=test:test_project_context_and_workflow_lifts_preserve_public_messages
         raise exception_type(message)
-    # kit:boundary owner=projects.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=project.operation.failure witness=test:test_w01_project_context_and_workflow_lifts_preserve_public_messages
+    # kit:boundary owner=projects.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=project.operation.failure witness=test:test_project_context_and_workflow_lifts_preserve_public_messages
     raise exception_type(message) from cause
 
 

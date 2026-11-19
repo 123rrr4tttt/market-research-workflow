@@ -50,7 +50,7 @@ def build_source_candidate_plan(
     min_trust_score: float = DEFAULT_MIN_TRUST_SCORE,
 ) -> Annotated[
     dict[str, Any],
-    "kit:prepared-command effect_boundary=source_library.candidate_search witness=test:test_w01_meta",
+    "kit:prepared-command effect_boundary=source_library.candidate_search witness=test:test_derived_service_annotations_match_fact_sources",
 ]:
     """Build a no-fetch/no-write source candidate plan for AgentCore.
 
@@ -239,7 +239,7 @@ def evaluate_source_candidate_url(
 
 def build_candidate_search_queries(*, query: str | None, domains: list[str] | None = None, limit: int = 8) -> Annotated[
     list[str],
-    "kit:prepared-command effect_boundary=source_library.candidate_search witness=test:test_w01_meta",
+    "kit:prepared-command effect_boundary=source_library.candidate_search witness=test:test_derived_service_annotations_match_fact_sources",
 ]:
     query_text = str(query or "").strip()
     domain_values = _normalize_domains(domains)

@@ -18,7 +18,7 @@ from ..services.document_queries import (
 )
 from ..services.search.es_client import get_es_client
 from ..services.search.indexes import ensure_indices
-from ..services.search.hybrid import hybrid_search, get_last_used_backends
+from ..services.search.hybrid import observe_hybrid_search, search_failure_payload
 from ..services.search.retrieval_runs import (
     SEARCH_RETRIEVAL_RUN_READBACK_CONTRACT_VERSION,
     default_search_retrieval_runs_path,
@@ -678,17 +678,28 @@ def search(
     rank: str = Query("hybrid"),
     top_k: int = Query(10, ge=1, le=100),
 ):
-    """Placeholder: 混合检索统一接口（MVP 后续接 ES/pgvector）。"""
+    """Search the project using the requested lexical and/or vector channels."""
     try:
         project_key = _search_optional_text(getattr(request.state, "project_key_resolved", None))
-        hybrid_results = hybrid_search(
+        hybrid_observation = observe_hybrid_search(
             q,
             state,
             top_k,
             rank,
             project_key=project_key,
         )
-        results = [_canonical_search_result(row) for row in hybrid_results]
+        results = [_canonical_search_result(row) for row in hybrid_observation.hits]
+        search_failures: list[MaterialQueryJsonValue] = [
+            search_failure_payload(failure) for failure in hybrid_observation.failures
+        ]
+        if not hybrid_observation.used_backends and search_failures:
+            _raise_upstream_error(
+                "Search backends are unavailable",
+                details={
+                    "category": "search_backend",
+                    "search_failures": search_failures,
+                },
+            )
         # Diagnostics about fallback/backends (contract-safe: added under data)
         fallback_order = [
             "opensearch_lexical",
@@ -696,7 +707,7 @@ def search(
             "pgvector_fallback",
         ]
         used_backends: list[str] = []
-        for b in get_last_used_backends():
+        for b in hybrid_observation.used_backends:
             if b == "opensearch":
                 used_backends.append("opensearch_lexical")
             elif b == "qdrant":
@@ -799,6 +810,7 @@ def search(
             "retrieval_run_readback": retrieval_run_readback,
             "search_fallback_order": fallback_order,
             "search_backends_used": used_backends,
+            "search_failures": search_failures,
             "provider_trace": provider_trace,
             "index_backend": index_backend,
             "fallback_used": fallback_used,
@@ -807,16 +819,12 @@ def search(
             "trace_chain": trace_chain,
         })
         return ok(response_data)
+    except HTTPException:
+        raise
     except Exception as e:
         logger.exception("搜索失败")
-        error_msg = str(e)
-        if "Connection" in error_msg or "es" in error_msg.lower() or "elasticsearch" in error_msg.lower():
-            _raise_upstream_error(
-                "Elasticsearch服务不可用，请检查ES服务是否已启动。如需跳过ES，请先启动ES服务或修改配置。",
-                details={"exception_type": e.__class__.__name__, "category": "search_backend"},
-            )
         _raise_internal_error(
-            f"搜索失败: {error_msg}",
+            f"搜索失败: {e}",
             details={"exception_type": e.__class__.__name__},
         )
 

@@ -18,129 +18,6 @@
       }
     },
     {
-      "route_template": "/api/v1/admin/documents/bulk/extracted-data",
-      "domain": "admin",
-      "operation": "admin.bulk_update_document_extracted_data",
-      "methods": [
-        "POST"
-      ],
-      "required_scope": "api:invoke",
-      "required_approval_ids": [],
-      "capability_id": null,
-      "effect_contract": {
-        "effect_class": "legacy_write",
-        "admission": "blocked_until_effect_binding"
-      }
-    },
-    {
-      "route_template": "/api/v1/admin/documents/delete",
-      "domain": "admin",
-      "operation": "admin.delete_documents",
-      "methods": [
-        "POST"
-      ],
-      "required_scope": "api:invoke",
-      "required_approval_ids": [],
-      "capability_id": null,
-      "effect_contract": {
-        "effect_class": "legacy_write",
-        "admission": "blocked_until_effect_binding"
-      }
-    },
-    {
-      "route_template": "/api/v1/admin/documents/list",
-      "domain": "admin",
-      "operation": "admin.list_documents",
-      "methods": [
-        "POST"
-      ],
-      "required_scope": "api:invoke",
-      "required_approval_ids": [],
-      "capability_id": null,
-      "effect_contract": {
-        "effect_class": "read",
-        "admission": "admitted"
-      }
-    },
-    {
-      "route_template": "/api/v1/admin/documents/raw-import",
-      "domain": "admin",
-      "operation": "admin.raw_import_documents",
-      "methods": [
-        "POST"
-      ],
-      "required_scope": "api:invoke",
-      "required_approval_ids": [],
-      "capability_id": null,
-      "effect_contract": {
-        "effect_class": "conditional",
-        "admission": "blocked_until_effect_binding",
-        "conditional_discriminator": "handler_effect_path.v1"
-      }
-    },
-    {
-      "route_template": "/api/v1/admin/documents/re-extract",
-      "domain": "admin",
-      "operation": "admin.re_extract_documents",
-      "methods": [
-        "POST"
-      ],
-      "required_scope": "api:invoke",
-      "required_approval_ids": [],
-      "capability_id": null,
-      "effect_contract": {
-        "effect_class": "conditional",
-        "admission": "blocked_until_effect_binding",
-        "conditional_discriminator": "handler_effect_path.v1"
-      }
-    },
-    {
-      "route_template": "/api/v1/admin/documents/topic-extract",
-      "domain": "admin",
-      "operation": "admin.topic_extract_documents",
-      "methods": [
-        "POST"
-      ],
-      "required_scope": "api:invoke",
-      "required_approval_ids": [],
-      "capability_id": null,
-      "effect_contract": {
-        "effect_class": "conditional",
-        "admission": "blocked_until_effect_binding",
-        "conditional_discriminator": "handler_effect_path.v1"
-      }
-    },
-    {
-      "route_template": "/api/v1/admin/documents/{doc_id}",
-      "domain": "admin",
-      "operation": "admin.get_document",
-      "methods": [
-        "GET"
-      ],
-      "required_scope": "api:invoke",
-      "required_approval_ids": [],
-      "capability_id": null,
-      "effect_contract": {
-        "effect_class": "read",
-        "admission": "admitted"
-      }
-    },
-    {
-      "route_template": "/api/v1/admin/documents/{doc_id}/extracted-data",
-      "domain": "admin",
-      "operation": "admin.update_document_extracted_data",
-      "methods": [
-        "POST"
-      ],
-      "required_scope": "api:invoke",
-      "required_approval_ids": [],
-      "capability_id": null,
-      "effect_contract": {
-        "effect_class": "legacy_write",
-        "admission": "blocked_until_effect_binding"
-      }
-    },
-    {
       "route_template": "/api/v1/admin/export-graph",
       "domain": "admin",
       "operation": "admin.export_graph",
@@ -174,7 +51,7 @@
     {
       "route_template": "/api/v1/admin/materials/bulk/extracted-data",
       "domain": "admin",
-      "operation": "admin.bulk_update_document_extracted_data",
+      "operation": "admin.bulk_update_material_extracted_data",
       "methods": [
         "POST"
       ],
@@ -189,7 +66,7 @@
     {
       "route_template": "/api/v1/admin/materials/delete",
       "domain": "admin",
-      "operation": "admin.delete_documents",
+      "operation": "admin.delete_materials",
       "methods": [
         "POST"
       ],
@@ -204,7 +81,7 @@
     {
       "route_template": "/api/v1/admin/materials/list",
       "domain": "admin",
-      "operation": "admin.list_documents",
+      "operation": "admin.list_materials",
       "methods": [
         "POST"
       ],
@@ -219,7 +96,7 @@
     {
       "route_template": "/api/v1/admin/materials/raw-import",
       "domain": "admin",
-      "operation": "admin.raw_import_documents",
+      "operation": "admin.raw_import_materials",
       "methods": [
         "POST"
       ],
@@ -235,7 +112,7 @@
     {
       "route_template": "/api/v1/admin/materials/re-extract",
       "domain": "admin",
-      "operation": "admin.re_extract_documents",
+      "operation": "admin.re_extract_materials",
       "methods": [
         "POST"
       ],
@@ -251,7 +128,7 @@
     {
       "route_template": "/api/v1/admin/materials/topic-extract",
       "domain": "admin",
-      "operation": "admin.topic_extract_documents",
+      "operation": "admin.topic_extract_materials",
       "methods": [
         "POST"
       ],
@@ -265,9 +142,9 @@
       }
     },
     {
-      "route_template": "/api/v1/admin/materials/{doc_id}",
+      "route_template": "/api/v1/admin/materials/{material_id}",
       "domain": "admin",
-      "operation": "admin.get_document",
+      "operation": "admin.get_material",
       "methods": [
         "GET"
       ],
@@ -280,9 +157,9 @@
       }
     },
     {
-      "route_template": "/api/v1/admin/materials/{doc_id}/extracted-data",
+      "route_template": "/api/v1/admin/materials/{material_id}/extracted-data",
       "domain": "admin",
-      "operation": "admin.update_document_extracted_data",
+      "operation": "admin.update_material_extracted_data",
       "methods": [
         "POST"
       ],
@@ -677,9 +554,9 @@
       }
     },
     {
-      "route_template": "/api/v1/agent-macro-host/record-input",
+      "route_template": "/api/v1/agent-macro-host/prepare-turn",
       "domain": "agent-macro-host",
-      "operation": "agent-macro-host.record_macro_input",
+      "operation": "agent-macro-host.prepare_macro_turn",
       "methods": [
         "POST"
       ],
@@ -692,9 +569,9 @@
       }
     },
     {
-      "route_template": "/api/v1/agent-sessions",
-      "domain": "agent-sessions",
-      "operation": "agent-sessions.create_agent_session",
+      "route_template": "/api/v1/agent-macro-host/record-input",
+      "domain": "agent-macro-host",
+      "operation": "agent-macro-host.record_macro_input",
       "methods": [
         "POST"
       ],
@@ -719,6 +596,21 @@
       "effect_contract": {
         "effect_class": "read",
         "admission": "admitted"
+      }
+    },
+    {
+      "route_template": "/api/v1/agent-sessions",
+      "domain": "agent-sessions",
+      "operation": "agent-sessions.create_agent_session",
+      "methods": [
+        "POST"
+      ],
+      "required_scope": "api:invoke",
+      "required_approval_ids": [],
+      "capability_id": null,
+      "effect_contract": {
+        "effect_class": "legacy_write",
+        "admission": "blocked_until_effect_binding"
       }
     },
     {
@@ -814,21 +706,6 @@
     {
       "route_template": "/api/v1/agent-sessions/{session_id}/messages",
       "domain": "agent-sessions",
-      "operation": "agent-sessions.create_agent_session_message",
-      "methods": [
-        "POST"
-      ],
-      "required_scope": "api:invoke",
-      "required_approval_ids": [],
-      "capability_id": null,
-      "effect_contract": {
-        "effect_class": "legacy_write",
-        "admission": "blocked_until_effect_binding"
-      }
-    },
-    {
-      "route_template": "/api/v1/agent-sessions/{session_id}/messages",
-      "domain": "agent-sessions",
       "operation": "agent-sessions.get_agent_session_messages",
       "methods": [
         "GET"
@@ -839,6 +716,21 @@
       "effect_contract": {
         "effect_class": "read",
         "admission": "admitted"
+      }
+    },
+    {
+      "route_template": "/api/v1/agent-sessions/{session_id}/messages",
+      "domain": "agent-sessions",
+      "operation": "agent-sessions.create_agent_session_message",
+      "methods": [
+        "POST"
+      ],
+      "required_scope": "api:invoke",
+      "required_approval_ids": [],
+      "capability_id": null,
+      "effect_contract": {
+        "effect_class": "legacy_write",
+        "admission": "blocked_until_effect_binding"
       }
     },
     {
@@ -872,9 +764,9 @@
       }
     },
     {
-      "route_template": "/api/v1/business-lines/evidence-matrix",
-      "domain": "business-lines",
-      "operation": "business-lines.get_business_line_evidence_matrix",
+      "route_template": "/api/v1/clue-chains",
+      "domain": "clue-chains",
+      "operation": "clue-chains.list_clue_chains",
       "methods": [
         "GET"
       ],
@@ -884,54 +776,6 @@
       "effect_contract": {
         "effect_class": "read",
         "admission": "admitted"
-      }
-    },
-    {
-      "route_template": "/api/v1/business-lines/scheduled-artifact-drilldown",
-      "domain": "business-lines",
-      "operation": "business-lines.get_scheduled_artifact_drilldown",
-      "methods": [
-        "GET"
-      ],
-      "required_scope": "api:invoke",
-      "required_approval_ids": [],
-      "capability_id": null,
-      "effect_contract": {
-        "effect_class": "filesystem_subprocess",
-        "admission": "blocked_until_effect_binding",
-        "filesystem_port": null
-      }
-    },
-    {
-      "route_template": "/api/v1/business-lines/scheduled-artifact-summaries",
-      "domain": "business-lines",
-      "operation": "business-lines.get_scheduled_artifact_summaries",
-      "methods": [
-        "GET"
-      ],
-      "required_scope": "api:invoke",
-      "required_approval_ids": [],
-      "capability_id": null,
-      "effect_contract": {
-        "effect_class": "filesystem_subprocess",
-        "admission": "blocked_until_effect_binding",
-        "filesystem_port": null
-      }
-    },
-    {
-      "route_template": "/api/v1/business-lines/scheduled-matrix-artifact-summary",
-      "domain": "business-lines",
-      "operation": "business-lines.get_scheduled_matrix_artifact_summary",
-      "methods": [
-        "GET"
-      ],
-      "required_scope": "api:invoke",
-      "required_approval_ids": [],
-      "capability_id": null,
-      "effect_contract": {
-        "effect_class": "filesystem_subprocess",
-        "admission": "blocked_until_effect_binding",
-        "filesystem_port": null
       }
     },
     {
@@ -947,21 +791,6 @@
       "effect_contract": {
         "effect_class": "legacy_write",
         "admission": "blocked_until_effect_binding"
-      }
-    },
-    {
-      "route_template": "/api/v1/clue-chains",
-      "domain": "clue-chains",
-      "operation": "clue-chains.list_clue_chains",
-      "methods": [
-        "GET"
-      ],
-      "required_scope": "api:invoke",
-      "required_approval_ids": [],
-      "capability_id": null,
-      "effect_contract": {
-        "effect_class": "read",
-        "admission": "admitted"
       }
     },
     {
@@ -1598,144 +1427,6 @@
       }
     },
     {
-      "route_template": "/api/v1/functorial/motifs",
-      "domain": "functorial",
-      "operation": "functorial.functorial_compose_motif",
-      "methods": [
-        "POST"
-      ],
-      "required_scope": "api:invoke",
-      "required_approval_ids": [],
-      "capability_id": null,
-      "effect_contract": {
-        "effect_class": "legacy_write",
-        "admission": "blocked_until_effect_binding"
-      }
-    },
-    {
-      "route_template": "/api/v1/functorial/motifs",
-      "domain": "functorial",
-      "operation": "functorial.functorial_list_motifs",
-      "methods": [
-        "GET"
-      ],
-      "required_scope": "api:invoke",
-      "required_approval_ids": [],
-      "capability_id": null,
-      "effect_contract": {
-        "effect_class": "read",
-        "admission": "admitted"
-      }
-    },
-    {
-      "route_template": "/api/v1/functorial/operators",
-      "domain": "functorial",
-      "operation": "functorial.functorial_list_operators",
-      "methods": [
-        "GET"
-      ],
-      "required_scope": "api:invoke",
-      "required_approval_ids": [],
-      "capability_id": null,
-      "effect_contract": {
-        "effect_class": "conditional",
-        "admission": "blocked_until_effect_binding",
-        "conditional_discriminator": "handler_effect_path.v1"
-      }
-    },
-    {
-      "route_template": "/api/v1/functorial/operators",
-      "domain": "functorial",
-      "operation": "functorial.functorial_upsert_operator",
-      "methods": [
-        "POST"
-      ],
-      "required_scope": "api:invoke",
-      "required_approval_ids": [],
-      "capability_id": null,
-      "effect_contract": {
-        "effect_class": "legacy_write",
-        "admission": "blocked_until_effect_binding"
-      }
-    },
-    {
-      "route_template": "/api/v1/functorial/operators/{operator_id}",
-      "domain": "functorial",
-      "operation": "functorial.functorial_get_operator",
-      "methods": [
-        "GET"
-      ],
-      "required_scope": "api:invoke",
-      "required_approval_ids": [],
-      "capability_id": null,
-      "effect_contract": {
-        "effect_class": "conditional",
-        "admission": "blocked_until_effect_binding",
-        "conditional_discriminator": "handler_effect_path.v1"
-      }
-    },
-    {
-      "route_template": "/api/v1/functorial/workflows",
-      "domain": "functorial",
-      "operation": "functorial.functorial_build_workflow",
-      "methods": [
-        "POST"
-      ],
-      "required_scope": "api:invoke",
-      "required_approval_ids": [],
-      "capability_id": null,
-      "effect_contract": {
-        "effect_class": "legacy_write",
-        "admission": "blocked_until_effect_binding"
-      }
-    },
-    {
-      "route_template": "/api/v1/functorial/workflows",
-      "domain": "functorial",
-      "operation": "functorial.functorial_list_workflows",
-      "methods": [
-        "GET"
-      ],
-      "required_scope": "api:invoke",
-      "required_approval_ids": [],
-      "capability_id": null,
-      "effect_contract": {
-        "effect_class": "read",
-        "admission": "admitted"
-      }
-    },
-    {
-      "route_template": "/api/v1/functorial/workflows/{workflow_id}",
-      "domain": "functorial",
-      "operation": "functorial.functorial_get_workflow",
-      "methods": [
-        "GET"
-      ],
-      "required_scope": "api:invoke",
-      "required_approval_ids": [],
-      "capability_id": null,
-      "effect_contract": {
-        "effect_class": "read",
-        "admission": "admitted"
-      }
-    },
-    {
-      "route_template": "/api/v1/functorial/workflows/{workflow_id}/run",
-      "domain": "functorial",
-      "operation": "functorial.functorial_run_workflow",
-      "methods": [
-        "POST"
-      ],
-      "required_scope": "api:invoke",
-      "required_approval_ids": [],
-      "capability_id": null,
-      "effect_contract": {
-        "effect_class": "conditional",
-        "admission": "blocked_until_effect_binding",
-        "conditional_discriminator": "handler_effect_path.v1"
-      }
-    },
-    {
       "route_template": "/api/v1/governance/cleanup",
       "domain": "governance",
       "operation": "governance.cleanup",
@@ -2265,21 +1956,6 @@
     {
       "route_template": "/api/v1/llm-config",
       "domain": "llm-config",
-      "operation": "llm-config.create_llm_config",
-      "methods": [
-        "POST"
-      ],
-      "required_scope": "api:invoke",
-      "required_approval_ids": [],
-      "capability_id": null,
-      "effect_contract": {
-        "effect_class": "legacy_write",
-        "admission": "blocked_until_effect_binding"
-      }
-    },
-    {
-      "route_template": "/api/v1/llm-config",
-      "domain": "llm-config",
       "operation": "llm-config.list_llm_configs",
       "methods": [
         "GET"
@@ -2293,9 +1969,9 @@
       }
     },
     {
-      "route_template": "/api/v1/llm-config/projects/{project_key}",
+      "route_template": "/api/v1/llm-config",
       "domain": "llm-config",
-      "operation": "llm-config.create_llm_config_by_project",
+      "operation": "llm-config.create_llm_config",
       "methods": [
         "POST"
       ],
@@ -2320,6 +1996,21 @@
       "effect_contract": {
         "effect_class": "read",
         "admission": "admitted"
+      }
+    },
+    {
+      "route_template": "/api/v1/llm-config/projects/{project_key}",
+      "domain": "llm-config",
+      "operation": "llm-config.create_llm_config_by_project",
+      "methods": [
+        "POST"
+      ],
+      "required_scope": "api:invoke",
+      "required_approval_ids": [],
+      "capability_id": null,
+      "effect_contract": {
+        "effect_class": "legacy_write",
+        "admission": "blocked_until_effect_binding"
       }
     },
     {
@@ -2772,21 +2463,6 @@
     {
       "route_template": "/api/v1/products",
       "domain": "products",
-      "operation": "products.create_product",
-      "methods": [
-        "POST"
-      ],
-      "required_scope": "api:invoke",
-      "required_approval_ids": [],
-      "capability_id": null,
-      "effect_contract": {
-        "effect_class": "legacy_write",
-        "admission": "blocked_until_effect_binding"
-      }
-    },
-    {
-      "route_template": "/api/v1/products",
-      "domain": "products",
       "operation": "products.list_products",
       "methods": [
         "GET"
@@ -2797,6 +2473,21 @@
       "effect_contract": {
         "effect_class": "read",
         "admission": "admitted"
+      }
+    },
+    {
+      "route_template": "/api/v1/products",
+      "domain": "products",
+      "operation": "products.create_product",
+      "methods": [
+        "POST"
+      ],
+      "required_scope": "api:invoke",
+      "required_approval_ids": [],
+      "capability_id": null,
+      "effect_contract": {
+        "effect_class": "legacy_write",
+        "admission": "blocked_until_effect_binding"
       }
     },
     {
@@ -3135,21 +2826,6 @@
     {
       "route_template": "/api/v1/projects",
       "domain": "projects",
-      "operation": "projects.create_project",
-      "methods": [
-        "POST"
-      ],
-      "required_scope": "api:invoke",
-      "required_approval_ids": [],
-      "capability_id": null,
-      "effect_contract": {
-        "effect_class": "legacy_write",
-        "admission": "blocked_until_effect_binding"
-      }
-    },
-    {
-      "route_template": "/api/v1/projects",
-      "domain": "projects",
       "operation": "projects.list_projects",
       "methods": [
         "GET"
@@ -3160,6 +2836,21 @@
       "effect_contract": {
         "effect_class": "read",
         "admission": "admitted"
+      }
+    },
+    {
+      "route_template": "/api/v1/projects",
+      "domain": "projects",
+      "operation": "projects.create_project",
+      "methods": [
+        "POST"
+      ],
+      "required_scope": "api:invoke",
+      "required_approval_ids": [],
+      "capability_id": null,
+      "effect_contract": {
+        "effect_class": "legacy_write",
+        "admission": "blocked_until_effect_binding"
       }
     },
     {
@@ -3318,22 +3009,6 @@
       "route_template": "/api/v1/resource_pool/discover/site-entries",
       "domain": "resource_pool",
       "operation": "resource_pool.discover_site_entries_api",
-      "methods": [
-        "POST"
-      ],
-      "required_scope": "api:invoke",
-      "required_approval_ids": [],
-      "capability_id": null,
-      "effect_contract": {
-        "effect_class": "conditional",
-        "admission": "blocked_until_effect_binding",
-        "conditional_discriminator": "handler_effect_path.v1"
-      }
-    },
-    {
-      "route_template": "/api/v1/resource_pool/extract/from-documents",
-      "domain": "resource_pool",
-      "operation": "resource_pool.extract_from_documents_api",
       "methods": [
         "POST"
       ],
@@ -3715,6 +3390,36 @@
       }
     },
     {
+      "route_template": "/api/v1/source_library/external-projects/integration-schema",
+      "domain": "source_library",
+      "operation": "source_library.external_integration_schema",
+      "methods": [
+        "GET"
+      ],
+      "required_scope": "api:invoke",
+      "required_approval_ids": [],
+      "capability_id": null,
+      "effect_contract": {
+        "effect_class": "read",
+        "admission": "admitted"
+      }
+    },
+    {
+      "route_template": "/api/v1/source_library/external-projects/prepare-integration",
+      "domain": "source_library",
+      "operation": "source_library.prepare_external_integration",
+      "methods": [
+        "POST"
+      ],
+      "required_scope": "api:invoke",
+      "required_approval_ids": [],
+      "capability_id": null,
+      "effect_contract": {
+        "effect_class": "read",
+        "admission": "admitted"
+      }
+    },
+    {
       "route_template": "/api/v1/source_library/external-projects/register",
       "domain": "source_library",
       "operation": "source_library.register_external_project",
@@ -3836,21 +3541,6 @@
       }
     },
     {
-      "route_template": "/api/v1/source_library/items/{item_key}/run",
-      "domain": "source_library",
-      "operation": "source_library.run_project_item_legacy_endpoint",
-      "methods": [
-        "POST"
-      ],
-      "required_scope": "api:invoke",
-      "required_approval_ids": [],
-      "capability_id": null,
-      "effect_contract": {
-        "effect_class": "pure_compute",
-        "admission": "admitted"
-      }
-    },
-    {
       "route_template": "/api/v1/source_library/sync_shared_from_files",
       "domain": "source_library",
       "operation": "source_library.sync_shared_from_files",
@@ -3931,21 +3621,6 @@
     {
       "route_template": "/api/v1/topics",
       "domain": "topics",
-      "operation": "topics.create_topic",
-      "methods": [
-        "POST"
-      ],
-      "required_scope": "api:invoke",
-      "required_approval_ids": [],
-      "capability_id": null,
-      "effect_contract": {
-        "effect_class": "legacy_write",
-        "admission": "blocked_until_effect_binding"
-      }
-    },
-    {
-      "route_template": "/api/v1/topics",
-      "domain": "topics",
       "operation": "topics.list_topics",
       "methods": [
         "GET"
@@ -3956,6 +3631,21 @@
       "effect_contract": {
         "effect_class": "read",
         "admission": "admitted"
+      }
+    },
+    {
+      "route_template": "/api/v1/topics",
+      "domain": "topics",
+      "operation": "topics.create_topic",
+      "methods": [
+        "POST"
+      ],
+      "required_scope": "api:invoke",
+      "required_approval_ids": [],
+      "capability_id": null,
+      "effect_contract": {
+        "effect_class": "legacy_write",
+        "admission": "blocked_until_effect_binding"
       }
     },
     {
@@ -4338,21 +4028,6 @@
     {
       "route_template": "/api/v1/workflow-graph/templates",
       "domain": "workflow-graph",
-      "operation": "workflow-graph.create_workflow_graph_template",
-      "methods": [
-        "POST"
-      ],
-      "required_scope": "api:invoke",
-      "required_approval_ids": [],
-      "capability_id": null,
-      "effect_contract": {
-        "effect_class": "legacy_write",
-        "admission": "blocked_until_effect_binding"
-      }
-    },
-    {
-      "route_template": "/api/v1/workflow-graph/templates",
-      "domain": "workflow-graph",
       "operation": "workflow-graph.list_workflow_graph_templates",
       "methods": [
         "GET"
@@ -4363,6 +4038,21 @@
       "effect_contract": {
         "effect_class": "read",
         "admission": "admitted"
+      }
+    },
+    {
+      "route_template": "/api/v1/workflow-graph/templates",
+      "domain": "workflow-graph",
+      "operation": "workflow-graph.create_workflow_graph_template",
+      "methods": [
+        "POST"
+      ],
+      "required_scope": "api:invoke",
+      "required_approval_ids": [],
+      "capability_id": null,
+      "effect_contract": {
+        "effect_class": "legacy_write",
+        "admission": "blocked_until_effect_binding"
       }
     },
     {
@@ -4413,21 +4103,6 @@
     {
       "route_template": "/api/v1/workflow-graph/templates/{template_id}/versions",
       "domain": "workflow-graph",
-      "operation": "workflow-graph.create_workflow_graph_template_version",
-      "methods": [
-        "POST"
-      ],
-      "required_scope": "api:invoke",
-      "required_approval_ids": [],
-      "capability_id": null,
-      "effect_contract": {
-        "effect_class": "legacy_write",
-        "admission": "blocked_until_effect_binding"
-      }
-    },
-    {
-      "route_template": "/api/v1/workflow-graph/templates/{template_id}/versions",
-      "domain": "workflow-graph",
       "operation": "workflow-graph.list_workflow_graph_template_versions",
       "methods": [
         "GET"
@@ -4438,6 +4113,21 @@
       "effect_contract": {
         "effect_class": "read",
         "admission": "admitted"
+      }
+    },
+    {
+      "route_template": "/api/v1/workflow-graph/templates/{template_id}/versions",
+      "domain": "workflow-graph",
+      "operation": "workflow-graph.create_workflow_graph_template_version",
+      "methods": [
+        "POST"
+      ],
+      "required_scope": "api:invoke",
+      "required_approval_ids": [],
+      "capability_id": null,
+      "effect_contract": {
+        "effect_class": "legacy_write",
+        "admission": "blocked_until_effect_binding"
       }
     },
     {
@@ -4488,21 +4178,6 @@
     {
       "route_template": "/api/v1/writing/documents",
       "domain": "writing",
-      "operation": "writing.create_writing_document",
-      "methods": [
-        "POST"
-      ],
-      "required_scope": "api:invoke",
-      "required_approval_ids": [],
-      "capability_id": null,
-      "effect_contract": {
-        "effect_class": "legacy_write",
-        "admission": "blocked_until_effect_binding"
-      }
-    },
-    {
-      "route_template": "/api/v1/writing/documents",
-      "domain": "writing",
       "operation": "writing.list_writing_documents",
       "methods": [
         "GET"
@@ -4513,6 +4188,21 @@
       "effect_contract": {
         "effect_class": "read",
         "admission": "admitted"
+      }
+    },
+    {
+      "route_template": "/api/v1/writing/documents",
+      "domain": "writing",
+      "operation": "writing.create_writing_document",
+      "methods": [
+        "POST"
+      ],
+      "required_scope": "api:invoke",
+      "required_approval_ids": [],
+      "capability_id": null,
+      "effect_contract": {
+        "effect_class": "legacy_write",
+        "admission": "blocked_until_effect_binding"
       }
     },
     {

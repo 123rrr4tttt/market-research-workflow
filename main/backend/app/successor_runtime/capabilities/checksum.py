@@ -10,10 +10,10 @@ from dataclasses import asdict, fields, is_dataclass
 from typing import NoReturn, TypeAlias, TypeGuard, TypeVar, Union
 
 from functorial_kit import Failure
-from mrw_functorial_kit.core.w06_semantics import capability_primitive_contract_failures
+from mrw_functorial_kit.core.source_and_capability_failure_semantics import capability_primitive_contract_failures
 
 _HEX64 = re.compile(r"^[0-9a-f]{64}$")
-_PRIMITIVE_WITNESS = "test:test_w06_retained_failure_lifts_preserve_public_abi"
+_PRIMITIVE_WITNESS = "test:test_capability_failure_preserves_public_errors"
 PayloadModel = TypeVar("PayloadModel")
 CanonicalJsonValue: TypeAlias = Union[
     None,
@@ -60,9 +60,9 @@ def raise_primitive_failure(
         or context.get("public_exception") != exception_type.__name__
         or not context.get("public_message")
     ):
-        # kit:boundary owner=checksum.py class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w06_retained_failure_lifts_preserve_public_abi
+        # kit:boundary owner=checksum.py class=PROGRAMMER_DEFECT failure_family=none witness=test:test_capability_failure_preserves_public_errors
         raise TypeError("primitive contract lift context is incomplete")
-    # kit:boundary owner=checksum.py class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=capability.primitive.contract_failure witness=test:test_w06_retained_failure_lifts_preserve_public_abi
+    # kit:boundary owner=checksum.py class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=capability.primitive.contract_failure witness=test:test_capability_failure_preserves_public_errors
     raise exception_type(str(context["public_message"]))
 
 

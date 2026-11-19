@@ -304,7 +304,7 @@ def build_delivery_runtime_assignment(
 ) -> Annotated[
     RuntimeAssignment,
     "kit:prepared-command effect_boundary=postgres.delivery_runtime_assignment "
-    "witness=test:test_w08c_postgres_builder_metadata_preserves_return_types",
+    "witness=test:test_postgres_builder_metadata_preserves_return_types",
 ]:
     """Build the exact post-approval delivery assignment."""
 

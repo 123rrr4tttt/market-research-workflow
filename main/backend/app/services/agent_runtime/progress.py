@@ -6,7 +6,7 @@ from typing import Annotated, Any
 def build_summary_label(task: dict[str, Any]) -> Annotated[
     str,
     "kit:non-authoritative derived_as=view fact_source=progress_status_input "
-    "witness=test:test_w02_agent_authority_metadata"
+    "witness=test:test_agent_results_declare_sources_and_effect_authority"
 ]:
     result_summary = str(task.get("result_summary") or "").strip()
     if result_summary:
@@ -20,7 +20,7 @@ def build_summary_label(task: dict[str, Any]) -> Annotated[
 def build_task_progress_summary(task: dict[str, Any]) -> Annotated[
     dict[str, Any],
     "kit:non-authoritative derived_as=view fact_source=progress_item_inputs "
-    "witness=test:test_w02_agent_authority_metadata"
+    "witness=test:test_agent_results_declare_sources_and_effect_authority"
 ]:
     return {
         "tool_use_count": int(task.get("tool_use_count") or 0),

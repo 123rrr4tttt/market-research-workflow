@@ -146,7 +146,7 @@ class CanonicalCommitReadback(FrozenContract):
     @model_validator(mode="after")
     def validate_kind_payload(self) -> "CanonicalCommitReadback":
         if (self.kind is CanonicalReadbackKind.FOUND) != (self.commit is not None):
-            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
+            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_runtime_failure_lift_context
             raise ValueError("FOUND readback requires exactly one CanonicalCommit")
         return self
 
@@ -234,14 +234,14 @@ class ExactAdmissionRegistry:
         for registration in registrations:
             ref = registration.operation_contract_ref
             if ref.contract_digest in by_digest:
-                # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
+                # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_runtime_failure_lift_context
                 raise AdmissionRegistryError(
                     f"duplicate admission operation digest: {ref.contract_digest}"
                 )
             kind_version = (ref.kind, ref.contract_version)
             previous = by_kind_version.get(kind_version)
             if previous is not None and previous != ref.contract_digest:
-                # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
+                # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_runtime_failure_lift_context
                 raise AdmissionRegistryError(
                     "ambiguous admission contract kind/version; exact frozen epoch required"
                 )
@@ -254,12 +254,12 @@ class ExactAdmissionRegistry:
     ) -> AdmissionRegistration:
         registration = self._by_digest.get(operation_contract_ref.contract_digest)
         if registration is None:
-            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
+            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_runtime_failure_lift_context
             raise AdmissionRegistryError(
                 "no admission handler for exact operation contract digest"
             )
         if registration.operation_contract_ref != operation_contract_ref:
-            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
+            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_runtime_failure_lift_context
             raise AdmissionRegistryError("operation contract ref/digest registry drift")
         return registration
 
@@ -338,7 +338,7 @@ class AdmissionCoordinator:
             binding=binding,
         )
         if registration.handler.canonical_owner != intent.canonical_owner:
-            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
+            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_runtime_failure_lift_context
             raise AdmissionBindingError("canonical owner differs from exact handler")
         try:
             require_admission_binding(
@@ -350,7 +350,7 @@ class AdmissionCoordinator:
                 ordered_event_payloads=list(ordered_event_payloads),
             )
         except ValueError as exc:
-            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
+            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_runtime_failure_lift_context
             raise AdmissionBindingError(str(exc)) from exc
 
         commit_binding = self.commit_binding_factory(
@@ -360,7 +360,7 @@ class AdmissionCoordinator:
         row = self.commit_intents.prepare(commit_binding)
         state = _state_value(row)
         if state not in {"PREPARED", "OUTCOME_UNKNOWN", "COMMITTED"}:
-            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
+            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_runtime_failure_lift_context
             raise AdmissionBindingError(f"commit intent cannot proceed from {state}")
         revision = _revision(row)
         return PreparedAdmission(
@@ -386,7 +386,7 @@ class AdmissionCoordinator:
         if _state_value(row) == "COMMITTED":
             readback = self._readback_exact(prepared)
             if readback.kind is not CanonicalReadbackKind.FOUND:
-                # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
+                # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_runtime_failure_lift_context
                 raise AdmissionBindingError(
                     "runtime says COMMITTED but canonical readback is unavailable"
                 )
@@ -430,7 +430,7 @@ class AdmissionCoordinator:
                 # This handler shares the caller's transaction; the outer UoW
                 # rolls back every canonical mutation, so the failure is
                 # definite and must not be mislabeled OUTCOME_UNKNOWN.
-                # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
+                # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_runtime_failure_lift_context
                 raise
             # The call may have crossed the canonical boundary.  One immediate
             # readback is safe; an unavailable/absent observation must never
@@ -470,7 +470,7 @@ class AdmissionCoordinator:
                 row.get("canonical_commit_ref") != commit.canonical_ref
                 or row.get("receipt_digest") != commit.receipt_digest
             ):
-                # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
+                # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_runtime_failure_lift_context
                 raise AdmissionBindingError("finalized commit receipt drift")
             return AdmissionResult(
                 progress=AdmissionProgress.FINALIZED,
@@ -538,16 +538,16 @@ class AdmissionCoordinator:
         binding: VerificationBinding,
     ) -> AdmissionRegistration:
         if assignment.assignment_kind is not AssignmentKind.VERIFY_ADMIT:
-            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
+            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_runtime_failure_lift_context
             raise AdmissionBindingError("admission requires VERIFY_ADMIT assignment")
         ref = assignment.operation_contract_ref
         if ref is None or assignment.operation_contract_digest != ref.contract_digest:
-            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
+            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_runtime_failure_lift_context
             raise AdmissionBindingError("assignment lacks exact operation contract ref")
         registration = self.registry.resolve_required(ref)
         project_scope = scope.project_scope
         if assignment.project_key != project_scope.project_key:
-            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
+            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_runtime_failure_lift_context
             raise AdmissionBindingError("assignment project scope drift")
         if (
             binding.project_key != project_scope.project_key
@@ -556,21 +556,21 @@ class AdmissionCoordinator:
             or binding.project_scope_digest != project_scope.scope_digest
             or binding.resolved_schema != project_scope.resolved_schema
         ):
-            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
+            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_runtime_failure_lift_context
             raise AdmissionBindingError("verification project scope drift")
         if binding.actor_id != scope.actor_id:
-            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
+            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_runtime_failure_lift_context
             raise AdmissionBindingError("verification actor drift")
         if (
             binding.program_digest != assignment.program_digest
             or binding.plan_digest != assignment.plan_digest
             or binding.step_id != assignment.step_id
         ):
-            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
+            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_runtime_failure_lift_context
             raise AdmissionBindingError("verification assignment identity drift")
         compiled = assignment.compiled_admission_binding
         if compiled is None or compiled.operation_contract_digest != ref.contract_digest:
-            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
+            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_runtime_failure_lift_context
             raise AdmissionBindingError("compiled admission contract digest drift")
         if (
             intent.project_key != project_scope.project_key
@@ -578,7 +578,7 @@ class AdmissionCoordinator:
             != project_scope.project_registry_revision
             or intent.project_scope_digest != project_scope.scope_digest
         ):
-            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
+            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_runtime_failure_lift_context
             raise AdmissionBindingError("commit intent project scope drift")
         return registration
 
@@ -598,12 +598,12 @@ class AdmissionCoordinator:
         actual = commit.model_dump(mode="python")
         drift = tuple(key for key, value in expected.items() if actual[key] != value)
         if drift:
-            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
+            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_runtime_failure_lift_context
             raise AdmissionBindingError(
                 "canonical commit readback drift: " + ", ".join(drift)
             )
         if commit.canonical_revision != intent.expected_base_revision + 1:
-            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
+            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_runtime_failure_lift_context
             raise AdmissionBindingError("canonical commit revision drift")
 
 
@@ -615,7 +615,7 @@ def _state_value(row: Mapping[str, Any]) -> str:
 def _revision(row: Mapping[str, Any]) -> int:
     value = row.get("revision")
     if not isinstance(value, int) or isinstance(value, bool) or value < 0:
-        # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
+        # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_runtime_failure_lift_context
         raise AdmissionBindingError("commit intent row has invalid revision")
     return value
 

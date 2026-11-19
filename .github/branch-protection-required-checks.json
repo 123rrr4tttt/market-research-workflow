@@ -100,12 +100,6 @@
       "Docs And Closure"
     ]
   },
-  "docs_sync_targets": [
-    "development/latest-dev-docs/README.md",
-    "development/latest-dev-docs/MERGED_OVERVIEW.md",
-    "development/latest-dev-docs/development-plans/INDEX.md",
-    "development/latest-dev-docs/development-plans/CURRENT_DEV/INDEX.md"
-  ],
   "local_repro_profiles": [
     "unit",
     "integration",

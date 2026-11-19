@@ -39,14 +39,14 @@ from app.successor_runtime.substrate.postgres.runtime_lifecycle import (
 )
 from app.successor_runtime.substrate.postgres.models import PUBLIC_TABLES
 
-from .c1_slice_postgres_fixture import (
-    C1Database,
+from .slice_runtime_postgres_fixture import (
+    SliceRuntimeDatabase,
     NOW,
-    PreparedC1Slice,
+    PreparedRuntimeSlice,
     make_node,
     prepare_runtime,
 )
-from .test_p0b_postgres_integration import (
+from .test_runtime_substrate_postgres_integration import (
     LiveDatabase,
     PROJECT_KEY,
     live_database as live_database,  # noqa: F401
@@ -59,7 +59,7 @@ from .test_traversal_persistent_activation import (
     _submit_retrieval_root,
 )
 
-pytest_plugins = ("tests.successor_runtime.c1_slice_postgres_fixture",)
+pytest_plugins = ("tests.successor_runtime.slice_runtime_postgres_fixture",)
 
 
 def _tag() -> str:
@@ -67,14 +67,14 @@ def _tag() -> str:
 
 
 def _prepare(
-    c1_database: C1Database,
+    slice_runtime_database: SliceRuntimeDatabase,
     run_suffix: str,
     *,
     project_prefix: str = "c1-cancel",
-) -> PreparedC1Slice:
+) -> PreparedRuntimeSlice:
     project_key = f"{project_prefix}-{_tag()}"
     return prepare_runtime(
-        c1_database,
+        slice_runtime_database,
         slice_id="B",
         project_key=project_key,
         tag=_tag(),
@@ -89,9 +89,9 @@ def _prepare(
 
 
 @pytest.mark.integration
-def test_request_cancel_readies_run_to_cancelled(c1_database: C1Database) -> None:
-    prepared = _prepare(c1_database, "cancel")
-    with c1_database.engine.begin() as connection:
+def test_request_cancel_readies_run_to_cancelled(slice_runtime_database: SliceRuntimeDatabase) -> None:
+    prepared = _prepare(slice_runtime_database, "cancel")
+    with slice_runtime_database.engine.begin() as connection:
         journal = RuntimeJournalRepository(connection, prepared.scope)
         run = journal.load_run(prepared.run_id)
         result = RuntimeLifecycleRepository(connection, prepared.scope).request_cancel(
@@ -123,9 +123,9 @@ def test_request_cancel_readies_run_to_cancelled(c1_database: C1Database) -> Non
 
 
 @pytest.mark.integration
-def test_request_cancel_rejects_stale_revision(c1_database: C1Database) -> None:
-    prepared = _prepare(c1_database, "stale")
-    with c1_database.engine.begin() as connection:
+def test_request_cancel_rejects_stale_revision(slice_runtime_database: SliceRuntimeDatabase) -> None:
+    prepared = _prepare(slice_runtime_database, "stale")
+    with slice_runtime_database.engine.begin() as connection:
         run = RuntimeJournalRepository(connection, prepared.scope).load_run(
             prepared.run_id
         )
@@ -139,10 +139,10 @@ def test_request_cancel_rejects_stale_revision(c1_database: C1Database) -> None:
 
 
 @pytest.mark.integration
-def test_request_cancel_rejects_wrong_actor(c1_database: C1Database) -> None:
-    prepared = _prepare(c1_database, "actor")
+def test_request_cancel_rejects_wrong_actor(slice_runtime_database: SliceRuntimeDatabase) -> None:
+    prepared = _prepare(slice_runtime_database, "actor")
     rival_scope = replace(prepared.scope, actor_id="human:not-the-owner")
-    with c1_database.engine.begin() as connection:
+    with slice_runtime_database.engine.begin() as connection:
         run = RuntimeJournalRepository(connection, prepared.scope).load_run(
             prepared.run_id
         )
@@ -156,9 +156,9 @@ def test_request_cancel_rejects_wrong_actor(c1_database: C1Database) -> None:
 
 
 @pytest.mark.integration
-def test_request_cancel_rejects_revoked_grant(c1_database: C1Database) -> None:
-    prepared = _prepare(c1_database, "revoke")
-    with c1_database.engine.begin() as connection:
+def test_request_cancel_rejects_revoked_grant(slice_runtime_database: SliceRuntimeDatabase) -> None:
+    prepared = _prepare(slice_runtime_database, "revoke")
+    with slice_runtime_database.engine.begin() as connection:
         connection.execute(
             sa.text(
                 "UPDATE public.runtime_authority_grants SET revoked_at=now() "
@@ -166,7 +166,7 @@ def test_request_cancel_rejects_revoked_grant(c1_database: C1Database) -> None:
             ),
             {"project_key": prepared.project_key},
         )
-    with c1_database.engine.begin() as connection:
+    with slice_runtime_database.engine.begin() as connection:
         run = RuntimeJournalRepository(connection, prepared.scope).load_run(
             prepared.run_id
         )
@@ -180,9 +180,9 @@ def test_request_cancel_rejects_revoked_grant(c1_database: C1Database) -> None:
 
 
 @pytest.mark.integration
-def test_request_cancel_rejects_terminal_run(c1_database: C1Database) -> None:
-    prepared = _prepare(c1_database, "terminal")
-    with c1_database.engine.begin() as connection:
+def test_request_cancel_rejects_terminal_run(slice_runtime_database: SliceRuntimeDatabase) -> None:
+    prepared = _prepare(slice_runtime_database, "terminal")
+    with slice_runtime_database.engine.begin() as connection:
         journal = RuntimeJournalRepository(connection, prepared.scope)
         run = journal.load_run(prepared.run_id)
         lifecycle = RuntimeLifecycleRepository(connection, prepared.scope)
@@ -207,7 +207,7 @@ class _CancelTriggeringGuard:
         self,
         *,
         engine: object,
-        prepared: PreparedC1Slice,
+        prepared: PreparedRuntimeSlice,
         trigger_on_call: int,
     ) -> None:
         self._engine = engine
@@ -264,10 +264,10 @@ class _CancelTriggeringGuard:
 @pytest.mark.integration
 @pytest.mark.parametrize("guard_call", [1, 2])
 def test_two_guard_cancellation_attempt_consistency(
-    c1_database: C1Database, guard_call: int
+    slice_runtime_database: SliceRuntimeDatabase, guard_call: int
 ) -> None:
     prepared = _prepare(
-        c1_database,
+        slice_runtime_database,
         f"guard-{guard_call}",
         project_prefix=f"c1-guard-{guard_call}",
     )
@@ -275,7 +275,7 @@ def test_two_guard_cancellation_attempt_consistency(
         prepared,
         f"c1-slice-node-guard-{guard_call}",
         cancellation=_CancelTriggeringGuard(
-            engine=c1_database.engine,
+            engine=slice_runtime_database.engine,
             prepared=prepared,
             trigger_on_call=guard_call,
         ),
@@ -287,7 +287,7 @@ def test_two_guard_cancellation_attempt_consistency(
     assert results[0].disposition is EffectDisposition.NOT_STARTED
     assert prepared.handler.executions == []
 
-    with c1_database.engine.begin() as connection:
+    with slice_runtime_database.engine.begin() as connection:
         attempt = connection.execute(
             sa.text(
                 "SELECT disposition, finished_at FROM public.runtime_effect_attempts "
@@ -319,7 +319,7 @@ def test_two_guard_cancellation_attempt_consistency(
     assert all(state == "CANCELLED" for state in step_states)
     assert all(state == "RELEASED" for state in reservation_states)
 
-    with c1_database.engine.begin() as connection:
+    with slice_runtime_database.engine.begin() as connection:
         events = RuntimeJournalRepository(
             connection, prepared.scope
         ).load_events(prepared.run_id)
@@ -759,7 +759,23 @@ def test_ordered_active_child_failure_or_unknown_never_releases_suffix(
         acquisition = _ready_work_ids(connection, run_id=children[0])
     assert len(acquisition) == 1
     assert _run_real_task(acquisition[0])["claimed"] == 1
-    assert _run_real_task(work[1])["claimed"] == 0
+    suffix_wakeup = _run_real_task(work[1])
+    # The task wakes the shared node: it can claim recovery for the first
+    # child, even though the requested suffix must remain unexecuted.
+    if outcome == "FAILED":
+        assert suffix_wakeup["claimed"] == 0, suffix_wakeup
+    else:
+        with live_database.engine.connect() as connection:
+            work_items = PUBLIC_TABLES["runtime_work_items"]
+            attempt_id = connection.scalar(sa.select(work_items.c.claim_attempt_id).where(
+                work_items.c.work_item_id == acquisition[0],
+            ))
+        assert attempt_id is not None
+        assert suffix_wakeup["claimed"] in {0, 1}, suffix_wakeup
+        for result in suffix_wakeup["results"]:
+            assert result["work_item_id"] == f"reconcile:{attempt_id}", suffix_wakeup
+            assert result["disposition"] == "OUTCOME_UNKNOWN", suffix_wakeup
+            assert result["executed"] is False, suffix_wakeup
     assert len(assessed) == len(acquired) == 1
     with live_database.engine.connect() as connection:
         runs, steps, events = (PUBLIC_TABLES[name] for name in ("runtime_runs", "runtime_steps", "runtime_events"))

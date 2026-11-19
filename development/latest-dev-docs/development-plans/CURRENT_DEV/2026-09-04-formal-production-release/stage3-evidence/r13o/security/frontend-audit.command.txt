@@ -1,1 +1,0 @@
-pnpm audit --prod --audit-level high --json 

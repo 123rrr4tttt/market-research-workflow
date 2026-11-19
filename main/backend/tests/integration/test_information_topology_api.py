@@ -155,7 +155,9 @@ def test_retrieval_import_api_resolves_project_semantics_before_topology_write()
     material = next(element for element in store.preview.state.elements
                     if element.ref.ref.type_id == "material")
     assert "name" not in material.attributes
-    assert material.attributes["title"] == "测试材料标题"
+    assert "title" not in material.attributes
+    assert material.attributes["placement_title"] == "测试材料标题"
+    assert material.attributes["material_ref"]["local_id"] == "1"
 
 
 def test_topology_operation_paths_are_exposed():

@@ -1,9 +1,0 @@
-{
-  "response_keys": [
-    "data",
-    "nextCursor",
-    "backwardsCursor"
-  ],
-  "active_threads": [],
-  "thread_count": 21
-}

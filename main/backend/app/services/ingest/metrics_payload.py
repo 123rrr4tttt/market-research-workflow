@@ -227,7 +227,7 @@ def build_metrics_payload_from_summary(
     top_n: int = _DEFAULT_TOP_N,
 ) -> Annotated[
     dict[str, object],
-    "kit:non-authoritative derived_as=view fact_source=metrics_summary witness=test:test_w03_ingest_ports_authority_metadata",
+    "kit:non-authoritative derived_as=view fact_source=metrics_summary witness=test:test_ingest_ports_declare_sources_and_effect_authority",
 ]:
     base = new_metrics_summary()
     if summary is not None:
@@ -341,7 +341,7 @@ def build_metrics_payload_for_result(
     top_n: int = _DEFAULT_TOP_N,
 ) -> Annotated[
     dict[str, object],
-    "kit:non-authoritative derived_as=view fact_source=collect_result+job_meta witness=test:test_w03_ingest_ports_authority_metadata",
+    "kit:non-authoritative derived_as=view fact_source=collect_result+job_meta witness=test:test_ingest_ports_declare_sources_and_effect_authority",
 ]:
     summary = new_metrics_summary()
     record_metrics_observation(summary, result, fallback_adapter=fallback_adapter)

@@ -20,6 +20,7 @@ try:
     from app.main import app as backend_app
     from app.api.projects import (
         InjectInitialProjectPayload,
+        _bootstrap_demo_seed_if_needed,
         _build_initial_project_copy_insert_sql,
         _adapt_legacy_demo_seed_to_materials,
         _execute_seed_sql,
@@ -203,6 +204,87 @@ class ProjectsCoreContractTestCase(unittest.TestCase):
         bootstrap_demo.assert_not_called()
         session_local.assert_not_called()
         connection.execute.assert_not_called()
+
+    def test_inject_initial_rejects_archived_target_until_restored(self):
+        source = SimpleNamespace(project_key="source_proj", enabled=False)
+        target = SimpleNamespace(project_key="target_proj", enabled=False)
+        source_result, target_result = Mock(), Mock()
+        source_result.scalar_one_or_none.return_value = source
+        target_result.scalar_one_or_none.return_value = target
+        session_local = self._session_local_with_result(target_result)
+        session = session_local.return_value.__enter__.return_value
+        session.execute.side_effect = [source_result, target_result, target_result, source_result, target_result]
+        connection = Mock()
+        connection.execute.return_value.scalar.return_value = True
+        database_engine = Mock()
+        database_engine.begin.side_effect = lambda: nullcontext(connection)
+        path = "/api/v1/projects/inject-initial"
+        payload = {
+            "project_key": target.project_key,
+            "source_project_key": source.project_key,
+            "overwrite": True,
+            "activate": False,
+        }
+
+        with (
+            patch("app.api.projects.engine", database_engine),
+            patch("app.api.projects.ensure_database_revision_compatible"),
+            patch("app.api.projects.bind_schema", return_value=nullcontext()),
+            patch("app.api.projects.SessionLocal", session_local),
+            patch("app.api.projects.ensure_project_schema_ready") as ensure_schema,
+            patch("app.api.projects._copy_initial_project_table", return_value=1) as copy_table,
+        ):
+            response = self.client.post(path, headers=self.headers, json=payload)
+            self.assertEqual(response.status_code, 409)
+            self.assertEqual(response.json()["error"]["code"], ErrorCode.INVALID_INPUT.value)
+            self.assertIn("restore it before overwrite", response.json()["error"]["message"])
+            session.delete.assert_not_called()
+            session.commit.assert_not_called()
+            ensure_schema.assert_not_called()
+            copy_table.assert_not_called()
+            self.assertFalse(any("DROP SCHEMA" in str(call.args[0]) for call in connection.execute.call_args_list))
+
+            restored = self.client.post("/api/v1/projects/target_proj/restore", headers=self.headers)
+            self.assertEqual(restored.status_code, 200)
+            self.assertFalse(restored.json()["data"]["archived"])
+            self.assertTrue(target.enabled)
+
+            response = self.client.post(path, headers=self.headers, json=payload)
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response.json()["data"]["source_project_key"], source.project_key)
+            self.assertEqual(response.json()["data"]["project_key"], target.project_key)
+            session.delete.assert_called_once_with(target)
+            ensure_schema.assert_called_once()
+            copy_table.assert_called()
+            self.assertFalse(source.enabled)
+
+    def test_lazy_demo_seed_requires_enabled_source_at_the_write_boundary(self):
+        source_key = "demo_proj"
+        connection = Mock()
+        database_engine = Mock()
+        database_engine.begin.side_effect = lambda: nullcontext(connection)
+        seed_file = Mock()
+        seed_file.read_text.return_value = "INSERT INTO project_demo_proj.sources DEFAULT VALUES;"
+
+        with (
+            patch("app.api.projects.engine", database_engine),
+            patch("app.api.projects._demo_schema_has_seed_data", return_value=False),
+            patch("app.api.projects._locate_demo_seed_file", return_value=seed_file),
+            patch("app.api.projects.ensure_project_schema_ready"),
+            patch("app.api.projects._execute_seed_sql") as execute_seed,
+        ):
+            connection.execute.return_value.scalar_one_or_none.return_value = False
+            _bootstrap_demo_seed_if_needed(source_key)
+            connection.execute.assert_called_once()
+            query, args = connection.execute.call_args.args
+            self.assertIn("FROM public.projects", str(query))
+            self.assertIn("FOR UPDATE", str(query))
+            self.assertEqual(args, {"project_key": source_key})
+            execute_seed.assert_not_called()
+
+            connection.execute.return_value.scalar_one_or_none.return_value = True
+            _bootstrap_demo_seed_if_needed(source_key)
+            execute_seed.assert_called_once_with(connection, seed_file.read_text.return_value)
 
     def test_inject_initial_copy_sql_uses_common_columns_and_jsonb_conversion(self):
         sql = _build_initial_project_copy_insert_sql(

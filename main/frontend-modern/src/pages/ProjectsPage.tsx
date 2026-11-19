@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Archive, ClipboardCopy, CopyPlus, Edit3, ExternalLink, HardDriveDownload, RefreshCw, ShieldCheck, Trash2 } from 'lucide-react'
-import { activateProject, archiveProject, autoCreateProject, createProject, deleteProject, listProjects, restoreProject, setProjectKey, updateProject } from '../lib/api'
+import { activateProject, archiveProject, autoCreateProject, createProject, deleteProject, listProjects, restoreProject, updateProject } from '../lib/api'
 import { translate, useAppLocale } from '../app/platform/i18n'
 import { queryKeys } from '../lib/queryKeys'
 import { buildProjectReadiness, READINESS_STATUS_LABEL_KEY_BY_STATUS } from '../lib/projectReadiness'
@@ -98,8 +98,7 @@ export default function ProjectsPage({ projectKey, onProjectChange }: ProjectsPa
       if (payload.kind === 'restore') return restoreProject(payload.key)
       if (payload.kind === 'delete') return deleteProject(payload.key, true)
       if (payload.kind === 'activateProject') {
-        const next = setProjectKey(payload.key)
-        await activateProject(next)
+        const next = await activateProject(payload.key)
         onProjectChange(next)
         return { ok: true }
       }
@@ -135,8 +134,7 @@ export default function ProjectsPage({ projectKey, onProjectChange }: ProjectsPa
       setNewProjectKey('')
       setNewProjectName('')
       setLlmPromptTemplate('')
-      const next = data?.project_key ? setProjectKey(data.project_key) : null
-      if (next) onProjectChange(next)
+      if (data?.project_key) onProjectChange(data.project_key)
       await queryClient.invalidateQueries({ queryKey: queryKeys.projects.all() })
     },
   })

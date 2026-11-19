@@ -1,1 +1,0 @@
-bash runtime-resource-cleanup-verify.sh

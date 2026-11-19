@@ -14,7 +14,7 @@ from typing import Any
 
 HOST = "0.0.0.0"
 PORT = int(os.environ.get("LAUNCHER_AGENT_PORT", "8787"))
-PROJECT_ROOT = Path(os.environ.get("HOST_PROJECT_ROOT", "/Users/wangyiliang/market-research-workflow"))
+PROJECT_ROOT = Path(os.environ["HOST_PROJECT_ROOT"])
 OPS_DIR = PROJECT_ROOT / "main" / "ops"
 LAUNCHER_PROJECT_NAME = os.environ.get("LAUNCHER_PROJECT_NAME", "mrw-launcher")
 BACKEND_BASE_URL = os.environ.get("BACKEND_BASE_URL", "http://host.docker.internal:8000").rstrip("/")

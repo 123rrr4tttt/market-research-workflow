@@ -63,7 +63,7 @@ def derive_attempt_id(
     require_digest(authorization_digest, "authorization_digest")
     require_digest(handler_realization_digest, "handler_realization_digest")
     if handler_realization_digest != assignment.handler_binding_digest:
-        # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
+        # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_runtime_failure_lift_context
         raise ValueError("handler realization does not match assignment binding")
     parts: tuple[object, ...] = (
         assignment.project_key,
@@ -105,14 +105,14 @@ class ClaimBinding(FrozenContract):
         if (self.execution_reservation_ref is None) != (
             self.execution_reservation_digest is None
         ):
-            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
+            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_runtime_failure_lift_context
             raise ValueError("execution reservation ref and digest are an exact pair")
         if self.handler_binding_digest != self.handler_realization_digest:
-            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
+            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_runtime_failure_lift_context
             raise ValueError("claim handler realization differs from handler binding")
         expected = canonical_digest(self, exclude_fields={"binding_digest"})
         if self.binding_digest != expected:
-            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
+            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_runtime_failure_lift_context
             raise ValueError("binding_digest does not match canonical claim content")
         return self
 
@@ -179,19 +179,19 @@ class ClaimBinding(FrozenContract):
 
     def validate_against(self, assignment: RuntimeAssignment) -> None:
         if self.work_item_id != assignment.work_item_id:
-            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
+            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_runtime_failure_lift_context
             raise ClaimBindingMismatch("work item identity drift")
         if self.assignment_digest != assignment.assignment_digest:
-            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
+            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_runtime_failure_lift_context
             raise ClaimBindingMismatch("assignment content drift")
         if self.handler_binding_digest != assignment.handler_binding_digest:
-            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
+            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_runtime_failure_lift_context
             raise ClaimBindingMismatch("handler binding drift")
         if self.handler_realization_digest != assignment.handler_binding_digest:
-            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
+            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_runtime_failure_lift_context
             raise ClaimBindingMismatch("handler realization drift")
         if self.claim_authority_epoch != assignment.claim_authority_epoch:
-            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
+            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_runtime_failure_lift_context
             raise ClaimBindingMismatch("claim authority epoch drift")
         expected_attempt = derive_attempt_id(
             assignment,
@@ -199,7 +199,7 @@ class ClaimBinding(FrozenContract):
             handler_realization_digest=self.handler_realization_digest,
         )
         if self.attempt_id != expected_attempt:
-            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
+            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_runtime_failure_lift_context
             raise ClaimBindingMismatch("attempt identity drift")
 
 

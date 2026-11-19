@@ -36,18 +36,18 @@ export async function readGraphProjection(
   }
   const materialItems: AdminMaterialItem[] = []
   const materialLimit = Math.max(1, Math.min(filters.limit, 2000))
+  const pageSize = Math.min(100, materialLimit)
   for (let page = 1; materialItems.length < materialLimit; page += 1) {
-    const remaining = materialLimit - materialItems.length
     const response = await listAdminMaterials({
       page,
-      page_size: Math.min(100, remaining),
+      page_size: pageSize,
       sort_by: 'created_at',
       sort_order: 'desc',
     })
     materialItems.push(...response.items)
     if (!response.items.length || materialItems.length >= response.total) break
   }
-  const materialGraph = projectAdminMaterials(materialItems, projectKey)
+  const materialGraph = projectAdminMaterials(materialItems.slice(0, materialLimit), projectKey)
   const common = {
     start_date: filters.startDate,
     end_date: filters.endDate,

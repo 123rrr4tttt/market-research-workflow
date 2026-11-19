@@ -8,6 +8,7 @@ type ProcessMockState = {
   detailProgress?: Record<string, unknown>
   detailResult?: Record<string, unknown>
   detailTask?: Record<string, unknown>
+  tasks?: Array<Record<string, unknown>>
 }
 
 const runningTask = {
@@ -71,13 +72,14 @@ async function mockProcessPage(page: Page, mode: ProcessMockMode, state: Process
       return
     }
     if (pathname === '/api/v1/process/list') {
+      const tasks = state.tasks || [{
+        ...runningTask,
+        status: state.status || runningTask.status,
+        progress: state.progress || runningProgress[mode],
+      }]
       await fulfillJson(route, {
-        tasks: [{
-          ...runningTask,
-          status: state.status || runningTask.status,
-          progress: state.progress || runningProgress[mode],
-        }],
-        stats: { total_tasks: 1, active_tasks: 1, pending_tasks: 0 },
+        tasks,
+        stats: { total_tasks: tasks.length, active_tasks: 1, pending_tasks: 0 },
       })
       return
     }
@@ -193,6 +195,61 @@ test('drawer close returns focus to the invoking row action', async ({ page }) =
   await page.keyboard.press('Escape')
   await expect(drawer).toHaveCount(0)
   await expect(details).toBeFocused()
+})
+
+test('task queue checkboxes expose task-specific names and cancel only the selected task', async ({ page }) => {
+  const otherActiveTask = {
+    ...runningTask,
+    task_id: 'task-process-e2e-other',
+    name: 'resource_url_extract_other',
+    progress: runningProgress.measured,
+  }
+  const terminalTask = {
+    ...runningTask,
+    task_id: 'task-process-e2e-done',
+    name: 'resource_url_extract_done',
+    status: 'SUCCESS',
+    progress: { stage: 'done', completed: 1, total: 1 },
+  }
+  await mockProcessPage(page, 'measured', {
+    tasks: [
+      { ...runningTask, progress: runningProgress.measured },
+      otherActiveTask,
+      terminalTask,
+    ],
+  })
+
+  const cancelRequests: string[] = []
+  page.on('request', (request) => {
+    if (request.method() === 'POST' && new URL(request.url()).pathname.endsWith('/cancel')) {
+      cancelRequests.push(request.url())
+    }
+  })
+
+  await page.goto('/#/admin/process')
+  const targetCheckbox = page.getByRole('checkbox', { name: `选中: ${runningTask.task_id}`, exact: true })
+  const otherCheckbox = page.getByRole('checkbox', { name: `选中: ${otherActiveTask.task_id}`, exact: true })
+  const terminalCheckbox = page.getByRole('checkbox', { name: `选中: ${terminalTask.task_id}`, exact: true })
+
+  await expect(targetCheckbox).toBeEnabled()
+  await expect(otherCheckbox).toBeEnabled()
+  await expect(terminalCheckbox).toBeDisabled()
+
+  await targetCheckbox.focus()
+  await page.keyboard.press('Space')
+  await expect(targetCheckbox).toBeChecked()
+  await expect(otherCheckbox).not.toBeChecked()
+
+  const targetCancelRequest = page.waitForRequest((request) =>
+    request.method() === 'POST'
+    && new URL(request.url()).pathname === `/api/v1/process/${runningTask.task_id}/cancel`,
+  )
+  await page.getByRole('button', { name: '批量取消(1)', exact: true }).click()
+  const request = await targetCancelRequest
+  expect(new URL(request.url()).searchParams.get('terminate')).toBe('false')
+  await expect(targetCheckbox).not.toBeChecked()
+  expect(cancelRequests).toHaveLength(1)
+  expect(new URL(cancelRequests[0]).pathname).toBe(`/api/v1/process/${runningTask.task_id}/cancel`)
 })
 
 test('processing route uses running focus without inventing progress', async ({ page }) => {

@@ -326,7 +326,7 @@ def build_source_library_authority_output(
     legacy_result: CollectJsonObject,
 ) -> Annotated[
     CollectJsonObject,
-    "kit:non-authoritative derived_as=view fact_source=terminal_output+frontdoor_ingress+postprocess_frontdoor+legacy_result witness=test:test_w03_ingest_ports_authority_metadata",
+    "kit:non-authoritative derived_as=view fact_source=terminal_output+frontdoor_ingress+postprocess_frontdoor+legacy_result witness=test:test_ingest_ports_declare_sources_and_effect_authority",
 ]:
     terminal_results = _json_object(terminal_output.get("results"))
     terminal_meta = _json_object(terminal_output.get("meta"))
@@ -416,7 +416,7 @@ def build_source_library_compat_projection(
     authority_output: CollectJsonObject,
 ) -> Annotated[
     CollectJsonObject,
-    "kit:non-authoritative derived_as=view fact_source=authority_output witness=test:test_w03_ingest_ports_authority_metadata",
+    "kit:non-authoritative derived_as=view fact_source=authority_output witness=test:test_ingest_ports_declare_sources_and_effect_authority",
 ]:
     return {
         "contract_version": COMPAT_PROJECTION_CONTRACT_VERSION,

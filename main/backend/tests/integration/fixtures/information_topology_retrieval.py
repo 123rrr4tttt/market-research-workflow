@@ -40,7 +40,7 @@ def source_bundle():
                                        "namespace": "brief", "type_id": "source", "local_id": "analysis-brief"},
                               "observed_revision": "brief-r1", "content_digest": "brief-digest"},
         "graph": graph,
-        "materials": [{"材料ID": "item:test:1", "标题": "测试材料标题", "档": "A"}],
+        "materials": [{"材料ID": "item:test:1", "material_id": 1, "placement_title": "测试材料标题", "档": "A"}],
         "source_routes": [{"route_id": "route:test:1", "pool": "来源池A", "status": "planned"}],
         "keyword_plans": [{"plan_id": "query:test:1", "kind": "query", "expression": "测试查询式",
                             "execution_status": "not_executed", "source_route_id": "route:test:1"}],

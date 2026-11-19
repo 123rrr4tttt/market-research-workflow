@@ -3,11 +3,10 @@ from __future__ import annotations
 from typing import Literal, TypeGuard
 
 from fastapi import APIRouter, HTTPException, Query, Request
-from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from ..contracts import ErrorCode, error_response
-from ..contracts.responses import ApiMetaModel, ok
+from ..contracts.responses import ok
 from ..services.projects import bind_project
 from ..services.source_library import (
     list_channels_grouped_by_provider,
@@ -19,7 +18,9 @@ from ..services.source_library import (
 from ..services.source_library.external_project import (
     build_external_project_summary,
     get_external_project_manifest,
+    normalize_external_project_extra,
 )
+from ..services.source_library.external_integration import IntegrationSpec
 from ..services.source_library.external_project_registration import synthesize_external_project_item
 from ..services.source_library.item_plan import build_item_execution_plan
 from ..services.source_library.item_writer import (
@@ -37,7 +38,6 @@ from ..services.source_library.item_writer import (
     upsert_project_item as _write_project_item,
 )
 from ..services.source_library.types import resolve_source_library_item_markers
-from ._error_responses import error_json_response as _error_json
 
 ScopeType = Literal["shared", "project", "effective"]
 
@@ -66,40 +66,6 @@ class ExternalProjectRegistrationPayload(BaseModel):
     enabled: bool = True
     persist: bool = True
     hints: SourceLibraryJsonObject = Field(default_factory=dict)
-
-
-class LegacySourceLibraryRunReplacementPayload(BaseModel):
-    item_key: str
-    project_key: Literal["<project_key>"]
-    override_params: SourceLibraryJsonObject
-
-
-class LegacySourceLibraryRunErrorDetails(BaseModel):
-    item_key: str
-    deprecated_endpoint: Literal["/api/v1/source_library/items/{item_key}/run"]
-    replacement_endpoint: Literal["/api/v1/ingest/source-library/run"]
-    replacement_payload: LegacySourceLibraryRunReplacementPayload
-    legacy_status: Literal["410_gone"]
-    runs_source_library_item: Literal[False]
-
-
-class LegacySourceLibraryRunError(BaseModel):
-    code: Literal["INVALID_INPUT"]
-    message: str
-    details: LegacySourceLibraryRunErrorDetails
-
-
-class LegacySourceLibraryRunDetail(BaseModel):
-    error: LegacySourceLibraryRunError
-    message: str
-
-
-class LegacySourceLibraryRunErrorEnvelope(BaseModel):
-    status: Literal["error"]
-    data: None = None
-    error: LegacySourceLibraryRunError
-    meta: ApiMetaModel
-    detail: LegacySourceLibraryRunDetail
 
 
 def _attach_item_type(item: SourceLibraryJsonObject) -> SourceLibraryJsonObject:
@@ -411,6 +377,36 @@ def upsert_project_item(
     except Exception as exc:  # noqa: BLE001
         _raise_mapped_error(exc)
 
+@router.get("/external-projects/integration-schema")
+def external_integration_schema() -> dict[str, object]:
+    return ok(IntegrationSpec.model_json_schema())
+
+
+@router.post("/external-projects/prepare-integration")
+async def prepare_external_integration(
+    request: Request,
+    project_key: str | None = Query(default=None),
+) -> dict[str, object]:
+    """Validate a declared spec without Cell synthesis, persistence or execution."""
+    resolved_project_key = _resolve_write_project_key(project_key, request=request)
+    try:
+        # Parse here so FastAPI's general validation handler cannot echo secrets
+        # from rejected credentials. The schema is exposed by the adjacent GET.
+        spec = IntegrationSpec.model_validate(await request.json())
+        item = _json_object(spec.to_mrw_item(), path="source_library.integration_item")
+        raw_extra = item["extra"]
+        item["extra"] = _json_object(normalize_external_project_extra(
+            raw_extra if isinstance(raw_extra, dict) else {},
+            item_key=spec.item_key, display_name=spec.name,
+            channel_key="external_project.manifest", project_key=resolved_project_key,
+        ), path="source_library.integration_extra")
+    except ValueError:
+        raise HTTPException(status_code=422, detail=error_response(
+            ErrorCode.INVALID_INPUT, "Invalid integration specification or project binding",
+        )) from None
+    return ok({"item": item, "readiness": spec.integration.readiness(), "persisted": False})
+
+
 @router.post("/external-projects/register")
 def register_external_project(
     payload: ExternalProjectRegistrationPayload,
@@ -528,28 +524,6 @@ def update_project_item(
             ),
         )
     return upsert_project_item(payload=payload, request=request, project_key=project_key)
-
-
-@router.post(
-    "/items/{item_key}/run",
-    response_model=LegacySourceLibraryRunErrorEnvelope,
-    responses={410: {"model": LegacySourceLibraryRunErrorEnvelope}},
-)
-def run_project_item_legacy_endpoint(item_key: str) -> JSONResponse:
-    return _error_json(
-        410,
-        ErrorCode.INVALID_INPUT,
-        "POST /api/v1/source_library/items/{item_key}/run is deprecated; use POST /api/v1/ingest/source-library/run.",
-        details={
-            "item_key": item_key,
-            "deprecated_endpoint": "/api/v1/source_library/items/{item_key}/run",
-            "replacement_endpoint": "/api/v1/ingest/source-library/run",
-            "replacement_payload": {"item_key": item_key, "project_key": "<project_key>", "override_params": {}},
-            "legacy_status": "410_gone",
-            "runs_source_library_item": False,
-        },
-        meta={"deprecated": "source_library.legacy_item_run.v1"},
-    )
 
 
 @router.post("/items/{item_key}/refresh")

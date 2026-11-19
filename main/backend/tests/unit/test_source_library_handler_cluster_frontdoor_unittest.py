@@ -57,7 +57,7 @@ class SourceLibraryHandlerClusterFrontDoorUnitTestCase(unittest.TestCase):
             )
 
         with patch(
-            "app.services.resource_pool.unified_search_by_item_payload",
+            "app.services.resource_pool.unified_search.unified_search_by_item_payload",
             side_effect=_fake_run,
         ) as mocked_search, patch(
             "app.services.source_library.resolver.run_item_with_url_routing",
@@ -116,7 +116,7 @@ class SourceLibraryHandlerClusterFrontDoorUnitTestCase(unittest.TestCase):
         }
 
         with patch(
-            "app.services.resource_pool.unified_search_by_item_payload",
+            "app.services.resource_pool.unified_search.unified_search_by_item_payload",
             side_effect=RuntimeError("search unavailable"),
         ) as mocked_search, patch(
             "app.services.source_library.resolver.run_item_with_url_routing",
@@ -172,7 +172,7 @@ class SourceLibraryHandlerClusterFrontDoorUnitTestCase(unittest.TestCase):
                 errors=[],
             )
 
-        with patch("app.services.resource_pool.unified_search_by_item_payload", side_effect=_fake_run) as mocked, patch(
+        with patch("app.services.resource_pool.unified_search.unified_search_by_item_payload", side_effect=_fake_run) as mocked, patch(
             "app.services.source_library.resolver.run_item_with_url_routing",
             return_value={"inserted": 4, "updated": 0, "skipped": 0, "errors": [], "by_url": []},
         ):
@@ -298,7 +298,7 @@ class SourceLibraryHandlerClusterFrontDoorUnitTestCase(unittest.TestCase):
         }
 
         with patch(
-            "app.services.resource_pool.unified_search_by_item_payload",
+            "app.services.resource_pool.unified_search.unified_search_by_item_payload",
             return_value=SimpleNamespace(
                 site_entries_used=[{"site_url": "https://example.com/search?q=alpha"}],
                 candidates=["https://example.com/posts/alpha"],
@@ -347,7 +347,7 @@ class SourceLibraryHandlerClusterFrontDoorUnitTestCase(unittest.TestCase):
         }
 
         with patch(
-            "app.services.resource_pool.unified_search_by_item_payload",
+            "app.services.resource_pool.unified_search.unified_search_by_item_payload",
             return_value=SimpleNamespace(
                 site_entries_used=[
                     {
@@ -400,7 +400,7 @@ class SourceLibraryHandlerClusterFrontDoorUnitTestCase(unittest.TestCase):
         }
 
         with patch(
-            "app.services.resource_pool.unified_search_by_item_payload",
+            "app.services.resource_pool.unified_search.unified_search_by_item_payload",
             return_value=SimpleNamespace(
                 site_entries_used=[
                     {
@@ -444,6 +444,35 @@ class SourceLibraryHandlerClusterFrontDoorUnitTestCase(unittest.TestCase):
         self.assertTrue(route["degraded_to_static"])
         self.assertEqual(generation["slow_lane_deferred_count"], 1)
 
+    def test_run_item_payload_reports_disabled_external_search_slowlane(self) -> None:
+        item = {
+            "item_key": "handler.cluster.search_template",
+            "channel_key": "generic_web.search_template",
+            "enabled": True,
+            "params": {
+                "site_entries": ["https://example.com/search?q=%7B%7Bq%7D%7D"],
+                "expected_entry_type": "search_template",
+            },
+            "extra": {"stable_handler_cluster": True, "expected_entry_type": "search_template"},
+        }
+        with patch(
+            "app.services.resource_pool.unified_search.unified_search_by_item_payload",
+            return_value=SimpleNamespace(
+                site_entries_used=[], candidates=[], written={}, ingest_result={}, errors=[],
+            ),
+        ):
+            raw = run_item_payload(
+                item=item,
+                channels=[],
+                project_key="demo_proj",
+                override_params={
+                    "query_terms": ["alpha"],
+                    "enable_external_search_slowlane": False,
+                    "_allow_internal_generic_web": True,
+                },
+            )
+        self.assertFalse(raw["result"]["candidate_pipeline"]["search_route"]["slow_lane_enabled"])
+
     def test_run_item_payload_merges_override_params_into_unified_search_item(self) -> None:
         item = {
             "item_key": "handler.cluster.search_template",
@@ -471,7 +500,7 @@ class SourceLibraryHandlerClusterFrontDoorUnitTestCase(unittest.TestCase):
             )
 
         with patch(
-            "app.services.resource_pool.unified_search_by_item_payload",
+            "app.services.resource_pool.unified_search.unified_search_by_item_payload",
             side_effect=_fake_run,
         ), patch(
             "app.services.source_library.resolver.run_item_with_url_routing",
@@ -503,7 +532,7 @@ class SourceLibraryHandlerClusterFrontDoorUnitTestCase(unittest.TestCase):
         }
 
         with patch(
-            "app.services.resource_pool.unified_search_by_item_payload",
+            "app.services.resource_pool.unified_search.unified_search_by_item_payload",
             return_value=SimpleNamespace(
                 site_entries_used=[{"site_url": "https://example.com/search?q=gamma"}],
                 candidates=["https://example.com/posts/gamma"],
@@ -567,7 +596,7 @@ class SourceLibraryHandlerClusterFrontDoorUnitTestCase(unittest.TestCase):
                 errors=[],
             )
 
-        with patch("app.services.resource_pool.unified_search_by_item_payload", side_effect=_fake_run) as mocked_search, patch(
+        with patch("app.services.resource_pool.unified_search.unified_search_by_item_payload", side_effect=_fake_run) as mocked_search, patch(
             "app.services.source_library.resolver.run_item_with_url_routing",
             return_value={"inserted": 0, "updated": 0, "skipped": 0, "errors": [], "by_url": []},
         ):

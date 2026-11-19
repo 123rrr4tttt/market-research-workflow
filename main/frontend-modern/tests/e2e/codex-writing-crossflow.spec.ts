@@ -18,7 +18,7 @@ type ApiEnvelope<T> = {
 }
 
 type WritingDocument = {
-  id: number
+  doc_id: number
   title: string
   body_md: string
 }
@@ -76,11 +76,11 @@ test.describe('Codex agent to writing workbench crossflow', () => {
       const response = await saveResponse
       const body = (await response.json()) as ApiEnvelope<WritingDocument>
       expect(body.status).toBe('ok')
-      createdDocumentIds.add(body.data.id)
+      createdDocumentIds.add(body.data.doc_id)
       expect(body.data.title).toBe(title)
 
       const readResponse = await request.get(
-        `/api/v1/writing/documents/${body.data.id}?project_key=${encodeURIComponent(PROJECT_KEY)}`,
+        `/api/v1/writing/documents/${body.data.doc_id}?project_key=${encodeURIComponent(PROJECT_KEY)}`,
         { headers: { 'X-Project-Key': PROJECT_KEY } },
       )
       expect(readResponse.ok()).toBeTruthy()
@@ -110,7 +110,7 @@ test.describe('Codex agent to writing workbench crossflow', () => {
       if (!createResponse.ok()) expect(createResponse.ok(), await createResponse.text()).toBeTruthy()
       const created = (await createResponse.json()) as ApiEnvelope<WritingDocument>
       expect(created.status).toBe('ok')
-      createdDocumentIds.add(created.data.id)
+      createdDocumentIds.add(created.data.doc_id)
 
       await openCodexAgent(page)
 
@@ -122,7 +122,7 @@ test.describe('Codex agent to writing workbench crossflow', () => {
       await expect(page.getByTestId('writing-markdown-editor')).toHaveValue(new RegExp(marker))
 
       const readResponse = await request.get(
-        `/api/v1/writing/documents/${created.data.id}?project_key=${encodeURIComponent(PROJECT_KEY)}`,
+        `/api/v1/writing/documents/${created.data.doc_id}?project_key=${encodeURIComponent(PROJECT_KEY)}`,
         { headers: { 'X-Project-Key': PROJECT_KEY } },
       )
       if (!readResponse.ok()) expect(readResponse.ok(), await readResponse.text()).toBeTruthy()

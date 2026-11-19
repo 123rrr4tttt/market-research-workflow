@@ -90,7 +90,7 @@ def build_canary_metrics_readback_record(
     project_key: str = "demo_proj",
 ) -> Annotated[
     dict[str, object],
-    "kit:non-authoritative derived_as=generated_evidence fact_source=handoff+project_key+snapshot_digest_inputs witness=test:test_w03_ingest_ports_authority_metadata",
+    "kit:non-authoritative derived_as=generated_evidence fact_source=handoff+project_key+snapshot_digest_inputs witness=test:test_ingest_ports_declare_sources_and_effect_authority",
 ]:
     readiness = build_ingest_canary_metrics_readiness(handoff=handoff, project_key=project_key)
     metrics_snapshot = _object_dict(handoff.get("metrics_snapshot"))

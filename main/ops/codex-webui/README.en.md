@@ -9,7 +9,6 @@ The backend (NestJS) talks to `codex app-server` over stdio JSON-RPC and pushes 
 
 [简体中文](./README.md)
 
-![Main UI](./images/main-en.png)
 
 ## Features
 
@@ -33,7 +32,6 @@ The backend (NestJS) talks to `codex app-server` over stdio JSON-RPC and pushes 
 
 **File Management & Preview**
 
-![File Management](./images/sidebar-file-en.png)
 
 - Tree browser with drag-and-drop (dnd-kit)
 - Monaco code editor + Git diff split view
@@ -44,7 +42,6 @@ The backend (NestJS) talks to `codex app-server` over stdio JSON-RPC and pushes 
 
 **Terminal**
 
-![Terminal](./images/sidebar-terminal-en.png)
 
 - Multi-tab shared terminal (node-pty + xterm.js)
 - Reconnect with no output loss
@@ -52,7 +49,6 @@ The backend (NestJS) talks to `codex app-server` over stdio JSON-RPC and pushes 
 
 **Integrations & Plugins**
 
-![Integrations](./images/side-integration-en.png)
 
 **Other**
 - JWT + API Key authentication
@@ -290,14 +286,6 @@ codex.example.com {
 ### OnlyOffice Note
 
 Behind a reverse proxy, OnlyOffice needs the public URL for save callbacks. Either ensure your proxy forwards `X-Forwarded-Proto` / `X-Forwarded-Host` correctly (auto-detected), or set `general.publicBaseUrl` explicitly in Settings → General.
-
-## Contributing
-
-Issues and pull requests are welcome. See [CONTRIBUTING.en.md](./CONTRIBUTING.en.md) for development setup, code conventions, testing requirements and the PR process.
-
-Before filing a bug, please confirm it reproduces in the WebUI rather than in the Codex CLI itself. The [bug template](./.github/ISSUE_TEMPLATE/bug_report.yml) walks you through exporting a diagnostics bundle from the Diagnostics page.
-
-**Please do not report security issues publicly** — use the private channel described in [SECURITY.md](./SECURITY.md).
 
 ## License
 

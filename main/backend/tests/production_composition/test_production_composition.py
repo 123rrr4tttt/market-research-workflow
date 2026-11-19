@@ -428,7 +428,7 @@ def test_scope_and_authority_observations_come_only_from_runtime_ports(
     assert resolver.resolved == ["demo"]
 
 
-def test_r7_rollback_advice_denies_before_production_effects(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_rollback_advice_denies_before_production_effects(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("app.settings.config.settings.env", "production")
 
     class RollbackObservabilityController(ProductionObservabilityController):

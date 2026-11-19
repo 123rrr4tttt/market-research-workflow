@@ -707,7 +707,7 @@ def run_raw_import_materials(payload: RawObject, project_key: str) -> RawObject:
             return result
     except Exception as exc:  # noqa: BLE001
         fail_job(job_id, str(exc))
-        # kit:boundary owner=ingest.raw_import class=SHELL_BOUNDARY_EXCEPTION failure_family=ingest.operation.failure witness=test:test_latest_service_a_ingest_shell_boundaries_reraise_original_errors
+        # kit:boundary owner=ingest.raw_import class=SHELL_BOUNDARY_EXCEPTION failure_family=ingest.operation.failure witness=test:test_ingest_shell_boundaries_reraise_original_errors
         raise
 
 

@@ -42,7 +42,7 @@ def _collect_contract_failure(code: str, message: str, *, site: str) -> Failure:
 
 
 def _raise_collect_contract(failure: Failure, exception_type: type[Exception] = ValueError) -> NoReturn:
-    # kit:boundary owner=collect.runtime.contract_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=collect.runtime.failure witness=test:test_w03_collect_contract_failures
+    # kit:boundary owner=collect.runtime.contract_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=collect.runtime.failure witness=test:test_collect_contract_failures
     raise exception_type(failure.message)
 
 
@@ -583,7 +583,7 @@ def run_source_library_item_compat(
     )
     result = run_collect(request)
     if _source_library_compat_projector is None:
-        # kit:boundary owner=collect.runtime.compat_projector class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w03_collect_programmer_defect_boundary
+        # kit:boundary owner=collect.runtime.compat_projector class=PROGRAMMER_DEFECT failure_family=none witness=test:test_collect_programmer_defect_boundary
         raise RuntimeError("source-library compatibility projector is not configured")
     response = _source_library_compat_projector(result)
     response.setdefault("display_meta", result.display_meta)

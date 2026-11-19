@@ -121,7 +121,7 @@ def _frontdoor_gate_config(*, terminal_context: dict[str, object] | None = None)
 
     settings_enabled = bool(getattr(settings, "ingest_enable_strict_gate", False))
     request_enabled = _coerce_bool(request_gate_config.get("enable_strict_gate"), False)
-    # Source token retained for the Wave9 checker: terminal_context.strict_mode.
+    # Source token retained for the strict-mode checker: terminal_context.strict_mode.
     strict_mode_enabled = _coerce_bool(context.get("strict_mode"), False)
     project_key = str(context.get("project_key") or "").strip() or None
     source_mode = str(context.get("source_mode") or "").strip().lower()

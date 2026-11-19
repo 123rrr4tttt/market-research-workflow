@@ -32,7 +32,7 @@ WorkflowGraphDynamicEnvelope = ApiEnvelope[dict[str, Any]]
 
 
 def _unwrap_workflow_failure(value: Any) -> Any:
-    """Restore the established API exception ABI from W04's typed failures."""
+    """Restore the API exception ABI from typed workflow failures."""
     if not isinstance(value, Failure):
         return value
     if value.family != "workflow_graph.failure":
@@ -1084,7 +1084,7 @@ def build_workflow_graph_evidence_pack(
 )
 def build_workflow_graph_reporting_handoff(request: Request, graph_id: str, payload: dict[str, Any]) -> Annotated[
     Any,
-    "kit:non-authoritative derived_as=view fact_source=api.workflow_graph witness=test:test_w01_meta",
+    "kit:non-authoritative derived_as=view fact_source=api.workflow_graph witness=test:test_derived_service_annotations_match_fact_sources",
 ]:
     checked_payload = _require_write_project_key(
         payload,
@@ -1110,7 +1110,7 @@ def build_workflow_graph_reporting_handoff(request: Request, graph_id: str, payl
 )
 def build_workflow_graph_writing_handoff(request: Request, graph_id: str, payload: dict[str, Any]) -> Annotated[
     Any,
-    "kit:non-authoritative derived_as=view fact_source=api.workflow_graph witness=test:test_w01_meta",
+    "kit:non-authoritative derived_as=view fact_source=api.workflow_graph witness=test:test_derived_service_annotations_match_fact_sources",
 ]:
     checked_payload = _require_write_project_key(
         payload,

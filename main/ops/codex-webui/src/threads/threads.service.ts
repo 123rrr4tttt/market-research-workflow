@@ -1,7 +1,11 @@
 /**
  * Handles thread and turn operations by delegating to Codex app-server.
  */
-import { HttpStatus, Injectable, Logger } from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
+import { createHash } from 'node:crypto';
+import { createReadStream } from 'node:fs';
+import { stat } from 'node:fs/promises';
+import { basename } from 'node:path';
 import { CodexService } from '../codex/codex.service';
 import type { MrwRequestCredentials } from '../mrw/mrw.types';
 import type { v2 } from '../codex/codex-schema';
@@ -43,7 +47,10 @@ import {
   type ThreadOverviewParams,
 } from './threads-overview.service';
 import { MrwService } from '../mrw/mrw.service';
-import type { MrwPreparedEnvironment } from '../mrw/mrw.types';
+import type {
+  MrwPreparedEnvironment,
+  MrwTurnAttachment,
+} from '../mrw/mrw.types';
 import {
   projectThreadReadForClient,
   type ClientThreadReadResponse,
@@ -51,6 +58,9 @@ import {
 
 /** Maximum ancestors walked when a fork chain is not locally tracked. */
 const MAX_FORK_CHAIN_WALK = 32;
+
+const MRW_SYSTEM_INSTRUCTIONS_SEPARATOR =
+  '\n\n--- MRW system navigation ---\n\n';
 
 type ExperimentalThreadStartParams = v2.ThreadStartParams & {
   historyMode: typeof REQUIRED_HISTORY_MODE;
@@ -66,13 +76,74 @@ type ThreadStartParamsWithMrw = v2.ThreadStartParams & {
   mrwProjectKey?: string;
 };
 
-/** Returns only the literal user text; skill refs are mount inputs, not user words. */
-function extractUserText(input: v2.UserInput[]): string {
+/** Returns only user-authored text; attachments are described separately. */
+function describeUserInput(input: v2.UserInput[]): string {
   return input
-    .filter((item) => item.type === 'text')
-    .map((item) => (item.type === 'text' ? item.text : ''))
+    .flatMap((item) => {
+      if (item.type === 'text') return [item.text];
+      return [];
+    })
     .join('\n')
     .trim();
+}
+
+async function fileSha256(path: string): Promise<string> {
+  const hash = createHash('sha256');
+  await new Promise<void>((resolve, reject) => {
+    const stream = createReadStream(path);
+    stream.on('data', (chunk) => hash.update(chunk));
+    stream.on('end', resolve);
+    stream.on('error', reject);
+  });
+  return hash.digest('hex');
+}
+
+/** Derives durable attachment identity from the already host-validated local file. */
+async function describeLocalAttachments(
+  input: v2.UserInput[],
+): Promise<MrwTurnAttachment[]> {
+  const attachments: MrwTurnAttachment[] = [];
+  for (const item of input) {
+    if (item.type !== 'localImage') continue;
+    let fileStat;
+    try {
+      fileStat = await stat(item.path);
+    } catch {
+      throw new HttpException(
+        'MRW attachment is unavailable',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+    if (!fileStat.isFile()) {
+      throw new HttpException(
+        'MRW attachment is not a file',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+    const filename = basename(item.path);
+    const sha256 = await fileSha256(item.path);
+    attachments.push({
+      kind: 'local_image',
+      attachmentId: sha256,
+      filename,
+      size: fileStat.size,
+      sha256,
+    });
+  }
+  return attachments;
+}
+
+function attachmentFallbackText(count: number): string {
+  return count > 0 ? `附件 ×${count}` : '';
+}
+
+function appendMrwSystemInstructions(
+  developerInstructions: string | null | undefined,
+  systemInstructions: string,
+): string {
+  return developerInstructions
+    ? `${developerInstructions}${MRW_SYSTEM_INSTRUCTIONS_SEPARATOR}${systemInstructions}`
+    : systemInstructions;
 }
 
 @Injectable()
@@ -113,6 +184,10 @@ export class ThreadsService {
     if (prepared) {
       requestParams.dynamicTools =
         prepared.dynamicTools as v2.DynamicToolSpec[];
+      requestParams.developerInstructions = appendMrwSystemInstructions(
+        requestParams.developerInstructions,
+        prepared.systemInstructions,
+      );
       await this.mrw.mountSkillEnvironment(prepared);
     }
 
@@ -306,8 +381,18 @@ export class ThreadsService {
   ): Promise<v2.TurnStartResponse> {
     this.deletionRegistry.assertMutable(params.threadId);
     const bound = this.mrw.isBound(params.threadId);
+    const originalText = describeUserInput(params.input);
+    const attachments = bound
+      ? await describeLocalAttachments(params.input)
+      : [];
     if (bound) {
-      await this.mrw.checkEnvironmentFresh(params.threadId);
+      if (!originalText && attachments.length === 0) {
+        throw new HttpException(
+          'MRW turn requires user text or a local attachment',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+      await this.mrw.prepareTurn(params.threadId);
     } else {
       const probe = await this.mrw.probeEnvironment(params.threadId);
       if (probe === 'rebind_required') {
@@ -334,7 +419,7 @@ export class ThreadsService {
       );
     } catch (error) {
       if (bound) {
-        this.mrw.releaseTurnInput(params.threadId);
+        this.mrw.abortTurnInput(params.threadId);
       }
       throw error;
     }
@@ -343,24 +428,27 @@ export class ThreadsService {
       response.turn.id,
       previewFromUserInput(params.input),
     );
-    const originalText = extractUserText(params.input);
     if (bound) {
       try {
-        if (originalText) {
-          await this.mrw.recordInput(
-            params.threadId,
-            response.turn.id,
-            originalText,
-            credentials,
-          );
-        } else {
-          this.mrw.releaseTurnInput(params.threadId);
-        }
+        await this.mrw.recordInput(
+          params.threadId,
+          response.turn.id,
+          originalText || attachmentFallbackText(attachments.length),
+          credentials,
+          attachments,
+        );
       } catch (error) {
-        await this.codex.request('turn/interrupt', {
-          threadId: params.threadId,
-          turnId: response.turn.id,
-        });
+        this.mrw.abortTurnInput(params.threadId);
+        try {
+          await this.codex.request('turn/interrupt', {
+            threadId: params.threadId,
+            turnId: response.turn.id,
+          });
+        } catch (interruptError) {
+          this.logger.warn(
+            `MRW turn interrupt failed after input rejection: ${String(interruptError)}`,
+          );
+        }
         throw error;
       }
     }
@@ -382,14 +470,34 @@ export class ThreadsService {
       'turn/steer',
       params,
     );
-    const appendedText = extractUserText(params.input);
-    if (appendedText && this.mrw.isBound(params.threadId)) {
-      await this.mrw.recordInput(
-        params.threadId,
-        params.expectedTurnId,
-        appendedText,
-        credentials,
-      );
+    const appendedText = describeUserInput(params.input);
+    const bound = this.mrw.isBound(params.threadId);
+    const appendedAttachments = bound
+      ? await describeLocalAttachments(params.input)
+      : [];
+    if ((appendedText || appendedAttachments.length > 0) && bound) {
+      try {
+        await this.mrw.recordInput(
+          params.threadId,
+          params.expectedTurnId,
+          appendedText || attachmentFallbackText(appendedAttachments.length),
+          credentials,
+          appendedAttachments,
+        );
+      } catch (error) {
+        this.mrw.abortTurnInput(params.threadId);
+        try {
+          await this.codex.request('turn/interrupt', {
+            threadId: params.threadId,
+            turnId: params.expectedTurnId,
+          });
+        } catch (interruptError) {
+          this.logger.warn(
+            `MRW steer interrupt failed after input rejection: ${String(interruptError)}`,
+          );
+        }
+        throw error;
+      }
     }
     return response;
   }

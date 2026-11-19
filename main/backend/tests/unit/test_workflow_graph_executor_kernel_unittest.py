@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from types import SimpleNamespace
+from app.services.search.hybrid import SearchInvocationObservation
 from unittest.mock import patch
 
 import pytest
@@ -70,8 +71,8 @@ def test_vector_search_kernel_reports_success_without_runtime_state() -> None:
     )
 
     with patch(
-        "app.services.workflow_graph.executors.vector_search._vector_search_service",
-        return_value=[{"material_id": "material-1"}],
+        "app.services.workflow_graph.executors.vector_search._observe_vector_search_service",
+        return_value=SearchInvocationObservation([{"material_id": "material-1"}], ("qdrant",), ()),
     ) as search:
         result = run_vector_search_kernel(context)
 
@@ -85,7 +86,7 @@ def test_vector_search_kernel_returns_typed_degraded_result() -> None:
     context = _context("vector_search", params={"query": "unreachable"})
 
     with patch(
-        "app.services.workflow_graph.executors.vector_search._vector_search_service",
+        "app.services.workflow_graph.executors.vector_search._observe_vector_search_service",
         side_effect=RuntimeError("search unavailable"),
     ):
         result = run_vector_search_kernel(context)
@@ -96,9 +97,8 @@ def test_vector_search_kernel_returns_typed_degraded_result() -> None:
     assert result.failure.cause_type == "RuntimeError"
     hits = result.payload["hits"]
     assert isinstance(hits, list)
-    first_hit = hits[0]
-    assert isinstance(first_hit, dict)
-    assert first_hit["backend"] == "mock"
+    assert hits == []
+    assert result.payload["used_backends"] == []
     assert result.payload["degraded"] is True
 
 

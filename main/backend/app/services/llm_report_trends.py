@@ -238,7 +238,7 @@ def build_quality_trend_metric(
     export_readiness: dict[str, Any],
 ) -> Annotated[
     dict[str, Any],
-    "kit:non-authoritative derived_as=view fact_source=llm.report_quality_gate witness=test:test_w01_meta",
+    "kit:non-authoritative derived_as=view fact_source=llm.report_quality_gate witness=test:test_derived_service_annotations_match_fact_sources",
 ]:
     missing_items = _first_list(gate.get("missing_items")) or []
     hard_failures = _first_list(gate.get("hard_failures")) or []
@@ -287,7 +287,7 @@ def build_export_trend_metric(
     ui_read_only_context_trace: dict[str, Any] | None = None,
 ) -> Annotated[
     dict[str, Any],
-    "kit:non-authoritative derived_as=generated_evidence fact_source=llm.report_export witness=test:test_w01_meta",
+    "kit:non-authoritative derived_as=generated_evidence fact_source=llm.report_export witness=test:test_derived_service_annotations_match_fact_sources",
 ]:
     normalized_format = _normalize_export_format(export_format)
     normalized_outcome = _normalize_export_outcome(outcome)

@@ -1,11 +1,8 @@
 from __future__ import annotations
 
-import importlib
 import sys
 import unittest
-from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
-from types import ModuleType
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -13,59 +10,13 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
+from app.services.source_library.adapters.generic_web import (
+    handle_generic_web_rss,
+    handle_generic_web_search_template,
+    handle_generic_web_sitemap,
+)
+
 pytestmark = pytest.mark.unit
-
-_ROOT = Path(__file__).resolve().parents[2]
-_SOURCE_LIBRARY_DIR = _ROOT / "app" / "services" / "source_library"
-_ADAPTERS_DIR = _SOURCE_LIBRARY_DIR / "adapters"
-_SERVICES_DIR = _ROOT / "app" / "services"
-
-
-def _ensure_package(name: str, path: Path) -> None:
-    module = sys.modules.get(name)
-    if module is None:
-        module = ModuleType(name)
-        module.__path__ = [str(path)]  # type: ignore[attr-defined]
-        sys.modules[name] = module
-    if "." in name:
-        parent_name, child_name = name.rsplit(".", 1)
-        parent = sys.modules.get(parent_name)
-        if parent is not None:
-            setattr(parent, child_name, module)
-
-
-_ensure_package("app", _ROOT / "app")
-_ensure_package("app.services", _ROOT / "app" / "services")
-_ensure_package("app.services.ingest", _SERVICES_DIR / "ingest")
-_ensure_package("app.services.ingest.adapters", _SERVICES_DIR / "ingest" / "adapters")
-_ensure_package("app.services.resource_pool", _SERVICES_DIR / "resource_pool")
-_ensure_package("app.services.source_library", _SOURCE_LIBRARY_DIR)
-_ensure_package("app.services.source_library.adapters", _ADAPTERS_DIR)
-
-# Keep the package shell for direct module loading, but expose the real
-# resource_pool public symbols so later tests can patch the compatibility path.
-_RESOURCE_POOL_PUBLIC = importlib.import_module("app.services.resource_pool.unified_search")
-_RESOURCE_POOL_PACKAGE = sys.modules["app.services.resource_pool"]
-setattr(_RESOURCE_POOL_PACKAGE, "unified_search_by_item", _RESOURCE_POOL_PUBLIC.unified_search_by_item)
-setattr(
-    _RESOURCE_POOL_PACKAGE,
-    "unified_search_by_item_payload",
-    _RESOURCE_POOL_PUBLIC.unified_search_by_item_payload,
-)
-
-_SPEC = spec_from_file_location(
-    "app.services.source_library.adapters.generic_web",
-    _ADAPTERS_DIR / "generic_web.py",
-)
-assert _SPEC is not None and _SPEC.loader is not None
-_MODULE = module_from_spec(_SPEC)
-sys.modules[_SPEC.name] = _MODULE
-_SPEC.loader.exec_module(_MODULE)
-sys.modules["app.services.source_library.adapters"].generic_web = _MODULE
-
-handle_generic_web_search_template = _MODULE.handle_generic_web_search_template
-handle_generic_web_rss = _MODULE.handle_generic_web_rss
-handle_generic_web_sitemap = _MODULE.handle_generic_web_sitemap
 
 
 class GenericWebSearchTemplateAdapterUnitTestCase(unittest.TestCase):

@@ -114,7 +114,7 @@ def _program_failure(
             "public_argument": message,
             "public_message": public_message,
             "site": site,
-            "witness": "test:test_w07_language_research_failure_boundary",
+            "witness": "test:test_language_and_research_failures_are_closed_values",
         },
     )
 

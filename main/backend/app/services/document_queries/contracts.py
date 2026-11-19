@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from typing import Annotated, Iterable, Literal, Mapping, NoReturn, NotRequired, TypeAlias, TypeGuard, TypedDict, Union
 
 from functorial_kit import Failure
-from mrw_functorial_kit.core.w04_service_semantics import material_query_failures
+from mrw_functorial_kit.core.service_failure_semantics import material_query_failures
 from ...contracts.materials import normalize_material_source_type
 
 
@@ -455,7 +455,7 @@ def build_material_query_result_item(
     MaterialQueryRow,
     "kit:non-authoritative derived_as=view "
     "fact_source=repository_row+source_type+rank "
-    "witness=test:test_w04_authority_metadata",
+    "witness=test:test_service_results_declare_sources_and_effect_authority",
 ]:
     raw = _json_object(row)
     _reject_legacy_material_fields(raw)
@@ -502,7 +502,7 @@ def build_material_query_result_envelope(
     MaterialQueryResultEnvelope,
     "kit:non-authoritative derived_as=view "
     "fact_source=material_query+rows+source+meta "
-    "witness=test:test_w04_authority_metadata",
+    "witness=test:test_service_results_declare_sources_and_effect_authority",
 ]:
     results = [
         build_material_query_result_item(row, source_type=result_source_type, rank=index)

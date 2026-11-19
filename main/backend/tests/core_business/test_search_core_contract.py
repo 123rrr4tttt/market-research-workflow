@@ -7,6 +7,8 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
+from elasticsearch import ConnectionError as ElasticsearchConnectionError
+from app.services.search.hybrid import SearchInvocationObservation
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
@@ -62,11 +64,8 @@ class SearchCoreContractTestCase(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="search-core-retrieval-runs-") as tmp_dir:
             retrieval_runs_path = Path(tmp_dir) / "retrieval_runs.jsonl"
             with (
-                patch("app.api.search.hybrid_search", return_value=mocked_results),
-                patch(
-                    "app.api.search.get_last_used_backends",
-                    return_value=["opensearch", "qdrant", "pgvector", "custom"],
-                ),
+                patch("app.api.search.observe_hybrid_search", return_value=SearchInvocationObservation(
+                    mocked_results, ("opensearch", "qdrant", "pgvector", "custom"), ())),
                 patch.dict("os.environ", {"SEARCH_RETRIEVAL_RUNS_PATH": str(retrieval_runs_path)}),
             ):
                 response = self.client.get(
@@ -212,10 +211,12 @@ class SearchCoreContractTestCase(unittest.TestCase):
         self.assertEqual(readback_data["readback"], readback_data["retrieval_run_readback"])
 
     def test_search_upstream_error_envelope_complete(self):
-        with patch("app.api.search.hybrid_search", side_effect=RuntimeError("Elasticsearch Connection refused")):
+        with patch(
+            "app.services.search.hybrid.get_es_client", side_effect=ElasticsearchConnectionError("Connection refused")
+        ):
             response = self.client.get(
                 "/api/v1/search",
-                params={"q": "market", "top_k": 1},
+                params={"q": "market", "rank": "bm25", "top_k": 1},
                 headers=self.headers,
             )
 
@@ -227,11 +228,11 @@ class SearchCoreContractTestCase(unittest.TestCase):
         self.assertEqual(body["status"], "error")
         self.assertIsNone(body["data"])
         self.assertEqual(body["error"]["code"], ErrorCode.UPSTREAM_ERROR.value)
-        self.assertIn("Elasticsearch服务不可用", body["error"]["message"])
+        self.assertEqual(body["error"]["details"]["search_failures"][0]["provider"], "opensearch")
         self.assertEqual(body["detail"]["error"]["code"], ErrorCode.UPSTREAM_ERROR.value)
 
     def test_search_internal_error_envelope_complete(self):
-        with patch("app.api.search.hybrid_search", side_effect=RuntimeError("boom")):
+        with patch("app.api.search.observe_hybrid_search", side_effect=RuntimeError("boom")):
             response = self.client.get(
                 "/api/v1/search",
                 params={"q": "market", "top_k": 1},

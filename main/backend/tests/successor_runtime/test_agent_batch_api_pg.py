@@ -31,7 +31,7 @@ from app.successor_runtime.substrate.postgres.authority import (
     CapabilityAuthority,
 )
 
-from .test_p0b_postgres_integration import (
+from .test_runtime_substrate_postgres_integration import (
     PROJECT_KEY,
     PROJECT_SCHEMA,
     PUBLIC_TABLES,

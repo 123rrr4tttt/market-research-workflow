@@ -2,3 +2,15 @@ node_modules
 dist
 .git
 *.log
+
+# Local configuration and generated reports are not frontend build inputs.
+**/.env
+**/.env.*
+**/*.credentials.json
+**/*-credentials.json
+**/.DS_Store
+.data/
+coverage/
+playwright-report/
+storybook-static/
+test-results/

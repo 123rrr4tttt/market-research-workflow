@@ -35,7 +35,7 @@ from ..contracts import (
 from ..display_meta import build_display_meta
 
 
-_CRAWLER_FAILURE_WITNESS = "test:test_w03_crawler_failure_lifts"
+_CRAWLER_FAILURE_WITNESS = "test:test_crawler_failure_lifts"
 
 
 def _is_dispatch_result(value: object) -> TypeGuard[CrawlerDispatchResult]:

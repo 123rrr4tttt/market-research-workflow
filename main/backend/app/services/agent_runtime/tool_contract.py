@@ -70,7 +70,7 @@ def build_capability_call(
 ) -> Annotated[
     dict[str, Any],
     "kit:prepared-command effect_boundary=tool_contract "
-    "witness=test:test_w02_agent_authority_metadata"
+    "witness=test:test_agent_results_declare_sources_and_effect_authority"
 ]:
     payload: dict[str, Any] = {
         "contract_version": CAPABILITY_CALL_CONTRACT_VERSION,
@@ -106,7 +106,7 @@ def build_tool_definition(
 ) -> Annotated[
     dict[str, Any],
     "kit:non-authoritative derived_as=view fact_source=tool_contract_inputs "
-    "witness=test:test_w02_agent_authority_metadata"
+    "witness=test:test_agent_results_declare_sources_and_effect_authority"
 ]:
     return {
         "contract_version": TOOL_DEFINITION_CONTRACT_VERSION,
@@ -127,7 +127,7 @@ def build_tool_definition(
 def build_stream_descriptor(*, session_id: str, since_seq: int = 0) -> Annotated[
     dict[str, Any],
     "kit:prepared-command effect_boundary=agent_session_stream "
-    "witness=test:test_w02_agent_authority_metadata"
+    "witness=test:test_agent_results_declare_sources_and_effect_authority"
 ]:
     return {
         "protocol_version": STREAM_PROTOCOL_VERSION,

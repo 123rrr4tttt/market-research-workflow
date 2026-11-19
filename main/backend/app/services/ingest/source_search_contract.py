@@ -102,7 +102,7 @@ def build_query_url_from_contract(
     contract: dict[str, Any] | None = None,
 ) -> Annotated[
     str,
-    "kit:non-authoritative derived_as=view fact_source=template_url+query_terms+search_contract witness=test:test_w03_ingest_ports_authority_metadata",
+    "kit:non-authoritative derived_as=view fact_source=template_url+query_terms+search_contract witness=test:test_ingest_ports_declare_sources_and_effect_authority",
 ]:
     """Build query URL from a search template URL and normalized search contract."""
     url = str(template_url or "").strip()

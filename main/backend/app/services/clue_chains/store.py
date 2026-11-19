@@ -82,7 +82,7 @@ def build_clue_chain_store(
 ) -> Annotated[
     IngestConfigClueChainStore,
     "kit:prepared-command effect_boundary=ingest_config_clue_chain_store "
-    "witness=test:test_w04_authority_metadata",
+    "witness=test:test_service_results_declare_sources_and_effect_authority",
 ]:
     return IngestConfigClueChainStore(project_key=project_key)
 

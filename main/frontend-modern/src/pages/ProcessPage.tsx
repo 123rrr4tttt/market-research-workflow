@@ -910,7 +910,13 @@ export function ProcessPageView({
                   <td>{formatDate(task.started_at, locale)}</td>
                   <td>{buildResultSummary({ display_meta: task.display_meta as Record<string, unknown> | null, params: task.kwargs as Record<string, unknown> | null, progress: task.progress as Record<string, unknown> | null }, summaryLabels)}</td>
                   <td>
-                    <input type="checkbox" checked={selectedTaskIds.includes(task.task_id)} onChange={() => onToggleTaskSelect(task.task_id)} disabled={!canCancelTask(task)} />
+                    <input
+                      type="checkbox"
+                      aria-label={`${t('processPage.field.selected')}: ${task.task_id}`}
+                      checked={selectedTaskIds.includes(task.task_id)}
+                      onChange={() => onToggleTaskSelect(task.task_id)}
+                      disabled={!canCancelTask(task)}
+                    />
                   </td>
                   <td>
                     <button onClick={(event) => {

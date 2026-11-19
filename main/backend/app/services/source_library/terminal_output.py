@@ -89,6 +89,7 @@ def to_terminal_output_dto(result_payload: dict[str, object] | None) -> Terminal
                 stats=stats,
                 errors=errors,
                 records=records,
+                result=result,
                 status=status,
                 outcome_unknown=outcome_unknown,
             ),
@@ -110,7 +111,7 @@ def to_terminal_output_dto(result_payload: dict[str, object] | None) -> Terminal
 
 def build_terminal_output_dto(result_payload: dict[str, object] | None) -> Annotated[
     TerminalOutputDto,
-    "kit:non-authoritative derived_as=view fact_source=source_library.raw_result witness=test:test_w01_meta",
+    "kit:non-authoritative derived_as=view fact_source=source_library.raw_result witness=test:test_derived_service_annotations_match_fact_sources",
 ]:
     return to_terminal_output_dto(result_payload)
 
@@ -121,7 +122,7 @@ def build_source_library_terminal_output(
     collect_result: TerminalCollectResult,
 ) -> Annotated[
     TerminalOutputDto,
-    "kit:non-authoritative derived_as=view fact_source=source_library.raw_result witness=test:test_w01_meta",
+    "kit:non-authoritative derived_as=view fact_source=source_library.raw_result witness=test:test_derived_service_annotations_match_fact_sources",
 ]:
     dto = to_terminal_output_dto(result_payload)
     # Preserve an explicit collect-runtime ACK when the legacy payload omitted
@@ -462,6 +463,7 @@ def _resolve_reason_code(
     stats: TerminalStatsView,
     errors: list[TerminalErrorView],
     records: list[TerminalRecordView],
+    result: dict[str, object],
     status: str | None = None,
     outcome_unknown: dict[str, object] | None = None,
 ) -> str:
@@ -471,10 +473,28 @@ def _resolve_reason_code(
         return "accepted_pending_readback"
     if str(status or "").strip().lower() in {"failed", "cancelled"}:
         return f"provider_terminal_{str(status).strip().lower()}"
+    if not records:
+        query_contract = _object(result.get("query_contract"))
+        query_reasons = _string_list(query_contract.get("reason_codes"))
+        query_statuses = _string_list(query_contract.get("statuses"))
+        if "budget_exhausted" in query_statuses or "query_discovery_budget_exhausted" in query_reasons:
+            return "query_discovery_budget_exhausted"
+        query_discovery_reason = next(
+            (reason for reason in query_reasons if reason not in {"verified_query_results"}),
+            "",
+        )
+        if query_discovery_reason:
+            return (
+                query_discovery_reason
+                if query_discovery_reason.startswith("query_discovery_")
+                else f"query_discovery_{query_discovery_reason}"
+            )
     if errors:
         return "fetch_errors"
     if not records:
         return "empty"
+    if errors:
+        return "fetch_errors"
     if int(stats.get("dropped") or 0) > 0:
         return "partial_records"
     return "ok"

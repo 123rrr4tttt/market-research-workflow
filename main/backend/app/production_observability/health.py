@@ -4,7 +4,6 @@ from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from enum import StrEnum
 from types import MappingProxyType
-import os
 from collections.abc import Iterable, Iterator, Mapping, Sequence
 from typing import Annotated, Protocol, TypeGuard, TypeVar, runtime_checkable
 
@@ -20,7 +19,7 @@ AUTHORITY_READ_SOURCE = (
     "+runtime_capability_authority"
 )
 DATABASE_SOURCE = "sqlalchemy.engine:select_1+pool_status"
-PROVIDER_SOURCE = "production.provider-runtime:explicit-local-simulation-or-unknown"
+PROVIDER_SOURCE = "production.provider-runtime:unobserved"
 _Type = TypeVar("_Type")
 
 
@@ -499,15 +498,6 @@ def read_runtime_provider_signal(
     *,
     production_runtime: bool,
 ) -> ProviderRuntimeSignal:
-    simulated_failure = str(
-        os.getenv("STAGE5_SIMULATE_PROVIDER_FAILURE", "")
-    ).strip().lower()
-    if simulated_failure in {"1", "true", "yes"}:
-        return ProviderRuntimeSignal(
-            source=PROVIDER_SOURCE,
-            status=ProviderRuntimeStatus.SIMULATED_FAILURE,
-            simulated=True,
-        )
     return ProviderRuntimeSignal(
         source=PROVIDER_SOURCE,
         status=ProviderRuntimeStatus.UNSUPPORTED

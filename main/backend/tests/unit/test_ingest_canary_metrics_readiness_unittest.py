@@ -181,7 +181,7 @@ class IngestCanaryMetricsReadinessUnitTestCase(unittest.TestCase):
         handoff["frontdoor_run"] = {
             **handoff["frontdoor_run"],
             "entrypoint": "ingest.url.single",
-            "source_url": "https://example.com/wave57-single-url",
+            "source_url": "https://example.com/single-url-fixture",
         }
         evidence = _configured_provider_live_evidence()
         evidence["frontdoor_run"] = dict(handoff["frontdoor_run"])

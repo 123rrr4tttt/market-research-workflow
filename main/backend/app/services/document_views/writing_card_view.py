@@ -48,7 +48,7 @@ def build_keyword_card(
     KeywordCardItem,
     "kit:non-authoritative derived_as=view "
     "fact_source=keyword_card_inputs+system_clock "
-    "witness=test:test_w04_authority_metadata",
+    "witness=test:test_service_results_declare_sources_and_effect_authority",
 ]:
     normalized_source_type = normalize_material_source_type(source_type)
     normalized_score = max(0.0, float(score or 0.0))
@@ -86,7 +86,7 @@ def build_keyword_card_from_hybrid_row(
     KeywordCardItem,
     "kit:non-authoritative derived_as=view "
     "fact_source=hybrid_search_row "
-    "witness=test:test_w04_authority_metadata",
+    "witness=test:test_service_results_declare_sources_and_effect_authority",
 ]:
     title = str(row.get("title") or row.get("id") or "Material").strip()
     snippet = str(row.get("snippet") or row.get("summary") or row.get("content") or "").strip()
@@ -119,7 +119,7 @@ def build_keyword_card_from_source_row(
     KeywordCardItem,
     "kit:non-authoritative derived_as=view "
     "fact_source=source_row "
-    "witness=test:test_w04_authority_metadata",
+    "witness=test:test_service_results_declare_sources_and_effect_authority",
 ]:
     publisher = str(row.get("publisher") or "").strip() or None
     source_type = "graph" if publisher and publisher.startswith("graph:") else "resource"
@@ -146,7 +146,7 @@ def build_keyword_card_from_material_item(
     KeywordCardItem,
     "kit:non-authoritative derived_as=view "
     "fact_source=material_item "
-    "witness=test:test_w04_authority_metadata",
+    "witness=test:test_service_results_declare_sources_and_effect_authority",
 ]:
     title = str(item.get("name") or item.get("item_key") or "Material").strip()
     return build_keyword_card(
@@ -172,7 +172,7 @@ def build_keyword_card_from_graph_node(
     KeywordCardItem,
     "kit:non-authoritative derived_as=view "
     "fact_source=graph_node+graph_context "
-    "witness=test:test_w04_authority_metadata",
+    "witness=test:test_service_results_declare_sources_and_effect_authority",
 ]:
     node_id = str(node.get("node_id") or "").strip()
     title = str(node.get("title") or node.get("label") or node_id or "Graph Node").strip()
@@ -206,7 +206,7 @@ def build_keyword_card_from_typed_knowledge_handoff(
     KeywordCardItem,
     "kit:non-authoritative derived_as=view "
     "fact_source=validated_writing_knowledge_handoff "
-    "witness=test:test_w04_authority_metadata",
+    "witness=test:test_service_results_declare_sources_and_effect_authority",
 ]:
     validate_writing_knowledge_handoff(handoff)
     handoff_payload = coerce_material_query_result_row(serialize_writing_knowledge_handoff(handoff))

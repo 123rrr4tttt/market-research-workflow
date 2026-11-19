@@ -28,6 +28,7 @@ import {
   listWritingTemplates,
   previewWritingKeywordCard,
   readTypedKnowledgeWritingContextFromDocument,
+  readWritingDocumentConflict,
   updateTypedKnowledgeReviewState,
   updateWritingDocument,
   upsertWritingCitations,
@@ -38,6 +39,7 @@ import {
   type WritingKeywordCardPreview,
   type WritingCitation,
   type WritingTemplateValidation,
+  type WritingDocumentConflict,
 } from '../lib/api'
 import { queryKeys } from '../lib/queryKeys'
 
@@ -57,6 +59,9 @@ type DraftByKey = {
   [key: string]: {
     title: string
     markdown: string
+    baseVersion: number | null
+    baseEtag: string | null
+    revision: number
   }
 }
 type WritingCanvasViewMode = 'write' | 'preview' | 'split'
@@ -172,6 +177,28 @@ const WRITING_EDITOR_TEXTAREA_SELECTOR = ['.', 'writing-editor__textarea'].join(
 
 function dashedId(...parts: (string | number)[]) {
   return parts.map(String).join('-')
+}
+
+type SubmittedDraft = {
+  key: string
+  documentId: number | null
+  revision: number
+  title: string
+  markdown: string
+}
+
+function reconcileSavedDraft(drafts: DraftByKey, submitted: SubmittedDraft, document: WritingDocument): DraftByKey {
+  const next = { ...drafts }
+  const local = next[submitted.key]
+  delete next[submitted.key]
+  if (local && (
+    local.revision !== submitted.revision ||
+    local.title !== submitted.title ||
+    local.markdown !== submitted.markdown
+  )) {
+    next[String(document.doc_id)] = { ...local, baseVersion: document.version, baseEtag: document.etag }
+  }
+  return next
 }
 
 function clampValue(value: number, min: number, max: number) {
@@ -568,6 +595,7 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
   const [citationTrayDragOver, setCitationTrayDragOver] = useState(false)
   const [autosaveMessage, setAutosaveMessage] = useState('idle')
   const [saveMessage, setSaveMessage] = useState('')
+  const [saveConflict, setSaveConflict] = useState(null as WritingDocumentConflict | null)
   const [exportMessage, setExportMessage] = useState('')
   const [viewport, setViewport] = useState((): ViewportSize => readViewport())
   const [activeFloatingWindow, setActiveFloatingWindow] = useState('insights' as FloatingWindowKey)
@@ -638,7 +666,7 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
     refetchInterval: 10000,
     refetchOnWindowFocus: true,
   })
-  const effectiveDocumentId = isCreatingDraft ? null : activeDocumentId ?? documentsQuery.data?.[0]?.id ?? null
+  const effectiveDocumentId = isCreatingDraft ? null : activeDocumentId ?? documentsQuery.data?.[0]?.doc_id ?? null
   const documentDetailQuery = useQuery({
     queryKey: queryKeys.writing.documentDetail(projectKey, effectiveDocumentId),
     queryFn: () => getWritingDocument(effectiveDocumentId as number),
@@ -659,8 +687,29 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
   const persistedTitle = documentDetailQuery.data?.title || ''
   const persistedMarkdown = documentDetailQuery.data?.body_md || defaultMarkdown
   const currentDraft = draftByKey[draftKey]
+  const draftBaseVersion = currentDraft?.baseVersion ?? documentDetailQuery.data?.version
   const title = currentDraft?.title ?? persistedTitle
   const markdown = currentDraft?.markdown ?? persistedMarkdown
+  const updateDraft = useCallback(
+    (changes: { title?: string; markdown?: string }) => {
+      setDraftByKey((prev) => {
+        const existing = prev[draftKey]
+        const nextTitle = changes.title ?? existing?.title ?? persistedTitle
+        const nextMarkdown = changes.markdown ?? existing?.markdown ?? persistedMarkdown
+        return {
+          ...prev,
+          [draftKey]: {
+            title: nextTitle,
+            markdown: nextMarkdown,
+            baseVersion: existing?.baseVersion ?? documentDetailQuery.data?.version ?? null,
+            baseEtag: existing?.baseEtag ?? documentDetailQuery.data?.etag ?? null,
+            revision: (existing?.revision ?? 0) + 1,
+          },
+        }
+      })
+    },
+    [documentDetailQuery.data, draftKey, persistedMarkdown, persistedTitle],
+  )
   const isDirty =
     effectiveDocumentId == null
       ? title.trim().length > 0 || markdown.trim().length > 0
@@ -713,47 +762,49 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
   const saveDocumentMutation = useMutation({
     mutationFn: async () => {
       setSaveMessage('')
-      if (effectiveDocumentId == null) {
-        return createWritingDocument({
-          title,
-          body_md: markdown,
-          metadata_json: { source: 'writing-workbench', project_key: projectKey },
-        })
+      setSaveConflict(null)
+      const submitted = {
+        key: draftKey,
+        documentId: effectiveDocumentId,
+        revision: currentDraft?.revision ?? 0,
+        title,
+        markdown,
       }
-      return updateWritingDocument(
-        effectiveDocumentId,
-        {
-          title,
-          body_md: markdown,
-          base_version: documentDetailQuery.data?.version,
-        },
-        {
-          ifMatch: documentDetailQuery.data?.etag,
-        },
-      )
+      const document = effectiveDocumentId == null
+        ? await createWritingDocument({
+            title: submitted.title,
+            body_md: submitted.markdown,
+            metadata_json: { source: 'writing-workbench', project_key: projectKey },
+          })
+        : await updateWritingDocument(effectiveDocumentId, {
+            title: submitted.title,
+            body_md: submitted.markdown,
+            base_version: draftBaseVersion,
+          }, { ifMatch: currentDraft?.baseEtag ?? documentDetailQuery.data?.etag })
+      return { document, submitted }
     },
-    onSuccess: async (document) => {
-      const nextDocumentId = document?.id || effectiveDocumentId
-      if (document?.id) {
+    onSuccess: async ({ document, submitted }) => {
+      const nextDocumentId = document.doc_id
+      if (effectiveDocumentId === submitted.documentId) {
         setIsCreatingDraft(false)
-        setActiveDocumentId(document.id)
+        setActiveDocumentId(nextDocumentId)
       }
-      setDraftByKey((prev) => {
-        const next = { ...prev }
-        delete next[draftKey]
-        if (nextDocumentId != null && nextDocumentId !== effectiveDocumentId) {
-          delete next[String(nextDocumentId)]
-        }
-        return next
-      })
+      setDraftByKey((prev) => reconcileSavedDraft(prev, submitted, document))
       setAutosaveMessage(t('writingWorkbenchPage.status.saved'))
-      setSaveMessage(effectiveDocumentId == null ? t('writingWorkbenchPage.status.documentCreated') : t('writingWorkbenchPage.status.bodySaved'))
+      setSaveMessage(submitted.documentId == null ? t('writingWorkbenchPage.status.documentCreated') : t('writingWorkbenchPage.status.bodySaved'))
+      setSaveConflict(null)
       setExportMessage('')
       await queryClient.invalidateQueries({ queryKey: queryKeys.writing.documents(projectKey) })
       await queryClient.invalidateQueries({ queryKey: queryKeys.writing.documentDetail(projectKey, nextDocumentId) })
       await queryClient.invalidateQueries({ queryKey: queryKeys.writing.citations(projectKey, nextDocumentId) })
     },
     onError: (error) => {
+      const conflict = readWritingDocumentConflict(error)
+      if (conflict) {
+        setSaveConflict(conflict)
+        setSaveMessage(t('writingWorkbenchPage.status.saveFailed'))
+        return
+      }
       setSaveMessage(error instanceof Error ? error.message : t('writingWorkbenchPage.status.saveFailed'))
     },
   })
@@ -884,6 +935,9 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
       pendingCitationCardIdsRef.current.add(cardId)
       try {
       const preview = previewOverride || findCardPreview(cardId)
+      const submitted: SubmittedDraft = {
+        key: draftKey, documentId: effectiveDocumentId, revision: currentDraft?.revision ?? 0, title, markdown,
+      }
       let targetDocumentId = effectiveDocumentId
       let createdDocument: Awaited<ReturnType<typeof createWritingDocument>> | null = null
 
@@ -893,13 +947,14 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
           body_md: markdown,
           metadata_json: { source: 'writing-workbench', project_key: projectKey },
         })
-        targetDocumentId = createdDocument.id
+        targetDocumentId = createdDocument.doc_id
       }
 
       const existingItems = targetDocumentId === effectiveDocumentId ? citationsQuery.data || [] : []
       if (existingItems.some((item) => item.card_id === cardId)) {
         return {
           createdDocument,
+          submitted,
           targetDocumentId,
           saved: existingItems,
           skippedDuplicate: true,
@@ -920,6 +975,7 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
       const saved = await upsertWritingCitations(targetDocumentId, nextItems)
       return {
         createdDocument,
+        submitted,
         targetDocumentId,
         saved,
         skippedDuplicate: false,
@@ -937,20 +993,18 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
         setSaveMessage(t('writingWorkbenchPage.status.citationDuplicate'))
         return
       }
-      if (result.createdDocument?.id) {
-        setIsCreatingDraft(false)
-        setActiveDocumentId(result.createdDocument.id)
-        setDraftByKey((prev) => {
-          const next = { ...prev }
-          delete next[draftKey]
-          delete next[String(result.createdDocument?.id)]
-          return next
-        })
+      if (result.createdDocument?.doc_id) {
+        const document = result.createdDocument
+        if (effectiveDocumentId === result.submitted.documentId) {
+          setIsCreatingDraft(false)
+          setActiveDocumentId(document.doc_id)
+        }
+        setDraftByKey((prev) => reconcileSavedDraft(prev, result.submitted, document))
         setAutosaveMessage(t('writingWorkbenchPage.status.saved'))
         setSaveMessage(t('writingWorkbenchPage.status.citationCreatedDocument'))
         setExportMessage('')
         await queryClient.invalidateQueries({ queryKey: queryKeys.writing.documents(projectKey) })
-        await queryClient.invalidateQueries({ queryKey: queryKeys.writing.documentDetail(projectKey, result.createdDocument.id) })
+        await queryClient.invalidateQueries({ queryKey: queryKeys.writing.documentDetail(projectKey, result.createdDocument.doc_id) })
       }
       setCitationTrayCollapsed(false)
       setCitationTrayDragOver(false)
@@ -1050,7 +1104,7 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
       setAutosaveMessage(t('writingWorkbenchPage.status.autosaving'))
       void autosaveWritingDraft(effectiveDocumentId, {
         draft_body_md: markdown,
-        base_version: documentDetailQuery.data?.version,
+        base_version: draftBaseVersion,
         autosave_token: dashedId('writing', effectiveDocumentId),
         request_id: dashedId('writing', effectiveDocumentId, Date.now()),
         selection_snapshot: {
@@ -1068,8 +1122,8 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
 
     return () => window.clearTimeout(timer)
   }, [
-    documentDetailQuery.data,
     effectiveDocumentId,
+    draftBaseVersion,
     isDirty,
     markdown,
     saveDocumentMutation.isPending,
@@ -1094,11 +1148,11 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
   const documentSummaries = useMemo(
     () =>
       (documentsQuery.data || []).map((item) => ({
-        id: item.id,
+        id: item.doc_id,
         title: item.title,
         status: item.status,
         updatedAt: formatUpdatedAt(item.updated_at, t('writingWorkbenchPage.status.new')),
-        active: item.id === effectiveDocumentId,
+        active: item.doc_id === effectiveDocumentId,
         agentUpdateCount: readAgentUpdates(item.metadata_json).length,
       })),
     [documentsQuery.data, effectiveDocumentId, t],
@@ -1703,6 +1757,7 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
     setActiveDocumentId(null)
     resetContextPanels()
     setSaveMessage('')
+    setSaveConflict(null)
     setExportMessage('')
     setAutosaveMessage(t('writingWorkbenchPage.status.newDraft'))
     setDocumentsPanelOpen(false)
@@ -1712,6 +1767,9 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
       __new__: {
         title: '',
         markdown: defaultMarkdown,
+        baseVersion: null,
+        baseEtag: null,
+        revision: 0,
       },
     }))
   }
@@ -1729,10 +1787,7 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
   const handleApplyTemplate = (templateKey: string) => {
     const template = templatesQuery.data?.find((item) => item.template_key === templateKey)
     if (!template) return
-    setDraftByKey((prev) => ({
-      ...prev,
-      [draftKey]: { title, markdown: template.template_content },
-    }))
+    updateDraft({ markdown: template.template_content })
     setTemplateValidation(null)
     setViewMode('write')
     setTemplatesPanelOpen(false)
@@ -1839,11 +1894,8 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
         },
         { ifMatch: documentDetailQuery.data.etag },
       )
-      setDraftByKey((prev) => {
-        const next = { ...prev }
-        delete next[draftKey]
-        return next
-      })
+      // Any draft created during this request still describes the previous body.
+      // Keep its original lock so a later save detects this concurrent review.
       setAutosaveMessage(t('writingWorkbenchPage.status.saved'))
       setSaveMessage(
         reviewStatus === 'accepted'
@@ -1851,7 +1903,7 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
           : t('writingWorkbenchPage.agentUpdate.rejectedMessage'),
       )
       await queryClient.invalidateQueries({ queryKey: queryKeys.writing.documents(projectKey) })
-      await queryClient.invalidateQueries({ queryKey: queryKeys.writing.documentDetail(projectKey, document.id || effectiveDocumentId) })
+      await queryClient.invalidateQueries({ queryKey: queryKeys.writing.documentDetail(projectKey, document.doc_id || effectiveDocumentId) })
     } catch (error) {
       setSaveMessage(error instanceof Error ? error.message : t('writingWorkbenchPage.agentUpdate.reviewFailed'))
     }
@@ -1905,12 +1957,7 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
               data-testid="writing-title-input"
               aria-label={t('writingWorkbenchPage.aria.documentTitle')}
               value={title}
-              onChange={(event) =>
-                setDraftByKey((prev) => ({
-                  ...prev,
-                  [draftKey]: { title: event.target.value, markdown },
-                }))
-              }
+              onChange={(event) => updateDraft({ title: event.target.value })}
               placeholder={t('writingWorkbenchPage.placeholder.untitledReport')}
             />
           </div>
@@ -1987,6 +2034,40 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
             {effectiveDocumentId != null ? <span className="chip chip-warn">doc {effectiveDocumentId}</span> : null}
           </div>
         </div>
+
+        {saveConflict ? (
+          <section
+            className="writing-conflict-panel"
+            role="alert"
+            aria-label="Writing document version conflict"
+            data-testid="writing-conflict-panel"
+          >
+            <div className="writing-conflict-panel__header">
+              <strong>409 VERSION_CONFLICT</strong>
+              <span>{saveConflict.serverSnapshot.title || '-'}</span>
+            </div>
+            <dl>
+              <div>
+                <dt>doc_id</dt>
+                <dd data-testid="writing-conflict-doc-id">{saveConflict.serverSnapshot.doc_id}</dd>
+              </div>
+              <div>
+                <dt>expected_version</dt>
+                <dd>{saveConflict.expectedVersion ?? '-'}</dd>
+              </div>
+              <div>
+                <dt>server_version</dt>
+                <dd data-testid="writing-conflict-version">
+                  {saveConflict.currentVersion ?? saveConflict.serverSnapshot.version}
+                </dd>
+              </div>
+              <div>
+                <dt>If-Match</dt>
+                <dd>{saveConflict.serverSnapshot.etag || '-'}</dd>
+              </div>
+            </dl>
+          </section>
+        ) : null}
 
         <aside
           ref={documentsPanelRef}
@@ -2275,12 +2356,7 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
                         ? t('writingWorkbenchPage.status.newDraft')
                         : autosaveMessage
                   }
-                  onChange={(nextMarkdown) =>
-                    setDraftByKey((prev) => ({
-                      ...prev,
-                      [draftKey]: { title, markdown: nextMarkdown },
-                    }))
-                  }
+                  onChange={(nextMarkdown) => updateDraft({ markdown: nextMarkdown })}
                   onSelectionChange={handleSelectionTextChange}
                 />
                 {agentUpdateAnchors.length ? (

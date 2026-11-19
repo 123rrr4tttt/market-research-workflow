@@ -50,7 +50,6 @@ include = [
     "main/backend/app/successor_runtime/capabilities/batch_task_interpreters.py",
     "main/backend/app/successor_runtime/capabilities/source_contracts.py",
     "main/backend/app/successor_runtime/capabilities/workflow_common.py",
-    "main/backend/app/successor_runtime/capabilities/workflow_legacy_dsl.py",
     "main/backend/app/successor_runtime/capabilities/workflow_native_contribution.py",
     "main/backend/app/services/ingest/search_and_ingest.py",
     "main/backend/app/services/ingest/adapters/http_utils.py",

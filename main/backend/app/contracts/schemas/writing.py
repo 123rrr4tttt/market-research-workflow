@@ -8,7 +8,7 @@ from ..materials import normalize_material_source_type
 from mrw_functorial_kit.core.application_failure_semantics import writing_request_contract_failures
 
 
-_WRITING_FAILURE_WITNESS = "test:test_w01_contract_failures"
+_WRITING_FAILURE_WITNESS = "test:test_writing_query_core_failure"
 MaterialCardSource = Annotated[
     Literal["material", "resource", "graph"], BeforeValidator(normalize_material_source_type)
 ]
@@ -37,7 +37,7 @@ def _normalize_writing_query(value: object, *, operation: str) -> str | Failure:
 
 def _lift_writing_contract_failure(value: str | Failure) -> str:
     if isinstance(value, Failure):
-        # kit:boundary owner=app.contracts.schemas.writing.pydantic_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=writing.request.contract_failure witness=test:test_w01_contract_failures
+        # kit:boundary owner=app.contracts.schemas.writing.pydantic_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=writing.request.contract_failure witness=test:test_writing_query_core_failure
         raise ValueError(value.message)
     return value
 
@@ -102,6 +102,7 @@ class KeywordCardListResponse(BaseModel):
     selection_hash: str = Field(..., min_length=1, max_length=64)
     suggested_queries: list[str] = Field(default_factory=list)
     search_backends_used: list[str] = Field(default_factory=list)
+    search_failures: list[dict[str, Any]] = Field(default_factory=list)
     source_count: dict[str, int] = Field(default_factory=dict)
     dedupe_count: int = Field(default=0, ge=0)
     score_snapshot: dict[str, Any] = Field(default_factory=dict)

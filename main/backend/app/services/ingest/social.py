@@ -408,7 +408,7 @@ def collect_user_social_sentiment(
     except Exception as exc:  # noqa: BLE001
         logger.exception("collect_user_social_sentiment failed")
         fail_job(job_id, str(exc))
-        # kit:boundary owner=ingest.social_sentiment class=SHELL_BOUNDARY_EXCEPTION failure_family=ingest.operation.failure witness=test:test_latest_service_a_ingest_shell_boundaries_reraise_original_errors
+        # kit:boundary owner=ingest.social_sentiment class=SHELL_BOUNDARY_EXCEPTION failure_family=ingest.operation.failure witness=test:test_ingest_shell_boundaries_reraise_original_errors
         raise
 
 
@@ -606,7 +606,7 @@ def collect_policy_and_regulation(
     except Exception as exc:
         logger.exception("collect_policy_and_regulation failed")
         fail_job(job_id, str(exc))
-        # kit:boundary owner=ingest.policy_regulation class=SHELL_BOUNDARY_EXCEPTION failure_family=ingest.operation.failure witness=test:test_latest_service_a_ingest_shell_boundaries_reraise_original_errors
+        # kit:boundary owner=ingest.policy_regulation class=SHELL_BOUNDARY_EXCEPTION failure_family=ingest.operation.failure witness=test:test_ingest_shell_boundaries_reraise_original_errors
         raise
 
 

@@ -12,7 +12,7 @@ from ..models.base import SessionLocal
 from ..models.entities import KeywordHistory, KeywordPrior
 
 
-_FAILURE_WITNESS = "test:test_w01_request_failures"
+_FAILURE_WITNESS = "test:test_invalid_service_requests_preserve_public_errors"
 _FAILURE_CONTEXT_KEYS = frozenset(
     {"owner", "operation", "failure_family", "public_exception", "public_message", "witness"}
 )
@@ -36,9 +36,9 @@ def _keyword_failure(message: str, *, operation: str) -> Failure:
 def _raise_keyword_failure(failure: Failure) -> NoReturn:
     context = failure.context or {}
     if not keyword_memory_contract_failures.matches(failure) or _FAILURE_CONTEXT_KEYS - set(context):
-        # kit:boundary owner=keyword_memory.failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w01_request_failures
+        # kit:boundary owner=keyword_memory.failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_invalid_service_requests_preserve_public_errors
         raise TypeError("keyword memory failure lift context is incomplete or inconsistent")
-    # kit:boundary owner=keyword_memory.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=keyword_memory.contract_failure witness=test:test_w01_request_failures
+    # kit:boundary owner=keyword_memory.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=keyword_memory.contract_failure witness=test:test_invalid_service_requests_preserve_public_errors
     raise ValueError(str(context["public_message"]))
 
 

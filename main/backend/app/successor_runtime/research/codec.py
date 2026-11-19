@@ -16,9 +16,9 @@ from typing import Mapping, NoReturn, Sequence, TypeGuard
 
 from functorial_kit import Failure
 
-from mrw_functorial_kit.core.w07_semantics import research_failures
+from mrw_functorial_kit.core.workflow_research_failure_semantics import research_failures
 
-_RESEARCH_FAILURE_WITNESS = "test:test_w07_language_research_failure_boundary"
+_RESEARCH_FAILURE_WITNESS = "test:test_language_and_research_failures_are_closed_values"
 
 
 def research_failure(
@@ -58,13 +58,13 @@ def raise_research_failure(
         or context.get("public_exception") != exception_type.__name__
         or not context.get("public_message")
     ):
-        # kit:boundary owner=successor.research.failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_language_research_failure_boundary
+        # kit:boundary owner=successor.research.failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_language_and_research_failures_are_closed_values
         raise TypeError("research failure lift context is incomplete")
-    # kit:boundary owner=successor.research.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.research.failure witness=test:test_w07_language_research_failure_boundary
+    # kit:boundary owner=successor.research.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.research.failure witness=test:test_language_and_research_failures_are_closed_values
     if cause is None:
-        # kit:boundary owner=successor.research.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.research.failure witness=test:test_w07_language_research_failure_boundary
+        # kit:boundary owner=successor.research.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.research.failure witness=test:test_language_and_research_failures_are_closed_values
         raise exception_type(context.get("public_argument", context["public_message"]))
-    # kit:boundary owner=successor.research.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.research.failure witness=test:test_w07_language_research_failure_boundary
+    # kit:boundary owner=successor.research.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.research.failure witness=test:test_language_and_research_failures_are_closed_values
     raise exception_type(context.get("public_argument", context["public_message"])) from cause
 
 __all__ = [

@@ -40,7 +40,7 @@ def test_runtime_failure_preserves_exact_exception_under_generic_lift() -> None:
         "public_argument": "capability claim authority is stale",
         "public_message": "capability claim authority is stale",
         "site": "runtime.node.run_once.port",
-        "witness": "test:test_w07_runtime_failure_lift_context",
+        "witness": "test:test_runtime_failure_lift_context",
     }
     with pytest.raises(StaleBindingConflict, match="capability claim authority"):
         raise_runtime_failure(failure, RuntimeError)

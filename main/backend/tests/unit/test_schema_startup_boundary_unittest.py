@@ -13,6 +13,7 @@ from unittest.mock import Mock
 
 import pytest
 from fastapi import FastAPI
+from fastapi.testclient import TestClient
 
 
 BACKEND_ROOT = Path(__file__).resolve().parents[2]
@@ -452,6 +453,32 @@ def test_require_model_table_returns_native_table_identity() -> None:
     assert require_model_table(table) is table
 
 
+def test_schema_startup_rejects_non_table_model_before_ddl(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app import startup_hooks as startup_module
+
+    database_engine = _RecordingEngine()
+    monkeypatch.setattr(startup_module, "engine", database_engine)
+    monkeypatch.setattr(startup_module, "build_topology_service", lambda: object())
+    monkeypatch.setattr(
+        startup_module, "AgentSession", SimpleNamespace(__table__=object())
+    )
+    app = FastAPI()
+    startup_module.register_startup_hooks(app)
+    handler = next(
+        callback
+        for callback in app.router.on_startup
+        if callback.__name__ == "_ensure_shared_library_tables_ready"
+    )
+
+    with pytest.raises(TypeError, match="must be a SQLAlchemy Table"):
+        handler()
+
+    assert database_engine.begin_calls == 0
+    assert database_engine.connection.statements == []
+
+
 def test_schema_startup_uses_canonical_tenant_manifest_for_validation(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -481,36 +508,6 @@ def test_schema_startup_uses_canonical_tenant_manifest_for_validation(
 
     assert validated == [database_engine.connection]
     assert database_engine.begin_calls == 1
-
-
-def test_database_cli_wrapper_runs_preflight_before_command(monkeypatch: pytest.MonkeyPatch) -> None:
-    from main.backend.scripts import _cli_runtime
-
-    order: list[str] = []
-    monkeypatch.setattr(
-        _cli_runtime,
-        "initialize_database_cli",
-        lambda **_kwargs: order.append("schema"),
-    )
-
-    result = _cli_runtime.run_database_cli(
-        lambda: order.append("command") or 17,
-        project_key="cli_demo",
-    )
-
-    assert result == 17
-    assert order == ["schema", "command"]
-
-    def fail_preflight(**_kwargs: object) -> None:
-        raise RuntimeError("preflight failed")
-
-    monkeypatch.setattr(_cli_runtime, "initialize_database_cli", fail_preflight)
-    with pytest.raises(RuntimeError, match="preflight failed"):
-        _cli_runtime.run_database_cli(
-            lambda: order.append("must_not_run"),
-            project_key="cli_demo",
-        )
-    assert order == ["schema", "command"]
 
 
 def test_development_schema_startup_logs_classified_failure_and_continues() -> None:
@@ -546,56 +543,112 @@ def test_production_schema_startup_logs_and_fails_closed(env: str) -> None:
 
     assert caught.value is failure
     logger.warning.assert_called_once()
+    assert logger.warning.call_args.args[0].startswith("db startup blocked: %s")
     assert logger.warning.call_args.args[3] is True
 
 
-def test_register_startup_hooks_exposes_schema_bootstrap_as_explicit_handler(monkeypatch: pytest.MonkeyPatch) -> None:
-    app = FastAPI()
-    bootstrap = Mock()
-    monkeypatch.setattr("app.startup_hooks.initialize_default_project_schema", bootstrap)
+def test_api_startup_blocks_on_unavailable_database_then_recovers(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    from app import startup_hooks as startup_module
+    from app.services.projects import schema_initialization as schema_module
 
-    register_startup_hooks(app)
-
-    handler = next(
-        callback
-        for callback in app.router.on_startup
-        if callback.__name__ == "_ensure_default_project_schema"
+    failure = ConnectionError("db unavailable")
+    schema_engine = _RecordingEngine()
+    order: list[str] = []
+    monkeypatch.setattr(schema_module, "settings", _settings(env="dev"))
+    monkeypatch.setattr(schema_module, "engine", _FailingEngine(failure))
+    monkeypatch.setattr(
+        schema_module,
+        "ensure_database_revision_compatible",
+        lambda _connection: order.append("schema"),
     )
-    handler()
-    bootstrap.assert_called_once()
+    monkeypatch.setattr(startup_module, "build_topology_service", lambda: object())
+
+    app = FastAPI()
+    app.router.add_event_handler("startup", lambda: order.append("downstream"))
+    register_startup_hooks(app)
+    # The existing DB-using downstream handlers have separate unit coverage.
+    # Keep the real preflight and the callback registered before composition.
+    del app.router.on_startup[2:]
+
+    with pytest.raises(ConnectionError, match="db unavailable") as caught, TestClient(app):
+        pytest.fail("API accepted startup without the primary database")
+    assert caught.value is failure
+    assert "db startup blocked: db unavailable" in caplog.text
+    assert order == []
+
+    monkeypatch.setattr(schema_module, "engine", schema_engine)
+    with TestClient(app):
+        assert order == ["schema", "downstream"]
+    assert schema_engine.begin_calls == 1
 
 
-def test_celery_worker_schema_boundary_and_production_termination() -> None:
+def test_celery_worker_schema_boundary_blocks_before_pool_then_recovers() -> None:
     code = r'''
+from contextlib import nullcontext
+from types import SimpleNamespace
+
 import langchain_community.cache as lc_cache
 lc_cache.SQLiteCache = lambda *args, **kwargs: object()
 
 from celery.exceptions import WorkerTerminate
 import app.celery_app as celery_module
+from app.services.projects import schema_initialization as schema_module
+
+class SchemaEngine:
+    failure = ConnectionError("db unavailable")
+
+    def begin(self):
+        calls.append("schema")
+        if self.failure is not None:
+            raise self.failure
+        return nullcontext(object())
+
+    def dispose(self):
+        calls.append("dispose")
 
 calls = []
-celery_module.initialize_default_project_schema = lambda: calls.append("schema") or True
-assert celery_module.initialize_celery_worker_schema() is True
-assert calls == ["schema"]
+engine = SchemaEngine()
+schema_module.settings = SimpleNamespace(env="dev", active_project_key="demo")
+schema_module.engine = celery_module.engine = engine
+schema_module.ensure_database_revision_compatible = lambda _connection: calls.append("revision")
 
-def fail():
-    raise RuntimeError("production DDL denied")
+app = celery_module.celery_app
+app.conf.broker_url = "memory://"
+app.conf.result_backend = "cache+memory://"
 
-celery_module.initialize_default_project_schema = fail
-try:
-    celery_module.initialize_celery_worker_schema()
-except WorkerTerminate as exc:
-    assert exc.code == 1
-    assert isinstance(exc.__cause__, RuntimeError)
-else:
-    raise AssertionError("production failure did not terminate worker child")
+# Exercise WorkController's real worker_init signal dispatch; stop at the
+# blueprint boundary so no worker pool or consumer is constructed or started.
+class ReachedBlueprint(Exception):
+    pass
 
-assert issubclass(WorkerTerminate, BaseException)
-assert not issubclass(WorkerTerminate, Exception)
-assert any(
-    receiver is celery_module._initialize_celery_worker_schema
-    for receiver in celery_module.signals.worker_process_init._live_receivers(None)
-)
+class ProbeWorker(app.WorkController):
+    def on_init_blueprint(self):
+        raise ReachedBlueprint
+
+for pool in ("solo", "prefork"):
+    calls.clear()
+    engine.failure = ConnectionError("db unavailable")
+    try:
+        ProbeWorker(pool_cls=pool, concurrency=1, use_eventloop=False)
+    except WorkerTerminate as exc:
+        assert exc.code == 1
+        assert exc.__cause__ is engine.failure
+    else:
+        raise AssertionError("DB failure did not stop worker startup")
+    assert calls == ["schema"]
+
+    calls.clear()
+    engine.failure = None
+    try:
+        ProbeWorker(pool_cls=pool, concurrency=1, use_eventloop=False)
+    except ReachedBlueprint:
+        pass
+    else:
+        raise AssertionError("worker did not reach blueprint after DB recovery")
+    assert calls == ["schema", "revision", "dispose"]
 '''
     env = os.environ.copy()
     python_path = os.pathsep.join((str(BACKEND_ROOT), str(REPOSITORY_ROOT / "src")))
@@ -612,3 +665,5 @@ assert any(
     )
 
     assert result.returncode == 0, result.stderr
+    assert "Celery worker database startup failed" in result.stderr
+    assert "ConnectionError: db unavailable" in result.stderr

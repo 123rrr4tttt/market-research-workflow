@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from functorial_kit import architecture_gate_tests
 from functorial_kit.contributions_cli import main as contributions_main
 
@@ -13,7 +15,7 @@ CATALOG = ROOT / "contributions" / "project_catalog.py"
 TestArchitecture = architecture_gate_tests(ROOT)
 
 
-def test_contribution_projection_is_current(capsys) -> None:
+def test_contribution_projection_is_current(capsys: pytest.CaptureFixture[str]) -> None:
     status = contributions_main(["check", "--catalog", str(CATALOG), "--root", str(ROOT)])
 
     assert status == 0

@@ -431,7 +431,7 @@ def build_external_search_provider(
 ) -> Annotated[
     ExternalSearchProvider,
     "kit:prepared-command effect_boundary=external_search_provider "
-    "witness=test:test_w04_authority_metadata",
+    "witness=test:test_service_results_declare_sources_and_effect_authority",
 ]:
     if request.live_enabled and request.injected_results is None and request.fixture_path is None:
         return LiveHookExternalSearchProvider(provider_name=request.provider_name, live_searcher=live_searcher)

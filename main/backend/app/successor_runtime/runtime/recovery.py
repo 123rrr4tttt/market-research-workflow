@@ -33,7 +33,7 @@ class NonStartProof(FrozenContract):
     def validate_proof_digest(self) -> "NonStartProof":
         expected = canonical_digest(self, exclude_fields={"proof_digest"})
         if self.proof_digest != expected:
-            # kit:boundary owner=successor.runtime.recovery class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_runtime_non_start_proof_negative
+            # kit:boundary owner=successor.runtime.recovery class=PROGRAMMER_DEFECT failure_family=none witness=test:test_runtime_non_start_proof_negative
             raise ValueError("proof_digest does not match canonical non-start proof content")
         return self
 

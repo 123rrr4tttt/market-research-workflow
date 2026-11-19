@@ -17,7 +17,7 @@ _COLLECTION = "operators"
 
 def upsert_operator(spec: object) -> dict[str, Any]:
     if not isinstance(spec, OperatorSpec):
-        # kit:boundary owner=catalog.py class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w02_programmer_defect_boundary
+        # kit:boundary owner=catalog.py class=PROGRAMMER_DEFECT failure_family=none witness=test:test_agent_catalog_and_project_tools_classify_programmer_defects
         raise TypeError("spec must be an OperatorSpec")
     return catalog.upsert_operator(spec.operator_id, spec.to_dict())
 

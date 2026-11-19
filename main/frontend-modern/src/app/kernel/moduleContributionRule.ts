@@ -62,6 +62,7 @@ const MODULE_RENDERERS: Record<KernelModuleKey, ModuleRenderer> = {
   flowRawData: ({ projectKey }) => h(RawDataPage, { projectKey, variant: 'rawData' }),
   flowWriting: ({ projectKey, shellMode }) =>
     h(WritingWorkbenchPage, {
+      key: projectKey,
       projectKey,
       standalone: shellMode !== KERNEL_RENDER_SHELL_MODE.workbench,
     }),

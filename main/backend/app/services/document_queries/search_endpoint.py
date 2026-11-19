@@ -40,7 +40,7 @@ def build_search_endpoint_material_query(
 ) -> Annotated[
     MaterialQuery,
     "kit:prepared-command effect_boundary=app.services.material_queries.statement_builder "
-    "witness=test:test_w04_authority_metadata",
+    "witness=test:test_service_results_declare_sources_and_effect_authority",
 ]:
     filters: list[MaterialQueryFilterInput] = []
     state_filter = _clean_optional_text(state)

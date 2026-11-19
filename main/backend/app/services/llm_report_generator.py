@@ -7,6 +7,8 @@ from typing import Annotated, Any, NoReturn, Protocol, TypeGuard, runtime_checka
 from functorial_kit import Failure
 from mrw_functorial_kit.core.application_failure_semantics import llm_report_request_failures
 
+from .llm_report_source_enrichment import ReportSourceResolution
+
 
 GATE_VERSION = "r2.3"
 REPORT_TEMPLATE_VERSION = "v1.1"
@@ -19,7 +21,7 @@ SHORT_SECTION_LEN_SOFT = 20
 MAX_SECTION_TITLE_LEN = 120
 MAX_SECTION_TITLE_COUNT = 12
 _PLACEHOLDER_SIGNATURES = ("本节由模板生成", "后续流程补充")
-_FAILURE_WITNESS = "test:test_w01_request_failures"
+_FAILURE_WITNESS = "test:test_invalid_service_requests_preserve_public_errors"
 _FAILURE_CONTEXT_KEYS = frozenset(
     {"owner", "operation", "failure_family", "public_exception", "public_message", "witness"}
 )
@@ -53,9 +55,9 @@ def _request_failure(code: str, message: str, *, operation: str, **details: Any)
 def _raise_request_failure(failure: Failure) -> NoReturn:
     context = failure.context or {}
     if not llm_report_request_failures.matches(failure) or _FAILURE_CONTEXT_KEYS - set(context):
-        # kit:boundary owner=llm_report_generator.failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w01_request_failures
+        # kit:boundary owner=llm_report_generator.failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_invalid_service_requests_preserve_public_errors
         raise TypeError("llm report request failure lift context is incomplete or inconsistent")
-    # kit:boundary owner=llm_report_generator.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=llm.report.request.failure witness=test:test_w01_request_failures
+    # kit:boundary owner=llm_report_generator.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=llm.report.request.failure witness=test:test_invalid_service_requests_preserve_public_errors
     raise ValueError(str(context["public_message"]))
 
 
@@ -80,9 +82,11 @@ def _float_value(value: object) -> float:
     return 0.0
 
 
-def build_report_capability_truth(*, route_kind: str, auto_source_enabled: bool) -> Annotated[
+def build_report_capability_truth(
+    *, route_kind: str, source_resolution: ReportSourceResolution | None
+) -> Annotated[
     dict[str, Any],
-    "kit:non-authoritative derived_as=external_claim fact_source=llm.report_contract witness=test:test_w01_meta",
+    "kit:non-authoritative derived_as=external_claim fact_source=llm.report_contract witness=test:test_derived_service_annotations_match_fact_sources",
 ]:
     resolved_route_kind = str(route_kind or "").strip().lower() or "unknown"
     return {
@@ -91,7 +95,10 @@ def build_report_capability_truth(*, route_kind: str, auto_source_enabled: bool)
         "implementation_kind": "structured_template_report",
         "real_model_path": False,
         "fallback_path": True,
-        "source_resolution_kind": "auto_enriched" if auto_source_enabled else "caller_supplied_only",
+        "source_resolution_kind": source_resolution.kind if source_resolution is not None else "not_resolved",
+        "source_resolution_failures": [
+            failure.to_payload() for failure in source_resolution.failures
+        ] if source_resolution is not None else [],
         "route_kind": resolved_route_kind,
         "semantic_warning": "current implementation is structured/template-driven and should not be interpreted as a fully model-generated report path",
     }
@@ -192,7 +199,7 @@ def build_structured_report(
     section_titles: list[str] | None = None,
 ) -> Annotated[
     StructuredReport,
-    "kit:non-authoritative derived_as=generated_evidence fact_source=llm.report_template witness=test:test_w01_meta",
+    "kit:non-authoritative derived_as=generated_evidence fact_source=llm.report_template witness=test:test_derived_service_annotations_match_fact_sources",
 ]:
     cleaned_topic = topic.strip()
     if not cleaned_topic:

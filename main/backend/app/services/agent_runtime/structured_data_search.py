@@ -251,7 +251,7 @@ def build_structured_data_model_evidence_manifest(
 ) -> Annotated[
     list[StructuredRecord],
     "kit:non-authoritative derived_as=generated_evidence fact_source=structured_data_model_outputs "
-    "witness=test:test_w02_agent_authority_metadata"
+    "witness=test:test_agent_results_declare_sources_and_effect_authority"
 ]:
     """Build stable model-facing read handles for already-stored project records."""
 

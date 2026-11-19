@@ -2,13 +2,14 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Mapping, Sequence
 from datetime import date, datetime
+from dataclasses import dataclass
 from importlib import import_module
 import logging
 import os
 from typing import Protocol, TypeAlias, TypeGuard, Union, runtime_checkable
 
 import numpy as np
-from elasticsearch import Elasticsearch
+from elasticsearch import ApiError, Elasticsearch, TransportError
 from sqlalchemy import Float, select
 from sqlalchemy.sql.elements import ColumnElement
 
@@ -17,7 +18,7 @@ from ...models.entities import Material, Embedding
 from ..llm.provider import get_embeddings
 from ..projects import bind_project, current_project_key
 from functorial_kit import Failure
-from mrw_functorial_kit.core.w04_service_semantics import search_failures
+from mrw_functorial_kit.core.service_failure_semantics import search_failures
 from .es_client import get_es_client
 
 logger = logging.getLogger(__name__)
@@ -119,16 +120,23 @@ class _SqlVectorColumn(Protocol):
 
 
 _ES_INDEX = "policy_docs_es"
-_last_used_backends: list[str] = []
+
+@dataclass(frozen=True)
+class SearchInvocationObservation:
+    hits: list[SearchRow]
+    used_backends: tuple[str, ...]
+    failures: tuple[Failure, ...]
 
 
-def _set_last_used_backends(backends: list[str]) -> None:
-    global _last_used_backends
-    _last_used_backends = backends[:]
 
-
-def get_last_used_backends() -> list[str]:
-    return list(_last_used_backends)
+def search_failure_payload(failure: Failure) -> SearchJsonObject:
+    """One wire projection for the search observation's typed failures."""
+    context = failure.context or {}
+    payload: SearchJsonObject = {"code": failure.code, "message": failure.message}
+    for key in ("provider", "owner", "exception_type"):
+        value: object = context.get(key)
+        payload[key] = value if isinstance(value, str) else None
+    return payload
 
 
 def _is_object_mapping(value: object) -> TypeGuard[Mapping[object, object]]:
@@ -239,13 +247,25 @@ def _project_scope(project_key: str | None) -> str:
     return current_project_key()
 
 
+def _opensearch_failure(message: str, exc: Exception | None = None) -> Failure:
+    return search_failures.fail(
+        "backend_unavailable",
+        message,
+        {
+            "owner": "search.hybrid.opensearch_port",
+            "provider": "opensearch",
+            "exception_type": type(exc).__name__ if exc is not None else None,
+        },
+    )
+
+
 def bm25_search(
     es: Elasticsearch,
     query: str,
     state: str | None,
     top_k: int,
     project_key: str | None = None,
-) -> list[SearchRow]:
+) -> list[SearchRow] | Failure:
     must: SearchJsonArray = [
         {"multi_match": {"query": query, "fields": ["title^3", "summary^2", "text"]}},
         {"term": {"project_key": _project_scope(project_key)}},
@@ -265,8 +285,7 @@ def bm25_search(
     hits_block = _shallow_object(response.get("hits")) if response is not None else None
     raw_hits_object = hits_block.get("hits") if hits_block is not None else None
     if not _is_object_sequence(raw_hits_object):
-        logger.warning("OpenSearch response has no JSON hits array")
-        return []
+        return _opensearch_failure("OpenSearch response has no JSON hits array")
 
     hits: list[SearchRow] = []
     for raw_hit in raw_hits_object:
@@ -309,6 +328,8 @@ def bm25_search(
                 "tags": ["lexical", "bm25"],
             }
         )
+    if raw_hits_object and not hits:
+        return _opensearch_failure("OpenSearch response has no valid search hits")
     return hits
 
 
@@ -320,6 +341,18 @@ def _qdrant_failure(code: str, message: str, exc: Exception) -> Failure:
             "owner": "search.hybrid.qdrant_port",
             "provider": "qdrant",
             "exception_type": type(exc).__name__,
+        },
+    )
+
+
+def _pgvector_failure(code: str, message: str, exc: Exception | None = None) -> Failure:
+    return search_failures.fail(
+        code,
+        message,
+        {
+            "owner": "search.hybrid.pgvector_port",
+            "provider": "pgvector",
+            "exception_type": type(exc).__name__ if exc is not None else None,
         },
     )
 
@@ -517,7 +550,7 @@ def qdrant_vector_search(
     """Compatibility lift for direct callers that still use RuntimeError."""
     result = try_qdrant_vector_search(query, state, top_k, project_key=project_key)
     if isinstance(result, Failure):
-        # kit:boundary owner=search.hybrid.qdrant_compatibility_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=search.failure witness=test:test_w04_search_qdrant_failure_core
+        # kit:boundary owner=search.hybrid.qdrant_compatibility_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=search.failure witness=test:test_search_qdrant_failure_core
         raise RuntimeError(result.message)  # noqa: TRY004
     return result
 
@@ -554,27 +587,52 @@ def vector_search(
     top_k: int,
     project_key: str | None = None,
 ) -> list[SearchRow]:
+    return observe_vector_search(query, state, top_k, project_key=project_key).hits
+
+
+def observe_vector_search(
+    query: str,
+    state: str | None,
+    top_k: int,
+    project_key: str | None = None,
+) -> SearchInvocationObservation:
     scope = _project_scope(project_key)
-    used_fallback = False
+    failures: list[Failure] = []
     fallback_reason: str | None = None
     try:
-        qdrant_attempt: list[SearchRow] | Failure = qdrant_vector_search(
+        qdrant_attempt: list[SearchRow] | Failure = try_qdrant_vector_search(
             query, state, top_k, project_key=scope
         )
-    except RuntimeError as exc:
+    except Exception as exc:  # noqa: BLE001
         qdrant_attempt = _qdrant_failure("vector_search_failed", str(exc), exc)
     if isinstance(qdrant_attempt, Failure):
         logger.info("Qdrant 不可用或查询失败，降级至 pgvector: %s", qdrant_attempt.message)
-        used_fallback = True
+        failures.append(qdrant_attempt)
         fallback_reason = qdrant_attempt.message
     else:
-        return qdrant_attempt
+        return SearchInvocationObservation(qdrant_attempt, ("qdrant",), ())
 
+    try:
+        pgvector_attempt = _pgvector_search(query, state, top_k, scope, fallback_reason)
+    except Exception as exc:  # noqa: BLE001
+        pgvector_attempt = _pgvector_failure("vector_search_failed", str(exc), exc)
+    if isinstance(pgvector_attempt, Failure):
+        return SearchInvocationObservation([], (), (*failures, pgvector_attempt))
+    return SearchInvocationObservation(pgvector_attempt, ("pgvector",), tuple(failures))
+
+
+def _pgvector_search(
+    query: str,
+    state: str | None,
+    top_k: int,
+    scope: str,
+    fallback_reason: str | None,
+) -> list[SearchRow] | Failure:
     try:
         embedding = get_embeddings().embed_query(query)
     except Exception as exc:  # noqa: BLE001
         logger.warning("无法生成向量嵌入，跳过向量搜索: %s", exc)
-        return []
+        return _pgvector_failure("embedding_failed", f"embed_failed: {exc}", exc)
 
     with bind_project(scope):
         with SessionLocal() as session:
@@ -582,7 +640,10 @@ def vector_search(
             distance = _pgvector_distance(vector)
             if distance is None:
                 logger.warning("pgvector model does not expose the public distance operator")
-                return []
+                return _pgvector_failure(
+                    "backend_unavailable",
+                    "pgvector model does not expose the public distance operator",
+                )
             stmt = (
                 select(Embedding, Material)
                 .join(Material, Material.id == Embedding.object_id)
@@ -605,8 +666,7 @@ def vector_search(
             logger.warning("pgvector returned an invalid embedding vector")
             continue
         tags: SearchJsonArray = ["vector", "pgvector"]
-        if used_fallback:
-            tags.append("fallback")
+        tags.append("fallback")
         score = float(np.dot(vector, np.array(stored_vector)))
         material_id = _provider_json_value(raw_document.id, field="material.id")
         raw_source_id = _provider_json_value(raw_document.source_id, field="material.source_id")
@@ -644,7 +704,7 @@ def vector_search(
             "reference": source_reference,
             "source_uri": source_uri,
             "score": score,
-            "fallback_reason": fallback_reason if used_fallback else None,
+            "fallback_reason": fallback_reason,
         }
         hits.append(
             {
@@ -670,7 +730,7 @@ def vector_search(
                 "mode": "vector",
                 "backend": "pgvector",
                 "provider_payload_kind": "pgvector_payload",
-                "fallback_reason": fallback_reason if used_fallback else None,
+                "fallback_reason": fallback_reason,
                 "payload_provenance": provenance,
                 "provenance": provenance,
                 "tags": tags,
@@ -717,11 +777,6 @@ def reciprocal_rank_fusion(
     return combined
 
 
-def _backend_name(hit: SearchRow, default: str) -> str:
-    backend = hit.get("backend")
-    return backend if isinstance(backend, str) and backend else default
-
-
 def hybrid_search(
     query: str,
     state: str | None,
@@ -729,34 +784,41 @@ def hybrid_search(
     mode: str,
     project_key: str | None = None,
 ) -> list[SearchRow]:
-    es = get_es_client()
+    return observe_hybrid_search(query, state, top_k, mode, project_key=project_key).hits
+
+
+def observe_hybrid_search(
+    query: str,
+    state: str | None,
+    top_k: int,
+    mode: str,
+    project_key: str | None = None,
+) -> SearchInvocationObservation:
     scope = _project_scope(project_key)
+    if mode == "vector":
+        return observe_vector_search(query, state, top_k, project_key=scope)
+    try:
+        bm25_attempt = bm25_search(get_es_client(), query, state, top_k, project_key=scope)
+    except (ApiError, TransportError) as exc:
+        logger.warning("OpenSearch lexical search failed: %s", exc)
+        bm25_attempt = _opensearch_failure("OpenSearch lexical search did not complete", exc)
+    lexical = (
+        SearchInvocationObservation([], (), (bm25_attempt,))
+        if isinstance(bm25_attempt, Failure)
+        else SearchInvocationObservation(bm25_attempt, ("opensearch",), ())
+    )
 
     if mode == "bm25":
-        hits = bm25_search(es, query, state, top_k, project_key=scope)
-        _set_last_used_backends(["opensearch"])
-        return hits
+        return lexical
 
-    if mode == "vector":
-        results = vector_search(query, state, top_k, project_key=scope)
-        backend = _backend_name(results[0], "pgvector") if results else "pgvector"
-        _set_last_used_backends([backend])
-        return results
-
-    bm25_hits = bm25_search(es, query, state, top_k, project_key=scope)
-    try:
-        vector_hits = vector_search(query, state, top_k, project_key=scope)
-    except Exception as exc:  # noqa: BLE001
-        logger.warning("向量搜索失败，仅返回BM25搜索结果: %s", exc)
-        _set_last_used_backends(["opensearch"])
-        return bm25_hits
-
-    used = ["opensearch"]
-    if vector_hits:
-        used.append(_backend_name(vector_hits[0], "pgvector"))
-        fused = reciprocal_rank_fusion(bm25_hits, vector_hits)
-        _set_last_used_backends(used)
-        return fused
-
-    _set_last_used_backends(used)
-    return bm25_hits
+    vector = observe_vector_search(query, state, top_k, project_key=scope)
+    hits = (
+        reciprocal_rank_fusion(lexical.hits, vector.hits)
+        if lexical.used_backends and vector.hits
+        else lexical.hits or vector.hits
+    )
+    return SearchInvocationObservation(
+        hits,
+        (*lexical.used_backends, *vector.used_backends),
+        (*lexical.failures, *vector.failures),
+    )

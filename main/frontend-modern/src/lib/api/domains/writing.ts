@@ -1,10 +1,20 @@
+import axios from 'axios'
 import { endpoints } from '../endpoints'
-import { apiClient, asList, httpDelete as del, httpGet as get, httpPatch as patch, httpPost as post, unwrapEnvelope } from '../client'
+import {
+  ApiClientError,
+  apiClient,
+  asList,
+  httpDelete as del,
+  httpGet as get,
+  httpPatch as patch,
+  httpPost as post,
+  unwrapEnvelope,
+} from '../client'
 
 export type WritingDocumentStatus = 'draft' | 'published' | 'archived' | string
 
 export type WritingDocument = {
-  id: number
+  doc_id: number
   project_key: string
   title: string
   body_md: string
@@ -223,6 +233,13 @@ export type UpdateWritingDocumentPayload = {
   metadata_json?: Record<string, unknown> | null
 }
 
+export type WritingDocumentConflict = {
+  conflictCode: 'VERSION_CONFLICT'
+  expectedVersion: number | null
+  currentVersion: number | null
+  serverSnapshot: WritingDocument
+}
+
 export type AutosaveWritingDraftPayload = {
   project_key?: string
   draft_body_md: string
@@ -281,6 +298,24 @@ export const WRITING_TYPED_KNOWLEDGE_CONSUMER = 'writing.keyword_card' as const
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value && typeof value === 'object' && !Array.isArray(value))
+}
+
+function asNullableNumber(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null
+}
+
+export function readWritingDocumentConflict(error: unknown): WritingDocumentConflict | null {
+  if (!(error instanceof ApiClientError)) return null
+  const details = error.details
+  if (!isRecord(details) || details.conflict_code !== 'VERSION_CONFLICT') return null
+  const snapshot = details.server_snapshot
+  if (!isRecord(snapshot) || typeof snapshot.doc_id !== 'number') return null
+  return {
+    conflictCode: 'VERSION_CONFLICT',
+    expectedVersion: asNullableNumber(details.expected_version),
+    currentVersion: asNullableNumber(details.current_version),
+    serverSnapshot: snapshot as unknown as WritingDocument,
+  }
 }
 
 function stringValue(value: unknown) {
@@ -459,14 +494,31 @@ export async function updateWritingDocument(
   payload: UpdateWritingDocumentPayload,
   options?: { ifMatch?: string | null },
 ) {
-  if (!options?.ifMatch) {
-    return patch<WritingDocument>(endpoints.writing.documentById(docId), payload)
-  }
+  try {
+    if (!options?.ifMatch) {
+      return await patch<WritingDocument>(endpoints.writing.documentById(docId), payload)
+    }
 
-  const response = await apiClient.patch(endpoints.writing.documentById(docId), payload, {
-    headers: { 'If-Match': options.ifMatch },
-  })
-  return unwrapEnvelope<WritingDocument>(response.data)
+    const response = await apiClient.patch(endpoints.writing.documentById(docId), payload, {
+      headers: { 'If-Match': options.ifMatch },
+    })
+    return unwrapEnvelope<WritingDocument>(response.data)
+  } catch (error) {
+    if (!axios.isAxiosError(error) || !error.response) throw error
+    const payload = error.response.data as {
+      error?: Record<string, unknown>
+      meta?: Record<string, unknown>
+    }
+    const apiError = payload?.error
+    if (!isRecord(apiError)) throw error
+    throw new ApiClientError({
+      message: typeof apiError.message === 'string' ? apiError.message : 'Writing document update failed',
+      status: 'error',
+      code: typeof apiError.code === 'string' ? apiError.code : 'WRITING_DOCUMENT_UPDATE_FAILED',
+      details: isRecord(apiError.details) ? apiError.details : undefined,
+      meta: isRecord(payload.meta) ? payload.meta : undefined,
+    })
+  }
 }
 
 export async function autosaveWritingDraft(docId: number, payload: AutosaveWritingDraftPayload) {

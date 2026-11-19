@@ -1,6 +1,11 @@
 from __future__ import annotations
 
-import hashlib
+from typing import TYPE_CHECKING
+
+from ...search.hybrid import search_failure_payload
+
+if TYPE_CHECKING:
+    from ...search.hybrid import SearchInvocationObservation
 
 from ..contracts import WorkflowJsonObject, WorkflowJsonValue
 from .kernel import (
@@ -10,20 +15,6 @@ from .kernel import (
     node_degraded,
     node_success,
 )
-
-
-def _vector_search_service(
-    query: str,
-    state: str | None,
-    top_k: int,
-) -> list[WorkflowJsonObject]:
-    from app.services.search.hybrid import vector_search
-
-    return [
-        hit
-        for hit in vector_search(query=query, state=state, top_k=top_k)
-    ]
-
 
 def run_vector_search_kernel(context: NodeExecutionContext) -> NodeEffectResult:
     query = _first_nonempty(
@@ -40,18 +31,48 @@ def run_vector_search_kernel(context: NodeExecutionContext) -> NodeEffectResult:
         "top_k": top_k,
     }
     try:
-        hits: list[WorkflowJsonValue] = [
-            hit for hit in _vector_search_service(query=query, state=state, top_k=top_k)
+        observation = _observe_vector_search_service(query=query, state=state, top_k=top_k)
+        hits: list[WorkflowJsonValue] = [hit for hit in observation.hits]
+        failures: list[WorkflowJsonValue] = [
+            search_failure_payload(failure) for failure in observation.failures
         ]
         payload = dict(base_payload)
-        payload.update({"hits": hits, "degraded": False})
+        payload["hits"] = hits
+        payload["used_backends"] = list(observation.used_backends)
+        payload["failures"] = failures
+        payload["degraded"] = bool(failures and not hits and not observation.used_backends)
+        if payload["degraded"]:
+            return node_degraded(
+                context,
+                payload,
+                NodeEffectFailure(
+                    code="vector_search_degraded",
+                    message="; ".join(
+                        failure.message
+                        for failure in observation.failures
+                    ),
+                    owner="workflow_graph.kernel.vector_search",
+                    details={},
+                    cause_type="SearchBackendFailure",
+                    cause_message="all vector search backends failed",
+                ),
+            )
         return node_success(context, payload)
     except Exception as exc:  # noqa: BLE001
-        fallback_hits: list[WorkflowJsonValue] = [_fallback_hit(query=query, state=state)]
         payload = dict(base_payload)
         payload.update(
             {
-                "hits": fallback_hits,
+                "hits": [],
+                "used_backends": [],
+                "failures": [
+                    {
+                        "code": "vector_search_failed",
+                        "message": str(exc),
+                        "provider": "unknown",
+                        "owner": "workflow_graph.kernel.vector_search",
+                        "exception_type": type(exc).__name__,
+                    }
+                ],
                 "degraded": True,
                 "degraded_reason": str(exc),
             }
@@ -70,20 +91,12 @@ def run_vector_search_kernel(context: NodeExecutionContext) -> NodeEffectResult:
         )
 
 
-def _fallback_hit(*, query: str, state: str | None) -> WorkflowJsonObject:
-    digest = hashlib.sha1(
-        (query or "").encode("utf-8", errors="ignore"),
-        usedforsecurity=False,
-    ).hexdigest()[:10]
-    return {
-        "material_id": f"mock-{digest}",
-        "score": 1.0,
-        "title": f"Mock vector hit for: {query or 'empty-query'}",
-        "summary": "fallback vector search result",
-        "state": state,
-        "backend": "mock",
-        "mode": "vector",
-    }
+def _observe_vector_search_service(
+    *, query: str, state: str | None, top_k: int
+) -> SearchInvocationObservation:
+    from app.services.search.hybrid import observe_vector_search
+
+    return observe_vector_search(query=query, state=state, top_k=top_k)
 
 
 def _first_nonempty(*values: object) -> str:

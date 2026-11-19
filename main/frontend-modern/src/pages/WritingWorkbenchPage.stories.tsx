@@ -51,7 +51,7 @@ function applyWritingMocks(mode: 'ready' | 'empty' | 'selection-loading' | 'sele
 
     mocked(api.listWritingDocuments).mockResolvedValue([
       {
-        id: 11,
+        doc_id: 11,
         project_key: 'demo-proj',
         title: '市场周报',
         body_md: '# 市场周报\n\n- 储能\n- 电池',
@@ -62,7 +62,7 @@ function applyWritingMocks(mode: 'ready' | 'empty' | 'selection-loading' | 'sele
         updated_at: '2026-04-02T18:00:00Z',
       },
       {
-        id: 12,
+        doc_id: 12,
         project_key: 'demo-proj',
         title: '政策简报',
         body_md: '# 政策简报',
@@ -74,7 +74,7 @@ function applyWritingMocks(mode: 'ready' | 'empty' | 'selection-loading' | 'sele
       },
     ] as never)
     mocked(api.getWritingDocument).mockResolvedValue({
-      id: 11,
+      doc_id: 11,
       project_key: 'demo-proj',
       title: '市场周报',
       body_md: '# 市场周报\n\n## 核心结论\n\n- 储能招标加快\n- 锂盐价格波动',
@@ -142,7 +142,7 @@ function applyWritingMocks(mode: 'ready' | 'empty' | 'selection-loading' | 'sele
     })
     mocked(api.listWritingDocuments).mockResolvedValue([
       {
-        id: 11,
+        doc_id: 11,
         project_key: 'demo-proj',
         title: '市场周报',
         body_md: '# 市场周报',
@@ -154,7 +154,7 @@ function applyWritingMocks(mode: 'ready' | 'empty' | 'selection-loading' | 'sele
       },
     ] as never)
     mocked(api.getWritingDocument).mockResolvedValue({
-      id: 11,
+      doc_id: 11,
       project_key: 'demo-proj',
       title: '市场周报',
       body_md: '# 市场周报',
@@ -177,7 +177,7 @@ function applyWritingMocks(mode: 'ready' | 'empty' | 'selection-loading' | 'sele
     })
     mocked(api.listWritingDocuments).mockResolvedValue([
       {
-        id: 11,
+        doc_id: 11,
         project_key: 'demo-proj',
         title: '市场周报',
         body_md: '# 市场周报',
@@ -189,7 +189,7 @@ function applyWritingMocks(mode: 'ready' | 'empty' | 'selection-loading' | 'sele
       },
     ] as never)
     mocked(api.getWritingDocument).mockResolvedValue({
-      id: 11,
+      doc_id: 11,
       project_key: 'demo-proj',
       title: '市场周报',
       body_md: '# 市场周报',
@@ -219,7 +219,7 @@ function applyWritingMocks(mode: 'ready' | 'empty' | 'selection-loading' | 'sele
   }
 
   mocked(api.createWritingDocument).mockResolvedValue({
-    id: 99,
+    doc_id: 99,
     project_key: 'demo-proj',
     title: 'Untitled report',
     body_md: '',
@@ -229,7 +229,7 @@ function applyWritingMocks(mode: 'ready' | 'empty' | 'selection-loading' | 'sele
     metadata_json: {},
   } as never)
   mocked(api.updateWritingDocument).mockResolvedValue({
-    id: 11,
+    doc_id: 11,
     project_key: 'demo-proj',
     title: '市场周报',
     body_md: '# 市场周报',

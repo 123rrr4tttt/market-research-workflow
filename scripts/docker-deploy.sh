@@ -102,8 +102,6 @@ require_ops_dir() {
 resolve_backend_python() {
   if [[ -n "${PYTHON:-}" ]]; then
     printf '%s\n' "${PYTHON}"
-  elif [[ -x "/Users/wangyiliang/.local/bin/python3.11" ]]; then
-    printf '%s\n' "/Users/wangyiliang/.local/bin/python3.11"
   elif command -v python3.11 >/dev/null 2>&1; then
     command -v python3.11
   elif [[ -x "${ROOT_DIR}/main/backend/.venv/bin/python" ]]; then

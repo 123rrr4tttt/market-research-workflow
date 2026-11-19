@@ -1,22 +1,15 @@
 from __future__ import annotations
 
-import importlib.util
 import json
 import subprocess
 import sys
 from pathlib import Path
 
-import pytest
-
+from scripts.formal_release import check_release_evidence as checker
 from scripts.formal_release import model
 
 
 SCRIPT_PATH = Path(__file__).resolve().parents[2] / "scripts" / "formal_release" / "check_release_evidence.py"
-SPEC = importlib.util.spec_from_file_location("check_release_evidence", SCRIPT_PATH)
-assert SPEC is not None and SPEC.loader is not None
-checker = importlib.util.module_from_spec(SPEC)
-sys.modules[SPEC.name] = checker
-SPEC.loader.exec_module(checker)
 
 
 def digest(seed: str) -> str:

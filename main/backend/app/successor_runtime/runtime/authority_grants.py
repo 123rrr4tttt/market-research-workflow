@@ -57,7 +57,7 @@ class AuthorityOperationScope(FrozenContract):
         if not self.operation_kinds or len(self.operation_kinds) != len(
             set(self.operation_kinds)
         ):
-            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
+            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_runtime_failure_lift_context
             raise ValueError("authority operation kinds must be non-empty and unique")
         expected = canonical_digest(
             {
@@ -67,7 +67,7 @@ class AuthorityOperationScope(FrozenContract):
             }
         )
         if self.scope_digest != expected:
-            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
+            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_runtime_failure_lift_context
             raise ValueError("authority operation scope digest drift")
         return self
 
@@ -108,7 +108,7 @@ class AuthorityResourceCeiling(FrozenContract):
     def validate_ceiling(self) -> "AuthorityResourceCeiling":
         classes = tuple(item.resource_class for item in self.limits)
         if not classes or len(classes) != len(set(classes)):
-            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
+            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_runtime_failure_lift_context
             raise ValueError("authority resource classes must be non-empty and unique")
         expected = canonical_digest(
             {
@@ -120,7 +120,7 @@ class AuthorityResourceCeiling(FrozenContract):
             }
         )
         if self.ceiling_digest != expected:
-            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
+            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_runtime_failure_lift_context
             raise ValueError("authority resource ceiling digest drift")
         return self
 

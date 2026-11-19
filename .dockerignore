@@ -15,3 +15,19 @@ artifacts/
 main/frontend-modern/
 main/logs/
 
+# Local inputs are not image inputs. Keep only the checked-in env templates.
+**/.env
+**/.env.*
+!main/backend/.env.example
+!main/backend/.env.production.example
+**/.DS_Store
+**/*.credentials.json
+**/*-credentials.json
+.data/
+main/backend/data/
+main/backend/dbs/
+main/backend/eggs/
+main/backend/logs/
+main/backend/tmp/
+main/backend/信息源库/
+main/backend/frontend/

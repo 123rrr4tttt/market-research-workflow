@@ -95,7 +95,7 @@ def _retry_count(value: object) -> int:
 
 def build_retry_observability(payload: Mapping[str, object] | None) -> Annotated[
     RetryObservability,
-    "kit:non-authoritative derived_as=view fact_source=retry_payload+retry_reason_contract witness=test:test_w03_ingest_ports_authority_metadata",
+    "kit:non-authoritative derived_as=view fact_source=retry_payload+retry_reason_contract witness=test:test_ingest_ports_declare_sources_and_effect_authority",
 ]:
     data = dict(payload or {})
     reason_counts: dict[str, int] = {}

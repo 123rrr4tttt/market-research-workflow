@@ -24,7 +24,7 @@ class SearchRetrievalRunsReadbackUnitTestCase(unittest.TestCase):
         return build_search_evidence_hits(
             [
                 {
-                    "document_id": "doc-a",
+                    "material_id": "mat-a",
                     "project_key": "demo_proj",
                     "object_type": "policy_chunk",
                     "object_id": "doc-a",
@@ -35,7 +35,7 @@ class SearchRetrievalRunsReadbackUnitTestCase(unittest.TestCase):
                     "backend": "opensearch",
                 },
                 {
-                    "document_id": "doc-b",
+                    "material_id": "mat-b",
                     "project_key": "demo_proj",
                     "object_type": "policy_chunk",
                     "object_id": "doc-b",

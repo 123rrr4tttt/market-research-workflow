@@ -73,6 +73,7 @@ def test_INVARIANT__requests_port_projects_provider_response() -> None:
         timeout=3.0,
         retries=2,
         backoff=1.0,
+        target_policy=None,
     )
     assert text == "<html>ok</html>"
     assert response.status_code == 200

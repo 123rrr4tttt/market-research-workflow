@@ -14,10 +14,6 @@ const files = {
   workbenchPage: 'src/pages/WritingWorkbenchPage.tsx',
   selectionLookup: 'src/components/writing/useSelectionLookup.ts',
   backendReadbackTest: path.join(repoRoot, 'main/backend/tests/unit/test_writing_keyword_card_service_unittest.py'),
-  evidenceDoc: path.join(
-    repoRoot,
-    'docs/development/development-plans/ARCHIVE_CLOSED/2026-03-07-writing-workbench-evolution/09_wave17-worker6-persisted-typed-card-ui-readback-2026-05-22.md',
-  ),
 }
 
 const failures = []
@@ -40,8 +36,6 @@ const apiBarrel = readFile(files.apiBarrel)
 const workbenchPage = readFile(files.workbenchPage)
 const selectionLookup = readFile(files.selectionLookup)
 const backendReadbackTest = readFile(files.backendReadbackTest)
-const evidenceDoc = readFile(files.evidenceDoc)
-
 assertIncludesAll('persisted typed-card request helper', writingDomain, [
   'buildPersistedTypedKnowledgeKeywordCardRequest',
   "document: Pick<WritingDocument, 'metadata_json'> | null | undefined",
@@ -75,13 +69,6 @@ assertIncludesAll('backend preview/detail readback test remains wired', backendR
   'self.assertEqual(detail.provenance["raw_keys"], ["typed_knowledge_context"])',
 ])
 
-assertIncludesAll('Wave17 evidence doc', evidenceDoc, [
-  'Wave17 Worker6 Persisted Typed-Card UI Readback',
-  'buildPersistedTypedKnowledgeKeywordCardRequest',
-  'No live browser/UI persisted readback was claimed',
-  'persisted_typed_knowledge_cards_live_readback_not_verified',
-])
-
 const deterministicPersistedDocument = {
   metadata_json: {
     typed_knowledge_context: {
@@ -102,7 +89,7 @@ const deterministicPersistedDocument = {
           locale: 'en',
           evidence_refs: ['doc:robotics:42'],
           visibility_scope: 'downstream_ready',
-          selection_hash: 'sel_wave17',
+          selection_hash: 'sel_robotics_policy',
           selection_text: 'robotics investment',
           facets: {
             consumer_boundary: {
@@ -128,7 +115,7 @@ if (typedContext.handoffs[0].visibility_scope !== 'downstream_ready') failures.p
 
 const summary = {
   status: failures.length === 0 ? 'ok' : 'failed',
-  contract_version: 'writing_workbench_persisted_typed_card_readback.wave17.worker6.v1',
+  contract_version: 'writing_workbench_persisted_typed_card_readback.v1',
   checked_files: Object.values(files),
   deterministic_fixture: {
     persisted_document_metadata: true,
@@ -138,8 +125,6 @@ const summary = {
   },
   live_persisted_ui_closure_claimed: false,
   remaining_live_conditions: [
-    'public_typed_knowledge_api_route_not_implemented',
-    'live_db_persistence_not_implemented',
     'persisted_typed_knowledge_cards_live_readback_not_verified',
   ],
   failures,

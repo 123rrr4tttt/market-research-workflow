@@ -8,6 +8,7 @@ from app.services.projects import bind_project
 from app.services.search import hybrid as hybrid_search_module
 from app.services.search import smart
 from app.services.search.candidate_contracts import Candidate, CandidateBundle, ProviderObservation
+from elasticsearch import ConnectionError as ElasticsearchConnectionError
 from sqlalchemy import Float, select
 from sqlalchemy.dialects import postgresql
 
@@ -119,7 +120,7 @@ class _RecordingElasticsearch:
                     {
                         "_score": 3.2,
                         "_source": {
-                            "document_id": 71,
+                            "material_id": 71,
                             "project_key": self.project_key,
                             "object_type": "policy_chunk",
                             "object_id": 71,
@@ -147,7 +148,7 @@ def test_bm25_search_filters_explicit_project_scope():
     body = es.search_bodies[0]["body"]
     assert es.search_bodies[0]["index"] == "policy_docs_es"
     assert {"term": {"project_key": "project_a"}} in body["query"]["bool"]["must"]
-    assert hits[0]["document_id"] == 71
+    assert hits[0]["material_id"] == 71
     assert hits[0]["project_key"] == "project_a"
 
 
@@ -156,7 +157,7 @@ def test_bm25_search_keeps_valid_hits_when_one_provider_row_is_not_json():
         def search(self, *, index, body):
             response = super().search(index=index, body=body)
             response["hits"]["hits"].append(
-                {"_score": 1.0, "_source": {"document_id": object()}}
+                {"_score": 1.0, "_source": {"material_id": object()}}
             )
             return response
 
@@ -168,7 +169,7 @@ def test_bm25_search_keeps_valid_hits_when_one_provider_row_is_not_json():
         project_key="project_a",
     )
 
-    assert [hit["document_id"] for hit in hits] == [71]
+    assert [hit["material_id"] for hit in hits] == [71]
 
 
 def test_bm25_search_uses_bound_scope_for_existing_unparameterized_consumer():
@@ -192,13 +193,13 @@ def test_hybrid_search_passes_bound_scope_to_bm25(monkeypatch):
 
     def _bm25(es_client, query, state, top_k, *, project_key):
         calls.append(project_key)
-        return [{"document_id": 71, "project_key": project_key, "backend": "opensearch"}]
+        return [{"material_id": 71, "project_key": project_key, "backend": "opensearch"}]
 
     monkeypatch.setattr(hybrid_search_module, "bm25_search", _bm25)
     monkeypatch.setattr(
         hybrid_search_module,
-        "vector_search",
-        lambda *_args, **_kwargs: [],
+        "observe_vector_search",
+        lambda *_args, **_kwargs: hybrid_search_module.SearchInvocationObservation([], ("qdrant",), ()),
     )
 
     with bind_project("project_b"):
@@ -226,3 +227,114 @@ def test_pgvector_distance_operator_is_public_schema_qualified():
     assert distance.right.type == Embedding.vector.type
     assert distance.type.__class__ is Float
     assert compiled.params["vector_1"] is vector
+
+
+def test_vector_successful_empty_stops_fallback_and_does_not_initialize_es(monkeypatch):
+    monkeypatch.setattr(hybrid_search_module, "try_qdrant_vector_search", lambda *a, **kw: [])
+    def forbidden(*args, **kwargs):
+        raise AssertionError("successful empty query must not fall back")
+    monkeypatch.setattr(hybrid_search_module, "_pgvector_search", forbidden)
+    monkeypatch.setattr(hybrid_search_module, "get_es_client", forbidden)
+    result = hybrid_search_module.observe_hybrid_search("empty", None, 5, "vector", project_key="a")
+    assert result.hits == []
+    assert result.used_backends == ("qdrant",)
+    assert result.failures == ()
+
+
+@pytest.mark.parametrize("outcome", ["empty", "embedding", "operator", "sql"])
+def test_vector_fallback_preserves_ordered_failures(monkeypatch, outcome):
+    from unittest.mock import MagicMock
+    h = hybrid_search_module
+    qfailure = h._qdrant_failure("backend_unavailable", "qdrant unavailable", RuntimeError())
+    monkeypatch.setattr(h, "try_qdrant_vector_search", lambda *a, **kw: qfailure)
+    embeddings = MagicMock()
+    embeddings.embed_query.return_value = [0.1, 0.2]
+    if outcome == "embedding":
+        embeddings.embed_query.side_effect = RuntimeError("embedding unavailable")
+    monkeypatch.setattr(h, "get_embeddings", lambda: embeddings)
+    session = MagicMock()
+    session.__enter__.return_value = session
+    session.execute.return_value.all.return_value = []
+    monkeypatch.setattr(h, "SessionLocal", lambda: session)
+    if outcome == "operator":
+        monkeypatch.setattr(h, "_pgvector_distance", lambda _: None)
+    elif outcome == "sql":
+        session.execute.side_effect = RuntimeError("sql unavailable")
+    result = h.observe_vector_search("empty", None, 5, project_key="a")
+    assert result.hits == []
+    assert result.failures[0] is qfailure
+    if outcome == "empty":
+        assert result.used_backends == ("pgvector",)
+        assert len(result.failures) == 1
+    else:
+        assert result.used_backends == ()
+        assert [f.context["provider"] for f in result.failures] == ["qdrant", "pgvector"]
+        assert result.failures[1].code == {"embedding": "embedding_failed", "operator": "backend_unavailable", "sql": "vector_search_failed"}[outcome]
+
+
+def test_hybrid_degradation_keeps_bm25_and_both_failure_observations(monkeypatch):
+    h = hybrid_search_module
+    failures = (h._qdrant_failure("backend_unavailable", "q", RuntimeError()), h._pgvector_failure("embedding_failed", "p"))
+    monkeypatch.setattr(h, "get_es_client", object)
+    monkeypatch.setattr(h, "bm25_search", lambda *a, **kw: [{"material_id": 7}])
+    monkeypatch.setattr(h, "observe_vector_search", lambda *a, **kw: h.SearchInvocationObservation([], (), failures))
+    result = h.observe_hybrid_search("market", None, 5, "hybrid", project_key="a")
+    assert result.hits == [{"material_id": 7}]
+    assert result.used_backends == ("opensearch",)
+    assert result.failures == failures
+
+
+def test_interleaved_calls_keep_their_own_backend_and_failure(monkeypatch):
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Barrier
+    h = hybrid_search_module
+    barrier = Barrier(2)
+    failure = h._qdrant_failure("backend_unavailable", "q unavailable", RuntimeError())
+    def qdrant(query, *args, **kwargs):
+        barrier.wait(timeout=5)
+        return [] if query == "q" else failure
+    monkeypatch.setattr(h, "try_qdrant_vector_search", qdrant)
+    monkeypatch.setattr(h, "_pgvector_search", lambda *a, **kw: [])
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        q, p = list(pool.map(lambda query: h.observe_vector_search(query, None, 5, project_key="a"), ["q", "p"]))
+    assert (q.used_backends, q.failures) == (("qdrant",), ())
+    assert (p.used_backends, p.failures) == (("pgvector",), (failure,))
+
+
+@pytest.mark.parametrize("response", [{"hits": {}}, {"hits": {"hits": [None]}}, {"hits": {"hits": []}}])
+def test_bm25_distinguishes_missing_or_invalid_hits_from_successful_empty(monkeypatch, response):
+    class SearchClient:
+        def search(self, **kwargs):
+            return response
+
+    h = hybrid_search_module
+    monkeypatch.setattr(h, "get_es_client", SearchClient)
+    result = h.observe_hybrid_search("empty", None, 5, "bm25", project_key="a")
+    assert result.hits == []
+    if response == {"hits": {"hits": []}}:
+        assert result.used_backends == ("opensearch",)
+        assert result.failures == ()
+    else:
+        assert result.used_backends == ()
+        assert result.failures[0].context["provider"] == "opensearch"
+        assert result.failures[0].code == "backend_unavailable"
+        assert result.failures[0].message.startswith("OpenSearch response")
+
+
+def test_hybrid_degradation_keeps_vector_after_lexical_query_fails(monkeypatch):
+    client = _RecordingElasticsearch()
+    failure = ElasticsearchConnectionError("Connection refused")
+
+    def search(**kwargs):
+        raise failure
+
+    monkeypatch.setattr(client, "search", search)
+
+    h = hybrid_search_module
+    monkeypatch.setattr(h, "get_es_client", lambda: client)
+    vector_hits = [{"material_id": 7, "backend": "qdrant"}]
+    monkeypatch.setattr(h, "try_qdrant_vector_search", lambda *a, **kw: vector_hits)
+    result = h.observe_hybrid_search("market", None, 5, "hybrid", project_key="a")
+    assert result.hits == vector_hits
+    assert result.used_backends == ("qdrant",)
+    assert [(f.code, f.context["provider"]) for f in result.failures] == [("backend_unavailable", "opensearch")]
