@@ -7,7 +7,6 @@ import {
   importCrawlerProject,
   listCrawlerDeployRuns,
   listCrawlerProjects,
-  rollbackCrawlerProject,
 } from '../lib/api'
 import { translate, useAppLocale, type MessageKey } from '../app/platform/i18n'
 import { getLocalJson, setLocalJson } from '../lib/localStore'
@@ -36,7 +35,6 @@ type CrawlerManageStateCache = {
   draft: Draft
   selectedCrawlerProjectKey: string
   deployVersion: string
-  rollbackVersion: string
   plannerMode: 'heuristic' | 'manual'
 }
 
@@ -100,7 +98,6 @@ export default function CrawlerManagePage({ projectKey }: Props) {
   const [message, setMessage] = useState('')
   const [selectedCrawlerProjectKey, setSelectedCrawlerProjectKey] = useState(cached?.selectedCrawlerProjectKey || '')
   const [deployVersion, setDeployVersion] = useState(cached?.deployVersion || '')
-  const [rollbackVersion, setRollbackVersion] = useState(cached?.rollbackVersion || '')
   const [plannerMode, setPlannerMode] = useState((): PlannerMode => cached?.plannerMode || 'heuristic')
   const observedRuns = useRef(new Map<string, number>())
   const previousActiveRuns = useRef(new Set<string>())
@@ -125,7 +122,6 @@ export default function CrawlerManagePage({ projectKey }: Props) {
       setDraft(next?.draft || defaultDraft())
       setSelectedCrawlerProjectKey(next?.selectedCrawlerProjectKey || '')
       setDeployVersion(next?.deployVersion || '')
-      setRollbackVersion(next?.rollbackVersion || '')
       setPlannerMode(next?.plannerMode || 'heuristic')
       setMessage('')
     }, 0)
@@ -255,42 +251,16 @@ export default function CrawlerManagePage({ projectKey }: Props) {
     },
   })
 
-  const rollbackMutation = useMutation({
-    onMutate: () => ({ projectKey }),
-    mutationFn: async () => {
-      if (!effectiveSelectedCrawlerProjectKey) throw new Error(t('crawlerManagePage.error.missingCrawlerProject'))
-      return rollbackCrawlerProject(effectiveSelectedCrawlerProjectKey, {
-        to_version: rollbackVersion.trim() || null,
-        planner_mode: plannerMode,
-        async_mode: true,
-      })
-    },
-    onSuccess: async (run, _variables, context) => {
-      if (context?.projectKey !== currentProject.current) return
-      submission.track(run, t('crawlerManagePage.action.submitRollback'))
-      setMessage(tf('crawlerManagePage.message.rollbackSubmitted', { summary: summarizeRun(run) || t('crawlerManagePage.message.rollbackRunCreated') }))
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: queryKeys.crawler.projectDetail(projectKey, effectiveSelectedCrawlerProjectKey) }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.crawler.deployRuns(projectKey, effectiveSelectedCrawlerProjectKey) }),
-      ])
-    },
-    onError: (error, _variables, context) => {
-      if (context?.projectKey !== currentProject.current) return
-      setMessage(tf('crawlerManagePage.message.rollbackFailed', { message: error instanceof Error ? error.message : t('crawlerManagePage.error.unknown') }))
-    },
-  })
-
   useEffect(() => {
     setLocalJson<CrawlerManageStateCache>(storageKey, {
       draft,
       selectedCrawlerProjectKey,
       deployVersion,
-      rollbackVersion,
       plannerMode,
     })
-  }, [storageKey, draft, selectedCrawlerProjectKey, deployVersion, rollbackVersion, plannerMode])
+  }, [storageKey, draft, selectedCrawlerProjectKey, deployVersion, plannerMode])
 
-  const submitting = importMutation.isPending || deployMutation.isPending || rollbackMutation.isPending
+  const submitting = importMutation.isPending || deployMutation.isPending
   const detail = (crawlerDetail.data || null) as CrawlerProjectItem | null
   const detailSummary = detail
     ? tf('crawlerManagePage.detail.summary', {
@@ -422,14 +392,6 @@ export default function CrawlerManagePage({ projectKey }: Props) {
               placeholder={t('crawlerManagePage.placeholder.deployVersion')}
             />
           </label>
-          <label>
-            <span>{t('crawlerManagePage.field.rollbackToVersion')}</span>
-            <input
-              value={rollbackVersion}
-              onChange={(e) => setRollbackVersion(e.target.value)}
-              placeholder={t('crawlerManagePage.placeholder.rollbackVersion')}
-            />
-          </label>
         </div>
         <div className="inline-actions" style={{ marginTop: 10 }}>
           <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
@@ -444,12 +406,6 @@ export default function CrawlerManagePage({ projectKey }: Props) {
             disabled={submitting || !effectiveSelectedCrawlerProjectKey}
           >
             <Play size={14} />{t('crawlerManagePage.action.submitDeploy')}
-          </button>
-          <button
-            onClick={() => rollbackMutation.mutate()}
-            disabled={submitting || !effectiveSelectedCrawlerProjectKey}
-          >
-            <CircleDashed size={14} />{t('crawlerManagePage.action.submitRollback')}
           </button>
           <button onClick={() => { void crawlerDetail.refetch(); void deployRuns.refetch() }} disabled={!effectiveSelectedCrawlerProjectKey}>
             <RefreshCw size={14} />{t('crawlerManagePage.action.refreshDetail')}

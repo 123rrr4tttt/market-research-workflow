@@ -1,9 +1,9 @@
-from typing import Literal, TypedDict
+from typing import TypedDict
 
 from elasticsearch import Elasticsearch
 
+from .es_client import SearchIndexEnsureStatus, ensure_policy_index
 
-SearchIndexEnsureStatus = Literal["created", "exists"]
 
 
 class SearchIndexEnsureResult(TypedDict):
@@ -14,31 +14,9 @@ class SearchIndexEnsureResult(TypedDict):
 
 def ensure_indices(es: Elasticsearch) -> SearchIndexEnsureResult:
     """Create indices with minimal mappings if they do not exist."""
-    policy_index = "policy_docs_es"
     metric_index = "market_metric_points_es"
     ecom_index = "price_observations_es"
-
-    if not es.indices.exists(index=policy_index):
-        es.indices.create(
-            index=policy_index,
-            mappings={
-                "properties": {
-                    "project_key": {"type": "keyword"},
-                    "topic": {"type": "keyword"},
-                    "domain": {"type": "keyword"},
-                    "state": {"type": "keyword"},
-                    "title": {"type": "text"},
-                    "status": {"type": "keyword"},
-                    "publish_date": {"type": "date"},
-                    "summary": {"type": "text"},
-                    "content": {"type": "text"},
-                    "keywords": {"type": "keyword"},
-                }
-            },
-        )
-        policy_status: SearchIndexEnsureStatus = "created"
-    else:
-        policy_status = "exists"
+    policy_status = ensure_policy_index(es)
 
     if not es.indices.exists(index=metric_index):
         es.indices.create(

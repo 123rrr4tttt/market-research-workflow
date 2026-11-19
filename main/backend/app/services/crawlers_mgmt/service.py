@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from ...models.base import SessionLocal
 from ...models.entities import CrawlerDeployRun, CrawlerProject
 from ..projects import bind_schema
+from .orchestration import SCRAPYD_ROLLBACK_UNAVAILABLE
 
 
 class CrawlerProjectNotFoundError(ValueError):
@@ -239,10 +240,17 @@ def deploy_project(
             if not target_version:
                 raise ValueError("requested_version is required when current_version is empty")
 
+            if not async_mode:
+                message = "Synchronous crawler deployment is unavailable; use async_mode=true."
+                raise ValueError(message)
+            if project.provider.lower() not in {"scrapyd", "scrapy"}:
+                message = f"No crawler deployment executor is bound for provider: {project.provider}"
+                raise ValueError(message)
+
             run = CrawlerDeployRun(
                 crawler_project_id=project.id,
                 action="deploy",
-                status="queued" if async_mode else "running",
+                status="queued",
                 requested_version=requested_version,
                 from_version=project.deployed_version,
                 to_version=target_version,
@@ -253,70 +261,53 @@ def deploy_project(
             )
             session.add(run)
 
-            project.previous_version = project.deployed_version
-            project.deployed_version = target_version
-            project.status = "deploy_queued" if async_mode else "deployed"
-
+            project.status = "deploy_queued"
             session.commit()
+
+            import_payload = _object_view(project.import_payload)
+            manifest = _object_view(import_payload.get("manifest"))
+            registration_key = str(registration_project_key or "").strip() or project.project_key
+            metadata = {
+                "crawler_project_id": int(project.id),
+                "crawler_project_key": project.project_key,
+                "registration_project_key": registration_key,
+                **_object_view(import_payload.get("metadata")),
+            }
+            try:
+                task = _tasks_module().task_orchestrate_crawler_deploy.delay(
+                    deploy_run_id=int(run.id),
+                    project_key=registration_key,
+                    scrapy_project=str(
+                        import_payload.get("scrapy_project")
+                        or manifest.get("scrapy_project")
+                        or project.project_key
+                    ),
+                    spider=str(import_payload.get("spider") or manifest.get("spider") or "default"),
+                    channel_key=str(import_payload.get("channel_key") or f"crawler.{project.project_key}"),
+                    item_key=str(import_payload.get("item_key") or f"crawler.{project.project_key}.default"),
+                    version=target_version,
+                    egg_file_path=_optional_text(import_payload.get("egg_file_path")),
+                    egg_content_b64=_optional_text(import_payload.get("egg_content_b64")),
+                    base_url=_optional_text(import_payload.get("scrapyd_base_url")),
+                    metadata=metadata,
+                    channel_name=_optional_text(import_payload.get("channel_name")),
+                    item_name=_optional_text(import_payload.get("item_name")),
+                    description=project.description,
+                    arguments=_object_view(import_payload.get("arguments")) or None,
+                    settings=_object_view(import_payload.get("settings")) or None,
+                    enabled=bool(import_payload.get("enable_now", True)),
+                )
+            except Exception as exc:
+                finalize_deploy_run(int(run.id), status="failed", error=str(exc))
+                task_id = None
+            else:
+                task_id = str(task.id)
+                run.external_job_id = task_id
+                session.commit()
+
+            # The worker may have already produced a terminal receipt.
             session.refresh(run)
             session.refresh(project)
-            task_id: str | None = None
-
-            if async_mode:
-                import_payload = _object_view(project.import_payload)
-                manifest = _object_view(import_payload.get("manifest"))
-                registration_key = str(registration_project_key or "").strip() or project.project_key
-                metadata = {
-                    "crawler_project_id": int(project.id),
-                    "crawler_project_key": project.project_key,
-                    "registration_project_key": registration_key,
-                    **_object_view(import_payload.get("metadata")),
-                }
-                try:
-                    task = _tasks_module().task_orchestrate_crawler_deploy.delay(
-                        deploy_run_id=int(run.id),
-                        project_key=registration_key,
-                        scrapy_project=str(
-                            import_payload.get("scrapy_project")
-                            or manifest.get("scrapy_project")
-                            or project.project_key
-                        ),
-                        spider=str(import_payload.get("spider") or manifest.get("spider") or "default"),
-                        channel_key=str(import_payload.get("channel_key") or f"crawler.{project.project_key}"),
-                        item_key=str(import_payload.get("item_key") or f"crawler.{project.project_key}.default"),
-                        version=target_version,
-                        egg_file_path=_optional_text(import_payload.get("egg_file_path")),
-                        egg_content_b64=_optional_text(import_payload.get("egg_content_b64")),
-                        base_url=_optional_text(import_payload.get("scrapyd_base_url")),
-                        metadata=metadata,
-                        channel_name=_optional_text(import_payload.get("channel_name")),
-                        item_name=_optional_text(import_payload.get("item_name")),
-                        description=project.description,
-                        arguments=_object_view(import_payload.get("arguments")) or None,
-                        settings=_object_view(import_payload.get("settings")) or None,
-                        enabled=bool(import_payload.get("enable_now", True)),
-                    )
-                    task_id = str(task.id)
-                    run.external_job_id = task_id
-                    session.add(run)
-                    session.commit()
-                    session.refresh(run)
-                except Exception as exc:  # noqa: BLE001
-                    run.status = "failed"
-                    run.error = str(exc)
-                    run.finished_at = _utcnow()
-                    project.status = "deploy_failed"
-                    session.add(run)
-                    session.add(project)
-                    session.commit()
-                    session.refresh(run)
-                    session.refresh(project)
-            else:
-                run.status = "succeeded"
-                run.finished_at = _utcnow()
-                session.add(run)
-                session.commit()
-                session.refresh(run)
             return {
                 "project": _serialize_project(project),
                 "run": _serialize_run(run),
@@ -335,79 +326,8 @@ def rollback_project(
 ) -> dict[str, Any]:
     with bind_schema("public"):
         with SessionLocal() as session:
-            project = _get_project_model(session, project_id=project_id, project_key=project_key)
-            rollback_target = (target_version or project.previous_version or project.current_version or "").strip()
-            if not rollback_target:
-                raise ValueError("target_version is required when no previous/current version exists")
-
-            run = CrawlerDeployRun(
-                crawler_project_id=project.id,
-                action="rollback",
-                status="queued" if async_mode else "running",
-                requested_version=target_version,
-                from_version=project.deployed_version,
-                to_version=rollback_target,
-                planner_mode=(planner_mode or (project.analysis_plan or {}).get("planner_mode", "heuristic")),
-                plan=project.analysis_plan,
-                external_provider=project.provider,
-                started_at=_utcnow(),
-            )
-            session.add(run)
-
-            project.deployed_version = rollback_target
-            project.status = "rollback_queued" if async_mode else "rolled_back"
-
-            session.commit()
-            session.refresh(run)
-            session.refresh(project)
-            task_id: str | None = None
-
-            if async_mode:
-                import_payload = _object_view(project.import_payload)
-                manifest = _object_view(import_payload.get("manifest"))
-                registration_key = str(registration_project_key or "").strip() or project.project_key
-                try:
-                    task = _tasks_module().task_orchestrate_crawler_rollback.delay(
-                        deploy_run_id=int(run.id),
-                        project_key=registration_key,
-                        scrapy_project=str(
-                            import_payload.get("scrapy_project")
-                            or manifest.get("scrapy_project")
-                            or project.project_key
-                        ),
-                        channel_key=str(import_payload.get("channel_key") or f"crawler.{project.project_key}"),
-                        item_key=str(import_payload.get("item_key") or f"crawler.{project.project_key}.default"),
-                        version=rollback_target,
-                        base_url=_optional_text(import_payload.get("scrapyd_base_url")),
-                        disable_provider_type_to_native=True,
-                        keep_item_enabled=True,
-                    )
-                    task_id = str(task.id)
-                    run.external_job_id = task_id
-                    session.add(run)
-                    session.commit()
-                    session.refresh(run)
-                except Exception as exc:  # noqa: BLE001
-                    run.status = "failed"
-                    run.error = str(exc)
-                    run.finished_at = _utcnow()
-                    project.status = "rollback_failed"
-                    session.add(run)
-                    session.add(project)
-                    session.commit()
-                    session.refresh(run)
-                    session.refresh(project)
-            else:
-                run.status = "succeeded"
-                run.finished_at = _utcnow()
-                session.add(run)
-                session.commit()
-                session.refresh(run)
-            return {
-                "project": _serialize_project(project),
-                "run": _serialize_run(run),
-                "task_id": task_id,
-            }
+            _get_project_model(session, project_id=project_id, project_key=project_key)
+            raise ValueError(SCRAPYD_ROLLBACK_UNAVAILABLE)
 
 
 def get_deploy_run(run_id: int) -> dict[str, Any] | None:
@@ -424,32 +344,44 @@ def get_deploy_run(run_id: int) -> dict[str, Any] | None:
 def finalize_deploy_run(
     run_id: int,
     *,
-    status: Literal["succeeded", "failed"],
+    status: Literal["succeeded", "registered", "failed"],
     error: str | None = None,
 ) -> dict[str, Any]:
     """Persist the terminal state owned by the original crawler deploy run."""
-    if status not in {"succeeded", "failed"}:
+    terminal_statuses = {"succeeded", "registered", "failed"}
+    if status not in terminal_statuses:
         raise ValueError(f"unsupported crawler deploy terminal status: {status}")
     with bind_schema("public"):
         with SessionLocal() as session:
             run = session.execute(
-                select(CrawlerDeployRun).where(CrawlerDeployRun.id == int(run_id))
+                select(CrawlerDeployRun).where(CrawlerDeployRun.id == int(run_id)).with_for_update()
             ).scalar_one_or_none()
             if run is None:
                 raise ValueError(f"crawler deploy run not found: {run_id}")
-            if run.status in {"succeeded", "failed"}:
+            if run.status in terminal_statuses:
                 return _serialize_run(run)
 
             project = session.execute(
-                select(CrawlerProject).where(CrawlerProject.id == run.crawler_project_id)
+                select(CrawlerProject).where(CrawlerProject.id == run.crawler_project_id).with_for_update()
             ).scalar_one()
             run.status = status
             run.error = str(error or "").strip() or None
             run.finished_at = _utcnow()
-            if run.action == "rollback":
-                project.status = "rolled_back" if status == "succeeded" else "rollback_failed"
+            if status == "succeeded":
+                if run.action != "deploy" or not run.to_version:
+                    message = "No supported crawler deployment version to record."
+                    raise ValueError(message)
+                if project.deployed_version != run.to_version:
+                    project.previous_version = project.deployed_version
+                    project.deployed_version = run.to_version
+                project.status = "deployed"
+            elif status == "registered":
+                if run.action != "deploy":
+                    message = "Registration is only a crawler deployment outcome."
+                    raise ValueError(message)
+                project.status = "registered"
             else:
-                project.status = "deployed" if status == "succeeded" else "deploy_failed"
+                project.status = "rollback_failed" if run.action == "rollback" else "deploy_failed"
             session.add(run)
             session.add(project)
             session.commit()

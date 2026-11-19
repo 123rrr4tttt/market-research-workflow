@@ -105,19 +105,22 @@ class RuntimeOpsErrorContractIntegrationTestCase(unittest.TestCase):
         self.assertEqual(payload["detail"]["error"]["code"], ErrorCode.INVALID_INPUT.value)
         self.assertEqual(response.headers.get("x-error-code"), ErrorCode.INVALID_INPUT.value)
 
-    def test_indexer_policy_missing_api_key_returns_structured_config_error(self):
-        with patch("app.api.indexer.settings.openai_api_key", ""):
-            response = self.client.post("/api/v1/indexer/policy", json={}, headers=self.headers)
+    def test_indexer_policy_missing_api_key_allows_lexical_indexing(self):
+        result = {"indexed": 1, "materials": 1, "vector_indexed": 0}
+        with (
+            patch("app.services.indexer.policy.settings.openai_api_key", ""),
+            patch("app.api.indexer.index_policy_documents", return_value=result) as index,
+        ):
+            response = self.client.post(
+                "/api/v1/indexer/policy", json={"material_ids": [42], "state": "ca"}, headers=self.headers,
+            )
 
-        self.assertEqual(response.status_code, 400)
-        payload = response.json()
-        self.assertEqual(payload["status"], "error")
-        self.assertEqual(payload["error"]["code"], ErrorCode.CONFIG_ERROR.value)
-        self.assertEqual(response.headers.get("x-error-code"), ErrorCode.CONFIG_ERROR.value)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["data"], result)
+        index.assert_called_once_with(material_ids=[42], state="CA")
 
     def test_indexer_policy_value_error_returns_structured_invalid_input(self):
         with (
-            patch("app.api.indexer.settings.openai_api_key", "sk-test"),
             patch("app.api.indexer.index_policy_documents", side_effect=ValueError("vector_contract_missing_fields:source_domain")),
         ):
             response = self.client.post("/api/v1/indexer/policy", json={}, headers=self.headers)
@@ -130,7 +133,6 @@ class RuntimeOpsErrorContractIntegrationTestCase(unittest.TestCase):
 
     def test_indexer_policy_upstream_error_returns_structured_upstream_error(self):
         with (
-            patch("app.api.indexer.settings.openai_api_key", "sk-test"),
             patch("app.api.indexer.index_policy_documents", side_effect=RuntimeError("database timeout")),
         ):
             response = self.client.post("/api/v1/indexer/policy", json={}, headers=self.headers)
@@ -143,7 +145,6 @@ class RuntimeOpsErrorContractIntegrationTestCase(unittest.TestCase):
 
     def test_indexer_policy_internal_error_returns_structured_internal_error(self):
         with (
-            patch("app.api.indexer.settings.openai_api_key", "sk-test"),
             patch("app.api.indexer.index_policy_documents", side_effect=RuntimeError("boom")),
         ):
             response = self.client.post("/api/v1/indexer/policy", json={}, headers=self.headers)

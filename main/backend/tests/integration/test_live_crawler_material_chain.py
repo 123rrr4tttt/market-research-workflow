@@ -237,10 +237,10 @@ def test_live_source_url_crawler_to_material_and_graph_readback() -> None:
                 "GET",
                 f"/api/v1/crawler/deploy-runs/{deploy_run_id}",
             ).json()["data"]
-            if deploy_readback.get("status") in {"succeeded", "failed"}:
+            if deploy_readback.get("status") in {"registered", "succeeded", "failed"}:
                 break
             time.sleep(0.5)
-        assert deploy_readback.get("status") == "succeeded", deploy_readback
+        assert deploy_readback.get("status") == "registered", deploy_readback
         assert deploy_readback.get("finished_at")
 
         bootstrap_code = "\n".join(

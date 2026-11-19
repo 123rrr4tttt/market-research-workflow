@@ -1,0 +1,2 @@
+# Docker executes these scripts in Linux even when Git checks out on Windows.
+*.sh text eol=lf

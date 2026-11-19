@@ -11,12 +11,13 @@ from urllib.parse import urlparse
 
 from elasticsearch.helpers import bulk
 from langchain_text_splitters import RecursiveCharacterTextSplitter
+from sqlalchemy.orm import Session
 
 from ...models.base import SessionLocal
 from ...models.entities import Material, Embedding
 from ...settings.config import settings
 from ..llm.provider import get_embeddings
-from ..search.es_client import get_es_client
+from ..search.es_client import POLICY_INDEX, ensure_policy_index, get_es_client
 from ..job_logger import start_job, complete_job, fail_job
 from ..projects import current_project_key
 from ..document_views import get_extracted_data
@@ -30,7 +31,6 @@ from functorial_kit import Failure
 _CHUNK_SIZE = 800
 _CHUNK_OVERLAP = 120
 _EMBEDDING_OBJECT_TYPE = "policy_chunk"
-_ES_INDEX = "policy_docs_es"
 _VECTOR_VERSION = "v1"
 _REQUIRED_VECTOR_FIELDS = (
     "project_key",
@@ -103,7 +103,6 @@ class _ElasticsearchDeletePort(Protocol):
         *,
         index: str,
         body: Mapping[str, object],
-        ignore: list[int],
         refresh: bool,
     ) -> object: ...
 
@@ -170,13 +169,9 @@ class VectorContractPayload(TypedDict):
 
 @dataclass
 class PolicyChunk:
-    document: _PolicyDocument
+    document: _IndexedDocument
     text: str
     chunk_index: int
-
-
-def _is_policy_document(value: object) -> TypeGuard[_PolicyDocument]:
-    return isinstance(value, _PolicyDocument)
 
 
 def _is_indexed_document(value: object) -> TypeGuard[_IndexedDocument]:
@@ -318,100 +313,31 @@ def index_policy_documents(
     material_ids: Sequence[int] | None = None,
     state: str | None = None,
 ) -> dict[str, int]:
-    if not settings.openai_api_key:
-        _raise_indexer_failure(
-            _indexer_failure(
-                "embedding_provider_not_configured",
-                "OPENAI_API_KEY 未配置，无法生成嵌入",
-                site="embedding_provider.configuration",
-            ),
-            RuntimeError,
-        )
-
+    """Index project-scoped policy chunks; write vectors only when configured."""
+    vector_enabled = bool(settings.openai_api_key)
     job_params: dict[str, object] = {}
-    if material_ids:
+    if material_ids is not None:
         job_params["material_ids"] = list(material_ids)
     if state:
         job_params["state"] = state
     job_id = start_job("index_policy", job_params)
 
     with SessionLocal() as session:
-        query = session.query(Material).filter(Material.material_type == "policy")
-        if material_ids:
-            query = query.filter(Material.id.in_(list(material_ids)))
-        if state:
-            query = query.filter(Material.state == state)
-
-        document_rows: Sequence[object] = query.order_by(Material.id.asc()).all()
-        documents: list[_PolicyDocument] = []
-        for row in document_rows:
-            if not _is_policy_document(row):
-                _raise_indexer_failure(
-                    _indexer_failure(
-                        "index_execution_failed",
-                        "policy_document_shape_invalid",
-                        site="policy_document.query_result",
-                    ),
-                    TypeError,
-                )
-            documents.append(row)
-
-        if not documents:
-            complete_job(job_id, result={"indexed": 0})
-            return {"indexed": 0, "deleted": 0}
-
-        chunks: list[PolicyChunk] = []
-        splitter = RecursiveCharacterTextSplitter(
-            chunk_size=_CHUNK_SIZE, chunk_overlap=_CHUNK_OVERLAP
-        )
-
-        for doc in documents:
-            content = (doc.content or doc.summary or "").strip()
-            if not content:
-                continue
-
-            splits = splitter.split_text(content)
-            for idx, chunk_text in enumerate(splits):
-                chunks.append(PolicyChunk(document=doc, text=chunk_text, chunk_index=idx))
-
-        if not chunks:
-            session.commit()
-            return {"indexed": 0, "deleted": 0}
-
-        prepared_chunks: list[tuple[PolicyChunk, VectorContractPayload]] = []
         try:
-            for chunk in chunks:
-                vector_contract = _build_vector_contract_payload(chunk.document, chunk.text)
-                vector_contract_failure = _validate_vector_contract_payload(vector_contract)
-                if vector_contract_failure is not None:
-                    _raise_indexer_failure(vector_contract_failure)
-                prepared_chunks.append((chunk, vector_contract))
+            query = session.query(Material).filter(Material.material_type == "policy")
+            if material_ids is not None:
+                query = query.filter(Material.id.in_(list(material_ids)))
+            if state:
+                query = query.filter(Material.state == state)
 
-            indexed_material_ids = {
-                chunk.document.id for chunk, _ in prepared_chunks
-            }
-            for material_id in sorted(indexed_material_ids):
-                session.query(Embedding).filter(
-                    Embedding.object_type == _EMBEDDING_OBJECT_TYPE,
-                    Embedding.object_id == material_id,
-                ).delete(synchronize_session=False)
-
-            embedding_model = get_embeddings()
-            vectors = embedding_model.embed_documents([chunk.text for chunk in chunks])
-
-            es = get_es_client()
-            _delete_existing_es_docs(
-                es,
-                indexed_material_ids,
-                prepared_chunks[0][1]["project_key"],
+            splitter = RecursiveCharacterTextSplitter(
+                chunk_size=_CHUNK_SIZE, chunk_overlap=_CHUNK_OVERLAP
             )
-
+            project_key = _required_project_key({})
+            chunks: list[PolicyChunk] = []
             es_actions: list[dict[str, object]] = []
-            # Collect Qdrant points opportunistically (id, vector, payload)
-            qdrant_points: list[tuple[int, list[float], dict[str, object]]] = []
-            qdrant_collection = os.environ.get("QDRANT_COLLECTION", "policy_chunks")
-            for (chunk, vector_contract), vector in zip(prepared_chunks, vectors):
-                if not _is_indexed_document(chunk.document):
+            for document in query.order_by(Material.id.asc()).all():
+                if not _is_indexed_document(document):
                     _raise_indexer_failure(
                         _indexer_failure(
                             "index_execution_failed",
@@ -420,117 +346,138 @@ def index_policy_documents(
                         ),
                         TypeError,
                     )
-                document = chunk.document
-                raw_embedding: object = Embedding()
-                if not _is_mutable_embedding(raw_embedding):
-                    _raise_indexer_failure(
-                        _indexer_failure(
-                            "index_execution_failed",
-                            "embedding_record_shape_invalid",
-                            site="embedding.persistence_record",
-                        ),
-                        TypeError,
+                extracted_data = _extracted_data(document)
+                _required_project_key(extracted_data)
+                content = (document.content or "").strip() or (document.summary or "").strip()
+                if not content:
+                    continue
+                for chunk_index, text in enumerate(splitter.split_text(content)):
+                    chunks.append(PolicyChunk(document=document, text=text, chunk_index=chunk_index))
+                    es_actions.append(
+                        {
+                            "_index": POLICY_INDEX,
+                            "_id": _es_material_id(project_key, document.id, chunk_index),
+                            "project_key": project_key,
+                            "material_id": document.id,
+                            "material_type": "policy",
+                            "chunk_index": chunk_index,
+                            "state": document.state,
+                            "status": document.status,
+                            "publish_date": document.publish_date.isoformat()
+                            if document.publish_date is not None
+                            else None,
+                            "title": document.title,
+                            "summary": document.summary,
+                            "text": text,
+                            "source_uri": document.uri,
+                            "topic": extracted_data.get("topic"),
+                            "domain": extracted_data.get("domain"),
+                        }
                     )
-                embedding_row = raw_embedding
-                embedding_row.object_id = document.id
-                embedding_row.object_type = _EMBEDDING_OBJECT_TYPE
-                embedding_row.modality = "text"
-                embedding_row.vector = vector
-                embedding_row.dim = len(vector)
-                embedding_row.provider = settings.llm_provider
-                embedding_row.model = settings.embedding_model
-                session.add(embedding_row)
-                session.flush()
 
-                es_actions.append(
-                    {
-                        "_index": _ES_INDEX,
-                        "_id": _es_material_id(
-                            vector_contract["project_key"], document.id, chunk.chunk_index
-                        ),
-                        "embedding_id": embedding_row.id,
-                        "project_key": vector_contract["project_key"],
-                        "object_type": vector_contract["object_type"],
-                        "object_id": vector_contract["object_id"],
-                        "vector_version": vector_contract["vector_version"],
-                        "clean_text": vector_contract["clean_text"],
-                        "language": vector_contract["language"],
-                        "source_domain": vector_contract["source_domain"],
-                        "effective_time": vector_contract["effective_time"],
-                        "keep_for_vectorization": vector_contract["keep_for_vectorization"],
-                        "topic": _extracted_data(document).get("topic"),
-                        "domain": _extracted_data(document).get("domain"),
-                        "material_id": document.id,
-                        "material_type": "policy",
-                        "chunk_index": chunk.chunk_index,
-                        "state": document.state,
-                        "status": document.status,
-                        "publish_date": document.publish_date.isoformat()
-                        if document.publish_date is not None
-                        else None,
-                        "title": document.title,
-                        "summary": document.summary,
-                        "text": chunk.text,
-                    }
-                )
+            material_ids_to_replace = {chunk.document.id for chunk in chunks}
+            qdrant_points: list[tuple[int, list[float], dict[str, object]]] = []
+            if chunks and vector_enabled:
+                qdrant_points = _index_policy_vectors(session, chunks, es_actions, material_ids_to_replace)
 
-                # Prepare Qdrant payload/point (optional)
-                try:
-                    payload: dict[str, object] = {
-                        "project_key": vector_contract["project_key"],
-                        "object_type": vector_contract["object_type"],
-                        "object_id": vector_contract["object_id"],
-                        "vector_version": vector_contract["vector_version"],
-                        "material_id": document.id,
-                        "material_type": "policy",
-                        "chunk_index": chunk.chunk_index,
-                        "state": document.state,
-                        "status": document.status,
-                        "publish_date": document.publish_date.isoformat()
-                        if document.publish_date is not None
-                        else None,
-                        "title": document.title,
-                        "language": vector_contract["language"],
-                        "source_domain": vector_contract["source_domain"],
-                        "effective_time": vector_contract["effective_time"],
-                        "summary": document.summary,
-                        "text": chunk.text,
-                    }
-                    qdrant_points.append((int(embedding_row.id), list(vector), payload))
-                except Exception:
-                    # Collecting payload should never break indexing
-                    pass
-
-            session.commit()
             if es_actions:
-                # Committed DB state remains committed if ES bulk fails.
-                bulk(es, es_actions)
+                es = get_es_client()
+                ensure_policy_index(es)
+                _delete_existing_es_docs(es, material_ids_to_replace, project_key)
+                if vector_enabled:
+                    # Committed DB state remains committed if ES bulk fails.
+                    session.commit()
+                bulk(es, es_actions, refresh="wait_for")
         except Exception as exc:
             session.rollback()
             fail_job(job_id, str(exc))
             # kit:boundary owner=indexer.policy.execution class=SHELL_BOUNDARY_EXCEPTION failure_family=indexer.policy.failure witness=test:test_collection_effect_boundaries
             raise
 
-        result = {"indexed": len(es_actions), "materials": len({chunk.document.id for chunk in chunks})}
-        complete_job(job_id, result=result)
-        # Optional Qdrant upsert (best-effort, out of main transaction)
-        try:
-            client = _get_qdrant_client()
-            if client is not None and _ensure_qdrant_collection(client, qdrant_collection, settings.embedding_dim):
-                point_factory = _get_qdrant_point_factory()
-                if point_factory is not None:
-                    points: list[object] = [
-                        point_factory(id=pid, vector=vec, payload=payload)
-                        for pid, vec, payload in qdrant_points
-                    ]
-                    if points:
-                        client.upsert(collection_name=qdrant_collection, points=points, wait=False)
-                        logger.info("Qdrant upsert completed: %d points", len(points))
-            else:
-                logger.info("Qdrant not configured, skip upsert")
-        except Exception as qx:
-            logger.warning("Qdrant upsert skipped due to error: %s", qx)
-        return result
+    result = {
+        "indexed": len(es_actions),
+        "materials": len(material_ids_to_replace),
+        "vector_indexed": len(qdrant_points),
+    }
+    complete_job(job_id, result=result)
+    if qdrant_points:
+        _upsert_policy_qdrant(qdrant_points)
+    return result
+
+
+def _index_policy_vectors(
+    session: Session,
+    chunks: list[PolicyChunk],
+    es_actions: list[dict[str, object]],
+    material_ids: set[int],
+) -> list[tuple[int, list[float], dict[str, object]]]:
+    contracts = [_build_vector_contract_payload(chunk.document, chunk.text) for chunk in chunks]
+    for contract in contracts:
+        failure = _validate_vector_contract_payload(contract)
+        if failure is not None:
+            _raise_indexer_failure(failure)
+
+    vectors = get_embeddings().embed_documents([chunk.text for chunk in chunks])
+    for material_id in sorted(material_ids):
+        session.query(Embedding).filter(
+            Embedding.object_type == _EMBEDDING_OBJECT_TYPE,
+            Embedding.object_id == material_id,
+        ).delete(synchronize_session=False)
+
+    points: list[tuple[int, list[float], dict[str, object]]] = []
+    for contract, vector, action in zip(contracts, vectors, es_actions, strict=True):
+        raw_embedding: object = Embedding()
+        if not _is_mutable_embedding(raw_embedding):
+            _raise_indexer_failure(
+                _indexer_failure(
+                    "index_execution_failed",
+                    "embedding_record_shape_invalid",
+                    site="embedding.persistence_record",
+                ),
+                TypeError,
+            )
+        raw_embedding.object_id = contract["object_id"]
+        raw_embedding.object_type = _EMBEDDING_OBJECT_TYPE
+        raw_embedding.modality = "text"
+        raw_embedding.vector = vector
+        raw_embedding.dim = len(vector)
+        raw_embedding.provider = settings.llm_provider
+        raw_embedding.model = settings.embedding_model
+        session.add(raw_embedding)
+        session.flush()
+
+        action.update(contract)
+        action["embedding_id"] = raw_embedding.id
+        payload = {
+            key: action[key]
+            for key in (
+                "project_key", "object_type", "object_id", "vector_version", "material_id", "material_type",
+                "chunk_index", "state", "status", "publish_date", "title", "language", "source_domain",
+                "effective_time", "summary", "text",
+            )
+        }
+        points.append((int(raw_embedding.id), list(vector), payload))
+    return points
+
+
+def _upsert_policy_qdrant(points: list[tuple[int, list[float], dict[str, object]]]) -> None:
+    # Optional Qdrant upsert (best-effort, out of main transaction).
+    collection = os.environ.get("QDRANT_COLLECTION", "policy_chunks")
+    try:
+        client = _get_qdrant_client()
+        if client is None or not _ensure_qdrant_collection(client, collection, settings.embedding_dim):
+            logger.info("Qdrant not configured, skip upsert")
+            return
+        point_factory = _get_qdrant_point_factory()
+        if point_factory is not None:
+            client.upsert(
+                collection_name=collection,
+                points=[point_factory(id=pid, vector=vec, payload=payload) for pid, vec, payload in points],
+                wait=False,
+            )
+            logger.info("Qdrant upsert completed: %d points", len(points))
+    except Exception as exc:
+        logger.warning("Qdrant upsert skipped due to error: %s", exc)
 
 
 def _delete_existing_es_docs(
@@ -551,7 +498,7 @@ def _delete_existing_es_docs(
             TypeError,
         )
     es.delete_by_query(
-        index=_ES_INDEX,
+        index=POLICY_INDEX,
         body={
             "query": {
                 "bool": {
@@ -562,7 +509,6 @@ def _delete_existing_es_docs(
                 }
             }
         },
-        ignore=[404],
         refresh=True,
     )
 

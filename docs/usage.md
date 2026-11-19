@@ -76,7 +76,7 @@ WebUI API 密钥由已有私密配置提供。启动脚本会验证配置、固�
 
 在 macOS、Linux 或 Windows 的 Linux 容器模式运行本机单用户工作台。使用 Docker Engine 和 [Compose 2.24.4 或以上](https://docs.docker.com/reference/compose-file/merge/#replace-value)；目标架构为 `linux/amd64`、`linux/arm64`。初次启动需从源码构建并下载镜像及应用依赖；可先用 `docker version` 和 `docker compose version` 确认 Engine 与 Compose 可用。目标架构不等于已完成该设备上的验收。
 
-部署启动业务界面、API、PostgreSQL、Redis、Elasticsearch、Celery worker 和同实例的 Codex WebUI。浏览器只使用本机 loopback，数据库、搜索服务、Redis 和 WebUI 不发布各自容器端口。不需要宿主的 MRW `.env`、数据库或 Codex 登录状态。
+部署启动业务界面、API、PostgreSQL、Redis、Elasticsearch、Celery worker 和同实例的 Codex WebUI。随镜像提供仓库的默认来源配置；在「采集」中使用「同步来源库」导入本实例，不会自动运行采集。浏览器只使用本机 loopback，数据库、搜索服务、Redis 和 WebUI 不发布各自容器端口。不需要宿主的 MRW `.env`、数据库或 Codex 登录状态。
 
 ### macOS / Linux
 
@@ -88,7 +88,7 @@ cp -n main/ops/.env.local-user.example main/ops/.env.local-user
 
 编辑 `main/ops/.env.local-user`，给 `MRW_SERVER_API_KEY` 和 `MRW_WEBUI_API_KEY` 分别填两个不同的高熵值（如分别执行 `openssl rand -hex 32` 生成）。前者用于 MRW 服务调用，后者用于 WebUI 会话交换；浏览器不持有服务密钥。只使用 ASCII 字母、数字、下划线或连字符，不提交配置文件。设置完成后：
 
-如果所在主机的 Docker 容器不能直接访问外网，在同一个配置文件中设置 `MRW_HTTP_PROXY` 与 `MRW_HTTPS_PROXY`；Docker Desktop 可用 `http://host.docker.internal:7892` 这类宿主代理地址。没有代理需求时保持为空。
+如果所在主机的 Docker 容器不能直接访问外网，在同一个配置文件中设置 `MRW_HTTP_PROXY` 与 `MRW_HTTPS_PROXY`；Docker Desktop 可用 `http://host.docker.internal:7892` 这类宿主代理地址。这两项同时用于镜像构建步骤和运行中的服务。基础镜像拉取由 Docker Engine 自己处理，必要时另外配置 Engine 代理。没有代理需求时保持为空。
 
 ```bash
 ./scripts/local-docker-deploy.sh config
@@ -167,7 +167,7 @@ docker compose @compose down
 
 以下是验证条件，不是已通过的发布记录。首次验收用独立实例和空数据卷，不使用已有实例代替。至少检查：
 
-1. 业务页面可创建项目；材料由后台任务提交成功后，详情能读到正文和来源，项目搜索能查到索引结果。
+1. 业务页面可创建项目；材料由后台任务提交成功后，详情能读到正文和来源，「资料与质量」的「资料列表」用正文关键词可查到记录，另一项目不能查到。列表直查项目库，不依赖向量或索引；另行核验政策词法索引：用 `POST /api/v1/indexer/policy` 为当前项目的政策材料建索引，再用 `GET /api/v1/search?rank=bm25&q=关键词` 验证命中。词法索引不需要向量密钥；普通原始笔记不进入政策索引。
 2. 在同一项目打开嵌入 WebUI 并新建绑定线程；纯附件回合能经 Cell 实际执行，需批准的写入在批准前不落库，批准后能从原业务界面读回。另一项目不能读到这些结果。
 3. 重启后仍能打开项目、已有材料、引用和已完成的 Agent 线程；未知副作用不会被当成成功或自动重放。
 

@@ -18,7 +18,6 @@ import {
   fetchCrawlerProjectDetail,
   fetchCrawlerProjects,
   importCrawlerProject as createCrawlerProjectImport,
-  rollbackCrawlerProject as rollbackCrawlerProjectByKey,
 } from './api/services/crawlers'
 import { fetchDeepHealth, fetchHealth } from './api/services/health'
 import type {
@@ -52,7 +51,6 @@ import type {
   CrawlerDeployRunItem,
   CrawlerProjectDeployPayload,
   CrawlerProjectImportPayload,
-  CrawlerProjectRollbackPayload,
   InjectInitialProjectPayload,
   InjectInitialProjectResult,
   IngestJobRow,
@@ -360,10 +358,6 @@ export async function importCrawlerProject(payload: CrawlerProjectImportPayload)
 
 export async function deployCrawlerProject(projectKey: string, payload: CrawlerProjectDeployPayload = {}) {
   return deployCrawlerProjectByKey(projectKey, payload)
-}
-
-export async function rollbackCrawlerProject(projectKey: string, payload: CrawlerProjectRollbackPayload = {}) {
-  return rollbackCrawlerProjectByKey(projectKey, payload)
 }
 
 export async function listCrawlerDeployRuns(params?: { crawlerProjectKey?: string; limit?: number }) {

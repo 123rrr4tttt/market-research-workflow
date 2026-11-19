@@ -102,7 +102,7 @@ test('settings saves retain global environment and current-project template scop
   await expect(page.getByTestId('task-submission-notice')).toHaveCount(0)
 })
 
-test('crawler import/deploy use only Celery identities while rollback preserves Scrapyd identity (mock)', async ({ page }) => {
+test('crawler import and deploy track only Celery task identities (mock)', async ({ page }) => {
   await shell(page)
   const taskReads: string[] = []
   const effects: string[] = []
@@ -118,10 +118,6 @@ test('crawler import/deploy use only Celery identities while rollback preserves 
   await page.route(/\/api\/v1\/crawler\/projects\/mock-crawler\/deploy(?:\?.*)?$/, (route) => {
     effects.push('deploy')
     return ok(route, { run: { id: 43, action: 'deploy', status: 'queued' }, task_id: 'celery-deploy-43' })
-  })
-  await page.route(/\/api\/v1\/crawler\/projects\/mock-crawler\/rollback(?:\?.*)?$/, (route) => {
-    effects.push('rollback')
-    return ok(route, { run: { id: 44, action: 'rollback', status: 'queued', external_job_id: 'scrapyd-only-44' } })
   })
   await page.route('**/api/v1/process/celery-**', (route) => {
     const id = new URL(route.request().url()).pathname.split('/').at(-1)!
@@ -142,10 +138,8 @@ test('crawler import/deploy use only Celery identities while rollback preserves 
   await expect(page.getByTestId('task-submission-notice')).toContainText('celery-deploy-43')
   await expect(page.getByTestId('task-submission-notice').getByRole('link')).toHaveAttribute('href', /task_id=celery-deploy-43/)
   await expect.poll(() => taskReads.includes('celery-deploy-43')).toBe(true)
-  await crawlers.getByRole('button', { name: '提交回滚', exact: true }).click()
-  await expect(crawlers.getByRole('status').filter({ hasText: '回滚已提交' })).toContainText('external_job_id=scrapyd-only-44')
-  await expect(page.getByTestId('task-submission-notice')).toHaveCount(0)
-  expect(effects).toEqual(['import', 'deploy', 'rollback'])
+  await expect(crawlers.getByRole('button', { name: '提交回滚', exact: true })).toHaveCount(0)
+  expect(effects).toEqual(['import', 'deploy'])
   expect(taskReads.every((id) => id.startsWith('celery-'))).toBe(true)
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390)
 })
@@ -180,41 +174,39 @@ test('crawler polling observes existing runs, stops at terminal and refreshes pr
   await expect(page.getByTestId('task-submission-notice')).toHaveCount(0)
 })
 
-for (const action of ['deploy', 'rollback'] as const) {
-  test(`crawler ${action} refuses async:false task receipts from nested run responses (mock)`, async ({ page }) => {
-    await shell(page)
-    let effectCalls = 0
-    const taskReads: string[] = []
-    await page.route('**/api/v1/crawler/**', (route) => {
-      const path = new URL(route.request().url()).pathname
-      if (route.request().method() === 'POST') {
-        effectCalls += 1
-        expect(path).toBe(`/api/v1/crawler/projects/${CRAWLER}/${action}`)
-        return ok(route, {
-          run: { id: 70, action, status: 'success', finished_at: '2026-10-05T08:00:00Z' },
-          task_id: `not-async-${action}`, async: false, trace_id: 'sync-trace',
-        })
-      }
-      if (path.endsWith('/projects')) return ok(route, [crawler])
-      if (path.endsWith('/deploy-runs')) return ok(route, [])
-      return ok(route, crawler)
-    })
-    await page.route(/\/api\/v1\/process\/not-async-[^/?]+(?:\?.*)?$/, (route) => {
-      taskReads.push(new URL(route.request().url()).pathname)
-      return ok(route, { status: 'SUCCESS' })
-    })
-    await page.goto('/#/admin/crawlers')
-    const crawlers = page.locator('.crawler-management-page')
-    const button = action === 'deploy' ? '提交部署' : '提交回滚'
-    const message = action === 'deploy' ? '部署已提交' : '回滚已提交'
-    await expect(crawlers.getByRole('button', { name: button, exact: true })).toBeEnabled()
-    await crawlers.getByRole('button', { name: button, exact: true }).click()
-    await expect(crawlers.getByRole('status').filter({ hasText: message })).toContainText('id=70')
-    await expect(page.getByTestId('task-submission-notice')).toHaveCount(0)
-    expect(effectCalls).toBe(1)
-    expect(taskReads).toEqual([])
+test('crawler deploy does not poll receipts without an asynchronous submission (mock)', async ({ page }) => {
+  await shell(page)
+  let effectCalls = 0
+  const taskReads: string[] = []
+  await page.route('**/api/v1/crawler/**', (route) => {
+    const path = new URL(route.request().url()).pathname
+    if (route.request().method() === 'POST') {
+      effectCalls += 1
+      expect(path).toBe(`/api/v1/crawler/projects/${CRAWLER}/deploy`)
+      return ok(route, {
+        run: { id: 70, action: 'deploy', status: 'success', finished_at: '2026-10-05T08:00:00Z' },
+        task_id: `not-async-deploy`, async: false, trace_id: 'sync-trace',
+      })
+    }
+    if (path.endsWith('/projects')) return ok(route, [crawler])
+    if (path.endsWith('/deploy-runs')) return ok(route, [])
+    return ok(route, crawler)
   })
-}
+  await page.route(/\/api\/v1\/process\/not-async-[^/?]+(?:\?.*)?$/, (route) => {
+    taskReads.push(new URL(route.request().url()).pathname)
+    return ok(route, { status: 'SUCCESS' })
+  })
+  await page.goto('/#/admin/crawlers')
+  const crawlers = page.locator('.crawler-management-page')
+  const button = '提交部署'
+  const message = '部署已提交'
+  await expect(crawlers.getByRole('button', { name: button, exact: true })).toBeEnabled()
+  await crawlers.getByRole('button', { name: button, exact: true }).click()
+  await expect(crawlers.getByRole('status').filter({ hasText: message })).toContainText('id=70')
+  await expect(page.getByTestId('task-submission-notice')).toHaveCount(0)
+  expect(effectCalls).toBe(1)
+  expect(taskReads).toEqual([])
+})
 
 test('crawler running observation is bounded and keeps read errors visible (mock)', async ({ page }) => {
   await shell(page)

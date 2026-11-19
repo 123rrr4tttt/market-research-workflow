@@ -43,7 +43,6 @@ export const endpoints = {
     projectByKey: (crawlerProjectKey: string) => `${API_BASE}/crawler/projects/${encodeURIComponent(crawlerProjectKey)}`,
     importProject: `${API_BASE}/crawler/projects/import`,
     deploy: (crawlerProjectKey: string) => `${API_BASE}/crawler/projects/${encodeURIComponent(crawlerProjectKey)}/deploy`,
-    rollback: (crawlerProjectKey: string) => `${API_BASE}/crawler/projects/${encodeURIComponent(crawlerProjectKey)}/rollback`,
     deployRuns: `${API_BASE}/crawler/deploy-runs`,
     deployRunById: (runId: string | number) => `${API_BASE}/crawler/deploy-runs/${encodeURIComponent(String(runId))}`,
     deployRunsByProject: (crawlerProjectKey: string) =>

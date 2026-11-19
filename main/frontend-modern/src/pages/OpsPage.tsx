@@ -1392,7 +1392,7 @@ function OpsPageView({ projectKey, variant = 'ops' }: OpsPageProps) {
           </label>
           <label>
             <span>search</span>
-            <input value={materialSearch} onChange={(e) => { setMaterialSearch(e.target.value); setMaterialPage(1) }} placeholder={t('opsPage.placeholder.titleKeyword')} />
+            <input value={materialSearch} onChange={(e) => { setMaterialSearch(e.target.value); setMaterialPage(1) }} placeholder={t('opsPage.placeholder.materialKeyword')} />
           </label>
           {showMaterialTools && <label>
             <span>extract_mode</span>

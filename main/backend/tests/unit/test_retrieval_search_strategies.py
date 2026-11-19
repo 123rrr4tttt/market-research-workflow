@@ -152,6 +152,21 @@ def test_bm25_search_filters_explicit_project_scope():
     assert hits[0]["project_key"] == "project_a"
 
 
+def test_bm25_reads_the_elasticsearch_response_body():
+    from elastic_transport import ApiResponseMeta, HttpHeaders, NodeConfig, ObjectApiResponse
+
+    class ElasticTransportResponse(_RecordingElasticsearch):
+        def search(self, *, index, body):
+            return ObjectApiResponse(
+                meta=ApiResponseMeta(200, "1.1", HttpHeaders(), 0.0, NodeConfig("http", "localhost", 9200)),
+                body=super().search(index=index, body=body),
+            )
+
+    hits = hybrid_search_module.bm25_search(ElasticTransportResponse(), "policy", None, 5, project_key="project_a")
+    assert isinstance(hits, list)
+    assert hits[0]["material_id"] == 71
+
+
 def test_bm25_search_keeps_valid_hits_when_one_provider_row_is_not_json():
     class _PartialElasticsearch(_RecordingElasticsearch):
         def search(self, *, index, body):

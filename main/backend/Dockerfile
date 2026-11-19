@@ -41,6 +41,7 @@ RUN python -m pip install --no-deps "setuptools==80.10.2"
 
 COPY ./src /opt/mrw/src
 COPY ./main/backend /app
+COPY ./信息源库 /app/信息源库
 
 FROM backend-shared-base AS migration-runner
 

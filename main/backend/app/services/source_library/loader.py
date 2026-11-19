@@ -66,7 +66,7 @@ def _source_library_root() -> Path:
     env_root = os.environ.get("SOURCE_LIBRARY_ROOT")
     if env_root:
         return Path(env_root)
-    # Docker: backend at /app, 信息源库 mounted at /app/信息源库
+    # Docker: the image includes the repository source library at this path.
     if os.environ.get("DOCKER_ENV") == "true" or os.path.exists("/.dockerenv"):
         return Path("/app/信息源库")
     # Local: app/services/source_library/loader.py -> app -> backend -> main -> repo

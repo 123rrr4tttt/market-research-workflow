@@ -22,6 +22,10 @@ services:
       - local_user_redis:/data
     command: [redis-server, --appendonly, "yes"]
   backend:
+    build:
+      args: &proxy-build-args
+        HTTP_PROXY: ${MRW_HTTP_PROXY:-}
+        HTTPS_PROXY: ${MRW_HTTPS_PROXY:-}
     # local-user mode is loopback-only and has no external identity provider.
     # The Docker host is one user, so use the existing single-user input path.
     env_file: !reset []
@@ -49,6 +53,8 @@ services:
     volumes: !override
       - local_user_logs:/var/log/celery:ro
   celery-worker:
+    build:
+      args: *proxy-build-args
     env_file: !reset []
     environment:
       ENV: dev
@@ -71,6 +77,7 @@ services:
       context: ./codex-webui
       dockerfile: Dockerfile
       target: mrw-runtime
+      args: *proxy-build-args
     init: true
     # Share the API network namespace so the existing direct-loopback MRW
     # actor contract remains unchanged; do not trust bridge CIDRs.
@@ -111,6 +118,7 @@ services:
       context: ../frontend-modern
       dockerfile: Dockerfile
       args:
+        <<: *proxy-build-args
         VITE_API_BASE_URL: ""
         VITE_MRW_WEBUI_MODE: embedded
     depends_on:

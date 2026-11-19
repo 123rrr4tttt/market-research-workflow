@@ -127,39 +127,19 @@ def deploy_scrapy_project_version(
     }
 
 
+SCRAPYD_ROLLBACK_UNAVAILABLE = (
+    "Scrapyd version rollback is unavailable: no executor can confirm activation of the target version."
+)
+
+
 def rollback_scrapy_project_version(
     *,
     project: str,
     version: str,
     base_url: str | None = None,
 ) -> dict[str, Any]:
-    scrapyd_base_url, timeout = _resolve_scrapyd_endpoint(base_url)
-    project_name = str(project or "").strip()
-    version_name = str(version or "").strip()
-    if not project_name:
-        raise ValueError("scrapy rollback requires non-empty project")
-    if not version_name:
-        raise ValueError("scrapy rollback requires non-empty version")
-
-    with httpx.Client(timeout=timeout) as client:
-        resp = client.post(
-            f"{scrapyd_base_url}/delversion.json",
-            data={"project": project_name, "version": version_name},
-        )
-        resp.raise_for_status()
-        body: object = resp.json()
-    if not _is_string_object(body):
-        raise ValueError("invalid scrapyd delversion response")
-    status = str(body.get("status") or "unknown").strip().lower()
-    if status not in {"ok", "queued"}:
-        raise ValueError(f"scrapyd delversion failed: {body}")
-    return {
-        "provider_type": "scrapy",
-        "provider_status": status,
-        "project": project_name,
-        "version": version_name,
-        "raw": {"delversion": body},
-    }
+    # Keep already-queued callers compatible, but never delete a version to emulate activation.
+    raise ValueError(SCRAPYD_ROLLBACK_UNAVAILABLE)
 
 
 def register_or_update_source_library_scrapy_binding(

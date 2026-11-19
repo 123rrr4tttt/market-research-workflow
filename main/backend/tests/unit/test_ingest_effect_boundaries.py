@@ -127,7 +127,7 @@ def test_ingest_shell_boundaries_reraise_original_errors(
     monkeypatch.setattr(
         policy,
         "run_postprocess_frontdoor",
-        lambda **_kwargs: {"data": {"writer_result": {"inserted": 1, "doc_id": 10}}},
+        lambda **_kwargs: {"data": {"writer_result": {"inserted": 1, "material_id": 10}}},
     )
     with patch("app.services.indexer.index_policy_documents", side_effect=RuntimeError("indexing boundary")):
         with pytest.raises(RuntimeError, match="^indexing boundary$"):

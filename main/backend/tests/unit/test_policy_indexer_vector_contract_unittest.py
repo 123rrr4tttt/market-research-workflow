@@ -5,7 +5,7 @@ import unittest
 from datetime import datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import pytest
 
@@ -15,6 +15,8 @@ pytestmark = pytest.mark.unit
 
 try:
     from app.services.indexer import policy as policy_module
+    from app.services.search.hybrid import bm25_search
+    from app.services.search.vector_contracts import build_search_evidence_hits
     from app.services.indexer.policy import (
         _build_vector_contract_payload,
         _raise_indexer_failure,
@@ -164,6 +166,9 @@ class _IndexerSession:
     def rollback(self) -> None:
         self.rollbacks += 1
 
+    def rollback(self) -> None:
+        self.rollbacks += 1
+
 
 class _SessionContext:
     def __init__(self, session: _IndexerSession) -> None:
@@ -186,8 +191,19 @@ class _FakeEmbeddingRow:
 
 
 class _RecordingElasticsearch:
-    def __init__(self) -> None:
+    def __init__(self, *, index_exists: bool = True) -> None:
         self.delete_queries: list[dict] = []
+        self.indices = Mock()
+        self.indices.exists.return_value = index_exists
+        self.indexed_actions: list[dict] = []
+
+    def search(self, *, index: str, body: dict) -> dict:
+        scope = body["query"]["bool"]["must"][1]["term"]["project_key"]
+        return {"hits": {"hits": [
+            {"_source": action, "_score": 1}
+            for action in self.indexed_actions
+            if action["_index"] == index and action["project_key"] == scope
+        ]}}
 
     def delete_by_query(self, **kwargs: object) -> None:
         self.delete_queries.append(dict(kwargs))
@@ -294,7 +310,7 @@ def _configure_index(
     monkeypatch.setattr(policy_module, "Embedding", _FakeEmbeddingRow)
     monkeypatch.setattr(policy_module, "get_embeddings", get_embeddings)
     monkeypatch.setattr(policy_module, "get_es_client", get_es_client)
-    monkeypatch.setattr(policy_module, "bulk", lambda _client, new_actions: actions.extend(new_actions))
+    monkeypatch.setattr(policy_module, "bulk", lambda _client, new_actions, **_kwargs: actions.extend(new_actions))
     monkeypatch.setattr(policy_module, "RecursiveCharacterTextSplitter", _OneChunkSplitter)
     monkeypatch.setattr(policy_module, "_get_qdrant_client", lambda: None)
     return session, effects
@@ -334,6 +350,62 @@ def test_policy_es_identity_and_delete_are_project_scoped(monkeypatch: pytest.Mo
         [{"term": {"project_key": "project-a"}}, {"terms": {"material_id": [17]}}],
         [{"term": {"project_key": "project-b"}}, {"terms": {"material_id": [17]}}],
     ]
+
+
+def test_policy_without_embedding_key_creates_lexical_index_and_reads_back(monkeypatch: pytest.MonkeyPatch) -> None:
+    es = _RecordingElasticsearch(index_exists=False)
+    document = _document("project-a")
+    document.extracted_data = {"project_key": "project-a", "keep_for_vectorization": False}
+    actions = es.indexed_actions
+    session, effects = _configure_index(monkeypatch, "project-a", es, actions, document)
+    monkeypatch.setattr(policy_module.settings, "openai_api_key", "")
+    qdrant = Mock()
+    monkeypatch.setattr(policy_module, "_get_qdrant_client", qdrant)
+
+    def index(client: object, new_actions: list[dict], *, refresh: str) -> None:
+        assert client is es
+        assert refresh == "wait_for"
+        es.indices.create.assert_called_once()
+        actions.extend(new_actions)
+
+    monkeypatch.setattr(policy_module, "bulk", index)
+    assert policy_module.index_policy_documents(material_ids=[17]) == {
+        "indexed": 1, "materials": 1, "vector_indexed": 0,
+    }
+    properties = es.indices.create.call_args.kwargs["mappings"]["properties"]
+    assert properties["project_key"] == {"type": "keyword"}
+    assert properties["text"] == {"type": "text"}
+    assert properties["material_id"] == {"type": "long"}
+    assert effects.provider_initializations == 0
+    assert session.embedding_deletes == 0
+    assert not session.added_embeddings
+    qdrant.assert_not_called()
+    assert not {"embedding_id", "vector_version", "embedding_model"} & actions[0].keys()
+
+    hits = bm25_search(es, "policy", None, 10, project_key="project-a")
+    assert isinstance(hits, list) and len(hits) == 1
+    assert hits[0]["material_id"] == 17
+    assert hits[0]["source_uri"] == document.uri
+    assert hits[0]["material_type"] == "policy"
+    _, evidence = build_search_evidence_hits(hits, query="policy", project_key="project-a", rank_mode="bm25")
+    assert evidence[0]["global_vector_object"]["vector_version"] == "not_vector_ranked"
+    assert bm25_search(es, "policy", None, 10, project_key="project-b") == []
+
+
+def test_policy_lexical_index_creation_failure_fails_job(monkeypatch: pytest.MonkeyPatch) -> None:
+    es = _RecordingElasticsearch(index_exists=False)
+    actions: list[dict] = []
+    _, effects = _configure_index(monkeypatch, "project-a", es, actions, _document("project-a"))
+    monkeypatch.setattr(policy_module.settings, "openai_api_key", "")
+    es.indices.create.side_effect = RuntimeError("es index unavailable")
+
+    with pytest.raises(RuntimeError, match="^es index unavailable$"):
+        policy_module.index_policy_documents()
+
+    assert not actions
+    assert not es.delete_queries
+    assert not effects.completed_jobs
+    assert effects.failed_jobs == ["es index unavailable"]
 
 
 def test_policy_rejects_missing_contract_field_before_index_effects(
@@ -384,7 +456,7 @@ def test_policy_rejects_foreign_project_before_es_effects(monkeypatch: pytest.Mo
     monkeypatch.setattr(policy_module, "fail_job", lambda *_args, **_kwargs: None)
     monkeypatch.setattr(policy_module, "get_embeddings", lambda: object())
     monkeypatch.setattr(policy_module, "get_es_client", lambda: es)
-    monkeypatch.setattr(policy_module, "bulk", lambda _client, new_actions: actions.extend(new_actions))
+    monkeypatch.setattr(policy_module, "bulk", lambda _client, new_actions, **_kwargs: actions.extend(new_actions))
 
     with pytest.raises(ValueError, match="^project_scope_conflict$"):
         policy_module.index_policy_documents()
@@ -400,7 +472,7 @@ def test_policy_bulk_failure_marks_job_failed_after_db_commit(
     actions: list[dict] = []
     bulk_calls = 0
 
-    def failing_bulk(_client: object, new_actions: list[dict]) -> None:
+    def failing_bulk(_client: object, new_actions: list[dict], **_kwargs: object) -> None:
         nonlocal bulk_calls
         bulk_calls += 1
         actions.extend(new_actions)

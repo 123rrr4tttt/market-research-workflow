@@ -3,13 +3,13 @@
   "project_key": "demo_proj",
   "mode_id": "demo-embodied-signals-retrieval",
   "version": "1",
-  "source_revision": "dea9d855512fc75d5aea6d2efd869b035f3b22ed7a495dbcea311678eee00d32",
+  "source_revision": "1d11632f3459aad66f1af3340d375c3ea2fb251aea228cb6185bce4dd0a0da25",
   "source_snapshot": {
     "kind": "checked_in_project_binding",
     "files": {
       "main/backend/app/subprojects/demo_proj/customization.py": {
-        "sha256": "c7bc7221613745509dbde6b5cf2ddeb067bf5c69129d75966ec4d3aeabac707a",
-        "bytes": 1707
+        "sha256": "b0223c0ec31a9c5b9faf3622c8974afa9ca44a754a3e6b7e80932b158608fb7f",
+        "bytes": 1323
       },
       "main/backend/app/subprojects/demo_proj/mappings/workflow.py": {
         "sha256": "6116b7b966a9e59ddd56218974423662804aaa12bf85602b9c785921085d2534",
@@ -103,7 +103,7 @@
       "type_id": "source",
       "local_id": "demo-customization"
     },
-    "observed_revision": "dea9d855512fc75d5aea6d2efd869b035f3b22ed7a495dbcea311678eee00d32",
+    "observed_revision": "1d11632f3459aad66f1af3340d375c3ea2fb251aea228cb6185bce4dd0a0da25",
     "content_digest": "bc886383a1458012458264325b432bad0419ace516810d7e3930a7d1cb34ad83"
   },
   "limits": {

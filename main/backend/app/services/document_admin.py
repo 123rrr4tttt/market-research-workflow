@@ -512,12 +512,12 @@ def list_admin_materials(project_key: str, query_spec: AdminMaterialListQuery) -
             elif query_spec.has_extracted_data is False:
                 conditions.append(consumer_predicates.material_missing_extracted_data_condition())
             if query_spec.search:
-                search_term = f"%{query_spec.search}%"
                 conditions.append(
                     or_(
-                        Material.title.ilike(search_term),
-                        Material.summary.ilike(search_term),
-                        Material.uri.ilike(search_term),
+                        Material.title.icontains(query_spec.search, autoescape=True),
+                        Material.summary.icontains(query_spec.search, autoescape=True),
+                        Material.content.icontains(query_spec.search, autoescape=True),
+                        Material.uri.icontains(query_spec.search, autoescape=True),
                     )
                 )
 

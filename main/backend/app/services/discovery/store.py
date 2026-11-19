@@ -14,7 +14,6 @@ from sqlalchemy.orm import Session
 
 from ...models.base import SessionLocal
 from ...models.entities import Material, Source
-from ...settings.config import settings
 from ..http.client import default_http_client
 from ..indexer.policy import index_policy_documents
 from ..ingest.content_cleaner import normalize_content_for_ingest
@@ -928,16 +927,18 @@ def store_results(
                 writer_inserted = _int_value(writer_result.get("inserted"))
                 inserted += writer_inserted
                 inserted_valid += writer_inserted
-                if kind == "policy" and writer_inserted > 0:
-                    policy_to_index.append(_int_value(writer_result.get("doc_id")))
+                writer_updated = _int_value(writer_result.get("updated"))
+                material_id = _int_value(writer_result.get("material_id"))
+                if kind == "policy" and (writer_inserted or writer_updated) and material_id > 0:
+                    policy_to_index.append(material_id)
             except Exception as exc:  # noqa: BLE001
                 logger.warning("discovery.store skipped error err=%s", exc)
                 skipped += 1
 
         session.commit()
 
-    # 触发索引（仅当配置了 OPENAI_API_KEY 且有新增/更新政策文档）
-    if settings.openai_api_key and policy_to_index:
+    # Index the committed policies; embedding is optional for lexical retrieval.
+    if policy_to_index:
         try:
             index_policy_documents(material_ids=policy_to_index)
         except Exception as exc:  # noqa: BLE001

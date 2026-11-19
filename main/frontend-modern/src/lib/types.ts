@@ -93,12 +93,6 @@ export type CrawlerProjectDeployPayload = {
   async_mode?: boolean
 }
 
-export type CrawlerProjectRollbackPayload = {
-  to_version?: string | null
-  planner_mode?: string | null
-  async_mode?: boolean
-}
-
 export type AutoCreateProjectPayload = {
   project_name: string
   project_key?: string | null

@@ -5,7 +5,6 @@ import type {
   CrawlerProjectDeployPayload,
   CrawlerProjectImportPayload,
   CrawlerProjectItem,
-  CrawlerProjectRollbackPayload,
 } from '../../types'
 
 export type CrawlerAgentModule = {
@@ -52,20 +51,6 @@ export async function deployCrawlerProject(crawlerProjectKey: string, payload: C
     CrawlerDeployRunItem & { task_id?: string; async?: boolean; trace_id?: string; run?: CrawlerDeployRunItem }
   >(endpoints.crawler.deploy(crawlerProjectKey), {
     requested_version: payload.requested_version ?? null,
-    planner_mode: payload.planner_mode ?? 'heuristic',
-    async_mode: payload.async_mode ?? true,
-  })
-  if (data && typeof data === 'object' && 'run' in data && data.run && typeof data.run === 'object') {
-    return { ...data.run, task_id: data.task_id, async: data.async, trace_id: data.trace_id }
-  }
-  return data
-}
-
-export async function rollbackCrawlerProject(crawlerProjectKey: string, payload: CrawlerProjectRollbackPayload = {}) {
-  const data = await httpPost<
-    CrawlerDeployRunItem & { task_id?: string; async?: boolean; trace_id?: string; run?: CrawlerDeployRunItem }
-  >(endpoints.crawler.rollback(crawlerProjectKey), {
-    to_version: payload.to_version ?? null,
     planner_mode: payload.planner_mode ?? 'heuristic',
     async_mode: payload.async_mode ?? true,
   })

@@ -98,7 +98,9 @@ class _Query:
         return [
             SimpleNamespace(
                 id=1,
-                doc_type="policy",
+                material_type="policy",
+                title="Policy",
+                status="published",
                 content="policy content",
                 summary="",
                 state="published",
@@ -201,6 +203,7 @@ def test_collection_effect_boundaries(monkeypatch: pytest.MonkeyPatch) -> None:
     indexer_session = _IndexerSession()
     monkeypatch.setattr(indexer_policy, "SessionLocal", lambda: _SessionContext(indexer_session))
     monkeypatch.setattr(indexer_policy.settings, "openai_api_key", "configured")
+    monkeypatch.setattr(indexer_policy, "current_project_key", lambda: "demo_proj")
     monkeypatch.setattr(indexer_policy, "start_job", lambda *_args, **_kwargs: 1)
     failed_jobs: list[tuple[int, str]] = []
     monkeypatch.setattr(indexer_policy, "fail_job", lambda job_id, error: failed_jobs.append((job_id, error)))

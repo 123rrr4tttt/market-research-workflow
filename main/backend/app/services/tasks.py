@@ -1367,6 +1367,14 @@ def task_orchestrate_crawler_deploy(
                 metadata=metadata or {},
                 job_id=job_id,
             )
+            provider_status = deploy_result.get("provider_status")
+            received_version = deploy_result.get("version")
+            if provider_status != "ok" or received_version != version:
+                message = (
+                    f"Scrapyd did not confirm deployment of requested version {version!r}: "
+                    f"status={provider_status!r}, version={received_version!r}."
+                )
+                raise ValueError(message)  # noqa: TRY301
         else:
             deploy_result = {
                 "provider_type": "scrapy",
@@ -1407,7 +1415,10 @@ def task_orchestrate_crawler_deploy(
                 result={"crawler_deploy_orchestration": orchestrated},
             )
         if deploy_run_id is not None:
-            finalize_deploy_run(int(deploy_run_id), status="succeeded")
+            finalize_deploy_run(
+                int(deploy_run_id),
+                status="succeeded" if deploy_result["provider_status"] == "ok" else "registered",
+            )
         return orchestrated
     except Exception as exc:
         if deploy_run_id is not None:
@@ -1523,9 +1534,13 @@ def task_orchestrate_crawler_rollback(
     job_id: int | None = None,
 ) -> TaskObject:
     from .crawlers_mgmt import finalize_deploy_run
+    from .crawlers_mgmt.orchestration import SCRAPYD_ROLLBACK_UNAVAILABLE
     from .job_logger import fail_job, update_job_tracking
 
     try:
+        if deploy_run_id is not None:
+            raise ValueError(SCRAPYD_ROLLBACK_UNAVAILABLE)  # noqa: TRY301
+
         rollback_result: TaskObject | None = None
         if version:
             rollback_result = _execute_crawler_rollback_version(
@@ -1559,8 +1574,6 @@ def task_orchestrate_crawler_rollback(
                 status="completed",
                 result={"crawler_rollback_orchestration": orchestrated},
             )
-        if deploy_run_id is not None:
-            finalize_deploy_run(int(deploy_run_id), status="succeeded")
         return orchestrated
     except Exception as exc:
         if deploy_run_id is not None:

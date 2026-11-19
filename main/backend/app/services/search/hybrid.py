@@ -9,6 +9,7 @@ import os
 from typing import Protocol, TypeAlias, TypeGuard, Union, runtime_checkable
 
 import numpy as np
+from elastic_transport import ObjectApiResponse
 from elasticsearch import ApiError, Elasticsearch, TransportError
 from sqlalchemy import Float, select
 from sqlalchemy.sql.elements import ColumnElement
@@ -19,7 +20,7 @@ from ..llm.provider import get_embeddings
 from ..projects import bind_project, current_project_key
 from functorial_kit import Failure
 from mrw_functorial_kit.core.service_failure_semantics import search_failures
-from .es_client import get_es_client
+from .es_client import POLICY_INDEX, get_es_client
 
 logger = logging.getLogger(__name__)
 
@@ -117,9 +118,6 @@ class _SqlBinaryOperator(Protocol):
 @runtime_checkable
 class _SqlVectorColumn(Protocol):
     def op(self, operator: str, *, return_type: object) -> object: ...
-
-
-_ES_INDEX = "policy_docs_es"
 
 @dataclass(frozen=True)
 class SearchInvocationObservation:
@@ -274,14 +272,15 @@ def bm25_search(
         must.append({"term": {"state": state}})
 
     raw_response: object = es.search(
-        index=_ES_INDEX,
+        index=POLICY_INDEX,
         body={
             "size": top_k,
             "query": {"bool": {"must": must}},
             "highlight": {"fields": {"text": {"number_of_fragments": 1}}},
         },
     )
-    response = _shallow_object(raw_response)
+    response_body = raw_response.body if isinstance(raw_response, ObjectApiResponse) else raw_response
+    response = _shallow_object(response_body)
     hits_block = _shallow_object(response.get("hits")) if response is not None else None
     raw_hits_object = hits_block.get("hits") if hits_block is not None else None
     if not _is_object_sequence(raw_hits_object):
@@ -303,6 +302,7 @@ def bm25_search(
         hits.append(
             {
                 "material_id": source.get("material_id"),
+                "material_type": source.get("material_type"),
                 "project_key": source.get("project_key"),
                 "object_type": source.get("object_type"),
                 "object_id": source.get("object_id"),

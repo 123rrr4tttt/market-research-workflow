@@ -182,7 +182,7 @@ services:
       launcher-agent:
         condition: service_started
     ports:
-      - "5176:80"
+      - "127.0.0.1:5176:80"
     profiles:
       - modern-ui
 

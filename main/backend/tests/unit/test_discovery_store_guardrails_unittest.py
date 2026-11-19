@@ -3,6 +3,7 @@ from __future__ import annotations
 import sys
 import unittest
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -60,6 +61,41 @@ class DiscoveryStoreGuardrailsUnitTestCase(unittest.TestCase):
         self.assertTrue(ok)
         self.assertEqual(reason, "ok")
         self.assertIn("content_gate", diagnostics)
+
+
+    def test_discovery_indexes_only_committed_policy_material_ids(self):
+        session = MagicMock()
+        session.query.return_value.filter.return_value.one_or_none.return_value = None
+        writer_results = [
+            {"inserted": 1, "material_id": 10},
+            {"inserted": 1, "material_id": 11},
+        ]
+
+        def index(*, material_ids):
+            session.commit.assert_called_once()
+            self.assertEqual(material_ids, [10])
+
+        with (
+            patch.object(store_module, "SessionLocal", return_value=session),
+            patch.object(store_module, "_store_tables_available", return_value=True),
+            patch.object(store_module, "_get_or_create_source"),
+            patch.object(store_module, "_fetch_content", return_value=("article text", None, None)),
+            patch.object(store_module, "_discovery_gate_check", return_value=(True, "ok", {})),
+            patch.object(store_module, "build_discovery_ingress_envelope", return_value={"collection_payload": {}}),
+            patch.object(store_module, "run_postprocess_frontdoor", side_effect=[
+                {"data": {"writer_result": result}} for result in writer_results
+            ]),
+            patch.object(store_module, "index_policy_documents", side_effect=index) as index_policies,
+            patch("app.services.indexer.policy.settings.openai_api_key", ""),
+        ):
+            session.__enter__.return_value = session
+            result = store_module.store_results([
+                {"link": "https://example.com/policy", "title": "Policy legislation"},
+                {"link": "https://example.com/news", "title": "Market revenue"},
+            ])
+
+        self.assertEqual(result["inserted"], 2)
+        index_policies.assert_called_once_with(material_ids=[10])
 
 
 if __name__ == "__main__":
