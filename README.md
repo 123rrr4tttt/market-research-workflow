@@ -1,6 +1,6 @@
 # 市场研究工作流（MRW）
 
-MRW 是一个在个人电脑上运行的**单用户市场研究工作台**。它把分散的来源、调查线索和写作放进同一个项目，让报告能追溯到形成判断时实际使用的材料。你可以从已有资料开始分析，也可以从一个问题开始采集；写到证据不足的地方，还可以沿着缺口回到检索，而不必重新做一遍调查。
+MRW 是一个**单用户市场研究工作台**。它把分散的来源、调查线索和写作放进同一个项目，让报告能追溯到形成判断时实际使用的材料。你可以从已有资料开始分析，也可以从一个问题开始采集；写到证据不足的地方，还可以沿着缺口回到检索，而不必重新做一遍调查。
 
 [本机部署](#本机部署) · [在项目里做研究](#在项目里做研究) · [系统架构与关键设计](#系统架构与关键设计) · [界面与文档导航](#界面与文档导航)
 
@@ -110,9 +110,10 @@ flowchart TB
 
 ## 本机部署
 
-**用 Docker 启动整套工作台，不需要服务器。** 安装会把业务界面、后台任务、检索和 Agent 工作台接到同一个实例。macOS、Linux 和使用 Linux 容器模式的 Windows 共用 Compose 配置，目标容器架构为 `linux/amd64` 和 `linux/arm64`；实际支持以各平台的构建和验收为准。按系统选择 [macOS / Linux 安装](docs/usage.md#macos--linux)或 [Windows PowerShell 安装](docs/usage.md#windows-powershell)，并按[本机 Docker 部署说明](docs/usage.md#本机-docker-部署)完成容器内的 Agent 登录授权。默认打开[业务界面](http://127.0.0.1:15132/)或 [API 文档](http://127.0.0.1:18132/docs)。
+工作台支持两种部署方式：
 
-也可在已有依赖的 macOS 环境[直接安装](docs/usage.md#首次运行)，另按[宿主说明](main/ops/codex-webui/README.md#mrw-本机构建与启动)连接 Agent 工作台；默认[业务界面](http://127.0.0.1:5173/)，[API 文档](http://127.0.0.1:8000/docs)。
+- **macOS 本机部署**：按[本机安装步骤](docs/usage.md#首次运行)启动业务服务，再按[宿主配置说明](main/ops/codex-webui/README.md#mrw-本机构建与启动)连接 Agent 工作台。默认入口：[业务界面](http://127.0.0.1:5173/) · [API 文档](http://127.0.0.1:8000/docs)。
+- **Docker 部署**：用 Compose 启动整套工作台，无需单独准备服务器。安装命令见 [macOS / Linux](docs/usage.md#macos--linux) 或 [Windows PowerShell](docs/usage.md#windows-powershell)；容器内的 Agent 授权见 [Docker 部署说明](docs/usage.md#本机-docker-部署)。默认入口：[业务界面](http://127.0.0.1:15132/) · [API 文档](http://127.0.0.1:18132/docs)。
 
 Cell 随 API 接入，不需要单独部署。在 Docker 中，业务记录、索引、队列和 Agent 宿主状态各自持久化；恢复数据库不等于恢复线程和在途任务。安装后按[验收说明](docs/usage.md#安装验收)确认材料可搜索、项目绑定的 Agent 回合可以经 Cell 调用工具、需审批的写入在批准后才能执行并读回，以及重启后资料和线程仍可访问。[Compose 配置](main/ops/docker-compose.local-user.yml)和[运行与恢复说明](main/ops/README.md)提供接线及运维细节。
 

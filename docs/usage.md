@@ -1,10 +1,10 @@
 # 使用说明
 
-以下命令从仓库根目录执行。宿主直装和本机 Docker 属于同一个单用户工作台的两种安装方式。完整安装必须从业务页面进入 Codex WebUI，并经 Cell 在同一项目中执行和读回操作。
+以下命令从仓库根目录执行。工作台支持 macOS 本机部署和 [Docker 部署](#本机-docker-部署)。完整安装必须从业务页面进入 Codex WebUI，并经 Cell 在同一项目中执行和读回操作。
 
 ## 首次运行
 
-本机启动以 macOS 为目标。先准备 Python 3.11、Node.js 22（22.13 或以上）、pnpm 和 PostgreSQL（含 pgvector）；依赖安装还需要能访问后端依赖清单中固定的 Git 依赖。队列任务还需要 Redis 与 Celery worker，全文检索使用 Elasticsearch。
+以下步骤适用于 macOS 本机部署。先准备 Python 3.11、Node.js 22（22.13 或以上）、pnpm 和 PostgreSQL（含 pgvector）；依赖安装还需要能访问后端依赖清单中固定的 Git 依赖。队列任务还需要 Redis 与 Celery worker，全文检索使用 Elasticsearch。
 
 1. 运行 `./scripts/local-deploy.sh prepare`，安装后端和界面依赖。这一步不启动服务、不建库、不执行迁移。
 2. 复制 [后端环境模板](../main/backend/.env.example) 为 `main/backend/.env`，配置 `DATABASE_URL`，使用队列任务时也配置 `REDIS_URL`。确保 PostgreSQL 已启动、数据库已创建，且连接用户有权执行迁移。在新库运行：
